@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Clinic {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String   @db.VarChar(255)
+  email      String   @db.VarChar(255)
+  phone      String?  @db.VarChar(50)
+  address    String?  @db.VarChar(500)
+  city       String?  @db.VarChar(100)
+  state      String?  @db.VarChar(100)
+  country    String?  @db.VarChar(100)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  users    User[]
+  branches Branch[]
+
+  @@index([email])
+  @@map("clinics")
+}
+
+model Branch {
+  id         String   @id @default(uuid()) @db.Uuid
+  clinic_id  String   @db.Uuid
+  name       String   @db.VarChar(255)
+  phone      String?  @db.VarChar(50)
+  address    String?  @db.VarChar(500)
+  city       String?  @db.VarChar(100)
+  state      String?  @db.VarChar(100)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  users  User[]
+
+  @@index([clinic_id])
+  @@map("branches")
+}
+
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  clinic_id     String   @db.Uuid
+  branch_id     String?  @db.Uuid
+  name          String   @db.VarChar(255)
+  email         String   @db.VarChar(255)
+  password_hash String   @db.VarChar(255)
+  role          String   @db.VarChar(50)
+  status        String   @default("active") @db.VarChar(20)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  clinic Clinic  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branch_id], references: [id], onDelete: SetNull)
+
+  @@unique([email, clinic_id])
+  @@index([clinic_id])
+  @@index([branch_id])
+  @@index([email])
+  @@map("users")
+}
