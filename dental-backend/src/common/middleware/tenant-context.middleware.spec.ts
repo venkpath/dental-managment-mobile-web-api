@@ -55,6 +55,16 @@ describe('TenantContextMiddleware', () => {
     expect(mockNext).toHaveBeenCalled();
   });
 
+  it('should not set clinicId when header is not a valid UUID', () => {
+    const req = { headers: { [CLINIC_HEADER]: 'not-a-uuid' } } as unknown as Request;
+    const res = {} as Response;
+
+    middleware.use(req, res, mockNext);
+
+    expect(req.clinicId).toBeUndefined();
+    expect(mockNext).toHaveBeenCalled();
+  });
+
   it('should always call next()', () => {
     const req = { headers: {} } as unknown as Request;
     const res = {} as Response;

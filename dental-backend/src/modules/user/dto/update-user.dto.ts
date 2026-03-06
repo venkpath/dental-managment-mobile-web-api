@@ -9,7 +9,7 @@ export enum UserStatus {
 }
 
 export class UpdateUserDto extends PartialType(
-  OmitType(CreateUserDto, ['clinic_id', 'password'] as const),
+  OmitType(CreateUserDto, ['password'] as const),
 ) {
   @ApiPropertyOptional({ enum: UserStatus, example: UserStatus.ACTIVE })
   @IsOptional()

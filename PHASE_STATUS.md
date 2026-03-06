@@ -17,13 +17,26 @@
 |---|---|---|
 | 2.1 – Clinic Entity | DONE | Full Clinic CRUD (POST/GET/GET:id/PATCH), DTOs with validation, Swagger docs, unit tests, migration |
 | 2.2 – Branch Entity | DONE | Branch CRUD (POST/GET/GET:id/PATCH), FK to Clinic with cascade, includes clinic info in list/detail, DTOs (clinic_id immutable on update), unit tests, migration |
-| 2.3 – Tenant Middleware | NOT STARTED | |
+| 2.3 – User Entity Update | DONE | Added branch_id (nullable FK), name, status fields to User model, full User CRUD with clinic scoping, password hashing, email uniqueness per clinic, unit tests, migration |
+| 2.4 – Tenant Context Middleware | DONE | TenantContextMiddleware extracts x-clinic-id header (UUID validated), @CurrentClinic() param decorator, Express Request type extension, registered globally, unit tests |
 
 ### EPIC 3 – Authentication & RBAC
-Status: NOT STARTED
+
+| Story | Status | Notes |
+|---|---|---|
+| 3.1 – Password Security | DONE | PasswordService with bcrypt (12 salt rounds), hash/verify methods, global PasswordModule, UserService updated to use bcrypt, unit tests |
+| 3.2 – Login System | DONE | POST /auth/login with JWT, validates credentials via bcrypt, token payload (user_id, clinic_id, role, branch_id), inactive account check, Swagger docs, 7 unit tests |
+| 3.3 – JWT Auth Guard | DONE | Global JwtAuthGuard (APP_GUARD), extracts Bearer token, verifies JWT, attaches user context to request, @Public() decorator for open routes, @CurrentUser() param decorator, 9 unit tests |
+| 3.4 – Role Guard | DONE | @Roles() decorator with UserRole enum, global RolesGuard (APP_GUARD), validates role from JWT payload, throws ForbiddenException on mismatch, 6 unit tests |
 
 ### EPIC 4 – Subscription & Feature Framework
-Status: NOT STARTED
+
+| Story | Status | Notes |
+|---|---|---|
+| 4.1 – Plan Entity | DONE | Plan model (UUID, name unique, price_monthly Decimal, max_branches, max_staff, ai_quota), Prisma migration, full CRUD (POST/GET/GET:id/PATCH), SuperAdmin-only, DTO validation, name uniqueness enforcement, Swagger docs, 9 unit tests |
+| 4.2 – Feature Entity | DONE | Feature model (UUID, key unique UPPER_SNAKE_CASE, description), Prisma migration, POST/GET endpoints, SuperAdmin-only, key format validation via @Matches, uniqueness enforcement, Swagger docs, 4 unit tests |
+| 4.3 – Super Admin Entity | DONE | Separate SuperAdmin model (UUID, unique email, bcrypt password, name, status), Prisma migration, POST /auth/super-admin/login (no clinic_id), JWT with type discriminator (user/super_admin), @SuperAdmin() decorator + global SuperAdminGuard, @CurrentSuperAdmin() param decorator, POST /super-admins, GET /super-admins/me, Plan & Feature controllers updated to @SuperAdmin(), 18 new unit tests (99 total) |
+| 4.4 – PlanFeature Mapping | DONE | PlanFeature join model (UUID, plan_id FK, feature_id FK, is_enabled, unique constraint on plan+feature), Prisma migration, POST /plans/:id/features (upsert with feature validation), GET /plans/:id/features (includes feature details), AssignFeaturesDto with nested validation, SuperAdmin-only, 5 new unit tests (104 total) |
 
 ### EPIC 5 – Core Business Modules
 Status: NOT STARTED

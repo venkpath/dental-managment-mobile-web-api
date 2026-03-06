@@ -1,13 +1,8 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
+import { PasswordService } from '../../common/services/password.service.js';
 import { CreateUserDto, UpdateUserDto } from './dto/index.js';
 import { User } from '@prisma/client';
-import { createHash } from 'crypto';
-
-// Temporary hash until bcrypt is added with auth module
-function hashPassword(password: string): string {
-  return createHash('sha256').update(password).digest('hex');
-}
 
 const userSelect = {
   id: true,
@@ -23,21 +18,24 @@ const userSelect = {
 
 @Injectable()
 export class UserService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly passwordService: PasswordService,
+  ) {}
 
-  async create(dto: CreateUserDto): Promise<Omit<User, 'password_hash'>> {
+  async create(clinicId: string, dto: CreateUserDto): Promise<Omit<User, 'password_hash'>> {
     const clinic = await this.prisma.clinic.findUnique({
-      where: { id: dto.clinic_id },
+      where: { id: clinicId },
     });
     if (!clinic) {
-      throw new NotFoundException(`Clinic with ID "${dto.clinic_id}" not found`);
+      throw new NotFoundException(`Clinic with ID "${clinicId}" not found`);
     }
 
     if (dto.branch_id) {
       const branch = await this.prisma.branch.findUnique({
         where: { id: dto.branch_id },
       });
-      if (!branch || branch.clinic_id !== dto.clinic_id) {
+      if (!branch || branch.clinic_id !== clinicId) {
         throw new NotFoundException(
           `Branch with ID "${dto.branch_id}" not found in this clinic`,
         );
@@ -45,7 +43,7 @@ export class UserService {
     }
 
     const existing = await this.prisma.user.findUnique({
-      where: { email_clinic_id: { email: dto.email, clinic_id: dto.clinic_id } },
+      where: { email_clinic_id: { email: dto.email, clinic_id: clinicId } },
     });
     if (existing) {
       throw new ConflictException('A user with this email already exists in this clinic');
@@ -53,32 +51,38 @@ export class UserService {
 
     const { password, ...rest } = dto;
     return this.prisma.user.create({
-      data: { ...rest, password_hash: hashPassword(password) },
+      data: { ...rest, clinic_id: clinicId, password_hash: await this.passwordService.hash(password) },
       select: userSelect,
     });
   }
 
-  async findAll(clinicId?: string): Promise<Omit<User, 'password_hash'>[]> {
+  async findByEmail(email: string, clinicId: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { email_clinic_id: { email, clinic_id: clinicId } },
+    });
+  }
+
+  async findAll(clinicId: string): Promise<Omit<User, 'password_hash'>[]> {
     return this.prisma.user.findMany({
-      where: clinicId ? { clinic_id: clinicId } : undefined,
+      where: { clinic_id: clinicId },
       orderBy: { created_at: 'desc' },
       select: userSelect,
     });
   }
 
-  async findOne(id: string): Promise<Omit<User, 'password_hash'>> {
+  async findOne(clinicId: string, id: string): Promise<Omit<User, 'password_hash'>> {
     const user = await this.prisma.user.findUnique({
       where: { id },
       select: userSelect,
     });
-    if (!user) {
+    if (!user || user.clinic_id !== clinicId) {
       throw new NotFoundException(`User with ID "${id}" not found`);
     }
     return user;
   }
 
-  async update(id: string, dto: UpdateUserDto): Promise<Omit<User, 'password_hash'>> {
-    const user = await this.findOne(id);
+  async update(clinicId: string, id: string, dto: UpdateUserDto): Promise<Omit<User, 'password_hash'>> {
+    const user = await this.findOne(clinicId, id);
     if (dto.branch_id) {
       const branch = await this.prisma.branch.findUnique({
         where: { id: dto.branch_id },

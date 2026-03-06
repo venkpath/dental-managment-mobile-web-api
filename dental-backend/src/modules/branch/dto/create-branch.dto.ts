@@ -1,11 +1,7 @@
-import { IsString, IsUUID, IsOptional, MaxLength } from 'class-validator';
+import { IsString, IsOptional, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateBranchDto {
-  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000', description: 'Clinic UUID' })
-  @IsUUID()
-  clinic_id!: string;
-
   @ApiProperty({ example: 'Downtown Branch', maxLength: 255 })
   @IsString()
   @MaxLength(255)

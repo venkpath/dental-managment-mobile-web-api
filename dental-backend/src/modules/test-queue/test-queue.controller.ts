@@ -1,6 +1,7 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiCreatedResponse, ApiBody } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
+import { Public } from '../../common/decorators/public.decorator.js';
 import { TestQueueProducer } from './test-queue.producer.js';
 
 class EnqueueTestJobDto {
@@ -14,6 +15,7 @@ class EnqueueTestJobDto {
 export class TestQueueController {
   constructor(private readonly testQueueProducer: TestQueueProducer) {}
 
+  @Public()
   @Post()
   @ApiOperation({
     summary: 'Enqueue a test job',

@@ -6,10 +6,12 @@ import {
   ApiOkResponse,
   ApiNotFoundResponse,
 } from '@nestjs/swagger';
+import { Public } from '../../common/decorators/public.decorator.js';
 import { ClinicService } from './clinic.service.js';
 import { CreateClinicDto, UpdateClinicDto } from './dto/index.js';
 
 @ApiTags('Clinics')
+@Public()
 @Controller('clinics')
 export class ClinicController {
   constructor(private readonly clinicService: ClinicService) {}

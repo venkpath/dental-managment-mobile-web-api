@@ -2,9 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 import { UserService } from './user.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { PasswordService } from '../../common/services/password.service.js';
 import { UserRole } from './dto/index.js';
 
 const clinicId = '123e4567-e89b-12d3-a456-426614174000';
+const otherClinicId = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 const branchId = 'aaa11111-bbbb-cccc-dddd-eeeeeeeeeeee';
 
 const mockUser = {
@@ -30,6 +32,11 @@ const mockPrismaService = {
   },
 };
 
+const mockPasswordService = {
+  hash: jest.fn().mockResolvedValue('$2b$12$hashedpassword'),
+  verify: jest.fn().mockResolvedValue(true),
+};
+
 describe('UserService', () => {
   let service: UserService;
 
@@ -38,6 +45,7 @@ describe('UserService', () => {
       providers: [
         UserService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: PasswordService, useValue: mockPasswordService },
       ],
     }).compile();
 
@@ -57,13 +65,11 @@ describe('UserService', () => {
   });
 
   describe('create', () => {
-    it('should create a user', async () => {
+    it('should create a user with clinicId from header', async () => {
       mockPrismaService.user.findUnique
-        .mockResolvedValueOnce(null) // email check
-        .mockResolvedValue(mockUser);
+        .mockResolvedValueOnce(null); // email check
 
-      const result = await service.create({
-        clinic_id: clinicId,
+      const result = await service.create(clinicId, {
         branch_id: branchId,
         name: 'Dr. Jane Smith',
         email: 'jane@clinic.com',
@@ -71,13 +77,18 @@ describe('UserService', () => {
         role: UserRole.DENTIST,
       });
       expect(result).toEqual(mockUser);
+      expect(mockPrismaService.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ clinic_id: clinicId }),
+        }),
+      );
     });
 
     it('should throw NotFoundException if clinic missing', async () => {
       mockPrismaService.clinic.findUnique.mockResolvedValueOnce(null);
       await expect(
-        service.create({
-          clinic_id: 'bad', name: 'X', email: 'x@x.com',
+        service.create('bad', {
+          name: 'X', email: 'x@x.com',
           password: '12345678', role: UserRole.ADMIN,
         }),
       ).rejects.toThrow(NotFoundException);
@@ -87,20 +98,19 @@ describe('UserService', () => {
       mockPrismaService.branch.findUnique.mockResolvedValueOnce({ id: branchId, clinic_id: 'other-clinic' });
       mockPrismaService.user.findUnique.mockResolvedValueOnce(null);
       await expect(
-        service.create({
-          clinic_id: clinicId, branch_id: branchId, name: 'X', email: 'x@x.com',
+        service.create(clinicId, {
+          branch_id: branchId, name: 'X', email: 'x@x.com',
           password: '12345678', role: UserRole.ADMIN,
         }),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ConflictException on duplicate email in clinic', async () => {
-      // Reset and explicitly set: email check returns existing user
       mockPrismaService.user.findUnique.mockReset();
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
       await expect(
-        service.create({
-          clinic_id: clinicId, name: 'X', email: 'jane@clinic.com',
+        service.create(clinicId, {
+          name: 'X', email: 'jane@clinic.com',
           password: '12345678', role: UserRole.ADMIN,
         }),
       ).rejects.toThrow(ConflictException);
@@ -108,13 +118,9 @@ describe('UserService', () => {
   });
 
   describe('findAll', () => {
-    it('should return users', async () => {
-      const result = await service.findAll();
+    it('should return users filtered by clinicId', async () => {
+      const result = await service.findAll(clinicId);
       expect(result).toEqual([mockUser]);
-    });
-
-    it('should filter by clinic_id', async () => {
-      await service.findAll(clinicId);
       expect(mockPrismaService.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { clinic_id: clinicId } }),
       );
@@ -122,21 +128,31 @@ describe('UserService', () => {
   });
 
   describe('findOne', () => {
-    it('should return a user', async () => {
-      const result = await service.findOne(mockUser.id);
+    it('should return a user within the same clinic', async () => {
+      const result = await service.findOne(clinicId, mockUser.id);
       expect(result).toEqual(mockUser);
     });
 
-    it('should throw NotFoundException', async () => {
+    it('should throw NotFoundException when user not found', async () => {
       mockPrismaService.user.findUnique.mockResolvedValueOnce(null);
-      await expect(service.findOne('bad')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(clinicId, 'bad')).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw NotFoundException when user belongs to different clinic', async () => {
+      await expect(service.findOne(otherClinicId, mockUser.id)).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('update', () => {
-    it('should update a user', async () => {
-      const result = await service.update(mockUser.id, { name: 'Updated' });
+    it('should update a user within the same clinic', async () => {
+      const result = await service.update(clinicId, mockUser.id, { name: 'Updated' });
       expect(result.name).toBe('Updated');
+    });
+
+    it('should throw NotFoundException when updating user from different clinic', async () => {
+      await expect(
+        service.update(otherClinicId, mockUser.id, { name: 'Hack' }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });
