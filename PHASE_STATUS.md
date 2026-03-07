@@ -69,4 +69,7 @@
 | 6.8 – Seed Script & Indexes | DONE | Extended seed script with: test clinic (Smile Dental Clinic, Bangalore, Professional plan, active subscription), 1 branch (Main Branch), 5 test users (1 admin Dr. Priya Sharma, 2 dentists Dr. Rahul Verma + Dr. Anjali Patel, 1 receptionist Meera Nair, 1 staff Suresh Kumar), plan-feature mappings (Starter: inventory only, Professional: 4 features, Enterprise: all 6 features), all with idempotent upsert logic. Database indexes already comprehensive: patients (clinic_id, phone, clinic_id+branch_id, first_name+last_name), appointments (clinic_id, appointment_date, dentist_id+appointment_date), invoices (clinic_id+invoice_number unique, clinic_id, status), audit_logs (clinic_id, created_at, entity+entity_id, user_id). 33 suites / 322 tests passing |
 
 ### Epic 7 – Reporting & Analytics
-Status: NOT STARTED
+
+| Story | Status | Notes |
+|---|---|---|
+| 7.1 – Dashboard Summary | DONE | GET /reports/dashboard-summary endpoint, ReportsModule (controller + service), returns today_appointments (count by date range), today_revenue (payment aggregate by paid_at), pending_invoices (count by status), low_inventory_count (raw SQL for quantity <= reorder_level column comparison), all metrics scoped by clinic_id (multi-tenant), parallel Promise.all queries for performance, RequireClinicGuard + x-clinic-id header, Swagger docs, 9 unit tests (34 suites / 331 total) |

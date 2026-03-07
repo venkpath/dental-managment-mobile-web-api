@@ -19,6 +19,7 @@ import { InventoryModule } from './modules/inventory/inventory.module.js';
 import { AttachmentModule } from './modules/attachment/attachment.module.js';
 import { AuditLogModule } from './modules/audit-log/audit-log.module.js';
 import { ToothChartModule } from './modules/tooth-chart/tooth-chart.module.js';
+import { ReportsModule } from './modules/reports/reports.module.js';
 import { TestQueueModule } from './modules/test-queue/test-queue.module.js';
 import { PrismaModule } from './database/prisma.module.js';
 import { QueueModule } from './common/queue/queue.module.js';
@@ -65,6 +66,7 @@ import { AiUsageGuard } from './common/guards/ai-usage.guard.js';
     AttachmentModule,
     AuditLogModule,
     ToothChartModule,
+    ReportsModule,
     TestQueueModule,
   ],
   providers: [
