@@ -8,21 +8,35 @@ datasource db {
 }
 
 model Clinic {
-  id         String   @id @default(uuid()) @db.Uuid
-  name       String   @db.VarChar(255)
-  email      String   @db.VarChar(255)
-  phone      String?  @db.VarChar(50)
-  address    String?  @db.VarChar(500)
-  city       String?  @db.VarChar(100)
-  state      String?  @db.VarChar(100)
-  country    String?  @db.VarChar(100)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  id                  String    @id @default(uuid()) @db.Uuid
+  name                String    @db.VarChar(255)
+  email               String    @db.VarChar(255)
+  phone               String?   @db.VarChar(50)
+  address             String?   @db.VarChar(500)
+  city                String?   @db.VarChar(100)
+  state               String?   @db.VarChar(100)
+  country             String?   @db.VarChar(100)
+  plan_id             String?   @db.Uuid
+  subscription_status String    @default("trial") @db.VarChar(20)
+  trial_ends_at       DateTime?
+  ai_usage_count      Int       @default(0)
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
 
-  users    User[]
-  branches Branch[]
+  plan         Plan?          @relation(fields: [plan_id], references: [id], onDelete: SetNull)
+  users        User[]
+  branches     Branch[]
+  patients     Patient[]
+  appointments  Appointment[]
+  treatments    Treatment[]
+  prescriptions Prescription[]
+  invoices        Invoice[]
+  inventory_items InventoryItem[]
+  attachments          Attachment[]
+  tooth_conditions     PatientToothCondition[]
 
   @@index([email])
+  @@index([plan_id])
   @@map("clinics")
 }
 
@@ -37,8 +51,16 @@ model Branch {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  users  User[]
+  clinic       Clinic        @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  users        User[]
+  patients     Patient[]
+  appointments  Appointment[]
+  treatments    Treatment[]
+  prescriptions Prescription[]
+  invoices        Invoice[]
+  inventory_items InventoryItem[]
+  attachments          Attachment[]
+  tooth_conditions     PatientToothCondition[]
 
   @@index([clinic_id])
   @@map("branches")
@@ -54,6 +76,7 @@ model Plan {
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
 
+  clinics       Clinic[]
   plan_features PlanFeature[]
 
   @@map("plans")
@@ -109,12 +132,316 @@ model User {
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
 
-  clinic Clinic  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch Branch? @relation(fields: [branch_id], references: [id], onDelete: SetNull)
+  clinic       Clinic        @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch       Branch?       @relation(fields: [branch_id], references: [id], onDelete: SetNull)
+  appointments  Appointment[]
+  treatments    Treatment[]
+  prescriptions Prescription[]
+  attachments      Attachment[]
+  tooth_conditions PatientToothCondition[] @relation("ToothConditionDentist")
 
   @@unique([email, clinic_id])
   @@index([clinic_id])
   @@index([branch_id])
   @@index([email])
   @@map("users")
+}
+
+model Patient {
+  id              String   @id @default(uuid()) @db.Uuid
+  clinic_id       String   @db.Uuid
+  branch_id       String   @db.Uuid
+  first_name      String   @db.VarChar(100)
+  last_name       String   @db.VarChar(100)
+  phone           String   @db.VarChar(50)
+  email           String?  @db.VarChar(255)
+  gender          String   @db.VarChar(20)
+  date_of_birth   DateTime @db.Date
+  blood_group     String?  @db.VarChar(10)
+  medical_history Json?    @default("{}")
+  allergies       String?  @db.VarChar(1000)
+  notes           String?  @db.Text
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  clinic       Clinic        @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch       Branch        @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  appointments  Appointment[]
+  treatments    Treatment[]
+  prescriptions Prescription[]
+  invoices      Invoice[]
+  attachments          Attachment[]
+  tooth_conditions     PatientToothCondition[]
+
+  @@index([clinic_id])
+  @@index([branch_id])
+  @@index([clinic_id, branch_id])
+  @@index([phone])
+  @@index([first_name, last_name])
+  @@map("patients")
+}
+
+model Appointment {
+  id               String   @id @default(uuid()) @db.Uuid
+  clinic_id        String   @db.Uuid
+  branch_id        String   @db.Uuid
+  patient_id       String   @db.Uuid
+  dentist_id       String   @db.Uuid
+  appointment_date DateTime @db.Date
+  start_time       String   @db.VarChar(5)
+  end_time         String   @db.VarChar(5)
+  status           String   @default("scheduled") @db.VarChar(20)
+  notes            String?  @db.Text
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  clinic  Clinic  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch  Branch  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  dentist User    @relation(fields: [dentist_id], references: [id], onDelete: Cascade)
+
+  @@index([clinic_id])
+  @@index([branch_id])
+  @@index([patient_id])
+  @@index([dentist_id])
+  @@index([dentist_id, appointment_date])
+  @@index([appointment_date])
+  @@map("appointments")
+}
+
+model Treatment {
+  id           String   @id @default(uuid()) @db.Uuid
+  clinic_id    String   @db.Uuid
+  branch_id    String   @db.Uuid
+  patient_id   String   @db.Uuid
+  dentist_id   String   @db.Uuid
+  tooth_number String?  @db.VarChar(10)
+  diagnosis    String   @db.VarChar(500)
+  procedure    String   @db.VarChar(500)
+  status       String   @default("planned") @db.VarChar(20)
+  cost         Decimal  @db.Decimal(10, 2)
+  notes        String?  @db.Text
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  clinic        Clinic        @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch        Branch        @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient       Patient       @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  dentist       User          @relation(fields: [dentist_id], references: [id], onDelete: Cascade)
+  invoice_items InvoiceItem[]
+
+  @@index([clinic_id])
+  @@index([branch_id])
+  @@index([patient_id])
+  @@index([dentist_id])
+  @@index([patient_id, tooth_number])
+  @@map("treatments")
+}
+
+model Prescription {
+  id           String   @id @default(uuid()) @db.Uuid
+  clinic_id    String   @db.Uuid
+  branch_id    String   @db.Uuid
+  patient_id   String   @db.Uuid
+  dentist_id   String   @db.Uuid
+  diagnosis    String   @db.VarChar(500)
+  instructions String?  @db.Text
+  created_at   DateTime @default(now())
+
+  clinic  Clinic  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch  Branch  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  dentist User    @relation(fields: [dentist_id], references: [id], onDelete: Cascade)
+  items   PrescriptionItem[]
+
+  @@index([clinic_id])
+  @@index([patient_id])
+  @@index([dentist_id])
+  @@map("prescriptions")
+}
+
+model PrescriptionItem {
+  id              String @id @default(uuid()) @db.Uuid
+  prescription_id String @db.Uuid
+  medicine_name   String @db.VarChar(255)
+  dosage          String @db.VarChar(100)
+  frequency       String @db.VarChar(100)
+  duration        String @db.VarChar(100)
+  notes           String? @db.Text
+
+  prescription Prescription @relation(fields: [prescription_id], references: [id], onDelete: Cascade)
+
+  @@index([prescription_id])
+  @@map("prescription_items")
+}
+
+model Invoice {
+  id              String   @id @default(uuid()) @db.Uuid
+  clinic_id       String   @db.Uuid
+  branch_id       String   @db.Uuid
+  patient_id      String   @db.Uuid
+  invoice_number  String   @db.VarChar(50)
+  total_amount    Decimal  @db.Decimal(10, 2)
+  tax_amount      Decimal  @default(0) @db.Decimal(10, 2)
+  discount_amount Decimal  @default(0) @db.Decimal(10, 2)
+  net_amount      Decimal  @db.Decimal(10, 2)
+  gst_number      String?  @db.VarChar(20)
+  tax_breakdown   Json?
+  status          String   @default("pending") @db.VarChar(20)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  clinic   Clinic        @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch   Branch        @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient  Patient       @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  items    InvoiceItem[]
+  payments Payment[]
+
+  @@unique([clinic_id, invoice_number])
+  @@index([clinic_id])
+  @@index([branch_id])
+  @@index([patient_id])
+  @@index([status])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  invoice_id   String   @db.Uuid
+  treatment_id String?  @db.Uuid
+  description  String   @db.VarChar(500)
+  quantity     Int      @default(1)
+  unit_price   Decimal  @db.Decimal(10, 2)
+  total_price  Decimal  @db.Decimal(10, 2)
+
+  invoice   Invoice    @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  treatment Treatment? @relation(fields: [treatment_id], references: [id], onDelete: SetNull)
+
+  @@index([invoice_id])
+  @@index([treatment_id])
+  @@map("invoice_items")
+}
+
+model Payment {
+  id         String   @id @default(uuid()) @db.Uuid
+  invoice_id String   @db.Uuid
+  method     String   @db.VarChar(20)
+  amount     Decimal  @db.Decimal(10, 2)
+  paid_at    DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+
+  @@index([invoice_id])
+  @@map("payments")
+}
+
+model InventoryItem {
+  id            String   @id @default(uuid()) @db.Uuid
+  clinic_id     String   @db.Uuid
+  branch_id     String   @db.Uuid
+  name          String   @db.VarChar(255)
+  category      String?  @db.VarChar(100)
+  quantity      Int      @default(0)
+  unit          String   @db.VarChar(50)
+  reorder_level Int      @default(0)
+  supplier      String?  @db.VarChar(255)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+
+  @@index([clinic_id])
+  @@index([branch_id])
+  @@index([clinic_id, branch_id])
+  @@index([name])
+  @@map("inventory_items")
+}
+
+model Attachment {
+  id          String   @id @default(uuid()) @db.Uuid
+  clinic_id   String   @db.Uuid
+  branch_id   String   @db.Uuid
+  patient_id  String   @db.Uuid
+  file_url    String   @db.VarChar(1000)
+  type        String   @db.VarChar(20)
+  uploaded_by String   @db.Uuid
+  created_at  DateTime @default(now())
+
+  clinic  Clinic  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch  Branch  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  uploader User   @relation(fields: [uploaded_by], references: [id], onDelete: Cascade)
+
+  @@index([clinic_id])
+  @@index([patient_id])
+  @@index([uploaded_by])
+  @@map("attachments")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  clinic_id  String   @db.Uuid
+  user_id    String?  @db.Uuid
+  action     String   @db.VarChar(20)
+  entity     String   @db.VarChar(100)
+  entity_id  String   @db.Uuid
+  metadata   Json?
+  created_at DateTime @default(now())
+
+  @@index([clinic_id])
+  @@index([user_id])
+  @@index([entity, entity_id])
+  @@index([created_at])
+  @@map("audit_logs")
+}
+
+model Tooth {
+  id          String @id @default(uuid()) @db.Uuid
+  fdi_number  Int    @unique
+  name        String @db.VarChar(100)
+  quadrant    Int
+  position    Int
+
+  conditions PatientToothCondition[]
+
+  @@map("teeth")
+}
+
+model ToothSurface {
+  id   String @id @default(uuid()) @db.Uuid
+  name String @unique @db.VarChar(50)
+  code String @unique @db.VarChar(10)
+
+  conditions PatientToothCondition[]
+
+  @@map("tooth_surfaces")
+}
+
+model PatientToothCondition {
+  id              String   @id @default(uuid()) @db.Uuid
+  clinic_id       String   @db.Uuid
+  branch_id       String   @db.Uuid
+  patient_id      String   @db.Uuid
+  tooth_id        String   @db.Uuid
+  surface_id      String?  @db.Uuid
+  condition       String   @db.VarChar(100)
+  severity        String?  @db.VarChar(20)
+  notes           String?  @db.Text
+  diagnosed_by    String   @db.Uuid
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  clinic    Clinic       @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch    Branch       @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient   Patient      @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  tooth     Tooth        @relation(fields: [tooth_id], references: [id], onDelete: Cascade)
+  surface   ToothSurface? @relation(fields: [surface_id], references: [id], onDelete: SetNull)
+  dentist   User         @relation("ToothConditionDentist", fields: [diagnosed_by], references: [id], onDelete: Cascade)
+
+  @@index([clinic_id])
+  @@index([patient_id])
+  @@index([tooth_id])
+  @@index([patient_id, tooth_id])
+  @@map("patient_tooth_conditions")
 }

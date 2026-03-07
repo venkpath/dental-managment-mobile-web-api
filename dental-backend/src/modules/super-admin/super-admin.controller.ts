@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Post, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiConflictResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiConflictResponse, ApiResponse } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { SuperAdmin } from '../../common/decorators/super-admin.decorator.js';
 import { CurrentSuperAdmin } from '../../common/decorators/current-super-admin.decorator.js';
@@ -16,10 +17,12 @@ export class SuperAdminController {
   ) {}
 
   @Public()
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Post('auth/super-admin/login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Super admin login' })
   @ApiOkResponse({ description: 'Login successful' })
+  @ApiResponse({ status: 429, description: 'Too many login attempts' })
   async login(@Body() dto: LoginSuperAdminDto) {
     return this.superAdminAuthService.login(dto);
   }

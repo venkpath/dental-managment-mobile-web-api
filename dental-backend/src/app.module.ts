@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { HealthModule } from './modules/health/health.module.js';
 import { ClinicModule } from './modules/clinic/clinic.module.js';
 import { BranchModule } from './modules/branch/branch.module.js';
@@ -9,6 +10,15 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { PlanModule } from './modules/plan/plan.module.js';
 import { FeatureModule } from './modules/feature/feature.module.js';
 import { SuperAdminModule } from './modules/super-admin/super-admin.module.js';
+import { PatientModule } from './modules/patient/patient.module.js';
+import { AppointmentModule } from './modules/appointment/appointment.module.js';
+import { TreatmentModule } from './modules/treatment/treatment.module.js';
+import { PrescriptionModule } from './modules/prescription/prescription.module.js';
+import { InvoiceModule } from './modules/invoice/invoice.module.js';
+import { InventoryModule } from './modules/inventory/inventory.module.js';
+import { AttachmentModule } from './modules/attachment/attachment.module.js';
+import { AuditLogModule } from './modules/audit-log/audit-log.module.js';
+import { ToothChartModule } from './modules/tooth-chart/tooth-chart.module.js';
 import { TestQueueModule } from './modules/test-queue/test-queue.module.js';
 import { PrismaModule } from './database/prisma.module.js';
 import { QueueModule } from './common/queue/queue.module.js';
@@ -20,6 +30,8 @@ import { PasswordModule } from './common/services/password.module.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { SuperAdminGuard } from './common/guards/super-admin.guard.js';
+import { FeatureGuard } from './common/guards/feature.guard.js';
+import { AiUsageGuard } from './common/guards/ai-usage.guard.js';
 
 @Module({
   imports: [
@@ -27,6 +39,11 @@ import { SuperAdminGuard } from './common/guards/super-admin.guard.js';
       isGlobal: true,
       load: [appConfig, databaseConfig, redisConfig],
       envFilePath: '.env',
+    }),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        { name: 'default', ttl: 60000, limit: 100 },
+      ],
     }),
     PrismaModule,
     PasswordModule,
@@ -39,12 +56,24 @@ import { SuperAdminGuard } from './common/guards/super-admin.guard.js';
     PlanModule,
     FeatureModule,
     SuperAdminModule,
+    PatientModule,
+    AppointmentModule,
+    TreatmentModule,
+    PrescriptionModule,
+    InvoiceModule,
+    InventoryModule,
+    AttachmentModule,
+    AuditLogModule,
+    ToothChartModule,
     TestQueueModule,
   ],
   providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: SuperAdminGuard },
+    { provide: APP_GUARD, useClass: FeatureGuard },
+    { provide: APP_GUARD, useClass: AiUsageGuard },
   ],
 })
 export class AppModule implements NestModule {

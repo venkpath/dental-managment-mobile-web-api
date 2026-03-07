@@ -7,23 +7,25 @@ import {
   ApiNotFoundResponse,
 } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
+import { SuperAdmin } from '../../common/decorators/super-admin.decorator.js';
 import { ClinicService } from './clinic.service.js';
-import { CreateClinicDto, UpdateClinicDto } from './dto/index.js';
+import { CreateClinicDto, UpdateClinicDto, UpdateSubscriptionDto } from './dto/index.js';
 
 @ApiTags('Clinics')
-@Public()
 @Controller('clinics')
 export class ClinicController {
   constructor(private readonly clinicService: ClinicService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new clinic' })
-  @ApiCreatedResponse({ description: 'Clinic created successfully' })
+  @Public()
+  @ApiOperation({ summary: 'Create a new clinic (onboarding)' })
+  @ApiCreatedResponse({ description: 'Clinic created successfully with 14-day trial' })
   async create(@Body() dto: CreateClinicDto) {
     return this.clinicService.create(dto);
   }
 
   @Get()
+  @Public()
   @ApiOperation({ summary: 'List all clinics' })
   @ApiOkResponse({ description: 'List of clinics' })
   async findAll() {
@@ -31,6 +33,7 @@ export class ClinicController {
   }
 
   @Get(':id')
+  @Public()
   @ApiOperation({ summary: 'Get a clinic by ID' })
   @ApiOkResponse({ description: 'Clinic found' })
   @ApiNotFoundResponse({ description: 'Clinic not found' })
@@ -39,7 +42,8 @@ export class ClinicController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update a clinic' })
+  @Public()
+  @ApiOperation({ summary: 'Update clinic details' })
   @ApiOkResponse({ description: 'Clinic updated successfully' })
   @ApiNotFoundResponse({ description: 'Clinic not found' })
   async update(
@@ -47,5 +51,17 @@ export class ClinicController {
     @Body() dto: UpdateClinicDto,
   ) {
     return this.clinicService.update(id, dto);
+  }
+
+  @Patch(':id/subscription')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Update clinic subscription (Super Admin only)' })
+  @ApiOkResponse({ description: 'Subscription updated successfully' })
+  @ApiNotFoundResponse({ description: 'Clinic not found' })
+  async updateSubscription(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateSubscriptionDto,
+  ) {
+    return this.clinicService.updateSubscription(id, dto);
   }
 }

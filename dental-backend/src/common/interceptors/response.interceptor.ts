@@ -12,11 +12,26 @@ import { ApiResponse } from '../interfaces/api-response.interface.js';
 export class ResponseInterceptor<T> implements NestInterceptor<T, ApiResponse<T>> {
   intercept(_context: ExecutionContext, next: CallHandler<T>): Observable<ApiResponse<T>> {
     return next.handle().pipe(
-      map((data) => ({
-        success: true,
-        data,
-        message: 'Request successful',
-      })),
+      map((result) => {
+        if (
+          result &&
+          typeof result === 'object' &&
+          'data' in result &&
+          'meta' in result
+        ) {
+          const paginated = result as unknown as { data: T; meta: unknown };
+          return {
+            success: true,
+            data: paginated.data,
+            meta: paginated.meta,
+          } as ApiResponse<T>;
+        }
+
+        return {
+          success: true,
+          data: result,
+        };
+      }),
     );
   }
 }
