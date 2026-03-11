@@ -73,3 +73,160 @@
 | Story | Status | Notes |
 |---|---|---|
 | 7.1 – Dashboard Summary | DONE | GET /reports/dashboard-summary endpoint, ReportsModule (controller + service), returns today_appointments (count by date range), today_revenue (payment aggregate by paid_at), pending_invoices (count by status), low_inventory_count (raw SQL for quantity <= reorder_level column comparison), all metrics scoped by clinic_id (multi-tenant), parallel Promise.all queries for performance, RequireClinicGuard + x-clinic-id header, Swagger docs, 9 unit tests (34 suites / 331 total) |
+| 7.2 – Revenue Reports | DONE | GET /reports/revenue endpoint, RevenueQueryDto (start_date, end_date required + optional branch_id, dentist_id filters), returns total_revenue (sum of net_amount on paid invoices), paid_invoices (count), pending_invoices (count), tax_collected (sum of tax_amount), discount_given (sum of discount_amount), dentist filter via items→treatment→dentist_id relation, all scoped by clinic_id, parallel Promise.all, 6 unit tests (34 suites / 337 total) |
+| 7.3 – Appointment Analytics | DONE | GET /reports/appointments endpoint, AppointmentAnalyticsQueryDto (start_date, end_date required + optional branch_id, dentist_id), returns total_appointments, completed, cancelled, no_show counts, filters by appointment_date range, dentist_id direct on appointments model, all scoped by clinic_id, parallel Promise.all (4 count queries), 6 unit tests (34 suites / 343 total) |
+| 7.4 – Dentist Performance | DONE | GET /reports/dentist-performance endpoint, DentistPerformanceQueryDto (start_date, end_date required + optional branch_id), returns array of per-dentist metrics: dentist_id, dentist_name, appointments_handled, treatments_performed, revenue_generated (sum of treatment cost), single raw SQL query with correlated subqueries for efficiency, filters active dentists by clinic_id+role, optional branch_id filter on all subqueries, BigInt→Number conversion, ordered by revenue DESC, 6 unit tests (34 suites / 349 total) |
+| 7.5 – Patient Analytics | DONE | GET /reports/patients endpoint, PatientAnalyticsQueryDto (start_date, end_date required + optional branch_id), returns new_patients (created within date range), returning_patients (created before range but had appointment in range), total_patients (all clinic patients), all scoped by clinic_id, parallel Promise.all (3 count queries), 5 unit tests (34 suites / 354 total) |
+| 7.6 – Treatment Analytics | DONE | GET /reports/treatments endpoint, TreatmentAnalyticsQueryDto (start_date, end_date required + optional branch_id, dentist_id), returns most_common_procedures (array of {procedure, count} ordered by count DESC) and procedure_counts (distinct procedure count), raw SQL GROUP BY procedure for efficient aggregation, optional branch/dentist filters, BigInt→Number conversion, all scoped by clinic_id, 6 unit tests (34 suites / 360 total) |
+| 7.7 – Inventory Alerts | DONE | GET /reports/inventory-alerts endpoint, returns items where quantity <= reorder_level (raw SQL for column comparison), includes id, name, category, quantity, reorder_level, unit, branch_id, ordered by deficit (reorder_level - quantity) DESC, optional branch_id query param filter, all scoped by clinic_id, 5 unit tests (34 suites / 365 total) |
+
+---
+
+## PHASE 2 – Clinic Web Application (Next.js)
+
+**Goal:** Build a modern, responsive clinic management web app that Indian dental clinic staff (admins, dentists, receptionists) use daily. Designed for speed — receptionists handle 50-80 walk-ins/day, dentists switch between patients every 15-30 mins.
+
+**Tech Stack:** Next.js 16 (App Router), TypeScript strict, Tailwind CSS 4, shadcn/ui v4 (base-nova style), TanStack Query v5, Zustand v5, React Hook Form v7 + Zod, Recharts v3, date-fns v4
+
+---
+
+### EPIC 1 – Project Setup & Design System
+
+| Story | Status | Notes |
+|---|---|---|
+| 1.1 – Initialize Next.js Project | DONE | Next.js 16.1.6 with App Router, TypeScript strict, Tailwind CSS 4 (`@import "tailwindcss"` syntax), ESLint, path aliases (@/*), folder structure (app/, components/, lib/, hooks/, stores/, types/, services/), .env.local with API base URL |
+| 1.2 – API Client & Auth Interceptor | DONE | Axios instance with base URL, request interceptor attaches JWT Bearer token + x-clinic-id header from Zustand store, response interceptor unwraps backend envelope ({success, data, meta}), 401 auto-redirect to /login, TypeScript response types matching backend |
+| 1.3 – Design Tokens & Theme | DONE | Dental brand palette with teal/cyan primary (oklch 0.55 0.15 200), light/dark mode via next-themes, CSS variables in globals.css, custom success/warning/sidebar colors, 0.5rem border-radius, Inter font via next/font, chart colors |
+| 1.4 – Core UI Components (shadcn/ui) | DONE | shadcn/ui v4 (base-nova style) with @base-ui/react primitives: Button, Input, Label, Select, Dialog, Sheet, DropdownMenu, Avatar, Badge, Card, Table, Tabs, Tooltip, Skeleton, Calendar, Popover, Command, Checkbox, RadioGroup, Textarea, Switch, Progress, Separator, ScrollArea |
+| 1.5 – Layout Shell | DONE | Collapsible sidebar (240px→64px) with role-filtered nav, sticky topbar with branch selector + theme toggle + user dropdown, mobile sidebar via Sheet, responsive layout |
+| 1.6 – Reusable Patterns | DONE | PageHeader, DataTable (TanStack Table v8 with sorting/pagination/empty state/loading skeletons), SearchInput (debounced 300ms), StatCard (icon/label/value/trend/loading), ConfirmDialog (destructive variant), LoadingPage/ErrorPage states, SortableHeader helper |
+| 1.7 – Auth Store & Route Protection | DONE | Zustand v5 auth store with persist middleware (localStorage key: dental-auth-storage), fields: token/user/clinicId/branchId/isAuthenticated, methods: setAuth/setClinicId/setBranchId/logout/hasRole, middleware.ts redirects / to /dashboard, dashboard layout redirects unauthenticated to /login |
+
+### EPIC 2 – Authentication & Onboarding
+
+| Story | Status | Notes |
+|---|---|---|
+| 2.1 – Login Page | DONE | Modern split-screen layout with left branding panel (gradient, decorative circles, stats), icon-prefixed inputs (Building2/Mail/Lock), clinic ID helper text, remember details checkbox, rate limit (429) error handling, supports both result.user object and JWT fallback decoding |
+| 2.2 – Clinic Registration Page | DONE | 2-step form with numbered step indicators. Step 1: clinic info (name, email, address, city, phone). Step 2: admin account. Success screen prominently shows Clinic ID with copy-to-clipboard button, amber warning box to save/share ID, summary card with clinic name/admin email/trial info |
+| 2.3 – Branch Selector | DONE | Post-login branch selection component in topbar, auto-selects single branch, "All Branches" option for admins, stores branch_id in Zustand |
+| 2.4 – Forgot Password Flow | DONE | Email input page with "Coming Soon" graceful handling |
+
+### EPIC 3 – Dashboard
+
+| Story | Status | Notes |
+|---|---|---|
+| 3.1 – Summary Metrics Cards | DONE | 4 stat cards: Today's Appointments, Today's Revenue (₹ formatted), Pending Invoices (amber if >5), Low Stock Items (red if >0). Data from GET /reports/dashboard-summary, skeleton loading, auto-refresh 60s, click navigates to module |
+| 3.2 – Today's Appointment Timeline | DONE | Appointment list with time slots, patient avatars, dentist name, status badges (scheduled/completed/cancelled/no_show), scroll area |
+| 3.3 – Revenue Chart (7-Day) | DONE | Recharts AreaChart with 7-day rolling revenue, gradient fill, ₹ formatted tooltips |
+| 3.4 – Quick Actions Panel | DONE | Role-aware action grid: New Patient, Book Appointment, Create Invoice, View Reports |
+| 3.5 – Low Stock & Alerts Sidebar | DONE | Inventory alerts with red styling, item names and remaining quantities |
+
+### EPIC 4 – Patient Management
+
+| Story | Status | Notes |
+|---|---|---|
+| 4.1 – Patient List Page | DONE | DataTable with search (phone/name), gender filter, pagination, avatar + name column, click navigates to profile |
+| 4.2 – Add/Edit Patient Form | DONE | Full form with Indian phone validation (+91 10-digit), blood group dropdown (A+/A-/B+/B-/AB+/AB-/O+/O-), age auto-calc from DOB, branch select, medical history, allergies, Zod validation |
+| 4.3 – Patient Profile Page | DONE | Tabbed layout: Overview (info card, medical history, allergies), Appointments tab, Treatments tab, Prescriptions tab, Dental Chart tab (integrated PatientDentalChart component) |
+| 4.4 – Patient Quick Search | TODO | Cmd+K search palette (future enhancement) |
+
+### EPIC 5 – Appointment Management
+
+| Story | Status | Notes |
+|---|---|---|
+| 5.1 – Appointment List View | DONE | DataTable with date/dentist/status/branch filters, status badges, pagination, "Book Appointment" CTA |
+| 5.2 – Appointment Calendar View | TODO | Weekly/daily calendar grid (future enhancement) |
+| 5.3 – Book Appointment Form | DONE | Form with patient select, dentist select, date picker (no past dates), 15-min time slot intervals, auto end_time (+30min), branch select, notes, conflict validation via backend |
+| 5.4 – Appointment Detail & Status Actions | DONE | Detail page with Mark Completed/No Show/Cancel actions, "Start Treatment" quick action (navigates to treatment form pre-filled) |
+| 5.5 – Appointment Reminders UI | TODO | Visual indicators and browser notifications (future enhancement) |
+
+### EPIC 6 – Treatment Management
+
+| Story | Status | Notes |
+|---|---|---|
+| 6.1 – Treatment List Page | DONE | DataTable with status (planned/in_progress/completed) and dentist filters, color-coded badges, tooth #, procedure, cost (₹), pagination |
+| 6.2 – Add/Edit Treatment Form | DONE | Form with FDI tooth selector (all 32 teeth with names), procedure dropdown (RCT, Extraction, Filling, Crown, Bridge, Scaling, Implant, Orthodontics, Denture, Teeth Whitening, Other), status radio, cost (₹), diagnosis, notes |
+| 6.3 – Treatment Plan View | TODO | Patient-centric grouped view (future enhancement) |
+| 6.4 – Prescription Form | TODO | Prescription creation dialog (future enhancement) |
+
+### EPIC 7 – Interactive Dental Chart
+
+| Story | Status | Notes |
+|---|---|---|
+| 7.1 – Tooth Chart SVG Component | DONE | Interactive SVG with all 32 adult teeth in dental arch layout (upper 18→11, 21→28 / lower 38→31, 41→48), clickable teeth, hover tooltips, selected tooth highlighting, anatomically proportional sizing (molars > premolars > canines > incisors), custom SVG paths per tooth type with realistic root shapes |
+| 7.2 – Tooth Condition Overlay | DONE | Color-coded overlays: Cavity=red, Filled=blue, Crown=gold, Missing=gray X pattern, RCT=purple, Implant=teal, Fracture=orange, Decay=red. Surface-level highlighting (Mesial/Distal/Buccal/Lingual/Occlusal as colored sections), condition dot indicators, color legend |
+| 7.3 – Tooth Detail Panel | DONE | Side panel with tooth info, existing conditions list (severity badges), "Add Condition" dialog (condition dropdown with color dots, severity, surface, notes), "Add Treatment" quick action pre-fills tooth_number |
+| 7.4 – Dental Chart in Patient Profile | DONE | Wrapper component that fetches teeth/surfaces/conditions, full DentalChart + ToothDetailPanel, fullscreen toggle, print support, summary stats (teeth affected/conditions/healthy), dedicated route /patients/[id]/dental-chart |
+
+### EPIC 8 – Billing & Invoicing
+
+| Story | Status | Notes |
+|---|---|---|
+| 8.1 – Invoice List Page | DONE | DataTable with invoice # (font-mono), patient name, total/discount/net amounts (₹), status badges (pending=amber, paid=green), status filter, row click to detail, pagination |
+| 8.2 – Create Invoice Form | DONE | Multi-card form: patient/branch/GST selection, dynamic line items array (description, qty, unit price, auto-total), "Add from treatments" dropdown (pulls completed treatments), discount (₹), tax % with live calculation, subtotal/discount/tax/net summary, Zod validation |
+| 8.3 – Invoice Detail & Print | DONE | Full invoice view with clinic header, patient details, invoice # + date, GST number, itemized table (#, description, qty, unit price, total), subtotal/discount/tax/CGST+SGST breakdown/net total, paid vs balance due amounts, print via react-to-print with @media print CSS (A4 format, sidebar/topbar hidden), payment history table |
+| 8.4 – Payment Recording | DONE | Dialog from invoice detail: amount pre-filled with balance, payment method select (Cash/Card/UPI), validates positive amount, auto-refreshes invoice + shows updated payment history, success toast |
+| 8.5 – Payment Summary Widget | TODO | Today's collections breakdown (future enhancement) |
+
+### EPIC 9 – Inventory Management
+
+| Story | Status | Notes |
+|---|---|---|
+| 9.1 – Inventory List Page | DONE | DataTable with item name (Package icon), category badges, quantity with low-stock alert (red text + AlertTriangle icon when ≤ reorder level), reorder level, supplier, branch, search input, "Low Stock Only" toggle (Switch component), row click to edit, pagination |
+| 9.2 – Add/Edit Inventory Item | DONE | Forms with dental-specific categories (Consumables, Instruments, Equipment, Medication, PPE, Impression Materials, Restorative, Endodontic, Orthodontic, Other), units (pcs/boxes/packs/bottles/tubes/rolls/kg/litres/ml/pairs), quantity, reorder level, supplier, branch select. Edit page fetches existing item and pre-fills form |
+| 9.3 – Low Stock Alerts Dashboard | DONE | Integrated into Reports page Inventory tab: table of items below reorder level with category, current qty (red), reorder level. Also shown on dashboard AlertsSidebar |
+
+### EPIC 10 – Reports & Analytics
+
+| Story | Status | Notes |
+|---|---|---|
+| 10.1 – Reports Landing Page | DONE | Single-page tabbed layout with date range picker (from/to inputs + quick selectors: Today/Last 7 days/This month), summary stat cards (Total Revenue, Appointments, New Patients, Low Stock Items), 6 tabs for each report type |
+| 10.2 – Revenue Report | DONE | Revenue tab: Total Revenue, Paid Invoices, Pending Invoices, Tax Collected metrics in grid, Discounts Given, all ₹ formatted |
+| 10.3 – Appointment Analytics | DONE | Appointments tab: Total/Completed/Cancelled/No Show metrics grid, Recharts PieChart with status distribution (color-coded: completed=green, cancelled=red, no_show=amber, scheduled=indigo) |
+| 10.4 – Dentist Performance | DONE | Dentists tab: Recharts BarChart comparing appointments handled vs treatments performed per dentist, detailed table with dentist name, appointments, treatments, revenue (₹) |
+| 10.5 – Patient Analytics | DONE | Patients tab: New Patients, Returning Patients, Total Patients as large metrics in styled cards |
+| 10.6 – Treatment Analytics | DONE | Treatments tab: Horizontal BarChart of most common procedures by count, total procedure count |
+
+### EPIC 11 – Staff & Settings
+
+| Story | Status | Notes |
+|---|---|---|
+| 11.1 – Staff List Page | DONE | DataTable with avatar + name/email, role badges (Admin=purple, Dentist=teal, Receptionist=blue, Staff=gray with Shield icon), branch, status badge, joined date, search input, role filter dropdown, dropdown menu actions (edit/remove), confirm dialog for removal, prevents self-deletion |
+| 11.2 – Add/Edit Staff Form | DONE | Add form: name, email, password (min 6 chars), role dropdown, branch dropdown (empty = all branches), Zod validation. Edit form: name, email, role, branch, status (active/inactive), no password change (separate flow) |
+| 11.3 – Clinic Settings Page | DONE | Clinic info editor (name, email, phone, location) with PATCH, subscription info card (status badge, plan name, clinic ID, trial end date), branches table listing all branches |
+| 11.4 – User Profile & Preferences | TODO | Self-edit profile, password change (future enhancement) |
+
+### EPIC 12 – Audit Log Viewer
+
+| Story | Status | Notes |
+|---|---|---|
+| 12.1 – Audit Log Page | DONE | DataTable with timestamp (Clock icon + formatted), action badges (create=green, update=blue, delete=red, login=purple, logout=gray), entity (capitalized), entity ID (truncated mono), user ID (truncated mono or "System"), metadata preview (truncated JSON), entity filter dropdown (10 entity types), action filter dropdown (5 action types), pagination 30/page |
+
+### EPIC 13 – Responsiveness & Polish
+
+| Story | Status | Notes |
+|---|---|---|
+| 13.1 – Tablet Optimization | DONE | All pages use responsive grid (grid-cols-1 sm:grid-cols-2 lg:grid-cols-3/4), sidebar collapses on lg breakpoint, mobile sidebar via Sheet, tables in bordered containers with horizontal scroll, forms stack on mobile |
+| 13.2 – Loading & Error States | DONE | Skeleton loaders on all data-fetching pages via DataTable loading prop, LoadingPage component (spinner), ErrorPage component (message + retry button), empty states with icons and descriptions on all tables |
+| 13.3 – Toast Notifications System | DONE | Sonner toaster (bottom-right, rich colors, close button, 3s duration), success/error toasts on all CRUD operations consistently |
+| 13.4 – Keyboard Shortcuts | DONE | useKeyboardShortcuts hook: Alt+D=Dashboard, Alt+P=Patients, Alt+A=Appointments, Alt+T=Treatments, Alt+I=Invoices, Alt+R=Reports, Alt+S=Settings. Skips when typing in inputs/textareas. Integrated in dashboard layout |
+| 13.5 – Performance Optimization | DONE | TanStack Query with staleTime 30s for lists, refetchOnWindowFocus disabled, retry 1, auto-refresh 60s on dashboard summary, paginated queries with proper cache keys |
+
+---
+
+### Phase 2 Summary
+
+**Total Routes: 23** (including 7 dynamic routes)
+- Auth: /login, /register, /forgot-password
+- Dashboard: /dashboard
+- Patients: /patients, /patients/new, /patients/[id], /patients/[id]/edit, /patients/[id]/dental-chart
+- Appointments: /appointments, /appointments/new, /appointments/[id]
+- Treatments: /treatments, /treatments/new
+- Invoices: /invoices, /invoices/new, /invoices/[id]
+- Inventory: /inventory, /inventory/new, /inventory/[id]/edit
+- Reports: /reports
+- Staff: /staff, /staff/new, /staff/[id]/edit
+- Settings: /settings
+- Audit Logs: /audit-logs
+
+**Key Libraries:** Next.js 16.1.6, Tailwind CSS 4, shadcn/ui v4 (base-nova), TanStack Query v5, TanStack Table v8, Zustand v5, React Hook Form v7, Zod, Recharts v3, date-fns v4, sonner v2, next-themes, react-to-print, lucide-react

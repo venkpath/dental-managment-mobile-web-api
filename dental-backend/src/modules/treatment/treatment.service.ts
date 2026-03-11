@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
 import { CreateTreatmentDto, UpdateTreatmentDto, QueryTreatmentDto } from './dto/index.js';
 import { Treatment, Prisma } from '@prisma/client';
+import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
 
 @Injectable()
 export class TreatmentService {
@@ -34,7 +35,7 @@ export class TreatmentService {
     });
   }
 
-  async findAll(clinicId: string, query: QueryTreatmentDto): Promise<Treatment[]> {
+  async findAll(clinicId: string, query: QueryTreatmentDto): Promise<PaginatedResult<Treatment>> {
     const where: Prisma.TreatmentWhereInput = { clinic_id: clinicId };
 
     if (query.dentist_id) {
@@ -47,11 +48,21 @@ export class TreatmentService {
       where.status = query.status;
     }
 
-    return this.prisma.treatment.findMany({
-      where,
-      orderBy: { created_at: 'desc' },
-      include: { patient: true, dentist: true, branch: true },
-    });
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+
+    const [data, total] = await Promise.all([
+      this.prisma.treatment.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        include: { patient: true, dentist: true, branch: true },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.treatment.count({ where }),
+    ]);
+
+    return paginate(data, total, page, limit);
   }
 
   async findByPatient(clinicId: string, patientId: string): Promise<Treatment[]> {

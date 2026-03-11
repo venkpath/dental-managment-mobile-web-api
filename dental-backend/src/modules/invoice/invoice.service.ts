@@ -49,11 +49,11 @@ export class InvoiceService {
     );
     const discountAmount = dto.discount_amount ?? 0;
     const taxableAmount = totalAmount - discountAmount;
-    const taxPercent = dto.tax_percent ?? 0;
+    const taxPercent = dto.tax_percentage ?? 0;
     const taxAmount = Math.round(taxableAmount * (taxPercent / 100) * 100) / 100;
     const netAmount = Math.round((taxableAmount + taxAmount) * 100) / 100;
 
-    const { items, tax_percent, tax_breakdown, ...rest } = dto;
+    const { items, tax_percentage, tax_breakdown, ...rest } = dto;
 
     // Transaction: generate invoice number + create invoice with items atomically
     return this.prisma.$transaction(async (tx) => {

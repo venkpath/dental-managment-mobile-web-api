@@ -103,7 +103,7 @@ describe('InvoiceService', () => {
     const createDto = {
       branch_id: branchId,
       patient_id: patientId,
-      tax_percent: 18,
+      tax_percentage: 18,
       items: [
         { description: 'Composite restoration', quantity: 1, unit_price: 5000 },
       ],
@@ -145,7 +145,7 @@ describe('InvoiceService', () => {
       const dtoWithDiscount = {
         ...createDto,
         discount_amount: 500,
-        tax_percent: 18,
+        tax_percentage: 18,
       };
       await service.create(clinicId, dtoWithDiscount);
       // total=5000, discount=500, taxable=4500, tax=810, net=5310

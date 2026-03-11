@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service.js';
 import { UserService } from '../user/user.service.js';
 import { PasswordService } from '../../common/services/password.service.js';
+import { PrismaService } from '../../database/prisma.service.js';
 
 const clinicId = '123e4567-e89b-12d3-a456-426614174000';
 const branchId = 'aaa11111-bbbb-cccc-dddd-eeeeeeeeeeee';
@@ -34,6 +35,13 @@ const mockJwtService = {
   signAsync: jest.fn().mockResolvedValue('mock.jwt.token'),
 };
 
+const mockPrismaService = {
+  user: {
+    findUnique: jest.fn(),
+    update: jest.fn(),
+  },
+};
+
 describe('AuthService', () => {
   let service: AuthService;
 
@@ -44,6 +52,7 @@ describe('AuthService', () => {
         { provide: UserService, useValue: mockUserService },
         { provide: PasswordService, useValue: mockPasswordService },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: PrismaService, useValue: mockPrismaService },
       ],
     }).compile();
 
@@ -122,6 +131,54 @@ describe('AuthService', () => {
         loginDto.email,
         loginDto.clinic_id,
       );
+    });
+  });
+
+  describe('changePassword', () => {
+    const userId = mockUser.id;
+    const changePasswordDto = { old_password: 'OldP@ss123', new_password: 'NewP@ss456' };
+
+    it('should change password successfully when old password is correct', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPasswordService.verify.mockResolvedValue(true);
+      mockPasswordService.hash.mockResolvedValue('$2b$12$newhashedpassword');
+      mockPrismaService.user.update.mockResolvedValue({ ...mockUser, password_hash: '$2b$12$newhashedpassword' });
+
+      const result = await service.changePassword(userId, changePasswordDto);
+
+      expect(result).toEqual({ message: 'Password changed successfully' });
+      expect(mockPasswordService.verify).toHaveBeenCalledWith('OldP@ss123', mockUser.password_hash);
+      expect(mockPasswordService.hash).toHaveBeenCalledWith('NewP@ss456');
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: userId },
+        data: { password_hash: '$2b$12$newhashedpassword' },
+      });
+    });
+
+    it('should throw UnauthorizedException when user not found', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.changePassword(userId, changePasswordDto)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should throw UnauthorizedException when old password is incorrect', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPasswordService.verify.mockResolvedValue(false);
+
+      await expect(service.changePassword(userId, changePasswordDto)).rejects.toThrow(UnauthorizedException);
+      expect(mockPrismaService.user.update).not.toHaveBeenCalled();
+    });
+
+    it('should verify old password against stored hash', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPasswordService.verify.mockResolvedValue(true);
+      mockPasswordService.hash.mockResolvedValue('$2b$12$newhashedpassword');
+      mockPrismaService.user.update.mockResolvedValue(mockUser);
+
+      await service.changePassword(userId, changePasswordDto);
+
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({ where: { id: userId } });
+      expect(mockPasswordService.verify).toHaveBeenCalledWith('OldP@ss123', mockUser.password_hash);
     });
   });
 });

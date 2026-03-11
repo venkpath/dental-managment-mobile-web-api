@@ -50,8 +50,9 @@ export class UserService {
     }
 
     const { password, ...rest } = dto;
+    const finalPassword = password || 'Admin@123';
     return this.prisma.user.create({
-      data: { ...rest, clinic_id: clinicId, password_hash: await this.passwordService.hash(password) },
+      data: { ...rest, clinic_id: clinicId, password_hash: await this.passwordService.hash(finalPassword) },
       select: userSelect,
     });
   }
@@ -62,9 +63,12 @@ export class UserService {
     });
   }
 
-  async findAll(clinicId: string): Promise<Omit<User, 'password_hash'>[]> {
+  async findAll(clinicId: string, role?: string): Promise<Omit<User, 'password_hash'>[]> {
     return this.prisma.user.findMany({
-      where: { clinic_id: clinicId },
+      where: {
+        clinic_id: clinicId,
+        ...(role ? { role } : {}),
+      },
       orderBy: { created_at: 'desc' },
       select: userSelect,
     });

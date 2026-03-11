@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Query, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -37,8 +37,11 @@ export class UserController {
   @Get()
   @ApiOperation({ summary: 'List users in the current clinic' })
   @ApiOkResponse({ description: 'List of users' })
-  async findAll(@CurrentClinic() clinicId: string) {
-    return this.userService.findAll(clinicId);
+  async findAll(
+    @CurrentClinic() clinicId: string,
+    @Query('role') role?: string,
+  ) {
+    return this.userService.findAll(clinicId, role);
   }
 
   @Get(':id')

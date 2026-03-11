@@ -23,10 +23,11 @@ export class CreateUserDto {
   @MaxLength(255)
   email!: string;
 
-  @ApiProperty({ example: 'StrongP@ss1', minLength: 8 })
+  @ApiPropertyOptional({ example: 'StrongP@ss1', description: 'Defaults to Admin@123 if not provided', minLength: 8 })
+  @IsOptional()
   @IsString()
   @MinLength(8)
-  password!: string;
+  password?: string;
 
   @ApiProperty({ enum: UserRole, example: UserRole.DENTIST })
   @IsEnum(UserRole)

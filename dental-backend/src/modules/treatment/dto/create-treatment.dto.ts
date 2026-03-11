@@ -1,6 +1,6 @@
-import { IsString, IsUUID, IsOptional, IsNumber, MaxLength, Min } from 'class-validator';
+import { IsString, IsUUID, IsOptional, IsNumber, IsEnum, MaxLength, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export enum TreatmentStatus {
   PLANNED = 'planned',
@@ -29,6 +29,7 @@ export class CreateTreatmentDto {
   @IsOptional()
   @IsString()
   @MaxLength(10)
+  @Transform(({ value }) => value != null ? String(value) : value)
   tooth_number?: string;
 
   @ApiProperty({ example: 'Dental caries – mesial surface', maxLength: 500 })
@@ -46,6 +47,11 @@ export class CreateTreatmentDto {
   @Min(0)
   @Type(() => Number)
   cost!: number;
+
+  @ApiPropertyOptional({ example: 'planned', enum: TreatmentStatus, default: TreatmentStatus.PLANNED })
+  @IsOptional()
+  @IsEnum(TreatmentStatus)
+  status?: TreatmentStatus;
 
   @ApiPropertyOptional({ example: 'Patient reported sensitivity to cold' })
   @IsOptional()

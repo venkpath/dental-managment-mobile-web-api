@@ -60,7 +60,7 @@ export class CreateInvoiceDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Type(() => Number)
-  tax_percent?: number;
+  tax_percentage?: number;
 
   @ApiPropertyOptional({ example: 500.0, description: 'Flat discount amount' })
   @IsOptional()
