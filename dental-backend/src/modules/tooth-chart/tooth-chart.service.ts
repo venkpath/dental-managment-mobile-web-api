@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
 import { CreateToothConditionDto, UpdateToothConditionDto } from './dto/index.js';
 import { PatientToothCondition } from '@prisma/client';
@@ -9,86 +9,9 @@ const CONDITION_INCLUDE = {
   dentist: { select: { id: true, name: true, email: true, role: true } },
 } as const;
 
-/** FDI permanent teeth (32 teeth) — reference data required for dental charting */
-const TEETH_SEED = [
-  { fdi_number: 11, name: 'Upper Right Central Incisor', quadrant: 1, position: 1 },
-  { fdi_number: 12, name: 'Upper Right Lateral Incisor', quadrant: 1, position: 2 },
-  { fdi_number: 13, name: 'Upper Right Canine', quadrant: 1, position: 3 },
-  { fdi_number: 14, name: 'Upper Right First Premolar', quadrant: 1, position: 4 },
-  { fdi_number: 15, name: 'Upper Right Second Premolar', quadrant: 1, position: 5 },
-  { fdi_number: 16, name: 'Upper Right First Molar', quadrant: 1, position: 6 },
-  { fdi_number: 17, name: 'Upper Right Second Molar', quadrant: 1, position: 7 },
-  { fdi_number: 18, name: 'Upper Right Third Molar', quadrant: 1, position: 8 },
-  { fdi_number: 21, name: 'Upper Left Central Incisor', quadrant: 2, position: 1 },
-  { fdi_number: 22, name: 'Upper Left Lateral Incisor', quadrant: 2, position: 2 },
-  { fdi_number: 23, name: 'Upper Left Canine', quadrant: 2, position: 3 },
-  { fdi_number: 24, name: 'Upper Left First Premolar', quadrant: 2, position: 4 },
-  { fdi_number: 25, name: 'Upper Left Second Premolar', quadrant: 2, position: 5 },
-  { fdi_number: 26, name: 'Upper Left First Molar', quadrant: 2, position: 6 },
-  { fdi_number: 27, name: 'Upper Left Second Molar', quadrant: 2, position: 7 },
-  { fdi_number: 28, name: 'Upper Left Third Molar', quadrant: 2, position: 8 },
-  { fdi_number: 31, name: 'Lower Left Central Incisor', quadrant: 3, position: 1 },
-  { fdi_number: 32, name: 'Lower Left Lateral Incisor', quadrant: 3, position: 2 },
-  { fdi_number: 33, name: 'Lower Left Canine', quadrant: 3, position: 3 },
-  { fdi_number: 34, name: 'Lower Left First Premolar', quadrant: 3, position: 4 },
-  { fdi_number: 35, name: 'Lower Left Second Premolar', quadrant: 3, position: 5 },
-  { fdi_number: 36, name: 'Lower Left First Molar', quadrant: 3, position: 6 },
-  { fdi_number: 37, name: 'Lower Left Second Molar', quadrant: 3, position: 7 },
-  { fdi_number: 38, name: 'Lower Left Third Molar', quadrant: 3, position: 8 },
-  { fdi_number: 41, name: 'Lower Right Central Incisor', quadrant: 4, position: 1 },
-  { fdi_number: 42, name: 'Lower Right Lateral Incisor', quadrant: 4, position: 2 },
-  { fdi_number: 43, name: 'Lower Right Canine', quadrant: 4, position: 3 },
-  { fdi_number: 44, name: 'Lower Right First Premolar', quadrant: 4, position: 4 },
-  { fdi_number: 45, name: 'Lower Right Second Premolar', quadrant: 4, position: 5 },
-  { fdi_number: 46, name: 'Lower Right First Molar', quadrant: 4, position: 6 },
-  { fdi_number: 47, name: 'Lower Right Second Molar', quadrant: 4, position: 7 },
-  { fdi_number: 48, name: 'Lower Right Third Molar', quadrant: 4, position: 8 },
-];
-
-const SURFACES_SEED = [
-  { name: 'Mesial', code: 'M' },
-  { name: 'Distal', code: 'D' },
-  { name: 'Buccal', code: 'B' },
-  { name: 'Lingual', code: 'L' },
-  { name: 'Occlusal', code: 'O' },
-];
-
 @Injectable()
-export class ToothChartService implements OnModuleInit {
-  private readonly logger = new Logger(ToothChartService.name);
-
+export class ToothChartService {
   constructor(private readonly prisma: PrismaService) {}
-
-  /** Auto-seed teeth & surfaces reference data if tables are empty */
-  async onModuleInit() {
-    try {
-      const teethCount = await this.prisma.tooth.count();
-      if (teethCount === 0) {
-        for (const t of TEETH_SEED) {
-          await this.prisma.tooth.upsert({
-            where: { fdi_number: t.fdi_number },
-            update: {},
-            create: t,
-          });
-        }
-        this.logger.log('Auto-seeded 32 FDI teeth reference data');
-      }
-
-      const surfaceCount = await this.prisma.toothSurface.count();
-      if (surfaceCount === 0) {
-        for (const s of SURFACES_SEED) {
-          await this.prisma.toothSurface.upsert({
-            where: { name: s.name },
-            update: {},
-            create: s,
-          });
-        }
-        this.logger.log('Auto-seeded 5 tooth surfaces reference data');
-      }
-    } catch (err) {
-      this.logger.warn('Failed to auto-seed tooth reference data', err);
-    }
-  }
 
   async getTeeth() {
     return this.prisma.tooth.findMany({ orderBy: { fdi_number: 'asc' } });
