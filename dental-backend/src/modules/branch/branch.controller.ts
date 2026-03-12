@@ -9,7 +9,7 @@ import {
   ApiBadRequestResponse,
 } from '@nestjs/swagger';
 import { BranchService } from './branch.service.js';
-import { CreateBranchDto, UpdateBranchDto } from './dto/index.js';
+import { CreateBranchDto, UpdateBranchDto, UpdateBranchSchedulingDto } from './dto/index.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 
@@ -59,5 +59,29 @@ export class BranchController {
     @Body() dto: UpdateBranchDto,
   ) {
     return this.branchService.update(clinicId, id, dto);
+  }
+
+  @Get(':id/scheduling')
+  @ApiOperation({ summary: 'Get scheduling settings for a branch' })
+  @ApiOkResponse({ description: 'Branch scheduling settings with defaults applied' })
+  @ApiNotFoundResponse({ description: 'Branch not found' })
+  async getSchedulingSettings(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.branchService.getSchedulingSettings(clinicId, id);
+  }
+
+  @Patch(':id/scheduling')
+  @ApiOperation({ summary: 'Update scheduling settings for a branch (working hours, slot duration, etc.)' })
+  @ApiOkResponse({ description: 'Scheduling settings updated' })
+  @ApiNotFoundResponse({ description: 'Branch not found' })
+  @ApiBadRequestResponse({ description: 'Invalid scheduling settings' })
+  async updateSchedulingSettings(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateBranchSchedulingDto,
+  ) {
+    return this.branchService.updateSchedulingSettings(clinicId, id, dto);
   }
 }

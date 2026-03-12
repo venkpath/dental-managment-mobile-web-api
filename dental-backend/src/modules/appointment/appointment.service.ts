@@ -1,8 +1,35 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
-import { CreateAppointmentDto, UpdateAppointmentDto, QueryAppointmentDto } from './dto/index.js';
+import { CreateAppointmentDto, UpdateAppointmentDto, QueryAppointmentDto, QueryAvailableSlotsDto } from './dto/index.js';
 import { Appointment, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
+
+export interface AvailableSlot {
+  start_time: string;
+  end_time: string;
+  available: boolean;
+}
+
+// Clinic timezone — default to IST; override via CLINIC_TIMEZONE env var
+const CLINIC_TIMEZONE = process.env.CLINIC_TIMEZONE || 'Asia/Kolkata';
+
+/** Get today's date string (YYYY-MM-DD) in the clinic timezone */
+function getTodayDate(tz: string = CLINIC_TIMEZONE): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: tz }); // en-CA gives YYYY-MM-DD
+}
+
+/** Get current time-of-day in minutes in the clinic timezone */
+function getNowMinutes(tz: string = CLINIC_TIMEZONE): number {
+  const parts = new Date().toLocaleTimeString('en-GB', { timeZone: tz, hour12: false }).split(':');
+  return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+}
+
+/** ISO day-of-week (1=Mon..7=Sun) from a YYYY-MM-DD string, parsed at noon UTC to avoid date-shift */
+function getIsoDay(dateStr: string): number {
+  const d = new Date(dateStr + 'T12:00:00Z');
+  const dow = d.getUTCDay(); // 0=Sun
+  return dow === 0 ? 7 : dow;
+}
 
 @Injectable()
 export class AppointmentService {
@@ -29,6 +56,42 @@ export class AppointmentService {
       throw new NotFoundException(`Dentist with ID "${dto.dentist_id}" not found in this clinic`);
     }
 
+    // Validate against branch working hours
+    const workStart = branch.working_start_time ?? '09:00';
+    const workEnd = branch.working_end_time ?? '18:00';
+    if (dto.start_time < workStart || dto.end_time > workEnd) {
+      throw new BadRequestException(`Appointment must be within branch working hours (${workStart}–${workEnd})`);
+    }
+
+    // Validate against lunch break
+    if (branch.lunch_start_time && branch.lunch_end_time) {
+      if (dto.start_time < branch.lunch_end_time && dto.end_time > branch.lunch_start_time) {
+        throw new BadRequestException(`Appointment overlaps with lunch break (${branch.lunch_start_time}–${branch.lunch_end_time})`);
+      }
+    }
+
+    // Validate advance booking days and reject past dates
+    const maxDays = branch.advance_booking_days ?? 30;
+    const todayStr = getTodayDate();
+    const apptDateNoon = new Date(dto.appointment_date + 'T12:00:00Z');
+    const todayNoon = new Date(todayStr + 'T12:00:00Z');
+    const diffDays = Math.round((apptDateNoon.getTime() - todayNoon.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) {
+      throw new BadRequestException('Cannot create appointments in the past');
+    }
+    if (diffDays > maxDays) {
+      throw new BadRequestException(`Appointments can only be booked up to ${maxDays} days in advance`);
+    }
+
+    // Validate working day
+    if (branch.working_days) {
+      const isoDay = getIsoDay(dto.appointment_date);
+      const workingDays = branch.working_days.split(',').map(Number);
+      if (!workingDays.includes(isoDay)) {
+        throw new BadRequestException('The selected date is not a working day for this branch');
+      }
+    }
+
     await this.checkTimeConflict(dto.dentist_id, dto.appointment_date, dto.start_time, dto.end_time);
 
     const { appointment_date, ...rest } = dto;
@@ -40,6 +103,90 @@ export class AppointmentService {
       },
       include: { patient: true, dentist: true, branch: true },
     });
+  }
+
+  async getAvailableSlots(clinicId: string, query: QueryAvailableSlotsDto): Promise<AvailableSlot[]> {
+    const branch = await this.prisma.branch.findUnique({ where: { id: query.branch_id } });
+    if (!branch || branch.clinic_id !== clinicId) {
+      throw new NotFoundException(`Branch with ID "${query.branch_id}" not found in this clinic`);
+    }
+
+    const dentist = await this.prisma.user.findUnique({ where: { id: query.dentist_id } });
+    if (!dentist || dentist.clinic_id !== clinicId) {
+      throw new NotFoundException(`Dentist with ID "${query.dentist_id}" not found in this clinic`);
+    }
+
+    // Return empty if requested date is not a working day
+    if (branch.working_days) {
+      const isoDay = getIsoDay(query.date);
+      const workingDays = branch.working_days.split(',').map(Number);
+      if (!workingDays.includes(isoDay)) {
+        return [];
+      }
+    }
+
+    // Read configurable settings with sensible defaults
+    const workStart = branch.working_start_time ?? '09:00';
+    const workEnd = branch.working_end_time ?? '18:00';
+    const lunchStart = branch.lunch_start_time ?? null;
+    const lunchEnd = branch.lunch_end_time ?? null;
+    const slotDuration = branch.slot_duration ?? 15;
+    const apptDuration = branch.default_appt_duration ?? 30;
+    const bufferMinutes = branch.buffer_minutes ?? 0;
+
+    // Generate all possible slots within working hours
+    const allSlots: AvailableSlot[] = [];
+    let currentMinutes = this.timeToMinutes(workStart);
+    const endMinutes = this.timeToMinutes(workEnd);
+
+    while (currentMinutes + apptDuration <= endMinutes) {
+      const slotStart = this.minutesToTime(currentMinutes);
+      const slotEnd = this.minutesToTime(currentMinutes + apptDuration);
+
+      // Skip slots that overlap with lunch break
+      const overlapsLunch =
+        lunchStart && lunchEnd &&
+        slotStart < lunchEnd && slotEnd > lunchStart;
+
+      if (!overlapsLunch) {
+        allSlots.push({ start_time: slotStart, end_time: slotEnd, available: true });
+      }
+
+      currentMinutes += slotDuration;
+    }
+
+    // Fetch existing booked appointments for this dentist on this date
+    const existingAppointments = await this.prisma.appointment.findMany({
+      where: {
+        dentist_id: query.dentist_id,
+        appointment_date: new Date(query.date),
+        status: { not: 'cancelled' },
+      },
+      select: { start_time: true, end_time: true, patient: { select: { first_name: true, last_name: true } } },
+    });
+
+    // Mark slots as unavailable if they conflict with existing appointments (including buffer)
+    for (const slot of allSlots) {
+      for (const appt of existingAppointments) {
+        const apptStartWithBuffer = this.minutesToTime(Math.max(0, this.timeToMinutes(appt.start_time) - bufferMinutes));
+        const apptEndWithBuffer = this.minutesToTime(this.timeToMinutes(appt.end_time) + bufferMinutes);
+
+        if (slot.start_time < apptEndWithBuffer && slot.end_time > apptStartWithBuffer) {
+          slot.available = false;
+          break;
+        }
+      }
+    }
+
+    // If date is today, filter out past slots
+    const today = getTodayDate();
+    if (query.date === today) {
+      const nowMinutes = getNowMinutes();
+      const nowTime = this.minutesToTime(nowMinutes);
+      return allSlots.filter((slot) => slot.start_time > nowTime);
+    }
+
+    return allSlots;
   }
 
   async findAll(clinicId: string, query: QueryAppointmentDto): Promise<PaginatedResult<Appointment>> {
@@ -114,6 +261,30 @@ export class AppointmentService {
       await this.checkTimeConflict(newDentistId, newDate, newStart, newEnd, id);
     }
 
+    // Validate against branch scheduling settings when rescheduling
+    if (dto.appointment_date || dto.start_time || dto.end_time) {
+      const branch = await this.prisma.branch.findUnique({ where: { id: existing.branch_id } });
+      if (branch) {
+        const workStart = branch.working_start_time ?? '09:00';
+        const workEnd = branch.working_end_time ?? '18:00';
+        if (newStart < workStart || newEnd > workEnd) {
+          throw new BadRequestException(`Appointment must be within branch working hours (${workStart}-${workEnd})`);
+        }
+        if (branch.lunch_start_time && branch.lunch_end_time) {
+          if (newStart < branch.lunch_end_time && newEnd > branch.lunch_start_time) {
+            throw new BadRequestException(`Appointment overlaps with lunch break (${branch.lunch_start_time}-${branch.lunch_end_time})`);
+          }
+        }
+        if (dto.appointment_date && branch.working_days) {
+          const isoDay = getIsoDay(newDate);
+          const workingDays = branch.working_days.split(',').map(Number);
+          if (!workingDays.includes(isoDay)) {
+            throw new BadRequestException('The selected date is not a working day for this branch');
+          }
+        }
+      }
+    }
+
     const { appointment_date, ...rest } = dto;
     return this.prisma.appointment.update({
       where: { id },
@@ -157,5 +328,16 @@ export class AppointmentService {
         `Dentist already has an appointment on ${date} from ${conflict.start_time} to ${conflict.end_time}`,
       );
     }
+  }
+
+  private timeToMinutes(time: string): number {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+  }
+
+  private minutesToTime(minutes: number): string {
+    const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+    const m = (minutes % 60).toString().padStart(2, '0');
+    return `${h}:${m}`;
   }
 }

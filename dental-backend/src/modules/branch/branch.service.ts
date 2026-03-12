@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
-import { CreateBranchDto, UpdateBranchDto } from './dto/index.js';
+import { CreateBranchDto, UpdateBranchDto, UpdateBranchSchedulingDto } from './dto/index.js';
 import { Branch } from '@prisma/client';
 
 @Injectable()
@@ -42,5 +42,41 @@ export class BranchService {
       where: { id },
       data: dto,
     });
+  }
+
+  async updateSchedulingSettings(clinicId: string, id: string, dto: UpdateBranchSchedulingDto): Promise<Branch> {
+    const branch = await this.findOne(clinicId, id);
+
+    // Validate working hours consistency (merge with existing values for partial updates)
+    const effectiveStart = dto.working_start_time ?? branch.working_start_time ?? '09:00';
+    const effectiveEnd = dto.working_end_time ?? branch.working_end_time ?? '18:00';
+    if (effectiveStart >= effectiveEnd) {
+      throw new BadRequestException('working_start_time must be before working_end_time');
+    }
+    const effectiveLunchStart = dto.lunch_start_time ?? branch.lunch_start_time;
+    const effectiveLunchEnd = dto.lunch_end_time ?? branch.lunch_end_time;
+    if (effectiveLunchStart && effectiveLunchEnd && effectiveLunchStart >= effectiveLunchEnd) {
+      throw new BadRequestException('lunch_start_time must be before lunch_end_time');
+    }
+
+    return this.prisma.branch.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async getSchedulingSettings(clinicId: string, id: string) {
+    const branch = await this.findOne(clinicId, id);
+    return {
+      working_start_time: branch.working_start_time ?? '09:00',
+      working_end_time: branch.working_end_time ?? '18:00',
+      lunch_start_time: branch.lunch_start_time ?? null,
+      lunch_end_time: branch.lunch_end_time ?? null,
+      slot_duration: branch.slot_duration ?? 15,
+      default_appt_duration: branch.default_appt_duration ?? 30,
+      buffer_minutes: branch.buffer_minutes ?? 0,
+      advance_booking_days: branch.advance_booking_days ?? 30,
+      working_days: branch.working_days ?? '1,2,3,4,5,6',
+    };
   }
 }

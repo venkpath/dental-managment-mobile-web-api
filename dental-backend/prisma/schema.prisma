@@ -48,6 +48,18 @@ model Branch {
   address    String?  @db.VarChar(500)
   city       String?  @db.VarChar(100)
   state      String?  @db.VarChar(100)
+
+  // Configurable scheduling settings (admin-managed per branch)
+  working_start_time    String?  @db.VarChar(5)  // HH:mm e.g. "09:00"
+  working_end_time      String?  @db.VarChar(5)  // HH:mm e.g. "18:00"
+  lunch_start_time      String?  @db.VarChar(5)  // HH:mm e.g. "13:00"
+  lunch_end_time        String?  @db.VarChar(5)  // HH:mm e.g. "14:00"
+  slot_duration         Int?     @default(15)     // minutes: 15, 20, 30, 45, 60
+  default_appt_duration Int?     @default(30)     // default appointment length in minutes
+  buffer_minutes        Int?     @default(0)      // buffer gap between appointments
+  advance_booking_days  Int?     @default(30)     // how far ahead patients can book
+  working_days          String?  @db.VarChar(20)  // comma-separated: "1,2,3,4,5,6" (1=Mon, 7=Sun)
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 

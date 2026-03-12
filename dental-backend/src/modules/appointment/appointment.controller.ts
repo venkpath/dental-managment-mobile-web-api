@@ -21,7 +21,7 @@ import {
   ApiBadRequestResponse,
 } from '@nestjs/swagger';
 import { AppointmentService } from './appointment.service.js';
-import { CreateAppointmentDto, UpdateAppointmentDto, QueryAppointmentDto } from './dto/index.js';
+import { CreateAppointmentDto, UpdateAppointmentDto, QueryAppointmentDto, QueryAvailableSlotsDto } from './dto/index.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 
@@ -52,6 +52,16 @@ export class AppointmentController {
     @Query() query: QueryAppointmentDto,
   ) {
     return this.appointmentService.findAll(clinicId, query);
+  }
+
+  @Get('available-slots')
+  @ApiOperation({ summary: 'Get available time slots for a dentist on a date (uses branch scheduling settings)' })
+  @ApiOkResponse({ description: 'List of available time slots' })
+  async getAvailableSlots(
+    @CurrentClinic() clinicId: string,
+    @Query() query: QueryAvailableSlotsDto,
+  ) {
+    return this.appointmentService.getAvailableSlots(clinicId, query);
   }
 
   @Get(':id')

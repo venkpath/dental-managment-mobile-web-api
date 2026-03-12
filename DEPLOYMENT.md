@@ -203,3 +203,21 @@ When you're ready to scale:
 - **Upstash** → Pay-as-you-go ($0.2 per 100K commands)
 - **Render** → Starter ($7/mo) for always-on, faster builds
 - **Vercel** → Pro ($20/mo) for team features and more bandwidth
+
+
+## backend: https://dental-backend-rl1u.onrender.com
+
+Deployment
+dental-frontend-7kd2gf5j9-venkpaths-projects.vercel.app
+Domains
+dental-frontend-alpha.vercel.app
+Status
+Ready
+Created
+1m ago by venkpath
+
+github/venkpath
+Source
+master
+dfeccef
+landing page

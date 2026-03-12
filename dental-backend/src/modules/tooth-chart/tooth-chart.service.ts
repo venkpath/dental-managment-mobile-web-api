@@ -29,7 +29,7 @@ export class ToothChartService {
       throw new NotFoundException(`Patient with ID "${patientId}" not found in this clinic`);
     }
 
-    const [teeth, surfaces, conditions] = await Promise.all([
+    const [teeth, surfaces, conditions, treatments] = await Promise.all([
       this.prisma.tooth.findMany({ orderBy: { fdi_number: 'asc' } }),
       this.prisma.toothSurface.findMany({ orderBy: { name: 'asc' } }),
       this.prisma.patientToothCondition.findMany({
@@ -37,9 +37,18 @@ export class ToothChartService {
         include: CONDITION_INCLUDE,
         orderBy: { created_at: 'desc' },
       }),
+      this.prisma.treatment.findMany({
+        where: {
+          clinic_id: clinicId,
+          patient_id: patientId,
+          tooth_number: { not: null },
+        },
+        include: { dentist: { select: { id: true, name: true, email: true, role: true } } },
+        orderBy: { created_at: 'desc' },
+      }),
     ]);
 
-    return { teeth, surfaces, conditions };
+    return { teeth, surfaces, conditions, treatments };
   }
 
   async createCondition(
