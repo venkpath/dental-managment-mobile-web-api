@@ -6,6 +6,8 @@ import {
   ValidateNested,
   ArrayMinSize,
   MaxLength,
+  IsInt,
+  Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -30,6 +32,34 @@ export class PrescriptionItemDto {
   @IsString()
   @MaxLength(100)
   duration!: string;
+
+  @ApiPropertyOptional({ example: 1, description: 'Morning dose count' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  morning?: number;
+
+  @ApiPropertyOptional({ example: 0, description: 'Afternoon dose count' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  afternoon?: number;
+
+  @ApiPropertyOptional({ example: 1, description: 'Evening dose count' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  evening?: number;
+
+  @ApiPropertyOptional({ example: 0, description: 'Night dose count' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  night?: number;
 
   @ApiPropertyOptional({ example: 'Take with warm water' })
   @IsOptional()

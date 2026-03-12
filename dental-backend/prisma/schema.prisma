@@ -279,6 +279,10 @@ model PrescriptionItem {
   dosage          String @db.VarChar(100)
   frequency       String @db.VarChar(100)
   duration        String @db.VarChar(100)
+  morning         Int    @default(0)
+  afternoon       Int    @default(0)
+  evening         Int    @default(0)
+  night           Int    @default(0)
   notes           String? @db.Text
 
   prescription Prescription @relation(fields: [prescription_id], references: [id], onDelete: Cascade)

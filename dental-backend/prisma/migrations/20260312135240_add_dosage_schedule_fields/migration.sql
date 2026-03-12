@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "prescription_items" ADD COLUMN     "afternoon" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "evening" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "morning" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "night" INTEGER NOT NULL DEFAULT 0;
