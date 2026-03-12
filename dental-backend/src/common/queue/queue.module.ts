@@ -12,6 +12,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         connection: {
           host: configService.get<string>('redis.host', 'localhost'),
           port: configService.get<number>('redis.port', 6379),
+          password: configService.get<string>('redis.password'),
+          tls: configService.get<string>('redis.tls') ? {} : undefined,
           maxRetriesPerRequest: null,
           retryStrategy: (times: number) => {
             if (times > 3) return null;
