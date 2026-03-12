@@ -47,6 +47,14 @@ export class AppointmentService {
 
     if (query.date) {
       where.appointment_date = new Date(query.date);
+    } else if (query.start_date && query.end_date) {
+      where.appointment_date = {
+        gte: new Date(query.start_date),
+        lte: new Date(query.end_date),
+      };
+    }
+    if (query.status) {
+      where.status = query.status;
     }
     if (query.dentist_id) {
       where.dentist_id = query.dentist_id;

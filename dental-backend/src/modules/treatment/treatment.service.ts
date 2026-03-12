@@ -8,6 +8,16 @@ import { PaginatedResult, paginate } from '../../common/interfaces/paginated-res
 export class TreatmentService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Map treatment procedures to dental chart condition names
+  private static readonly PROCEDURE_CONDITION_MAP: Record<string, string> = {
+    RCT: 'RCT',
+    Extraction: 'Missing',
+    Filling: 'Filled',
+    Crown: 'Crown',
+    Bridge: 'Crown',
+    Implant: 'Implant',
+  };
+
   async create(clinicId: string, dto: CreateTreatmentDto): Promise<Treatment> {
     const [branch, patient, dentist] = await Promise.all([
       this.prisma.branch.findUnique({ where: { id: dto.branch_id } }),
@@ -25,7 +35,7 @@ export class TreatmentService {
       throw new NotFoundException(`Dentist with ID "${dto.dentist_id}" not found in this clinic`);
     }
 
-    return this.prisma.treatment.create({
+    const treatment = await this.prisma.treatment.create({
       data: {
         ...dto,
         clinic_id: clinicId,
@@ -33,6 +43,32 @@ export class TreatmentService {
       },
       include: { patient: true, dentist: true, branch: true },
     });
+
+    // Auto-create a tooth condition on the dental chart when a tooth-specific procedure is recorded
+    if (dto.tooth_number) {
+      const conditionName = TreatmentService.PROCEDURE_CONDITION_MAP[dto.procedure];
+      if (conditionName) {
+        const fdiNumber = parseInt(dto.tooth_number, 10);
+        if (!isNaN(fdiNumber)) {
+          const tooth = await this.prisma.tooth.findUnique({ where: { fdi_number: fdiNumber } });
+          if (tooth) {
+            await this.prisma.patientToothCondition.create({
+              data: {
+                clinic_id: clinicId,
+                branch_id: dto.branch_id,
+                patient_id: dto.patient_id,
+                tooth_id: tooth.id,
+                condition: conditionName,
+                notes: `Auto-recorded from treatment: ${dto.procedure} — ${dto.diagnosis}`,
+                diagnosed_by: dto.dentist_id,
+              },
+            });
+          }
+        }
+      }
+    }
+
+    return treatment;
   }
 
   async findAll(clinicId: string, query: QueryTreatmentDto): Promise<PaginatedResult<Treatment>> {
