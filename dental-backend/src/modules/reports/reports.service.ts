@@ -61,6 +61,8 @@ export interface RevenueReport {
   total_revenue: number;
   paid_invoices: number;
   pending_invoices: number;
+  partially_paid_invoices: number;
+  outstanding_amount: number;
   tax_collected: number;
   discount_given: number;
 }
@@ -95,7 +97,7 @@ export class ReportsService {
         this.prisma.invoice.count({
           where: {
             clinic_id: clinicId,
-            status: 'pending',
+            status: { in: ['pending', 'partially_paid'] },
           },
         }),
 
@@ -130,7 +132,7 @@ export class ReportsService {
       }),
     };
 
-    const [paidAgg, pendingCount, paidCount] = await Promise.all([
+    const [paidAgg, partiallyPaidAgg, pendingCount, paidCount, partiallyPaidCount, paymentsAgg] = await Promise.all([
       this.prisma.invoice.aggregate({
         _sum: {
           net_amount: true,
@@ -140,6 +142,15 @@ export class ReportsService {
         where: { ...invoiceWhere, status: 'paid' },
       }),
 
+      this.prisma.invoice.aggregate({
+        _sum: {
+          net_amount: true,
+          tax_amount: true,
+          discount_amount: true,
+        },
+        where: { ...invoiceWhere, status: 'partially_paid' },
+      }),
+
       this.prisma.invoice.count({
         where: { ...invoiceWhere, status: 'pending' },
       }),
@@ -147,14 +158,34 @@ export class ReportsService {
       this.prisma.invoice.count({
         where: { ...invoiceWhere, status: 'paid' },
       }),
+
+      this.prisma.invoice.count({
+        where: { ...invoiceWhere, status: 'partially_paid' },
+      }),
+
+      // Total payments collected (includes partial payments)
+      this.prisma.payment.aggregate({
+        _sum: { amount: true },
+        where: {
+          invoice: { ...invoiceWhere, status: { in: ['paid', 'partially_paid'] } },
+        },
+      }),
     ]);
 
+    const totalRevenue = Number(paymentsAgg._sum.amount ?? 0);
+    const partiallyPaidNetTotal = Number(partiallyPaidAgg._sum.net_amount ?? 0);
+    const paidPayments = Number(paymentsAgg._sum.amount ?? 0);
+    const paidNetTotal = Number(paidAgg._sum.net_amount ?? 0);
+    const outstandingAmount = (paidNetTotal + partiallyPaidNetTotal) - paidPayments;
+
     return {
-      total_revenue: Number(paidAgg._sum.net_amount ?? 0),
+      total_revenue: totalRevenue,
       paid_invoices: paidCount,
       pending_invoices: pendingCount,
-      tax_collected: Number(paidAgg._sum.tax_amount ?? 0),
-      discount_given: Number(paidAgg._sum.discount_amount ?? 0),
+      partially_paid_invoices: partiallyPaidCount,
+      outstanding_amount: Math.max(0, outstandingAmount),
+      tax_collected: Number(paidAgg._sum.tax_amount ?? 0) + Number(partiallyPaidAgg._sum.tax_amount ?? 0),
+      discount_given: Number(paidAgg._sum.discount_amount ?? 0) + Number(partiallyPaidAgg._sum.discount_amount ?? 0),
     };
   }
 
