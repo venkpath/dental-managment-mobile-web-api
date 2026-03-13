@@ -209,6 +209,9 @@ export class AppointmentService {
     if (query.branch_id) {
       where.branch_id = query.branch_id;
     }
+    if (query.patient_id) {
+      where.patient_id = query.patient_id;
+    }
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;

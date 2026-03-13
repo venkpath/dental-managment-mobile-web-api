@@ -49,7 +49,7 @@
 | 5.2 – Appointment Scheduling | DONE | Appointment model (UUID, clinic_id FK, branch_id FK, patient_id FK, dentist_id FK→User, appointment_date Date, start_time/end_time HH:mm, status enum scheduled/completed/cancelled/no_show, notes, timestamps), Prisma migration, full CRUD (POST/GET/GET:id/PATCH/DELETE), clinic_id tenant scoping, validates branch/patient/dentist belong to same clinic, time slot conflict detection for dentist (excludes cancelled, excludes self on update), filters by date/dentist/branch, AppointmentStatus enum, HH:mm regex validation, Swagger docs with conflict responses, 21 unit tests (158 total) |
 | 5.3 – Treatment & Dental Chart | DONE | Treatment model (UUID, clinic_id FK, branch_id FK, patient_id FK, dentist_id FK→User, tooth_number FDI notation, diagnosis, procedure, status enum planned/in_progress/completed, cost Decimal(10,2), notes, timestamps), Prisma migration, POST/GET/PATCH treatments + GET patients/:id/treatments (dental chart), clinic_id tenant scoping, validates branch/patient/dentist belong to same clinic, dentist re-validation on update, filters by status/dentist/branch, TreatmentStatus enum, cost validation (min 0, max 2 decimals), Swagger docs, 18 unit tests (176 total) |
 | 5.4 – Prescription | DONE | Prescription model (UUID, clinic_id FK, branch_id FK, patient_id FK, dentist_id FK→User, diagnosis, instructions, created_at) + PrescriptionItem model (UUID, prescription_id FK cascade, medicine_name, dosage, frequency, duration, notes), Prisma migration, POST /prescriptions (creates with nested items via Prisma create), GET /prescriptions/:id, GET /patients/:id/prescriptions, clinic_id tenant scoping, validates branch/patient/dentist belong to same clinic, nested PrescriptionItemDto with ArrayMinSize(1) + ValidateNested, all responses include items/patient/dentist/branch, Swagger docs, 11 unit tests (187 total) |
-| 5.5 – Billing | DONE | Invoice model (UUID, clinic_id FK, branch_id FK, patient_id FK, invoice_number unique per clinic auto-generated INV-YYYYMMDD-XXXX, total_amount/tax_amount/discount_amount/net_amount Decimal(10,2), gst_number optional GSTIN validation, tax_breakdown JSON for CGST/SGST split, status pending/paid) + InvoiceItem (invoice_id FK, treatment_id optional FK→Treatment, description, quantity, unit_price, total_price) + Payment (invoice_id FK, method cash/card/upi, amount, paid_at), Prisma migration, POST /invoices (tax % calc, discount, nested items), GET /invoices (filter by patient/branch/status), GET /invoices/:id, POST /payments (validates balance, auto-marks paid when settled, rejects overpayment), India GST-ready, 17 unit tests (204 total) |
+| 5.5 – Billing | DONE | Invoice model (UUID, clinic_id FK, branch_id FK, patient_id FK, invoice_number unique per clinic auto-generated INV-YYYYMMDD-XXXX, total_amount/tax_amount/discount_amount/net_amount Decimal(10,2), gst_number optional GSTIN validation, tax_breakdown JSON for CGST/SGST split, status pending/paid/partially_paid) + InvoiceItem (invoice_id FK, treatment_id optional FK→Treatment, item_type enum treatment/service/pharmacy, description, quantity, unit_price, total_price) + Payment (invoice_id FK, method cash/card/upi, amount, notes, installment_item_id optional FK→InstallmentItem, paid_at) + InstallmentPlan (invoice_id unique FK, total_amount, num_installments, notes) + InstallmentItem (installment_plan_id FK, installment_number, amount, due_date, status pending/paid/overdue, paid_at), Prisma migration, POST /invoices (tax % calc, discount, nested items with item_type), GET /invoices (filter by patient/branch/status), GET /invoices/:id (includes installment_plan), POST /payments (validates balance, auto-marks paid/partially_paid, links to installment items), POST /invoices/:id/installment-plan (create plan with items), DELETE /invoices/:id/installment-plan, India GST-ready, 17 unit tests (204 total) |
 | 5.6 – Inventory | DONE | InventoryItem model (UUID, clinic_id FK, branch_id FK, name, category, quantity, unit, reorder_level, supplier, timestamps), Prisma migration, POST /inventory (create with branch validation), GET /inventory (filter by branch/name/category, case-insensitive search, low_stock filter), GET /inventory/:id, PATCH /inventory/:id (update quantity/name/category/unit/reorder_level/supplier), clinic_id tenant scoping, includes branch in responses, Swagger docs, 14 unit tests (218 total) |
 | 5.7 – Attachments | DONE | Attachment model (UUID, clinic_id FK, branch_id FK, patient_id FK, file_url, type enum xray/report/document, uploaded_by FK→User, created_at), Prisma migration pending (DB offline), POST /attachments (validates branch/patient/uploader belong to clinic), GET /patients/:patientId/attachments (validates patient belongs to clinic), clinic_id tenant scoping, includes branch/patient/uploader in responses, AttachmentType enum, Swagger docs, 11 unit tests (229 total) |
 | 5.8 – Audit Logs | DONE | AuditLog model (UUID, clinic_id, user_id nullable, action, entity, entity_id, metadata JSON, created_at), global AuditLogInterceptor (APP_INTERCEPTOR) automatically logs create/update/delete on POST/PATCH/PUT/DELETE, extracts entity from URL path, skips GET/auth/health/no-clinic requests, fire-and-forget logging (non-blocking), AuditLogService with log() and findByClinic() (filter by entity/entity_id/action/user_id, limit 100), GET /audit-logs endpoint with QueryAuditLogDto, @Global() AuditLogModule, Swagger docs, 19 unit tests (248 total) |
@@ -72,8 +72,8 @@
 
 | Story | Status | Notes |
 |---|---|---|
-| 7.1 – Dashboard Summary | DONE | GET /reports/dashboard-summary endpoint, ReportsModule (controller + service), returns today_appointments (count by date range), today_revenue (payment aggregate by paid_at), pending_invoices (count by status), low_inventory_count (raw SQL for quantity <= reorder_level column comparison), all metrics scoped by clinic_id (multi-tenant), parallel Promise.all queries for performance, RequireClinicGuard + x-clinic-id header, Swagger docs, 9 unit tests (34 suites / 331 total) |
-| 7.2 – Revenue Reports | DONE | GET /reports/revenue endpoint, RevenueQueryDto (start_date, end_date required + optional branch_id, dentist_id filters), returns total_revenue (sum of net_amount on paid invoices), paid_invoices (count), pending_invoices (count), tax_collected (sum of tax_amount), discount_given (sum of discount_amount), dentist filter via items→treatment→dentist_id relation, all scoped by clinic_id, parallel Promise.all, 6 unit tests (34 suites / 337 total) |
+| 7.1 – Dashboard Summary | DONE | GET /reports/dashboard-summary endpoint, ReportsModule (controller + service), returns today_appointments (count by date range), today_revenue (payment aggregate by paid_at), pending_invoices (count by status, includes partially_paid), low_inventory_count (raw SQL for quantity <= reorder_level column comparison), all metrics scoped by clinic_id (multi-tenant), parallel Promise.all queries for performance, RequireClinicGuard + x-clinic-id header, Swagger docs, 9 unit tests (34 suites / 331 total) |
+| 7.2 – Revenue Reports | DONE | GET /reports/revenue endpoint, RevenueQueryDto (start_date, end_date required + optional branch_id, dentist_id filters), returns total_revenue (actual payments collected including partial), paid_invoices (count), pending_invoices (count), partially_paid_invoices (count), outstanding_amount (remaining balance on paid + partially_paid invoices), tax_collected (sum of tax_amount incl. partially_paid), discount_given (sum of discount_amount incl. partially_paid), dentist filter via items→treatment→dentist_id relation, all scoped by clinic_id, parallel Promise.all, 6 unit tests (34 suites / 337 total) |
 | 7.3 – Appointment Analytics | DONE | GET /reports/appointments endpoint, AppointmentAnalyticsQueryDto (start_date, end_date required + optional branch_id, dentist_id), returns total_appointments, completed, cancelled, no_show counts, filters by appointment_date range, dentist_id direct on appointments model, all scoped by clinic_id, parallel Promise.all (4 count queries), 6 unit tests (34 suites / 343 total) |
 | 7.4 – Dentist Performance | DONE | GET /reports/dentist-performance endpoint, DentistPerformanceQueryDto (start_date, end_date required + optional branch_id), returns array of per-dentist metrics: dentist_id, dentist_name, appointments_handled, treatments_performed, revenue_generated (sum of treatment cost), single raw SQL query with correlated subqueries for efficiency, filters active dentists by clinic_id+role, optional branch_id filter on all subqueries, BigInt→Number conversion, ordered by revenue DESC, 6 unit tests (34 suites / 349 total) |
 | 7.5 – Patient Analytics | DONE | GET /reports/patients endpoint, PatientAnalyticsQueryDto (start_date, end_date required + optional branch_id), returns new_patients (created within date range), returning_patients (created before range but had appointment in range), total_patients (all clinic patients), all scoped by clinic_id, parallel Promise.all (3 count queries), 5 unit tests (34 suites / 354 total) |
@@ -117,7 +117,7 @@
 |---|---|---|
 | 3.1 – Summary Metrics Cards | DONE | 4 stat cards: Today's Appointments, Today's Revenue (₹ formatted), Pending Invoices (amber if >5), Low Stock Items (red if >0). Data from GET /reports/dashboard-summary, skeleton loading, auto-refresh 60s, click navigates to module |
 | 3.2 – Today's Appointment Timeline | DONE | Appointment list with time slots, patient avatars, dentist name, status badges (scheduled/completed/cancelled/no_show), scroll area |
-| 3.3 – Revenue Chart (7-Day) | DONE | Recharts AreaChart with 7-day rolling revenue, gradient fill, ₹ formatted tooltips |
+| 3.3 – Revenue Chart (7-Day) | DONE | Stats grid with Total Revenue (hero), Paid/Pending/Partially Paid/Outstanding/Tax/Discounts cards. Partially Paid and Outstanding cards shown conditionally when > 0 |
 | 3.4 – Quick Actions Panel | DONE | Role-aware action grid: New Patient, Book Appointment, Create Invoice, View Reports |
 | 3.5 – Low Stock & Alerts Sidebar | DONE | Inventory alerts with red styling, item names and remaining quantities |
 
@@ -162,11 +162,11 @@
 
 | Story | Status | Notes |
 |---|---|---|
-| 8.1 – Invoice List Page | DONE | DataTable with invoice # (font-mono), patient name, total/discount/net amounts (₹), status badges (pending=amber, paid=green), status filter, row click to detail, pagination |
-| 8.2 – Create Invoice Form | DONE | Multi-card form: patient/branch/GST selection, dynamic line items array (description, qty, unit price, auto-total), "Add from treatments" dropdown (pulls completed treatments), discount (₹), tax % with live calculation, subtotal/discount/tax/net summary, Zod validation |
-| 8.3 – Invoice Detail & Print | DONE | Full invoice view with clinic header, patient details, invoice # + date, GST number, itemized table (#, description, qty, unit price, total), subtotal/discount/tax/CGST+SGST breakdown/net total, paid vs balance due amounts, print via react-to-print with @media print CSS (A4 format, sidebar/topbar hidden), payment history table |
-| 8.4 – Payment Recording | DONE | Dialog from invoice detail: amount pre-filled with balance, payment method select (Cash/Card/UPI), validates positive amount, auto-refreshes invoice + shows updated payment history, success toast |
-| 8.5 – Payment Summary Widget | TODO | Today's collections breakdown (future enhancement) |
+| 8.1 – Invoice List Page | DONE | DataTable with invoice # (font-mono), patient name, total/discount/net amounts (₹), status badges (pending=amber, paid=green, partially_paid=blue), status filter (includes Partially Paid), row click to detail, pagination |
+| 8.2 – Create Invoice Form | DONE | Multi-card form: patient/branch/GST selection, dynamic line items array with item_type (treatment/service/pharmacy), "Add from treatments" dropdown (pulls patient treatments with status label), "Add from pharmacy" dropdown (pulls inventory items), type badges (Tx=blue, Svc=gray, Rx=green), column headers for Type/Description/Qty/Unit Price/Total, discount (₹), tax % with live calculation, subtotal/discount/tax/net summary, Zod validation |
+| 8.3 – Invoice Detail & Print | DONE | Full invoice view with clinic header, patient details, invoice # + date, GST number, itemized table (#, description, type badge, qty, unit price, total), subtotal/discount/tax/CGST+SGST breakdown/net total, paid amount (green) + balance due (amber, always visible when > 0), installment plan section (create/view/delete plan, table with #/due date/amount/status badges/paid on/pay action, dialog to create 2-12 installments with auto-split + editable amounts/dates), payment history table with notes column, print via react-to-print with @media print CSS (A4 format, sidebar/topbar hidden) |
+| 8.4 – Payment Recording | DONE | Dialog from invoice detail: amount pre-filled with balance, payment method select (Cash/Card/UPI), notes field, installment item linking (auto-fills when paying via installment plan Pay button), validates positive amount, auto-marks invoice as partially_paid or paid based on cumulative payments, auto-refreshes invoice + shows updated payment history, success toast |
+| 8.5 – Payment Summary Widget | DONE | Today's collections card in dashboard sidebar: total revenue from reports API, payment method breakdown (Cash/Card/UPI) with icons + colored backgrounds, fetches all invoices (not just paid) to include partial payments in today's breakdown, 60s stale time |
 
 ### EPIC 9 – Inventory Management
 
@@ -181,7 +181,7 @@
 | Story | Status | Notes |
 |---|---|---|
 | 10.1 – Reports Landing Page | DONE | Single-page tabbed layout with date range picker (from/to inputs + quick selectors: Today/Last 7 days/This month), summary stat cards (Total Revenue, Appointments, New Patients, Low Stock Items), 6 tabs for each report type |
-| 10.2 – Revenue Report | DONE | Revenue tab: Total Revenue, Paid Invoices, Pending Invoices, Tax Collected metrics in grid, Discounts Given, all ₹ formatted |
+| 10.2 – Revenue Report | DONE | Revenue tab: Total Revenue, Paid Invoices, Pending Invoices, Partially Paid Invoices (shown when > 0), Tax Collected metrics in grid, Discounts Given, Outstanding Amount (shown when > 0), all ₹ formatted |
 | 10.3 – Appointment Analytics | DONE | Appointments tab: Total/Completed/Cancelled/No Show metrics grid, Recharts PieChart with status distribution (color-coded: completed=green, cancelled=red, no_show=amber, scheduled=indigo) |
 | 10.4 – Dentist Performance | DONE | Dentists tab: Recharts BarChart comparing appointments handled vs treatments performed per dentist, detailed table with dentist name, appointments, treatments, revenue (₹) |
 | 10.5 – Patient Analytics | DONE | Patients tab: New Patients, Returning Patients, Total Patients as large metrics in styled cards |
@@ -230,3 +230,200 @@
 - Audit Logs: /audit-logs
 
 **Key Libraries:** Next.js 16.1.6, Tailwind CSS 4, shadcn/ui v4 (base-nova), TanStack Query v5, TanStack Table v8, Zustand v5, React Hook Form v7, Zod, Recharts v3, date-fns v4, sonner v2, next-themes, react-to-print, lucide-react
+
+---
+
+## PHASE 2.5 — Frontend Hardening & UX Polish
+
+**Goal:** Make the UI reliable enough for daily clinic use (50-80 patients/day).
+
+### Epic 1 — Advanced Table Features
+
+| Story | Status | Notes |
+|---|---|---|
+| 1.1 – Column Visibility Toggle | DONE | DataTable column hide/show dropdown via Settings2 icon, DropdownMenu with checkbox items per column |
+| 1.2 – Advanced Column Filtering | TODO | Per-column filter dropdowns on table headers |
+| 1.3 – Row Actions Menu | DONE | 3-dot DropdownMenu on patients (view/edit/delete), appointments (view/status changes), treatments (view/edit), inventory (edit), invoices (already had view). ConfirmDialog for destructive actions |
+| 1.4 – Table Export Button | DONE | Export dropdown (CSV/Excel) integrated into DataTable toolbar on all 6 list pages |
+| 1.5 – Bulk Selection & Actions | PARTIAL | Checkbox column infrastructure added (enableRowSelection prop, selection count display), bulk action buttons on pages not yet wired |
+
+### Epic 2 — Workflow & Navigation Polish
+
+| Story | Status | Notes |
+|---|---|---|
+| 2.1 – Breadcrumb Navigation | DONE | Custom Breadcrumbs component (Home icon + linked items + current page span), added to 18 nested/detail pages |
+| 2.2 – Back Button Consistency | DONE | Already existed on detail/edit pages from Phase 2 |
+| 2.3 – Unsaved Changes Warning | TODO | beforeunload + router warning on dirty forms |
+| 2.4 – Appointment Calendar View | DONE | Already existed from Phase 2 (Epic 5.2) |
+| 2.5 – Prescription Creation Form | TODO | Full prescription dialog from patient profile |
+
+### Epic 3 — Data Export
+
+| Story | Status | Notes |
+|---|---|---|
+| 3.1 – CSV Export | DONE | papaparse installed, exportToCSV() utility, pre-defined configs for patients/appointments/treatments/invoices/inventory/staff |
+| 3.2 – Excel Export | DONE | xlsx (SheetJS) + file-saver installed, exportToExcel() utility with formatted columns/headers, same 6 pages |
+| 3.3 – PDF Report Export | TODO | @react-pdf/renderer or jspdf — invoices, patient summary, revenue report |
+| 3.4 – Print Enhancements | TODO | Print support for patient summary, treatment plan, reports page |
+
+### Epic 4 — Performance Optimization
+
+| Story | Status | Notes |
+|---|---|---|
+| 4.1 – Route-Level Code Splitting | DONE | loading.tsx files created for 10 route segments (patients, appointments, treatments, invoices, inventory, staff, reports, audit-logs, settings, prescriptions) |
+| 4.2 – Virtual Scrolling | TODO | @tanstack/react-virtual for 100+ row tables |
+| 4.3 – Image & Asset Optimization | TODO | Lazy avatars, optimize SVG, Next.js Image |
+| 4.4 – Query Optimization | TODO | Cache key review, prefetch on hover, parallel queries |
+
+### Epic 5 — Frontend Testing
+
+| Story | Status | Notes |
+|---|---|---|
+| 5.1 – Setup Vitest + RTL | DONE | vitest 4.1.0, @testing-library/react, @testing-library/jest-dom/vitest, jsdom env, vitest.config.ts, setup.tsx with mocks for next/navigation, next/link, next-themes |
+| 5.2 – Component Unit Tests | PARTIAL | 20 tests passing: auth-store (9), export utility (6), breadcrumbs (5). DataTable, DentalChart, InvoiceForm still TODO |
+| 5.3 – E2E Tests (Playwright) | TODO | Login, patient CRUD, appointment booking, invoice + payment |
+
+---
+
+## PHASE 3 — Operational Features
+
+**Goal:** Real-world clinic features — notifications, scheduling, activity tracking.
+
+### Epic 1 — Notification System (Backend)
+
+| Story | Status | Notes |
+|---|---|---|
+| 1.1 – Notification Module & Model | TODO | Notification model, CRUD, Prisma migration |
+| 1.2 – Email Service | TODO | @nestjs-modules/mailer + BullMQ email queue, templates |
+| 1.3 – Appointment Reminders | TODO | BullMQ cron: next-day reminders, configurable timing |
+| 1.4 – Payment & Overdue Alerts | TODO | Cron: overdue installments, pending invoices > 7 days |
+| 1.5 – Low Inventory Alerts | TODO | Cron: items below reorder level, daily for clinic admin |
+| 1.6 – Real-Time Notifications (WebSocket) | TODO | NestJS gateway, push to connected clients |
+
+### Epic 2 — Notification System (Frontend)
+
+| Story | Status | Notes |
+|---|---|---|
+| 2.1 – Notification Bell & Dropdown | TODO | Bell icon + unread badge in topbar, grouped dropdown |
+| 2.2 – Notification Center Page | TODO | /notifications page, filters, bulk mark-as-read |
+| 2.3 – Notification Preferences | TODO | Per-user enable/disable by type, email opt-in/out |
+
+### Epic 3 — Enhanced Audit & Activity
+
+| Story | Status | Notes |
+|---|---|---|
+| 3.1 – Audit Log Detail View | TODO | Side panel with full metadata, entity link, before/after diff |
+| 3.2 – User Activity Timeline | TODO | Staff detail page — recent actions from audit logs |
+| 3.3 – Login History | TODO | Track login IP/user-agent/timestamp, show on profile |
+
+### Epic 4 — Scheduling Enhancements
+
+| Story | Status | Notes |
+|---|---|---|
+| 4.1 – Branch Working Hours | TODO | Working hours model (per weekday), settings UI, validate appointments |
+| 4.2 – Dentist Availability | TODO | Availability model, show only open slots when booking |
+| 4.3 – Appointment Reschedule | TODO | Dedicated reschedule flow with notification |
+| 4.4 – Recurring Appointments | TODO | Follow-up batch creation with recurrence_group_id |
+
+---
+
+## PHASE 4 — Production Readiness & Launch
+
+**Goal:** Security, deployment, monitoring — ready for real clinics.
+
+### Epic 1 — Security Hardening
+
+| Story | Status | Notes |
+|---|---|---|
+| 1.1 – Helmet Security Headers | TODO | CSP, HSTS, X-Frame-Options, X-Content-Type-Options |
+| 1.2 – CSRF Protection | TODO | Double-submit cookie pattern |
+| 1.3 – Rate Limiting Verification | TODO | Verify Throttler global application, IP-based logging |
+| 1.4 – Secure Cookie Configuration | TODO | HTTPOnly, Secure, SameSite=Strict for auth |
+| 1.5 – Input Sanitization | TODO | HTML/script sanitization on text fields (prevent stored XSS) |
+| 1.6 – Dependency Audit | TODO | npm audit + integrate in CI |
+
+### Epic 2 — Monitoring & Logging
+
+| Story | Status | Notes |
+|---|---|---|
+| 2.1 – Sentry (Backend) | TODO | @sentry/nestjs, DSN, error + transaction tracing |
+| 2.2 – Sentry (Frontend) | TODO | @sentry/nextjs, error boundary, breadcrumbs, user context |
+| 2.3 – Structured Logging | TODO | pino/winston, JSON logs, request_id + clinic_id context |
+| 2.4 – Health Check Enhancement | TODO | DB, Redis, disk, memory checks. /ready endpoint |
+| 2.5 – Uptime Monitoring | TODO | UptimeRobot/BetterStack for API + frontend |
+
+### Epic 3 — Deployment & Infrastructure
+
+| Story | Status | Notes |
+|---|---|---|
+| 3.1 – Frontend Dockerfile | TODO | Multi-stage, Next.js standalone output |
+| 3.2 – Docker Compose | TODO | backend + frontend + PostgreSQL + Redis, volumes |
+| 3.3 – Environment Configuration | TODO | .env.example files, env var validation on startup |
+| 3.4 – CI/CD Pipeline (GitHub Actions) | TODO | lint → type-check → test → build → deploy |
+| 3.5 – Staging Environment | TODO | Render/Railway, auto-deploy from develop branch |
+| 3.6 – Database Migration Strategy | TODO | Automated migration in CI, rollback procedures |
+
+### Epic 4 — Backup & Disaster Recovery
+
+| Story | Status | Notes |
+|---|---|---|
+| 4.1 – Database Backup Automation | TODO | pg_dump daily to S3/R2, 30-day retention |
+| 4.2 – Backup Verification | TODO | Monthly restore test, documented procedure |
+| 4.3 – Data Export for Compliance | TODO | Clinic admin full data export (data portability) |
+
+### Epic 5 — Pre-Launch
+
+| Story | Status | Notes |
+|---|---|---|
+| 5.1 – Landing Page | TODO | Marketing page: features, pricing, CTA to register |
+| 5.2 – Terms & Privacy Policy | TODO | Legal pages, medical data handling policies |
+| 5.3 – Onboarding Flow | TODO | First-login tutorial: branch → staff → patient → appointment |
+| 5.4 – Plan Selection at Registration | TODO | Plan picker during registration, feature comparison |
+| 5.5 – Payment Integration (Razorpay) | TODO | Subscription billing, webhooks, upgrade/downgrade |
+
+---
+
+## PHASE 5 — AI Features
+
+**Goal:** AI-powered clinical features using plan-based quota (already built).
+
+### Epic 1 — AI Service Foundation
+
+| Story | Status | Notes |
+|---|---|---|
+| 1.1 – AI Service Module | TODO | NestJS module wrapping OpenAI/Anthropic, token tracking, queue-based |
+| 1.2 – AI Quota Enforcement | DONE | AiUsageGuard already tracks per-clinic usage against plan quota |
+
+### Epic 2 — Clinical AI Features
+
+| Story | Status | Notes |
+|---|---|---|
+| 2.1 – Auto Clinical Notes | TODO | AI generates structured notes from treatment data, dentist reviews |
+| 2.2 – Prescription Suggestions | TODO | Suggest medicines/dosage based on diagnosis + treatment |
+| 2.3 – Patient Education Generator | TODO | Patient-friendly procedure explanations, shareable |
+| 2.4 – Follow-Up Message Generator | TODO | Draft post-treatment care SMS/WhatsApp messages |
+| 2.5 – Smart Scheduling Suggestions | TODO | AI suggests follow-up dates based on treatment plan + availability |
+
+---
+
+## PHASE 6 — Mobile App (React Native)
+
+**Goal:** Dentist-focused mobile app for on-the-go access.
+
+### Epic 1 — Setup & Auth
+
+| Story | Status | Notes |
+|---|---|---|
+| 1.1 – React Native Init | TODO | Expo + TypeScript, shared API types |
+| 1.2 – Mobile Login | TODO | Clinic ID + email + password, biometric auth |
+| 1.3 – Push Notifications | TODO | Firebase Cloud Messaging |
+
+### Epic 2 — Dentist Mobile Workflow
+
+| Story | Status | Notes |
+|---|---|---|
+| 2.1 – Today's Schedule | TODO | Today's appointments list, pull-to-refresh |
+| 2.2 – Patient Quick View | TODO | Search, profile summary, recent treatments |
+| 2.3 – Treatment Update | TODO | Mark status, add notes, update cost |
+| 2.4 – Quick Prescription | TODO | Create prescription with auto-suggest |
+| 2.5 – Offline Support | TODO | Cache today's data, sync when online |

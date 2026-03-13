@@ -36,15 +36,27 @@ export class PatientService {
       where.branch_id = query.branch_id;
     }
 
-    if (query.phone) {
-      where.phone = { contains: query.phone, mode: 'insensitive' };
+    if (query.gender) {
+      where.gender = query.gender;
     }
 
-    if (query.name) {
+    if (query.search) {
       where.OR = [
-        { first_name: { contains: query.name, mode: 'insensitive' } },
-        { last_name: { contains: query.name, mode: 'insensitive' } },
+        { first_name: { contains: query.search, mode: 'insensitive' } },
+        { last_name: { contains: query.search, mode: 'insensitive' } },
+        { phone: { contains: query.search, mode: 'insensitive' } },
+        { email: { contains: query.search, mode: 'insensitive' } },
       ];
+    } else {
+      if (query.phone) {
+        where.phone = { contains: query.phone, mode: 'insensitive' };
+      }
+      if (query.name) {
+        where.OR = [
+          { first_name: { contains: query.name, mode: 'insensitive' } },
+          { last_name: { contains: query.name, mode: 'insensitive' } },
+        ];
+      }
     }
 
     const page = query.page ?? 1;

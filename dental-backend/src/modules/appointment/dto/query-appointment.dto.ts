@@ -32,4 +32,9 @@ export class QueryAppointmentDto extends PaginationQueryDto {
   @IsOptional()
   @IsUUID()
   branch_id?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by patient UUID' })
+  @IsOptional()
+  @IsUUID()
+  patient_id?: string;
 }

@@ -40,8 +40,10 @@ export class UserController {
   async findAll(
     @CurrentClinic() clinicId: string,
     @Query('role') role?: string,
+    @Query('search') search?: string,
+    @Query('branch_id') branchId?: string,
   ) {
-    return this.userService.findAll(clinicId, role);
+    return this.userService.findAll(clinicId, role, search, branchId);
   }
 
   @Get(':id')

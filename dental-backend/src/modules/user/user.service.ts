@@ -63,12 +63,18 @@ export class UserService {
     });
   }
 
-  async findAll(clinicId: string, role?: string): Promise<Omit<User, 'password_hash'>[]> {
+  async findAll(clinicId: string, role?: string, search?: string, branchId?: string): Promise<Omit<User, 'password_hash'>[]> {
+    const where: any = { clinic_id: clinicId };
+    if (role) where.role = role;
+    if (branchId) where.branch_id = branchId;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
     return this.prisma.user.findMany({
-      where: {
-        clinic_id: clinicId,
-        ...(role ? { role } : {}),
-      },
+      where,
       orderBy: { created_at: 'desc' },
       select: userSelect,
     });

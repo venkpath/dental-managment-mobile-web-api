@@ -1,0 +1,294 @@
+# Dental SaaS — Post-MVP Roadmap (Phases 2.5 → 6)
+
+> Created: 2026-03-13  
+> Context: Phase 1 (Backend) and Phase 2 (Frontend MVP) are complete.  
+> This document outlines the remaining phases to go from working prototype → production-ready SaaS → feature-complete product.
+
+---
+
+## Current State Assessment
+
+### What's Already Done ✅
+- Loading/skeleton states on all pages (Phase 2, Epic 13.2)
+- Empty states with icons on all tables
+- Error states (ErrorPage component + retry)
+- Success/error toasts everywhere (Sonner)
+- Form validation (React Hook Form + Zod on every form)
+- Basic table pagination + sorting + search
+- Audit Log UI (Phase 2, Epic 12)
+- Backend rate limiting (Throttler — 100 req/min general, 5 req/min login)
+- TanStack Query caching (30s stale, 60s dashboard refresh)
+- Keyboard shortcuts (Alt+D/P/A/T/I/R/S)
+- Cmd+K global search (patient name search + page navigation)
+- Invoice print (react-to-print, A4 format)
+- Prescription print (window.print + @media print CSS)
+- Dental chart print support
+- Backend Dockerfile (multi-stage, node:20-alpine)
+- BullMQ queue infrastructure (scaffolded, test_queue only)
+- CORS configured in main.ts
+
+### What's Missing / Needs Work 🔲
+- Column visibility toggles on tables
+- Advanced column filtering (per-column)
+- Row action menus (partial — only staff list has it)
+- Data export (CSV/Excel/PDF) — no libs installed
+- Notifications (in-app, email, SMS) — nothing built
+- Print support for treatments, patient summary, reports
+- Security headers (no Helmet)
+- CSRF protection
+- Frontend Dockerfile
+- docker-compose.yml
+- CI/CD pipeline (no GitHub Actions, no Vercel config)
+- Frontend testing (no Jest/Vitest/Playwright)
+- Monitoring (no Sentry, no structured logging)
+- User profile self-edit
+- Lazy loading for heavy pages
+- Virtual scrolling for large tables
+
+---
+
+## Phase 2.5 — Frontend Hardening & UX Polish
+
+> **Goal:** Make the UI reliable enough for daily clinic use (50-80 patients/day).
+
+### Epic 1 — Advanced Table Features
+
+Clinics live in tables. Receptionists scroll through 50+ rows daily. Improve the DataTable component and all list pages.
+
+| Story | Status | Description |
+|---|---|---|
+| 1.1 – Column Visibility Toggle | DONE | Column hide/show dropdown via Settings2 icon in DataTable toolbar. DropdownMenu with checkbox items per column |
+| 1.2 – Advanced Column Filtering | TODO | Per-column filter dropdowns (e.g., filter patients by gender, appointments by status directly in table header) |
+| 1.3 – Row Actions Menu | DONE | 3-dot DropdownMenu on patients (view/edit/delete with ConfirmDialog), appointments (view/mark completed/no show/cancel), treatments (view/edit), inventory (edit). Uses MoreHorizontal icon |
+| 1.4 – Table Export Button | DONE | Export dropdown (CSV/Excel) in DataTable toolbar. Wired to exportData() utility on patients, appointments, treatments, invoices, inventory, staff |
+| 1.5 – Bulk Selection & Actions | PARTIAL | Checkbox column infrastructure via enableRowSelection prop, selection count in toolbar. Bulk action buttons not yet wired on pages |
+
+**Pages affected:** patients, appointments, invoices, inventory, treatments, staff, audit-logs
+
+### Epic 2 — Workflow & Navigation Polish
+
+| Story | Status | Description |
+|---|---|---|
+| 2.1 – Breadcrumb Navigation | DONE | Custom Breadcrumbs component (Home icon + linked items + current page span). Added to 18 nested/detail pages |
+| 2.2 – "Back" Button Consistency | DONE | Already existed on detail/edit pages from Phase 2 |
+| 2.3 – Unsaved Changes Warning | TODO | Warn before navigating away from forms with unsaved changes (beforeunload + router events) |
+| 2.4 – Appointment Calendar View | DONE | Already existed from Phase 2 |
+| 2.5 – Prescription Creation Form | TODO | Full prescription creation dialog from patient profile — select medicines, set dosage/frequency/duration, add instructions. Use backend POST /prescriptions |
+
+### Epic 3 — Data Export
+
+| Story | Status | Description |
+|---|---|---|
+| 3.1 – CSV Export | DONE | papaparse installed. exportToCSV() in lib/export.ts. Pre-defined configs for patients, appointments, treatments, invoices, inventory, staff. Exports current data view |
+| 3.2 – Excel Export | DONE | xlsx (SheetJS) + file-saver installed. exportToExcel() with formatted columns/headers. Same 6 list pages |
+| 3.3 – PDF Report Export | TODO | Install `@react-pdf/renderer` or `jspdf`. Generate PDF for: invoice (already printable — convert to downloadable PDF), patient summary, monthly revenue report |
+| 3.4 – Print Enhancements | TODO | Add print support for: patient summary profile, treatment plan (grouped by patient), reports page (each report tab printable) |
+
+### Epic 4 — Performance Optimization
+
+| Story | Status | Description |
+|---|---|---|
+| 4.1 – Route-Level Code Splitting | DONE | loading.tsx files created for 10 route segments: patients, appointments, treatments, invoices, inventory, staff, reports, audit-logs, settings, prescriptions |
+| 4.2 – Virtual Scrolling | TODO | Install `@tanstack/react-virtual`. Virtualize tables with 100+ rows (audit logs, patients in large clinics) |
+| 4.3 – Image & Asset Optimization | TODO | Lazy load avatars, optimize dental chart SVG rendering, use Next.js Image component where applicable |
+| 4.4 – Query Optimization | TODO | Review TanStack Query cache keys — ensure list invalidation on mutations, prefetch on hover for detail pages, parallel queries where possible |
+
+### Epic 5 — Frontend Testing
+
+| Story | Status | Description |
+|---|---|---|
+| 5.1 – Setup Vitest + React Testing Library | DONE | vitest 4.1.0, @testing-library/react, @testing-library/jest-dom/vitest, jsdom env. vitest.config.ts + setup.tsx with mocks for next/navigation, next/link, next-themes |
+| 5.2 – Component Unit Tests | PARTIAL | 20 tests passing across 3 suites: auth-store (9 tests), export utility (6 tests), breadcrumbs (5 tests). DataTable, DentalChart, InvoiceForm still TODO |
+| 5.3 – E2E Tests with Playwright | TODO | Install Playwright. Write E2E flows: login → dashboard, patient CRUD, appointment booking, invoice creation + payment |
+
+---
+
+## Phase 3 — Operational Features
+
+> **Goal:** Features clinics expect from paid software — notifications, exports, and real operational workflows.
+
+### Epic 1 — Notification System (Backend)
+
+| Story | Status | Description |
+|---|---|---|
+| 1.1 – Notification Module & Model | TODO | Notification model (id, clinic_id, user_id, type enum, title, body, is_read, metadata JSON, created_at). NotificationModule with CRUD. Prisma migration |
+| 1.2 – Email Service | TODO | Install `@nestjs-modules/mailer` + `nodemailer`. EmailService with templates. BullMQ email queue for async sending. Templates: appointment reminder, payment receipt, welcome email |
+| 1.3 – Appointment Reminders | TODO | BullMQ cron job: query next-day appointments, create notification + send email/SMS. Configurable reminder timing per clinic |
+| 1.4 – Payment & Overdue Alerts | TODO | Cron job: check overdue installments (due_date < today, status = pending), create notification. Alert for invoices pending > 7 days |
+| 1.5 – Low Inventory Alerts | TODO | Cron job: query items where quantity <= reorder_level, create notification for clinic admin. Runs daily |
+| 1.6 – Real-Time Notifications (WebSocket) | TODO | NestJS WebSocket gateway. Push notifications to connected clients. Notification bell in frontend topbar with unread count badge |
+
+### Epic 2 — Notification System (Frontend)
+
+| Story | Status | Description |
+|---|---|---|
+| 2.1 – Notification Bell & Dropdown | TODO | Bell icon in topbar with unread count badge. Dropdown shows recent notifications grouped by type. Click marks as read |
+| 2.2 – Notification Center Page | TODO | /notifications page — full list with filters (type, read/unread, date range), pagination, bulk mark-as-read |
+| 2.3 – Notification Preferences | TODO | Per-user settings: enable/disable notification types, email opt-in/out. Store in user preferences |
+
+### Epic 3 — Enhanced Audit & Activity
+
+| Story | Status | Description |
+|---|---|---|
+| 3.1 – Audit Log Detail View | TODO | Click audit log row → side panel showing full metadata JSON (formatted), entity link (navigate to the actual patient/invoice/etc), before/after diff for updates |
+| 3.2 – User Activity Timeline | TODO | On staff detail page — show activity timeline (recent actions by that user from audit logs) |
+| 3.3 – Login History | TODO | Track login events (IP, user-agent, timestamp). Show on user profile. Alert on unusual login patterns |
+
+### Epic 4 — Scheduling Enhancements
+
+| Story | Status | Description |
+|---|---|---|
+| 4.1 – Branch Working Hours | TODO | Backend model for branch operating hours (per weekday). Frontend settings UI to configure. Validate appointments fall within working hours |
+| 4.2 – Dentist Availability/Schedule | TODO | Model for dentist availability (weekday + time ranges). Show only available slots when booking. Block booking outside schedule |
+| 4.3 – Appointment Reschedule | TODO | Dedicated reschedule flow (change date/time, carry forward notes, update audit log). Notify patient of change |
+| 4.4 – Recurring Appointments | TODO | Schedule follow-up appointments (e.g., weekly cleaning for 4 weeks). Backend: create batch with recurrence_group_id |
+
+---
+
+## Phase 4 — Production Readiness & Launch
+
+> **Goal:** Harden security, set up deployment, monitoring, and prepare for real clinics.
+
+### Epic 1 — Security Hardening
+
+| Story | Status | Description |
+|---|---|---|
+| 1.1 – Helmet Security Headers | TODO | Install `helmet` in NestJS. Configure CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy |
+| 1.2 – CSRF Protection | TODO | Add CSRF token generation + validation for state-changing requests. Double-submit cookie pattern |
+| 1.3 – Rate Limiting Verification | TODO | Verify Throttler is applied globally in main.ts (currently may only be per-module). Add IP-based rate limiting log |
+| 1.4 – Secure Cookie Configuration | TODO | HTTPOnly, Secure, SameSite=Strict for auth tokens. Consider migrating from localStorage to secure cookies |
+| 1.5 – Input Sanitization | TODO | Ensure HTML/script sanitization on all text fields (patient notes, medical history, etc.) to prevent stored XSS |
+| 1.6 – Dependency Audit | TODO | Run `npm audit`, update vulnerable packages. Add `npm audit` to CI pipeline |
+
+### Epic 2 — Monitoring & Logging
+
+| Story | Status | Description |
+|---|---|---|
+| 2.1 – Sentry Integration (Backend) | TODO | Install `@sentry/nestjs`. Configure DSN, environment, release tracking. Catch unhandled exceptions + transaction tracing |
+| 2.2 – Sentry Integration (Frontend) | TODO | Install `@sentry/nextjs`. Error boundary wrapping, breadcrumb tracking, user context from auth store |
+| 2.3 – Structured Logging | TODO | Install `pino` or `winston`. Replace console.log with structured JSON logs. Log levels: error, warn, info, debug. Include request_id, clinic_id, user_id context |
+| 2.4 – Health Check Enhancement | TODO | Expand /health endpoint: check DB connection, Redis connection, disk space, memory usage. Add /ready endpoint for Kubernetes |
+| 2.5 – Uptime Monitoring | TODO | Configure external uptime monitor (UptimeRobot/BetterStack) for API + frontend health endpoints |
+
+### Epic 3 — Deployment & Infrastructure
+
+| Story | Status | Description |
+|---|---|---|
+| 3.1 – Frontend Dockerfile | TODO | Multi-stage Dockerfile for Next.js (standalone output mode). Optimize for production |
+| 3.2 – Docker Compose | TODO | docker-compose.yml: backend + frontend + PostgreSQL + Redis. Volumes for DB data persistence. Environment variable management |
+| 3.3 – Environment Configuration | TODO | Create .env.example for both backend/frontend. Document all required env vars. Validate env vars on startup |
+| 3.4 – CI/CD Pipeline (GitHub Actions) | TODO | Workflow: lint → type-check → test → build → deploy. Separate pipelines for backend/frontend. Branch protection rules |
+| 3.5 – Staging Environment | TODO | Deploy staging to Render/Railway. Auto-deploy from `develop` branch. Production from `main` |
+| 3.6 – Database Migration Strategy | TODO | Automated migration in CI/CD. Rollback procedures documented. Seed data for staging |
+
+### Epic 4 — Backup & Disaster Recovery
+
+| Story | Status | Description |
+|---|---|---|
+| 4.1 – Database Backup Automation | TODO | pg_dump scheduled backup (daily). Compress + upload to S3/Cloudflare R2. 30-day retention policy |
+| 4.2 – Backup Verification | TODO | Monthly restore test to verify backup integrity. Document restore procedure |
+| 4.3 – Data Export for Compliance | TODO | Clinic admin can export all their clinic data (patients, invoices, records) for data portability. Required for compliance |
+
+### Epic 5 — Pre-Launch Checklist
+
+| Story | Status | Description |
+|---|---|---|
+| 5.1 – Landing Page | TODO | Public marketing page with features, pricing tiers, testimonials, CTA to register. SEO optimized |
+| 5.2 – Terms of Service & Privacy Policy | TODO | Legal pages required for SaaS launch. HIPAA-inspired data handling policies for medical data |
+| 5.3 – Onboarding Flow | TODO | First-login tutorial: guide new clinic through branch setup → add staff → add first patient → book appointment |
+| 5.4 – Plan Selection during Registration | TODO | Allow selecting Starter/Professional/Enterprise plan during clinic registration. Show feature comparison table |
+| 5.5 – Payment Integration (Razorpay) | TODO | Subscription billing via Razorpay. Plan upgrade/downgrade. Webhook for payment status |
+
+---
+
+## Phase 5 — AI Features
+
+> **Goal:** Add AI-powered features that differentiate the product. Use plan-based AI quota.
+
+### Epic 1 — AI Service Foundation
+
+| Story | Status | Description |
+|---|---|---|
+| 1.1 – AI Service Module | TODO | NestJS module wrapping OpenAI/Anthropic API. Configurable model selection. Token tracking. Queue-based for long operations |
+| 1.2 – AI Quota Enforcement | DONE | Backend AiUsageGuard tracks per-clinic usage against plan quota (already implemented) |
+
+### Epic 2 — Clinical AI Features
+
+| Story | Status | Description |
+|---|---|---|
+| 2.1 – Auto Clinical Notes | TODO | After marking appointment complete, AI generates structured clinical notes from treatment data. Dentist reviews + edits before saving |
+| 2.2 – Prescription Suggestions | TODO | Based on diagnosis + treatment, suggest common prescriptions (medicine, dosage, duration). Dentist approves/modifies |
+| 2.3 – Patient Education Generator | TODO | Generate patient-friendly explanations of procedures (e.g., "What is RCT?"). Shareable via print/WhatsApp |
+| 2.4 – Follow-Up Message Generator | TODO | Draft follow-up SMS/WhatsApp messages for post-treatment care instructions |
+| 2.5 – Smart Scheduling Suggestions | TODO | Based on treatment plan, suggest follow-up appointment dates. AI considers dentist availability + treatment gaps |
+
+---
+
+## Phase 6 — Mobile App (React Native)
+
+> **Goal:** Dentist-focused mobile app for on-the-go access. Not a full admin app.
+
+### Epic 1 — Setup & Auth
+
+| Story | Status | Description |
+|---|---|---|
+| 1.1 – React Native Project Init | TODO | Expo + TypeScript. Shared API types with web frontend |
+| 1.2 – Mobile Login | TODO | Login screen with clinic ID, email, password. Biometric auth (fingerprint/face) for return visits |
+| 1.3 – Push Notifications | TODO | Firebase Cloud Messaging. Appointment reminders, new patient alerts |
+
+### Epic 2 — Dentist Mobile Workflow
+
+| Story | Status | Description |
+|---|---|---|
+| 2.1 – Today's Schedule Screen | TODO | List of today's appointments with patient name, time, procedure, status. Pull-to-refresh |
+| 2.2 – Patient Quick View | TODO | Search patient, view profile summary, recent treatments, dental chart (simplified) |
+| 2.3 – Treatment Update | TODO | Mark treatment status (in_progress → completed), add notes, update cost |
+| 2.4 – Quick Prescription | TODO | Create prescription from mobile with auto-suggest medicines |
+| 2.5 – Offline Support | TODO | Cache today's appointments + recent patients. Sync when online. Conflict resolution |
+
+---
+
+## Recommended Execution Order
+
+```
+Phase 2.5 (2-3 weeks) ← You are here
+  └─ Epic 1: Advanced Tables (3-4 days)
+  └─ Epic 2: Workflow Polish (3-4 days)
+  └─ Epic 3: Data Export (2-3 days)
+  └─ Epic 4: Performance (2-3 days)
+  └─ Epic 5: Frontend Testing (3-4 days)
+
+Phase 4 — Production Readiness (1-2 weeks)
+  └─ Epic 1: Security (2-3 days)
+  └─ Epic 2: Monitoring (2 days)
+  └─ Epic 3: Deployment (2-3 days)
+  └─ Epic 4: Backups (1-2 days)
+  └─ Epic 5: Pre-Launch (3-5 days)
+
+Phase 3 — Operational Features (2-3 weeks)
+  └─ Epic 1-2: Notifications (5-7 days)
+  └─ Epic 3: Audit enhancements (2-3 days)
+  └─ Epic 4: Scheduling (3-5 days)
+
+Phase 5 — AI Features (2-3 weeks)
+Phase 6 — Mobile App (4-6 weeks)
+```
+
+> **Note:** Phase 4 (Production Readiness) is intentionally placed before Phase 3 (Operational Features).  
+> Rationale: Get the product deployed and usable by 1-2 pilot clinics while building operational features.  
+> Early users provide feedback that shapes which operational features to prioritize.
+
+---
+
+## Key Metrics for Launch Readiness
+
+| Metric | Target |
+|---|---|
+| Backend test coverage | > 80% |
+| Frontend component tests | Critical flows covered |
+| E2E tests | Login, patient CRUD, booking, invoice+payment |
+| Lighthouse performance score | > 80 |
+| Security audit | 0 critical/high vulnerabilities |
+| Mean page load time | < 2s |
+| API response time (p95) | < 500ms |
+| Uptime target | 99.5% |
