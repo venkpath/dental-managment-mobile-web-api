@@ -1,14 +1,15 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
-import { CreateInvoiceDto, CreatePaymentDto, QueryInvoiceDto } from './dto/index.js';
+import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
 import { Invoice, Payment, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
 
 const INVOICE_INCLUDE = {
   items: { include: { treatment: true } },
-  payments: true,
+  payments: { include: { installment_item: true }, orderBy: { paid_at: 'asc' as const } },
   patient: true,
   branch: true,
+  installment_plan: { include: { items: { orderBy: { installment_number: 'asc' as const } } } },
 } as const;
 
 @Injectable()
@@ -74,6 +75,7 @@ export class InvoiceService {
           items: {
             create: items.map((item) => ({
               treatment_id: item.treatment_id,
+              item_type: item.item_type,
               description: item.description,
               quantity: item.quantity,
               unit_price: new Prisma.Decimal(item.unit_price),
@@ -154,22 +156,107 @@ export class InvoiceService {
       const payment = await tx.payment.create({
         data: {
           invoice_id: dto.invoice_id,
+          installment_item_id: dto.installment_item_id,
           method: dto.method,
           amount: new Prisma.Decimal(dto.amount),
+          notes: dto.notes,
         },
       });
 
-      // Auto-mark as paid if fully settled
+      // If payment is against an installment item, mark it as paid
+      if (dto.installment_item_id) {
+        const installmentPayments = await tx.payment.aggregate({
+          where: { installment_item_id: dto.installment_item_id },
+          _sum: { amount: true },
+        });
+        const installmentItem = await tx.installmentItem.findUnique({
+          where: { id: dto.installment_item_id },
+        });
+        if (installmentItem && Number(installmentPayments._sum.amount ?? 0) >= Number(installmentItem.amount) - 0.01) {
+          await tx.installmentItem.update({
+            where: { id: dto.installment_item_id },
+            data: { status: 'paid', paid_at: new Date() },
+          });
+        }
+      }
+
+      // Update invoice status
       const newTotal = paidSoFar + dto.amount;
       if (newTotal >= Number(invoice.net_amount) - 0.01) {
         await tx.invoice.update({
           where: { id: dto.invoice_id },
           data: { status: 'paid' },
         });
+      } else if (newTotal > 0.01) {
+        await tx.invoice.update({
+          where: { id: dto.invoice_id },
+          data: { status: 'partially_paid' },
+        });
       }
 
       return payment;
     });
+  }
+
+  async createInstallmentPlan(clinicId: string, dto: CreateInstallmentPlanDto) {
+    const invoiceId = dto.invoice_id!;
+    const invoice = await this.findOne(clinicId, invoiceId);
+
+    // Verify no existing plan
+    const existingPlan = await this.prisma.installmentPlan.findUnique({
+      where: { invoice_id: invoiceId },
+    });
+    if (existingPlan) {
+      throw new BadRequestException('An installment plan already exists for this invoice');
+    }
+
+    // Verify total of installments matches invoice net_amount
+    const installmentTotal = dto.items.reduce((sum, item) => sum + item.amount, 0);
+    if (Math.abs(installmentTotal - Number(invoice.net_amount)) > 0.01) {
+      throw new BadRequestException(
+        `Installment total (${installmentTotal.toFixed(2)}) must equal invoice net amount (${Number(invoice.net_amount).toFixed(2)})`,
+      );
+    }
+
+    return this.prisma.installmentPlan.create({
+      data: {
+        invoice_id: invoiceId,
+        total_amount: new Prisma.Decimal(installmentTotal),
+        num_installments: dto.items.length,
+        notes: dto.notes,
+        items: {
+          create: dto.items.map((item) => ({
+            installment_number: item.installment_number,
+            amount: new Prisma.Decimal(item.amount),
+            due_date: new Date(item.due_date),
+          })),
+        },
+      },
+      include: { items: { orderBy: { installment_number: 'asc' } } },
+    });
+  }
+
+  async deleteInstallmentPlan(clinicId: string, invoiceId: string) {
+    // Validate invoice belongs to clinic
+    await this.findOne(clinicId, invoiceId);
+
+    const plan = await this.prisma.installmentPlan.findUnique({
+      where: { invoice_id: invoiceId },
+    });
+    if (!plan) {
+      throw new NotFoundException('No installment plan found for this invoice');
+    }
+
+    // Check if any installment payments have been made
+    const paidInstallments = await this.prisma.payment.count({
+      where: { invoice_id: invoiceId, installment_item_id: { not: null } },
+    });
+    if (paidInstallments > 0) {
+      throw new BadRequestException('Cannot delete installment plan with existing payments against it');
+    }
+
+    await this.prisma.installmentPlan.delete({ where: { id: plan.id } });
+    return { message: 'Installment plan deleted' };
   }
 
   private async generateInvoiceNumber(

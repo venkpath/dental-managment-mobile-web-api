@@ -1,5 +1,5 @@
-import { IsUUID, IsNumber, IsEnum, Min } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsUUID, IsNumber, IsEnum, Min, IsOptional, IsString, MaxLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 export enum PaymentMethod {
@@ -13,6 +13,11 @@ export class CreatePaymentDto {
   @IsUUID()
   invoice_id!: string;
 
+  @ApiPropertyOptional({ description: 'Installment item UUID (when paying a specific installment)' })
+  @IsOptional()
+  @IsUUID()
+  installment_item_id?: string;
+
   @ApiProperty({ example: 'upi', enum: PaymentMethod })
   @IsEnum(PaymentMethod)
   method!: PaymentMethod;
@@ -22,4 +27,10 @@ export class CreatePaymentDto {
   @Min(0.01)
   @Type(() => Number)
   amount!: number;
+
+  @ApiPropertyOptional({ example: 'First installment payment', maxLength: 500 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
 }

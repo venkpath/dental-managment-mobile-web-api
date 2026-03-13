@@ -74,6 +74,9 @@ export class TreatmentService {
   async findAll(clinicId: string, query: QueryTreatmentDto): Promise<PaginatedResult<Treatment>> {
     const where: Prisma.TreatmentWhereInput = { clinic_id: clinicId };
 
+    if (query.patient_id) {
+      where.patient_id = query.patient_id;
+    }
     if (query.dentist_id) {
       where.dentist_id = query.dentist_id;
     }

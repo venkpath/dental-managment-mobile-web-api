@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Param,
   Body,
   Query,
@@ -18,7 +19,7 @@ import {
   ApiHeader,
 } from '@nestjs/swagger';
 import { InvoiceService } from './invoice.service.js';
-import { CreateInvoiceDto, CreatePaymentDto, QueryInvoiceDto } from './dto/index.js';
+import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 
@@ -62,7 +63,7 @@ export class InvoiceController {
   }
 
   @Post('payments')
-  @ApiOperation({ summary: 'Record a payment against an invoice' })
+  @ApiOperation({ summary: 'Record a payment against an invoice (supports installments)' })
   @ApiCreatedResponse({ description: 'Payment recorded successfully' })
   @ApiNotFoundResponse({ description: 'Invoice not found' })
   @ApiBadRequestResponse({ description: 'Invoice already paid or amount exceeds balance' })
@@ -71,5 +72,29 @@ export class InvoiceController {
     @Body() dto: CreatePaymentDto,
   ) {
     return this.invoiceService.addPayment(clinicId, dto);
+  }
+
+  @Post('invoices/:id/installment-plan')
+  @ApiOperation({ summary: 'Create an installment plan for an invoice' })
+  @ApiCreatedResponse({ description: 'Installment plan created' })
+  @ApiNotFoundResponse({ description: 'Invoice not found' })
+  @ApiBadRequestResponse({ description: 'Plan already exists or total mismatch' })
+  async createInstallmentPlan(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateInstallmentPlanDto,
+  ) {
+    dto.invoice_id = id;
+    return this.invoiceService.createInstallmentPlan(clinicId, dto);
+  }
+
+  @Delete('invoices/:id/installment-plan')
+  @ApiOperation({ summary: 'Delete an installment plan (only if no payments made against it)' })
+  @ApiOkResponse({ description: 'Installment plan deleted' })
+  async deleteInstallmentPlan(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.invoiceService.deleteInstallmentPlan(clinicId, id);
   }
 }

@@ -4,6 +4,11 @@ import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto.js'
 import { TreatmentStatus } from './create-treatment.dto.js';
 
 export class QueryTreatmentDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ description: 'Filter by patient UUID' })
+  @IsOptional()
+  @IsUUID()
+  patient_id?: string;
+
   @ApiPropertyOptional({ description: 'Filter by dentist UUID' })
   @IsOptional()
   @IsUUID()

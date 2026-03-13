@@ -10,13 +10,21 @@ import {
   MaxLength,
   Min,
   Matches,
+  IsEnum,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 export enum InvoiceStatus {
   PENDING = 'pending',
+  PARTIALLY_PAID = 'partially_paid',
   PAID = 'paid',
+}
+
+export enum InvoiceItemType {
+  TREATMENT = 'treatment',
+  SERVICE = 'service',
+  PHARMACY = 'pharmacy',
 }
 
 export class InvoiceItemDto {
@@ -24,6 +32,10 @@ export class InvoiceItemDto {
   @IsOptional()
   @IsUUID()
   treatment_id?: string;
+
+  @ApiProperty({ example: 'service', enum: InvoiceItemType, description: 'Type of line item' })
+  @IsEnum(InvoiceItemType)
+  item_type!: InvoiceItemType;
 
   @ApiProperty({ example: 'Composite restoration – Tooth #14', maxLength: 500 })
   @IsString()

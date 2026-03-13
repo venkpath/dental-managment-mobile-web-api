@@ -303,15 +303,16 @@ model Invoice {
   net_amount      Decimal  @db.Decimal(10, 2)
   gst_number      String?  @db.VarChar(20)
   tax_breakdown   Json?
-  status          String   @default("pending") @db.VarChar(20)
+  status          String   @default("pending") @db.VarChar(20) // pending | partially_paid | paid
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
 
-  clinic   Clinic        @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch   Branch        @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  patient  Patient       @relation(fields: [patient_id], references: [id], onDelete: Cascade)
-  items    InvoiceItem[]
-  payments Payment[]
+  clinic          Clinic             @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch          Branch             @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient         Patient            @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  items           InvoiceItem[]
+  payments        Payment[]
+  installment_plan InstallmentPlan?
 
   @@unique([clinic_id, invoice_number])
   @@index([clinic_id])
@@ -325,6 +326,7 @@ model InvoiceItem {
   id           String   @id @default(uuid()) @db.Uuid
   invoice_id   String   @db.Uuid
   treatment_id String?  @db.Uuid
+  item_type    String   @default("service") @db.VarChar(20) // treatment | service | pharmacy
   description  String   @db.VarChar(500)
   quantity     Int      @default(1)
   unit_price   Decimal  @db.Decimal(10, 2)
@@ -339,16 +341,53 @@ model InvoiceItem {
 }
 
 model Payment {
-  id         String   @id @default(uuid()) @db.Uuid
-  invoice_id String   @db.Uuid
-  method     String   @db.VarChar(20)
-  amount     Decimal  @db.Decimal(10, 2)
-  paid_at    DateTime @default(now())
+  id                  String   @id @default(uuid()) @db.Uuid
+  invoice_id          String   @db.Uuid
+  installment_item_id String?  @db.Uuid
+  method              String   @db.VarChar(20)
+  amount              Decimal  @db.Decimal(10, 2)
+  notes               String?  @db.VarChar(500)
+  paid_at             DateTime @default(now())
 
-  invoice Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  invoice          Invoice          @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  installment_item InstallmentItem? @relation(fields: [installment_item_id], references: [id], onDelete: SetNull)
 
   @@index([invoice_id])
+  @@index([installment_item_id])
   @@map("payments")
+}
+
+model InstallmentPlan {
+  id              String   @id @default(uuid()) @db.Uuid
+  invoice_id      String   @unique @db.Uuid
+  total_amount    Decimal  @db.Decimal(10, 2)
+  num_installments Int
+  notes           String?  @db.Text
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  invoice    Invoice           @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  items      InstallmentItem[]
+
+  @@index([invoice_id])
+  @@map("installment_plans")
+}
+
+model InstallmentItem {
+  id                  String    @id @default(uuid()) @db.Uuid
+  installment_plan_id String    @db.Uuid
+  installment_number  Int
+  amount              Decimal   @db.Decimal(10, 2)
+  due_date            DateTime  @db.Date
+  status              String    @default("pending") @db.VarChar(20) // pending | paid | overdue
+  paid_at             DateTime?
+  created_at          DateTime  @default(now())
+
+  plan     InstallmentPlan @relation(fields: [installment_plan_id], references: [id], onDelete: Cascade)
+  payments Payment[]
+
+  @@index([installment_plan_id])
+  @@map("installment_items")
 }
 
 model InventoryItem {
