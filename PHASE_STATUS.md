@@ -283,49 +283,43 @@
 | 5.2 – Component Unit Tests | PARTIAL | 20 tests passing: auth-store (9), export utility (6), breadcrumbs (5). DataTable, DentalChart, InvoiceForm still TODO |
 | 5.3 – E2E Tests (Playwright) | TODO | Login, patient CRUD, appointment booking, invoice + payment |
 
----
-
-## PHASE 3 — Operational Features ✅
-
-**Goal:** Real-world clinic features — notifications, scheduling, activity tracking.
-
-### Epic 1 — Notification System (Backend) ✅
+### Epic 6 — Notification System (Backend) ✅
 
 | Story | Status | Notes |
 |---|---|---|
-| 1.1 – Notification Module & Model | ✅ DONE | Prisma model, migration, CRUD service, controller (GET list, unread-count, PATCH read, read-all) |
-| 1.2 – Notification Queue | ✅ DONE | BullMQ notification_queue, producer + processor pattern |
-| 1.3 – Appointment Reminders | ✅ DONE | @nestjs/schedule cron daily 8AM — next-day appointment reminders for dentists |
-| 1.4 – Payment & Overdue Alerts | ✅ DONE | Cron daily 9AM — overdue installments, marks as overdue, notifies admins |
-| 1.5 – Low Inventory Alerts | ✅ DONE | Cron daily 7AM — items where quantity <= reorder_level, notifies admins |
-| 1.6 – Real-Time Notifications (WebSocket) | DEFERRED | Planned for later phase — requires WebSocket gateway infrastructure |
+| 6.1 – Notification Module & Model | ✅ DONE | Prisma model, migration, CRUD service, controller (GET list, unread-count, PATCH read, read-all) |
+| 6.2 – Notification Queue | ✅ DONE | BullMQ notification_queue, producer + processor pattern |
+| 6.3 – Appointment Reminders | ✅ DONE | @nestjs/schedule cron daily 8AM — next-day appointment reminders for dentists |
+| 6.4 – Payment & Overdue Alerts | ✅ DONE | Cron daily 9AM — overdue installments, marks as overdue, notifies admins |
+| 6.5 – Low Inventory Alerts | ✅ DONE | Cron daily 7AM — items where quantity <= reorder_level, notifies admins |
+| 6.6 – Real-Time Notifications (WebSocket) | DEFERRED | Planned for later phase — requires WebSocket gateway infrastructure |
 
-### Epic 2 — Notification System (Frontend) ✅
-
-| Story | Status | Notes |
-|---|---|---|
-| 2.1 – Notification Bell & Dropdown | ✅ DONE | Bell icon in topbar with unread count badge, recent 5 dropdown, auto-refresh 30s |
-| 2.2 – Notification Center Page | ✅ DONE | /notifications page with type filter, read status filter, pagination, mark-as-read |
-| 2.3 – Notification Preferences | DEFERRED | Per-user preferences planned for later |
-
-### Epic 3 — Enhanced Audit & Activity ✅
+### Epic 7 — Notification System (Frontend) ✅
 
 | Story | Status | Notes |
 |---|---|---|
-| 3.1 – Audit Log Detail View | ✅ DONE | Redesigned Sheet sidebar: hero section with action icon + badge + entity name + timestamp, IDs card (Entity ID, User ID, Log ID) with click-to-copy, "View" deep link to entity pages, smart MetadataViewer separates simple key-values (2-col grid) from complex objects (styled JSON blocks), underscore-to-space label formatting, wider panel (sm:max-w-xl) |
-| 3.2 – User Activity Timeline | ✅ DONE | Staff edit page — 2-column layout with recent activity card (last 20 actions) |
-| 3.3 – Login History | ✅ DONE | Login events logged via AuditLogService with `await` (immediate, not fire-and-forget), email + role + IP + user-agent metadata |
+| 7.1 – Notification Bell & Dropdown | ✅ DONE | Bell icon in topbar with unread count badge, recent 5 dropdown, auto-refresh 30s |
+| 7.2 – Notification Center Page | ✅ DONE | /notifications page with type filter, read status filter, pagination, mark-as-read |
+| 7.3 – Notification Preferences | DEFERRED | Per-user preferences planned for later |
 
-### Epic 4 — Scheduling Enhancements ✅
+### Epic 8 — Enhanced Audit & Activity ✅
 
 | Story | Status | Notes |
 |---|---|---|
-| 4.1 – Branch Working Hours | ✅ EXISTED | Already implemented — working hours, lunch break, slot duration, buffer, advance booking, working days |
-| 4.2 – Dentist Availability | ✅ EXISTED | Available slots API with slot visualization in booking form |
-| 4.3 – Appointment Reschedule | ✅ EXISTED | Update endpoint supports date/time/status changes |
-| 4.4 – Recurring Appointments | ✅ DONE | recurrence_group_id field, backend createRecurring (weekly/biweekly/monthly), frontend booking form with proper display names in Select dropdowns (patient/dentist/branch show name, not UUID) |
+| 8.1 – Audit Log Detail View | ✅ DONE | Redesigned Sheet sidebar: hero section with action icon + badge + entity name + timestamp, IDs card (Entity ID, User ID, Log ID) with click-to-copy, "View" deep link to entity pages, smart MetadataViewer separates simple key-values (2-col grid) from complex objects (styled JSON blocks), underscore-to-space label formatting, wider panel (sm:max-w-xl) |
+| 8.2 – User Activity Timeline | ✅ DONE | Staff edit page — 2-column layout with recent activity card (last 20 actions) |
+| 8.3 – Login History | ✅ DONE | Login events logged via AuditLogService with `await` (immediate, not fire-and-forget), email + role + IP + user-agent metadata |
 
-### Bug Fixes & Improvements (Post Phase 3)
+### Epic 9 — Scheduling Enhancements ✅
+
+| Story | Status | Notes |
+|---|---|---|
+| 9.1 – Branch Working Hours | ✅ EXISTED | Already implemented — working hours, lunch break, slot duration, buffer, advance booking, working days |
+| 9.2 – Dentist Availability | ✅ EXISTED | Available slots API with slot visualization in booking form |
+| 9.3 – Appointment Reschedule | ✅ EXISTED | Update endpoint supports date/time/status changes |
+| 9.4 – Recurring Appointments | ✅ DONE | recurrence_group_id field, backend createRecurring (weekly/biweekly/monthly), frontend booking form with proper display names in Select dropdowns (patient/dentist/branch show name, not UUID) |
+
+### Bug Fixes & Improvements (Phase 2.5)
 
 | Fix | Status | Notes |
 |---|---|---|
@@ -333,6 +327,168 @@
 | Login Audit Delay | ✅ FIXED | Changed from fire-and-forget to `await` so login appears immediately in audit logs |
 | Recurring Appointment Select Display | ✅ FIXED | Patient/Doctor/Branch Select components showed UUID after selection. Added lookup maps and explicit children in `<SelectValue>` for display names |
 | TypeScript Compilation Errors (19 errors) | ✅ FIXED | prisma.config.ts directUrl removal, import type for JwtPayload (TS1272), enum string literals in integration specs, missing item_type in invoice spec |
+
+---
+
+## PHASE 3 — Communication & Patient Engagement Platform ← CURRENT
+
+**Goal:** Enable clinics to communicate with patients through Email, SMS, WhatsApp, and In-app notifications — for reminders, campaigns, greetings, follow-ups, referrals, and authentication. Build a best-in-class patient engagement platform for Indian dental clinics.
+
+**Architecture:** Channel-agnostic pipeline: Event → Communication Service (dedup, preference check, DND) → Template Engine → Queue (BullMQ, rate-limited) → Channel Provider (fallback chain) → Email/SMS/WhatsApp → Delivery Webhook → Update Logs
+
+### Epic 1 — Communication Infrastructure
+
+| Story | Status | Notes |
+|---|---|---|
+| 1.1 – Communication Module | TODO | src/modules/communications — module, service, controller, dto, providers, workers, utils |
+| 1.2 – Communication Queues | TODO | BullMQ queues: communication_email, communication_sms, communication_whatsapp. Retries (3x exponential backoff) |
+| 1.3 – Communication Message Entity | TODO | communication_messages table: id, clinic_id, patient_id, channel, template_id, category (transactional/promotional), status, scheduled_at, sent_at |
+| 1.4 – Communication Logs | TODO | communication_logs table: message_id, recipient, channel, provider, status, provider_message_id, sent_at, delivered_at, read_at, failed_at, error_message, cost |
+| 1.5 – Channel Provider Interface | TODO | Provider abstraction with factory pattern. Implementations: email, sms, whatsapp. Interchangeable, no coupling |
+| 1.6 – Message Deduplication | TODO | Hash (patient_id + template_id + channel + date), configurable dedup window (24h default), skip with reason |
+| 1.7 – Channel Fallback Logic | TODO | Configurable fallback chain (WhatsApp → SMS → Email). Auto-retry on next channel if delivery fails |
+| 1.8 – Circuit Breaker | TODO | Pause channel if >20% failure rate in last 100 messages. Alert admin, auto-resume after cooldown |
+
+### Epic 2 — Message Template System
+
+| Story | Status | Notes |
+|---|---|---|
+| 2.1 – Template Entity | TODO | message_templates: id, clinic_id, channel, category, template_name, subject, body, variables, language, is_active, dlt_template_id, whatsapp_template_status |
+| 2.2 – Template Rendering Engine | TODO | Placeholders (patient, appointment, clinic, financial, campaign, referral), conditional blocks, date/currency formatting |
+| 2.3 – Template Management API | TODO | CRUD: POST/GET/PATCH/DELETE /communication/templates with channel, category, language filters |
+| 2.4 – Default Templates (Seed) | TODO | 15+ templates: reminders, greetings, care instructions, campaigns, auth, feedback, referral, reactivation |
+| 2.5 – Multilingual Support | TODO | preferred_language on Patient. Templates with language variants. Fallback to 'en'. Support: hi, ta, te, kn, mr, ml, bn, gu |
+| 2.6 – Template Categories & Tagging | TODO | Categories: reminder, greeting, campaign, transactional, follow_up, referral. Maps to DLT routing |
+
+### Epic 3 — Email Channel Integration
+
+| Story | Status | Notes |
+|---|---|---|
+| 3.1 – Email Provider | TODO | @nestjs-modules/mailer + Handlebars, SMTP, Mailtrap (dev), SendGrid/SES (prod) |
+| 3.2 – Email Worker | TODO | BullMQ worker: render template → send via provider → update logs |
+| 3.3 – HTML Email Templates | TODO | Professional layouts: reminders, campaigns (hero+CTA+unsubscribe), auth, greetings, receipts, care instructions |
+
+### Epic 4 — SMS Channel + DLT Compliance
+
+| Story | Status | Notes |
+|---|---|---|
+| 4.1 – SMS Provider Integration | TODO | MSG91 primary. Transactional + promotional routes (different sender IDs). Clinic-level DLT Entity ID + Sender ID |
+| 4.2 – DLT Template Registration | TODO | dlt_template_id field on templates. Validate only DLT-approved templates sent via SMS. Admin UI for DLT ID input |
+| 4.3 – SMS Worker | TODO | Character count validation (160 GSM / 70 Unicode), long message splitting, DLT template ID in API call |
+| 4.4 – SMS Delivery Reports | TODO | Webhook/polling for delivery receipts. Track DLT scrubbing failures. Cost tracking (~₹0.15-0.25/SMS) |
+
+### Epic 5 — WhatsApp Business API
+
+| Story | Status | Notes |
+|---|---|---|
+| 5.1 – WhatsApp BSP Integration | TODO | Gupshup primary. Clinic-level credentials: API key, Phone Number ID, WABA ID. Provider switching support |
+| 5.2 – Template Approval Workflow | TODO | Submit template to Meta via BSP → track status (draft/submitted/approved/rejected) → only send approved |
+| 5.3 – Interactive Messages | TODO | Quick reply buttons (Confirm/Reschedule/Cancel), list messages (slot selection), CTA buttons (payment/feedback link) |
+| 5.4 – Media Messages | TODO | Images (greetings, X-rays), PDFs (invoices, prescriptions), location pins (clinic address) |
+| 5.5 – Session Messaging | TODO | 24-hour reply window, free-form messaging, session tracking, UI for staff responses |
+| 5.6 – Webhook & Delivery Tracking | TODO | Delivery receipts (sent/delivered/read/failed), read rate tracking, incoming reply routing |
+
+### Epic 6 — Patient Preferences + TRAI Compliance
+
+| Story | Status | Notes |
+|---|---|---|
+| 6.1 – Communication Preferences Table | TODO | patient_communication_preferences: allow_email/sms/whatsapp/marketing/reminders, preferred_channel, preferred_language, quiet_hours |
+| 6.2 – Preference API | TODO | GET/PATCH /patients/:id/communication-preferences |
+| 6.3 – Preference Enforcement | TODO | Check patient + clinic preferences before sending, skip if disabled with reason logged |
+| 6.4 – DND / Quiet Hours Enforcement | TODO | TRAI: no promos 9PM-9AM. Transactional exempt. Queue promotional to next valid window |
+| 6.5 – Consent Audit Trail | TODO | consent_audit_log: field_changed, old/new value, changed_by, source, ip_address. Legally required |
+| 6.6 – Self-Service Opt-Out Link | TODO | Signed JWT opt-out URL in every promo message. Landing page with preference toggles. No login required |
+| 6.7 – NDNC Registry Check | TODO | Optional check before first SMS. Flag DND numbers. Override for transactional only |
+
+### Epic 7 — Clinic Communication Settings
+
+| Story | Status | Notes |
+|---|---|---|
+| 7.1 – Settings Table | TODO | clinic_communication_settings: enable channels, provider configs (encrypted), fallback chain, rate limits, message limits |
+| 7.2 – Settings API | TODO | GET/PATCH settings + POST test-connection per channel |
+
+### Epic 8 — Appointment & Payment Reminders
+
+| Story | Status | Notes |
+|---|---|---|
+| 8.1 – Appointment Reminder Scheduler | TODO | Cron: 24hr (daily 8AM) + 2hr (every 30min) reminders. Check preferences + clinic settings |
+| 8.2 – Reminder Notification Creation | TODO | Generate communication_messages, render template, queue for delivery |
+| 8.3 – Reminder Template Selection | TODO | Per-clinic template choice. Different templates per channel (email=detailed, SMS=concise, WhatsApp=interactive) |
+| 8.4 – Installment Due Reminder | TODO | 3 days before due date, remind patient. Leverage existing InstallmentItem model |
+| 8.5 – Overdue Payment Notification | TODO | Notify patient (not just admin) when installment overdue. Gentle tone + clinic phone |
+| 8.6 – Payment Confirmation Receipt | TODO | After payment recorded, send confirmation with amount, balance, next installment date |
+
+### Epic 9 — Campaign Management
+
+| Story | Status | Notes |
+|---|---|---|
+| 9.1 – Campaign Entity | TODO | campaigns table: name, channel, template_id, segment_type, segment_config, status, schedule, analytics counters, cost tracking |
+| 9.2 – Target Segments | TODO | All patients, inactive (3/6/12mo), treatment type, birthday month, location, custom filters. Audience count preview |
+| 9.3 – Campaign Scheduler | TODO | BullMQ delayed jobs. Send now or schedule. Respect DND/quiet hours |
+| 9.4 – Campaign Execution | TODO | Create messages per patient, respect preferences, rate limiting, progress tracking |
+| 9.5 – Campaign Analytics | TODO | Sent/delivered/failed/read counts, delivery rate, cost, attributed bookings within 7 days |
+| 9.6 – Dormant Patient Detection | TODO | Weekly cron: 3mo/6mo/12mo inactivity tiers. Tag for easy segmentation |
+| 9.7 – Reactivation Drip Sequence | TODO | Multi-step: Day 0 (gentle), Day 7 (treatments), Day 21 (offer). Stop on booking |
+| 9.8 – A/B Testing | TODO | 2 template variants, random split, track winner, send winner to remaining |
+| 9.9 – Cost Tracking & ROI | TODO | Per-message cost, campaign total, attributed revenue, ROI calculation |
+| 9.10 – Rate Limiting & Throttling | TODO | Configurable messages/minute, stagger large campaigns, estimated completion time |
+
+### Epic 10 — Greetings & Occasion Automation
+
+| Story | Status | Notes |
+|---|---|---|
+| 10.1 – Birthday Greeting | TODO | Daily cron, preferred channel, customizable template, optional birthday offer |
+| 10.2 – Festival Calendar | TODO | clinic_events table. Pre-seeded: Diwali, Holi, Eid, Christmas, New Year, Pongal, Onam, Ugadi, etc. Custom events |
+| 10.3 – Festival Greeting Automation | TODO | Cron checks events, send greeting to opted-in patients, festival imagery via WhatsApp media |
+| 10.4 – Festival Offer Campaigns | TODO | One-click campaign from festival event. Pre-built offer templates |
+| 10.5 – Patient Anniversary Greeting | TODO | Registration anniversary. Loyalty discount at milestones (1, 2, 5, 10 years) |
+| 10.6 – Custom Occasion Greetings | TODO | Clinic-defined events (clinic anniversary, local festivals) |
+
+### Epic 11 — Post-Treatment & Follow-Up Automation
+
+| Story | Status | Notes |
+|---|---|---|
+| 11.1 – Post-Treatment Care Instructions | TODO | Auto-send care instructions by procedure type (extraction, RCT, filling, scaling). 1hr delay after completion |
+| 11.2 – Post-Visit Feedback Collection | TODO | 3-4hrs after appointment, request rating (1-5). WhatsApp buttons, email form. Store in patient_feedback |
+| 11.3 – Google Review Solicitation | TODO | If feedback >= 4 stars, send Google review link. clinic.google_review_url config. SEO impact |
+| 11.4 – No-Show Follow-Up | TODO | 1hr after no_show status, "We missed you, reschedule?" WhatsApp quick replies. Track rebooking rate |
+| 11.5 – Treatment Plan Reminders | TODO | Weekly cron: incomplete treatments with no appointment in 14+ days. Send reminder with details |
+| 11.6 – Prescription Refill Reminders | TODO | Calculate medication end from duration. Remind 2 days before. Track follow-up appointments |
+
+### Epic 12 — Referral Program
+
+| Story | Status | Notes |
+|---|---|---|
+| 12.1 – Referral Code Generation | TODO | patient_referral_codes table. Unique 6-8 char human-readable codes. Auto-generate on first visit |
+| 12.2 – Referral Tracking | TODO | referrals table: referrer, referred patient, status, reward. Capture code during registration |
+| 12.3 – Referral Invitation Message | TODO | "Refer a friend, both get {{reward}}." Shareable WhatsApp link. After positive feedback or manual trigger |
+| 12.4 – Referral Reward Notification | TODO | Notify referrer when referred patient completes first visit. Credit reward (discount/credit on next invoice) |
+| 12.5 – Referral Analytics | TODO | Codes distributed, new patients via referrals, conversion rate, attributed revenue, top referrers |
+
+### Epic 13 — Authentication Messaging
+
+| Story | Status | Notes |
+|---|---|---|
+| 13.1 – Email Verification | TODO | Verification email on signup. Signed JWT link (24hr expiry). HTML template with CTA |
+| 13.2 – Password Reset Email | TODO | Reset link with signed JWT (1hr expiry). Security notice in template |
+| 13.3 – OTP Messaging | TODO | 6-digit OTP, 10min expiry. Email/SMS/WhatsApp. Store hash, track attempts, rate limit 5/hr |
+
+### Epic 14 — Communication UI
+
+| Story | Status | Notes |
+|---|---|---|
+| 14.1 – Sidebar Section | TODO | New "Communications" section: Templates, Campaigns, Automation, Logs, Settings |
+| 14.2 – Templates Page | TODO | DataTable + create/edit dialog with variable toolbar, live preview (email HTML, SMS char count, WhatsApp bubble) |
+| 14.3 – Campaign Wizard | TODO | 5-step: Details → Template (preview) → Audience (count preview) → Schedule (DND warning) → Review (cost estimate) |
+| 14.4 – Campaign List & Detail | TODO | DataTable with status/analytics. Detail: real-time progress, delivery funnel chart, recipient list, cost breakdown |
+| 14.5 – Automation Rules Page | TODO | Configure: birthday, festivals, post-treatment, no-show, dormant, treatment plan, payment, feedback toggles |
+| 14.6 – Message Logs Page | TODO | DataTable with filters (channel, status, date, patient). Expandable rows: full body, delivery timeline, errors. CSV export |
+| 14.7 – Communication Settings | TODO | Channel toggles, provider config forms, test connection, fallback chain (drag reorder), rate limits, DLT/WABA IDs |
+| 14.8 – Analytics Dashboard | TODO | Messages by channel (pie), delivery rates (bar), volume trends (line), top campaigns, cost by channel |
+| 14.9 – Patient Communication Timeline | TODO | New tab on patient profile: all messages across channels, status, timestamps, template used |
+| 14.10 – Template Preview | TODO | Live preview with sample data. Email=HTML render, SMS=char count, WhatsApp=chat bubble + buttons |
+
+**Implementation Order:** Epic 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 (UI built incrementally alongside backend epics)
 
 ---
 

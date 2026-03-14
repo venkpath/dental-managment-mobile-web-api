@@ -103,45 +103,95 @@ Clinics live in tables. Receptionists scroll through 50+ rows daily. Improve the
 
 ---
 
-## Phase 3 — Operational Features ✅ COMPLETE
-
-> **Goal:** Features clinics expect from paid software — notifications, exports, and real operational workflows.
-
-### Epic 1 — Notification System (Backend) ✅
+### Epic 6 — Notification System (Backend) ✅
 
 | Story | Status | Description |
 |---|---|---|
-| 1.1 – Notification Module & Model | ✅ DONE | Notification Prisma model + migration. NotificationService (create, createMany, findByClinicAndUser, getUnreadCount, markAsRead, markAllAsRead). NotificationController with 4 endpoints |
-| 1.2 – Notification Queue | ✅ DONE | BullMQ notification_queue with NotificationProducer + NotificationProcessor (WorkerHost pattern) |
-| 1.3 – Appointment Reminders | ✅ DONE | @nestjs/schedule cron daily 8AM — queries next-day scheduled appointments, creates notifications for dentists |
-| 1.4 – Payment & Overdue Alerts | ✅ DONE | Cron daily 9AM — overdue installments (due_date < today, status = pending), marks as overdue, notifies clinic admins |
-| 1.5 – Low Inventory Alerts | ✅ DONE | Cron daily 7AM — raw SQL query for items where quantity <= reorder_level, groups by clinic, notifies admins |
-| 1.6 – Real-Time Notifications (WebSocket) | DEFERRED | WebSocket gateway infrastructure deferred to later phase |
+| 6.1 – Notification Module & Model | ✅ DONE | Notification Prisma model + migration. NotificationService (create, createMany, findByClinicAndUser, getUnreadCount, markAsRead, markAllAsRead). NotificationController with 4 endpoints |
+| 6.2 – Notification Queue | ✅ DONE | BullMQ notification_queue with NotificationProducer + NotificationProcessor (WorkerHost pattern) |
+| 6.3 – Appointment Reminders | ✅ DONE | @nestjs/schedule cron daily 8AM — queries next-day scheduled appointments, creates notifications for dentists |
+| 6.4 – Payment & Overdue Alerts | ✅ DONE | Cron daily 9AM — overdue installments (due_date < today, status = pending), marks as overdue, notifies clinic admins |
+| 6.5 – Low Inventory Alerts | ✅ DONE | Cron daily 7AM — raw SQL query for items where quantity <= reorder_level, groups by clinic, notifies admins |
+| 6.6 – Real-Time Notifications (WebSocket) | DEFERRED | WebSocket gateway infrastructure deferred to later phase |
 
-### Epic 2 — Notification System (Frontend) ✅
-
-| Story | Status | Description |
-|---|---|---|
-| 2.1 – Notification Bell & Dropdown | ✅ DONE | Bell icon in topbar with unread count badge (auto-refresh 30s), dropdown shows recent 5, color-coded by type, click marks as read |
-| 2.2 – Notification Center Page | ✅ DONE | /notifications page — type filter, read/unread filter, pagination, individual + bulk mark-as-read. Sidebar nav link added |
-| 2.3 – Notification Preferences | DEFERRED | Per-user notification preferences planned for later |
-
-### Epic 3 — Enhanced Audit & Activity ✅
+### Epic 7 — Notification System (Frontend) ✅
 
 | Story | Status | Description |
 |---|---|---|
-| 3.1 – Audit Log Detail View | ✅ DONE | Sheet side panel with MetadataViewer (recursive JSON renderer), entity deep links (ENTITY_ROUTE_MAP), action badges, full metadata display |
-| 3.2 – User Activity Timeline | ✅ DONE | Staff edit page rewritten with 2-column layout: form (2/3) + Recent Activity card (1/3) showing last 20 actions with timestamps |
-| 3.3 – Login History | ✅ DONE | Login events logged via fire-and-forget AuditLogService.log() in AuthService with email + role metadata |
+| 7.1 – Notification Bell & Dropdown | ✅ DONE | Bell icon in topbar with unread count badge (auto-refresh 30s), dropdown shows recent 5, color-coded by type, click marks as read |
+| 7.2 – Notification Center Page | ✅ DONE | /notifications page — type filter, read/unread filter, pagination, individual + bulk mark-as-read. Sidebar nav link added |
+| 7.3 – Notification Preferences | DEFERRED | Per-user notification preferences planned for later |
 
-### Epic 4 — Scheduling Enhancements ✅
+### Epic 8 — Enhanced Audit & Activity ✅
 
 | Story | Status | Description |
 |---|---|---|
-| 4.1 – Branch Working Hours | ✅ EXISTED | Already implemented — working_start_time, working_end_time, lunch break, slot_duration, buffer_minutes, advance_booking_days, working_days[] |
-| 4.2 – Dentist Availability/Schedule | ✅ EXISTED | Available slots API with conflict checking + working hours validation. Slot visualization in booking form |
-| 4.3 – Appointment Reschedule | ✅ EXISTED | Update endpoint supports date/time/status changes with audit logging |
-| 4.4 – Recurring Appointments | ✅ DONE | recurrence_group_id UUID field + index on Appointment. Backend createRecurring (weekly/biweekly/monthly, 2-12 occurrences, skips conflicts). Frontend /appointments/recurring booking form |
+| 8.1 – Audit Log Detail View | ✅ DONE | Sheet side panel with MetadataViewer (recursive JSON renderer), entity deep links (ENTITY_ROUTE_MAP), action badges, full metadata display |
+| 8.2 – User Activity Timeline | ✅ DONE | Staff edit page rewritten with 2-column layout: form (2/3) + Recent Activity card (1/3) showing last 20 actions with timestamps |
+| 8.3 – Login History | ✅ DONE | Login events logged via fire-and-forget AuditLogService.log() in AuthService with email + role metadata |
+
+### Epic 9 — Scheduling Enhancements ✅
+
+| Story | Status | Description |
+|---|---|---|
+| 9.1 – Branch Working Hours | ✅ EXISTED | Already implemented — working_start_time, working_end_time, lunch break, slot_duration, buffer_minutes, advance_booking_days, working_days[] |
+| 9.2 – Dentist Availability/Schedule | ✅ EXISTED | Available slots API with conflict checking + working hours validation. Slot visualization in booking form |
+| 9.3 – Appointment Reschedule | ✅ EXISTED | Update endpoint supports date/time/status changes with audit logging |
+| 9.4 – Recurring Appointments | ✅ DONE | recurrence_group_id UUID field + index on Appointment. Backend createRecurring (weekly/biweekly/monthly, 2-12 occurrences, skips conflicts). Frontend /appointments/recurring booking form |
+
+---
+
+## Phase 3 — Communication & Patient Engagement Platform ← NEXT
+
+> **Goal:** Enable clinics to communicate with patients through Email, SMS, WhatsApp, and In-app notifications — for reminders, campaigns, greetings, follow-ups, referrals, and authentication. Best-in-class patient engagement platform for Indian dental clinics.
+>
+> **Architecture:** Channel-agnostic pipeline: Event → Communication Service (dedup, preference check, DND) → Template Engine → Queue (BullMQ, rate-limited) → Channel Provider (fallback chain) → Email/SMS/WhatsApp → Delivery Webhook → Update Logs
+>
+> **14 Epics, 83+ Stories** — see [Latest_Phase_3.md](Latest_Phase_3.md) for full story details.
+
+### Epic 1 — Communication Infrastructure (8 stories)
+Core messaging engine: module, queues (per-channel), message entity, logs, channel provider interface, message deduplication, channel fallback logic, circuit breaker.
+
+### Epic 2 — Message Template System (6 stories)
+Template entity with DLT/WhatsApp fields, rendering engine (placeholders + conditionals + formatters), CRUD API, 15+ default templates (seed), multilingual support (9 Indian languages), template categories for DLT routing.
+
+### Epic 3 — Email Channel Integration (3 stories)
+Email provider (@nestjs-modules/mailer, SMTP, Mailtrap dev, SendGrid/SES prod), BullMQ email worker, professional HTML email templates with clinic branding.
+
+### Epic 4 — SMS Channel + DLT Compliance (4 stories)
+SMS provider (MSG91, transactional + promotional routes), DLT template registration (TRAI mandatory), SMS worker with character count + splitting, delivery reports + cost tracking.
+
+### Epic 5 — WhatsApp Business API (6 stories)
+BSP integration (Gupshup/WATI), template approval workflow (Meta HSM), interactive messages (buttons/lists), media messages (images/PDFs/location), 24hr session messaging, webhook delivery tracking with read receipts.
+
+### Epic 6 — Patient Preferences + TRAI Compliance (7 stories)
+Preferences table (per-channel + per-type), API, enforcement before sending, DND/quiet hours (TRAI: no promos 9PM-9AM), consent audit trail, self-service opt-out link, NDNC registry check.
+
+### Epic 7 — Clinic Communication Settings (2 stories)
+Per-clinic channel enable/disable, provider configs (encrypted), fallback chain, rate limits, test connection.
+
+### Epic 8 — Appointment & Payment Reminders (6 stories)
+Appointment reminder scheduler (24hr + 2hr), notification creation, per-clinic template selection, installment due reminders, overdue payment notifications, payment confirmation receipts.
+
+### Epic 9 — Campaign Management (10 stories)
+Campaign entity, target segments (inactive/treatment/birthday/location/custom) with audience preview, scheduler, execution with rate limiting, analytics (delivery + attributed bookings), dormant patient auto-detection, reactivation drip sequences, A/B testing, cost tracking + ROI, throttling.
+
+### Epic 10 — Greetings & Occasion Automation (6 stories)
+Birthday greetings with offers, festival calendar (Diwali/Holi/Eid/Christmas/Pongal/Onam + custom), festival greeting automation, festival offer campaigns (one-click), patient anniversary greetings, custom occasion support.
+
+### Epic 11 — Post-Treatment & Follow-Up Automation (6 stories)
+Post-treatment care instructions (by procedure type), post-visit feedback collection (1-5 stars), Google review solicitation (if rating >= 4), no-show follow-up with reschedule, treatment plan completion reminders, prescription refill reminders.
+
+### Epic 12 — Referral Program (5 stories)
+Referral code generation, tracking (referrer → referred → first visit), referral invitation messaging, reward notifications + credits, referral analytics dashboard.
+
+### Epic 13 — Authentication Messaging (3 stories)
+Email verification, password reset, OTP messaging (email/SMS/WhatsApp).
+
+### Epic 14 — Communication UI (10 stories)
+Sidebar section, templates page (live preview), campaign creation wizard (5-step), campaign list + detail, automation rules config, message logs (filterable + expandable), communication settings, analytics dashboard, patient communication timeline tab, template preview with variable substitution.
+
+**Implementation Order:** Epic 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 (UI built incrementally)
 
 ---
 
@@ -251,32 +301,38 @@ Clinics live in tables. Receptionists scroll through 50+ rows daily. Improve the
 ## Recommended Execution Order
 
 ```
-Phase 2.5 (2-3 weeks) ← You are here
-  └─ Epic 1: Advanced Tables (3-4 days)
-  └─ Epic 2: Workflow Polish (3-4 days)
-  └─ Epic 3: Data Export (2-3 days)
-  └─ Epic 4: Performance (2-3 days)
-  └─ Epic 5: Frontend Testing (3-4 days)
+Phase 2.5 — Frontend Hardening & Operational Features ✅ MOSTLY COMPLETE
+  └─ Epic 1: Advanced Tables ✅
+  └─ Epic 2: Workflow Polish (partial)
+  └─ Epic 3: Data Export (partial)
+  └─ Epic 4: Performance (partial)
+  └─ Epic 5: Frontend Testing (partial)
+  └─ Epic 6-7: Notifications (Backend + Frontend) ✅
+  └─ Epic 8: Audit Enhancements ✅
+  └─ Epic 9: Scheduling Enhancements ✅
 
-Phase 4 — Production Readiness (1-2 weeks)
-  └─ Epic 1: Security (2-3 days)
-  └─ Epic 2: Monitoring (2 days)
-  └─ Epic 3: Deployment (2-3 days)
-  └─ Epic 4: Backups (1-2 days)
-  └─ Epic 5: Pre-Launch (3-5 days)
+Phase 3 — Communication & Patient Engagement (14 Epics, 83+ Stories) ← NEXT
+  └─ Epic 1-2: Communication Infrastructure + Template System
+  └─ Epic 3-5: Channel Integration (Email → SMS/DLT → WhatsApp/BSP)
+  └─ Epic 6-7: Preferences + TRAI Compliance + Clinic Settings
+  └─ Epic 8: Appointment & Payment Reminders
+  └─ Epic 9: Campaign Management (segments, drip, A/B, ROI)
+  └─ Epic 10: Greetings & Festival Automation
+  └─ Epic 11: Post-Treatment Follow-Ups & Feedback
+  └─ Epic 12: Referral Program
+  └─ Epic 13: Authentication Messaging
+  └─ Epic 14: Communication UI (built incrementally)
 
-Phase 3 — Operational Features ✅ COMPLETE
-  └─ Epic 1-2: Notifications ✅
-  └─ Epic 3: Audit enhancements ✅
-  └─ Epic 4: Scheduling ✅
+Phase 4 — Production Readiness & Launch
+  └─ Epic 1: Security
+  └─ Epic 2: Monitoring
+  └─ Epic 3: Deployment
+  └─ Epic 4: Backups
+  └─ Epic 5: Pre-Launch
 
-Phase 5 — AI Features (2-3 weeks)
-Phase 6 — Mobile App (4-6 weeks)
+Phase 5 — AI Features
+Phase 6 — Mobile App (React Native)
 ```
-
-> **Note:** Phase 4 (Production Readiness) is intentionally placed before Phase 3 (Operational Features).  
-> Rationale: Get the product deployed and usable by 1-2 pilot clinics while building operational features.  
-> Early users provide feedback that shapes which operational features to prioritize.
 
 ---
 

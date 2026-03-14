@@ -20,8 +20,14 @@ import { InventoryModule } from './modules/inventory/inventory.module.js';
 import { AttachmentModule } from './modules/attachment/attachment.module.js';
 import { AuditLogModule } from './modules/audit-log/audit-log.module.js';
 import { NotificationModule } from './modules/notification/notification.module.js';
+import { CommunicationModule } from './modules/communication/communication.module.js';
 import { ToothChartModule } from './modules/tooth-chart/tooth-chart.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
+import { CampaignModule } from './modules/campaign/campaign.module.js';
+import { AutomationModule } from './modules/automation/automation.module.js';
+import { ReferralModule } from './modules/referral/referral.module.js';
+import { FeedbackModule } from './modules/feedback/feedback.module.js';
+import { ClinicEventsModule } from './modules/clinic-events/clinic-events.module.js';
 import { TestQueueModule } from './modules/test-queue/test-queue.module.js';
 import { PrismaModule } from './database/prisma.module.js';
 import { QueueModule } from './common/queue/queue.module.js';
@@ -69,8 +75,14 @@ import { AiUsageGuard } from './common/guards/ai-usage.guard.js';
     AttachmentModule,
     AuditLogModule,
     NotificationModule,
+    CommunicationModule,
     ToothChartModule,
     ReportsModule,
+    CampaignModule,
+    AutomationModule,
+    ReferralModule,
+    FeedbackModule,
+    ClinicEventsModule,
     TestQueueModule,
   ],
   providers: [

@@ -232,6 +232,43 @@ async function main() {
   } else if (existingClinic) {
     console.log(`Test clinic "${testClinicEmail}" already exists, skipping.`);
   }
+
+  // Seed default communication templates
+  await seedCommunicationTemplates(prisma);
+}
+
+async function seedCommunicationTemplates(prismaClient: typeof prisma) {
+  const templates = [
+    { channel: 'all', category: 'reminder', template_name: 'Appointment Reminder - 24hr', subject: 'Reminder: Your appointment is tomorrow', body: 'Hi {{patient_name}}, this is a reminder that you have an appointment tomorrow ({{appointment_date}}) at {{appointment_time}} with {{dentist_name}} at {{clinic_name}}. Please arrive 10 minutes early. Call us at {{clinic_phone}} to reschedule.', variables: ['patient_name', 'appointment_date', 'appointment_time', 'dentist_name', 'clinic_name', 'clinic_phone'] },
+    { channel: 'all', category: 'reminder', template_name: 'Appointment Reminder - 2hr', subject: 'Your appointment is in 2 hours', body: 'Hi {{patient_name}}, your appointment with {{dentist_name}} is in 2 hours at {{appointment_time}}. See you soon at {{clinic_name}}!', variables: ['patient_name', 'dentist_name', 'appointment_time', 'clinic_name'] },
+    { channel: 'all', category: 'reminder', template_name: 'Installment Due Reminder', subject: 'Payment reminder: Installment due soon', body: 'Hi {{patient_name}}, a friendly reminder that your installment of Rs.{{amount}} is due on {{due_date}}. Please visit {{clinic_name}} or contact us at {{clinic_phone}}.', variables: ['patient_name', 'amount', 'due_date', 'clinic_name', 'clinic_phone'] },
+    { channel: 'all', category: 'transactional', template_name: 'Payment Confirmation', subject: 'Payment received — Thank you!', body: 'Hi {{patient_name}}, we have received your payment of Rs.{{amount}}. Thank you for choosing {{clinic_name}}!', variables: ['patient_name', 'amount', 'clinic_name'] },
+    { channel: 'all', category: 'greeting', template_name: 'Birthday Greeting', subject: 'Happy Birthday, {{patient_name}}!', body: 'Happy Birthday, {{patient_name}}! Wishing you a wonderful day filled with smiles. Enjoy a special offer on your next visit to {{clinic_name}}! Call us at {{clinic_phone}} to book.', variables: ['patient_name', 'clinic_name', 'clinic_phone'] },
+    { channel: 'all', category: 'greeting', template_name: 'Festival Greeting', subject: 'Happy {{festival_name}} from {{clinic_name}}!', body: 'Dear {{patient_name}}, wishing you and your family a very Happy {{festival_name}}! May this occasion bring joy and good health. — Team {{clinic_name}}', variables: ['patient_name', 'festival_name', 'clinic_name'] },
+    { channel: 'all', category: 'follow_up', template_name: 'Post-Visit Feedback Request', subject: 'How was your visit?', body: 'Hi {{patient_name}}, thank you for visiting {{clinic_name}} today! We would love to hear about your experience. Please rate us on a scale of 1-5 stars.', variables: ['patient_name', 'clinic_name'] },
+    { channel: 'all', category: 'follow_up', template_name: 'No-Show Follow-Up', subject: 'We missed you today!', body: 'Hi {{patient_name}}, we noticed you missed your appointment today. Would you like to reschedule? Call us at {{clinic_phone}}. — {{clinic_name}}', variables: ['patient_name', 'clinic_phone', 'clinic_name'] },
+    { channel: 'all', category: 'follow_up', template_name: 'Post-Treatment Care - Extraction', subject: 'Care instructions after extraction', body: 'Hi {{patient_name}}, post-extraction care: Bite gauze 30 min, no spitting/rinsing 24hr, avoid hot food, take prescribed meds, ice pack 15 min on/off. Call {{clinic_phone}} if needed.', variables: ['patient_name', 'clinic_phone'] },
+    { channel: 'all', category: 'follow_up', template_name: 'Post-Treatment Care - RCT', subject: 'Care instructions after root canal', body: 'Hi {{patient_name}}, post-RCT care: Avoid chewing on treated side 48hr, take prescribed meds, get crown within 2-4 weeks. Call {{clinic_phone}} if pain increases.', variables: ['patient_name', 'clinic_phone'] },
+    { channel: 'all', category: 'campaign', template_name: 'Reactivation - Gentle Reminder', subject: 'We miss you!', body: 'Hi {{patient_name}}, it has been a while since your last visit to {{clinic_name}}. Regular check-ups help catch problems early. Call {{clinic_phone}} to book!', variables: ['patient_name', 'clinic_name', 'clinic_phone'] },
+    { channel: 'all', category: 'referral', template_name: 'Referral Invitation', subject: 'Refer a friend!', body: 'Hi {{patient_name}}, refer a friend to {{clinic_name}} and both of you get {{reward}}! Share code: {{referral_code}}', variables: ['patient_name', 'clinic_name', 'reward', 'referral_code'] },
+    { channel: 'email', category: 'transactional', template_name: 'Email Verification', subject: 'Verify your email', body: 'Hi {{user_name}}, please verify your email: {{verification_link}}. Expires in 24 hours.', variables: ['user_name', 'verification_link'] },
+    { channel: 'email', category: 'transactional', template_name: 'Password Reset', subject: 'Reset your password', body: 'Hi {{user_name}}, reset your password: {{reset_link}}. Expires in 1 hour.', variables: ['user_name', 'reset_link'] },
+    { channel: 'all', category: 'transactional', template_name: 'OTP Verification', subject: 'Your OTP code', body: 'Your verification code is: {{otp_code}}. Expires in 10 minutes. Do not share.', variables: ['otp_code'] },
+  ];
+
+  let created = 0;
+  for (const t of templates) {
+    const exists = await prismaClient.messageTemplate.findFirst({
+      where: { clinic_id: null, template_name: t.template_name, language: 'en' },
+    });
+    if (!exists) {
+      await prismaClient.messageTemplate.create({
+        data: { ...t, clinic_id: null, language: 'en', is_active: true },
+      });
+      created++;
+    }
+  }
+  console.log(`Seeded ${created} default communication templates (${templates.length - created} already existed).`);
 }
 
 main()

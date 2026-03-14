@@ -67,6 +67,32 @@ export class NotificationController {
     return { message: 'Cron jobs triggered', results };
   }
 
+  @Post('trigger/:jobName')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Manually trigger a single notification cron job by name' })
+  @ApiOkResponse({ description: 'Cron job executed' })
+  async triggerSingleCron(@Param('jobName') jobName: string) {
+    const jobMap: Record<string, () => Promise<void>> = {
+      appointmentReminders: () => this.cronService.appointmentReminders(),
+      paymentOverdueAlerts: () => this.cronService.paymentOverdueAlerts(),
+      lowInventoryAlerts: () => this.cronService.lowInventoryAlerts(),
+    };
+
+    const fn = jobMap[jobName];
+    if (!fn) {
+      throw new (await import('@nestjs/common')).BadRequestException(
+        `Unknown job: ${jobName}. Valid jobs: ${Object.keys(jobMap).join(', ')}`,
+      );
+    }
+
+    try {
+      await fn();
+      return { job: jobName, status: 'success' };
+    } catch (e) {
+      return { job: jobName, status: 'error', error: (e as Error).message };
+    }
+  }
+
   @Get()
   @ApiOperation({ summary: 'List notifications for the current user' })
   @ApiOkResponse({ description: 'Paginated list of notifications' })

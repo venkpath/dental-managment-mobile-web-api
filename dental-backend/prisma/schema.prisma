@@ -35,6 +35,15 @@ model Clinic {
   attachments          Attachment[]
   tooth_conditions     PatientToothCondition[]
   notifications        Notification[]
+  communication_messages CommunicationMessage[]
+  message_templates      MessageTemplate[]
+  communication_settings ClinicCommunicationSettings?
+  campaigns              Campaign[]
+  automation_rules       AutomationRule[]
+  clinic_events          ClinicEvent[]
+  patient_feedback       PatientFeedback[]
+  referral_codes         PatientReferralCode[]
+  referrals              Referral[]
 
   @@index([email])
   @@index([plan_id])
@@ -177,6 +186,8 @@ model Patient {
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
 
+  preferred_language String  @default("en") @db.VarChar(5)
+
   clinic       Clinic        @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   branch       Branch        @relation(fields: [branch_id], references: [id], onDelete: Cascade)
   appointments  Appointment[]
@@ -185,6 +196,12 @@ model Patient {
   invoices      Invoice[]
   attachments          Attachment[]
   tooth_conditions     PatientToothCondition[]
+  communication_messages CommunicationMessage[]
+  communication_preference PatientCommunicationPreference?
+  feedback               PatientFeedback[]
+  referral_codes         PatientReferralCode[] @relation("PatientReferralCodes")
+  referrals_as_referrer  Referral[]            @relation("ReferrerPatient")
+  referrals_as_referred  Referral[]            @relation("ReferredPatient")
 
   @@index([clinic_id])
   @@index([branch_id])
@@ -522,4 +539,309 @@ model Notification {
   @@index([clinic_id, user_id, is_read])
   @@index([created_at])
   @@map("notifications")
+}
+
+// ─── Communication & Patient Engagement (Phase 3) ───
+
+model MessageTemplate {
+  id                       String   @id @default(uuid()) @db.Uuid
+  clinic_id                String?  @db.Uuid // null = system template
+  channel                  String   @db.VarChar(20) // email | sms | whatsapp | all
+  category                 String   @db.VarChar(30) // reminder | greeting | campaign | transactional | follow_up | referral
+  template_name            String   @db.VarChar(255)
+  subject                  String?  @db.VarChar(500) // for email
+  body                     String   @db.Text
+  variables                Json?    // list of supported variables
+  language                 String   @default("en") @db.VarChar(5)
+  is_active                Boolean  @default(true)
+  dlt_template_id          String?  @db.VarChar(100) // SMS DLT compliance
+  whatsapp_template_status String?  @db.VarChar(20) // draft | submitted | approved | rejected
+  created_at               DateTime @default(now())
+  updated_at               DateTime @updatedAt
+
+  clinic                 Clinic?                @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  communication_messages CommunicationMessage[]
+  campaigns              Campaign[]
+  automation_rules       AutomationRule[]
+  clinic_events          ClinicEvent[]
+
+  @@index([clinic_id])
+  @@index([channel])
+  @@index([category])
+  @@index([clinic_id, channel, category])
+  @@map("message_templates")
+}
+
+model CommunicationMessage {
+  id           String    @id @default(uuid()) @db.Uuid
+  clinic_id    String    @db.Uuid
+  patient_id   String?   @db.Uuid // nullable for broadcast
+  template_id  String?   @db.Uuid
+  channel      String    @db.VarChar(20) // email | sms | whatsapp | in_app
+  category     String    @default("transactional") @db.VarChar(20) // transactional | promotional
+  subject      String?   @db.VarChar(500)
+  body         String    @db.Text
+  recipient    String    @db.VarChar(255) // phone/email
+  status       String    @default("queued") @db.VarChar(20) // queued | sent | delivered | read | failed | skipped
+  skip_reason  String?   @db.VarChar(255) // if skipped: preference_disabled, dnd_hours, dedup, etc.
+  scheduled_at DateTime?
+  sent_at      DateTime?
+  metadata     Json?     // extra context: campaign_id, appointment_id, etc.
+  created_at   DateTime  @default(now())
+
+  clinic   Clinic           @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  patient  Patient?         @relation(fields: [patient_id], references: [id], onDelete: SetNull)
+  template MessageTemplate? @relation(fields: [template_id], references: [id], onDelete: SetNull)
+  logs     CommunicationLog[]
+
+  @@index([clinic_id])
+  @@index([patient_id])
+  @@index([template_id])
+  @@index([channel])
+  @@index([status])
+  @@index([clinic_id, channel, status])
+  @@index([scheduled_at])
+  @@index([created_at])
+  @@index([patient_id, template_id, channel, created_at]) // deduplication query
+  @@map("communication_messages")
+}
+
+model CommunicationLog {
+  id                  String    @id @default(uuid()) @db.Uuid
+  message_id          String    @db.Uuid
+  channel             String    @db.VarChar(20)
+  provider            String    @db.VarChar(50) // mailtrap, gmail, msg91, gupshup, etc.
+  provider_message_id String?   @db.VarChar(255) // external reference
+  status              String    @db.VarChar(20) // sent | delivered | read | failed | bounced
+  error_message       String?   @db.Text
+  cost                Decimal?  @db.Decimal(10, 4) // per-message cost
+  sent_at             DateTime?
+  delivered_at        DateTime?
+  read_at             DateTime?
+  failed_at           DateTime?
+  created_at          DateTime  @default(now())
+
+  message CommunicationMessage @relation(fields: [message_id], references: [id], onDelete: Cascade)
+
+  @@index([message_id])
+  @@index([channel])
+  @@index([status])
+  @@index([provider])
+  @@index([created_at])
+  @@map("communication_logs")
+}
+
+model PatientCommunicationPreference {
+  id                String  @id @default(uuid()) @db.Uuid
+  patient_id        String  @unique @db.Uuid
+  allow_email       Boolean @default(true)
+  allow_sms         Boolean @default(true)
+  allow_whatsapp    Boolean @default(true)
+  allow_marketing   Boolean @default(true)
+  allow_reminders   Boolean @default(true)
+  preferred_channel String  @default("whatsapp") @db.VarChar(20) // email | sms | whatsapp
+  quiet_hours_start String? @db.VarChar(5) // HH:mm e.g. "21:00"
+  quiet_hours_end   String? @db.VarChar(5) // HH:mm e.g. "09:00"
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  patient Patient @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+
+  @@index([patient_id])
+  @@map("patient_communication_preferences")
+}
+
+model ClinicCommunicationSettings {
+  id                       String  @id @default(uuid()) @db.Uuid
+  clinic_id                String  @unique @db.Uuid
+  enable_email             Boolean @default(false) // disabled by default
+  enable_sms               Boolean @default(false)
+  enable_whatsapp          Boolean @default(false)
+  email_provider           String? @db.VarChar(50) // gmail | sendgrid | ses | mailtrap
+  email_config             Json?   // { host, port, user, pass } — encrypted in practice
+  sms_provider             String? @db.VarChar(50) // msg91 | textlocal | kaleyra
+  sms_config               Json?   // { api_key, sender_id, dlt_entity_id }
+  whatsapp_provider        String? @db.VarChar(50) // gupshup | wati | interakt
+  whatsapp_config          Json?   // { api_key, phone_number_id, waba_id }
+  fallback_chain           Json?   @default("[\"whatsapp\", \"sms\", \"email\"]")
+  default_reminder_channels Json?  @default("[\"whatsapp\"]")
+  daily_message_limit      Int     @default(1000)
+  send_rate_per_minute     Int     @default(100)
+  google_review_url        String? @db.VarChar(500) // clinic's Google Business review link
+  dnd_start                String? @db.VarChar(5)   // DND quiet hours start e.g. "22:00"
+  dnd_end                  String? @db.VarChar(5)   // DND quiet hours end e.g. "08:00"
+  created_at               DateTime @default(now())
+  updated_at               DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+
+  @@index([clinic_id])
+  @@map("clinic_communication_settings")
+}
+
+model ConsentAuditLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  patient_id    String   @db.Uuid
+  field_changed String   @db.VarChar(100) // e.g. allow_marketing, allow_sms
+  old_value     String   @db.VarChar(255)
+  new_value     String   @db.VarChar(255)
+  changed_by    String   @db.VarChar(50) // patient_self | clinic_staff | api | opt_out_link
+  source        String   @db.VarChar(100) // settings_page | registration | opt_out_link | api
+  ip_address    String?  @db.VarChar(50)
+  created_at    DateTime @default(now())
+
+  @@index([patient_id])
+  @@index([created_at])
+  @@map("consent_audit_logs")
+}
+
+// ─── Campaigns (Phase 3, Epic 9) ───
+
+model Campaign {
+  id                String    @id @default(uuid()) @db.Uuid
+  clinic_id         String    @db.Uuid
+  name              String    @db.VarChar(255)
+  channel           String    @db.VarChar(20) // email | sms | whatsapp | all
+  template_id       String?   @db.Uuid
+  segment_type      String    @db.VarChar(30) // all | inactive | treatment_type | birthday_month | location | custom
+  segment_config    Json?     // filter criteria
+  status            String    @default("draft") @db.VarChar(20) // draft | scheduled | running | completed | paused | cancelled
+  scheduled_at      DateTime?
+  started_at        DateTime?
+  completed_at      DateTime?
+  total_recipients  Int       @default(0)
+  sent_count        Int       @default(0)
+  delivered_count   Int       @default(0)
+  failed_count      Int       @default(0)
+  read_count        Int       @default(0)
+  estimated_cost    Decimal?  @db.Decimal(10, 2)
+  actual_cost       Decimal?  @db.Decimal(10, 2)
+  created_by        String    @db.Uuid
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  clinic   Clinic           @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  template MessageTemplate? @relation(fields: [template_id], references: [id], onDelete: SetNull)
+
+  @@index([clinic_id])
+  @@index([status])
+  @@index([scheduled_at])
+  @@index([clinic_id, status])
+  @@map("campaigns")
+}
+
+// ─── Automation Rules (Phase 3, Epic 10-11) ───
+
+model AutomationRule {
+  id              String   @id @default(uuid()) @db.Uuid
+  clinic_id       String   @db.Uuid
+  rule_type       String   @db.VarChar(50)
+  // birthday_greeting | festival_greeting | post_treatment_care | no_show_followup
+  // dormant_reactivation | treatment_plan_reminder | payment_reminder
+  // feedback_collection | appointment_reminder
+  is_enabled      Boolean  @default(true)
+  channel         String   @default("whatsapp") @db.VarChar(20) // email | sms | whatsapp | preferred
+  template_id     String?  @db.Uuid
+  config          Json?    // rule-specific settings (delay_hours, dormancy_days, etc.)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  clinic   Clinic           @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  template MessageTemplate? @relation(fields: [template_id], references: [id], onDelete: SetNull)
+
+  @@unique([clinic_id, rule_type])
+  @@index([clinic_id])
+  @@index([rule_type])
+  @@map("automation_rules")
+}
+
+// ─── Clinic Events / Festival Calendar (Phase 3, Epic 10) ───
+
+model ClinicEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  clinic_id   String?   @db.Uuid // null = system event (pre-seeded)
+  event_name  String    @db.VarChar(255)
+  event_date  DateTime  @db.Date
+  is_recurring Boolean  @default(true) // repeat annually
+  is_enabled  Boolean   @default(true)
+  template_id String?   @db.Uuid
+  send_offer  Boolean   @default(false)
+  offer_details Json?   // { percentage, treatment, valid_until }
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  clinic   Clinic?          @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  template MessageTemplate? @relation(fields: [template_id], references: [id], onDelete: SetNull)
+
+  @@index([clinic_id])
+  @@index([event_date])
+  @@map("clinic_events")
+}
+
+// ─── Patient Feedback (Phase 3, Epic 11) ───
+
+model PatientFeedback {
+  id             String   @id @default(uuid()) @db.Uuid
+  clinic_id      String   @db.Uuid
+  patient_id     String   @db.Uuid
+  appointment_id String?  @db.Uuid
+  rating         Int      // 1-5
+  comment        String?  @db.Text
+  google_review_requested Boolean @default(false)
+  created_at     DateTime @default(now())
+
+  clinic  Clinic  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+
+  @@index([clinic_id])
+  @@index([patient_id])
+  @@index([appointment_id])
+  @@index([rating])
+  @@map("patient_feedback")
+}
+
+// ─── Referral Program (Phase 3, Epic 12) ───
+
+model PatientReferralCode {
+  id         String   @id @default(uuid()) @db.Uuid
+  patient_id String   @db.Uuid
+  clinic_id  String   @db.Uuid
+  code       String   @db.VarChar(20)
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+
+  patient   Patient    @relation("PatientReferralCodes", fields: [patient_id], references: [id], onDelete: Cascade)
+  clinic    Clinic     @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  referrals Referral[] @relation("ReferralByCode")
+
+  @@unique([clinic_id, code])
+  @@index([patient_id])
+  @@index([clinic_id])
+  @@map("patient_referral_codes")
+}
+
+model Referral {
+  id                  String    @id @default(uuid()) @db.Uuid
+  clinic_id           String    @db.Uuid
+  referrer_patient_id String    @db.Uuid
+  referred_patient_id String?   @db.Uuid
+  referral_code_id    String    @db.Uuid
+  status              String    @default("pending") @db.VarChar(20) // pending | completed | rewarded
+  reward_type         String?   @db.VarChar(30) // discount_percentage | discount_flat | credit
+  reward_value        Decimal?  @db.Decimal(10, 2)
+  reward_status       String?   @db.VarChar(20) // pending | credited | redeemed
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  clinic           Clinic              @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  referrer         Patient             @relation("ReferrerPatient", fields: [referrer_patient_id], references: [id], onDelete: Cascade)
+  referred         Patient?            @relation("ReferredPatient", fields: [referred_patient_id], references: [id], onDelete: SetNull)
+  referral_code    PatientReferralCode @relation("ReferralByCode", fields: [referral_code_id], references: [id], onDelete: Cascade)
+
+  @@index([clinic_id])
+  @@index([referrer_patient_id])
+  @@index([referred_patient_id])
+  @@index([referral_code_id])
+  @@index([status])
+  @@map("referrals")
 }
