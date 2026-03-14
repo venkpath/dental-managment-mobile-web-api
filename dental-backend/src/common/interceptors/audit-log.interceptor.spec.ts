@@ -17,8 +17,13 @@ function createMockContext(method: string, path: string, withClinic = true, with
       getRequest: () => ({
         method,
         path,
+        originalUrl: path,
+        url: path,
         clinicId: withClinic ? clinicId : undefined,
         user: withUser ? { userId } : undefined,
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'test-agent' },
+        body: undefined,
       }),
     }),
     getHandler: () => ({}),
@@ -57,8 +62,9 @@ describe('AuditLogInterceptor', () => {
             clinic_id: clinicId,
             user_id: userId,
             action: 'create',
-            entity: 'patients',
+            entity: 'patient',
             entity_id: entityId,
+            metadata: expect.objectContaining({ ip: '127.0.0.1', user_agent: 'test-agent' }),
           });
           done();
         }, 10);
@@ -72,7 +78,7 @@ describe('AuditLogInterceptor', () => {
       next: () => {
         setTimeout(() => {
           expect(mockAuditLogService.log).toHaveBeenCalledWith(
-            expect.objectContaining({ action: 'update', entity: 'patients' }),
+            expect.objectContaining({ action: 'update', entity: 'patient' }),
           );
           done();
         }, 10);
@@ -86,7 +92,7 @@ describe('AuditLogInterceptor', () => {
       next: () => {
         setTimeout(() => {
           expect(mockAuditLogService.log).toHaveBeenCalledWith(
-            expect.objectContaining({ action: 'delete', entity: 'patients' }),
+            expect.objectContaining({ action: 'delete', entity: 'patient' }),
           );
           done();
         }, 10);

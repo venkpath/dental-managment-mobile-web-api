@@ -5,6 +5,7 @@ import { AuthService } from './auth.service.js';
 import { UserService } from '../user/user.service.js';
 import { PasswordService } from '../../common/services/password.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { AuditLogService } from '../audit-log/audit-log.service.js';
 
 const clinicId = '123e4567-e89b-12d3-a456-426614174000';
 const branchId = 'aaa11111-bbbb-cccc-dddd-eeeeeeeeeeee';
@@ -42,6 +43,10 @@ const mockPrismaService = {
   },
 };
 
+const mockAuditLogService = {
+  log: jest.fn().mockResolvedValue({}),
+};
+
 describe('AuthService', () => {
   let service: AuthService;
 
@@ -53,6 +58,7 @@ describe('AuthService', () => {
         { provide: PasswordService, useValue: mockPasswordService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: AuditLogService, useValue: mockAuditLogService },
       ],
     }).compile();
 

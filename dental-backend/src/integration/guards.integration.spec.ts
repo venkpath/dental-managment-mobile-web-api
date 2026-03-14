@@ -1,9 +1,7 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FeatureGuard } from '../common/guards/feature.guard.js';
 import { AiUsageGuard } from '../common/guards/ai-usage.guard.js';
-import { PrismaService } from '../database/prisma.service.js';
 
 /**
  * Integration Tests: Feature Guard & AI Quota Enforcement

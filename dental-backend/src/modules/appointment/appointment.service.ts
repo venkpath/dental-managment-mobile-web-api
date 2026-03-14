@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
-import { CreateAppointmentDto, UpdateAppointmentDto, QueryAppointmentDto, QueryAvailableSlotsDto } from './dto/index.js';
+import { CreateAppointmentDto, UpdateAppointmentDto, QueryAppointmentDto, QueryAvailableSlotsDto, CreateRecurringAppointmentDto } from './dto/index.js';
 import { Appointment, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
 
@@ -297,6 +297,109 @@ export class AppointmentService {
       },
       include: { patient: true, dentist: true, branch: true },
     });
+  }
+
+  async createRecurring(clinicId: string, dto: CreateRecurringAppointmentDto): Promise<Appointment[]> {
+    if (dto.start_time >= dto.end_time) {
+      throw new BadRequestException('start_time must be before end_time');
+    }
+
+    const [branch, patient, dentist] = await Promise.all([
+      this.prisma.branch.findUnique({ where: { id: dto.branch_id } }),
+      this.prisma.patient.findUnique({ where: { id: dto.patient_id } }),
+      this.prisma.user.findUnique({ where: { id: dto.dentist_id } }),
+    ]);
+
+    if (!branch || branch.clinic_id !== clinicId) {
+      throw new NotFoundException(`Branch with ID "${dto.branch_id}" not found in this clinic`);
+    }
+    if (!patient || patient.clinic_id !== clinicId) {
+      throw new NotFoundException(`Patient with ID "${dto.patient_id}" not found in this clinic`);
+    }
+    if (!dentist || dentist.clinic_id !== clinicId) {
+      throw new NotFoundException(`Dentist with ID "${dto.dentist_id}" not found in this clinic`);
+    }
+
+    // Generate dates based on interval
+    const dates: string[] = [];
+    const start = new Date(dto.start_date + 'T12:00:00Z');
+    for (let i = 0; i < dto.occurrences; i++) {
+      const d = new Date(start);
+      if (dto.interval === 'weekly') d.setDate(d.getDate() + i * 7);
+      else if (dto.interval === 'biweekly') d.setDate(d.getDate() + i * 14);
+      else if (dto.interval === 'monthly') d.setMonth(d.getMonth() + i);
+      dates.push(d.toISOString().split('T')[0]);
+    }
+
+    // Validate each date
+    const workStart = branch.working_start_time ?? '09:00';
+    const workEnd = branch.working_end_time ?? '18:00';
+    if (dto.start_time < workStart || dto.end_time > workEnd) {
+      throw new BadRequestException(`Appointment must be within branch working hours (${workStart}–${workEnd})`);
+    }
+
+    const skipped: string[] = [];
+    const validDates: string[] = [];
+
+    for (const dateStr of dates) {
+      // Skip non-working days
+      if (branch.working_days) {
+        const isoDay = getIsoDay(dateStr);
+        const workingDays = branch.working_days.split(',').map(Number);
+        if (!workingDays.includes(isoDay)) {
+          skipped.push(dateStr);
+          continue;
+        }
+      }
+
+      // Check for conflicts (skip conflicting dates instead of failing)
+      const conflict = await this.prisma.appointment.findFirst({
+        where: {
+          dentist_id: dto.dentist_id,
+          appointment_date: new Date(dateStr),
+          status: { not: 'cancelled' },
+          AND: [
+            { start_time: { lt: dto.end_time } },
+            { end_time: { gt: dto.start_time } },
+          ],
+        },
+      });
+
+      if (conflict) {
+        skipped.push(dateStr);
+        continue;
+      }
+
+      validDates.push(dateStr);
+    }
+
+    if (validDates.length === 0) {
+      throw new BadRequestException('No valid dates available for the recurring series — all dates conflict or fall on non-working days');
+    }
+
+    // Create all appointments in a transaction with shared recurrence_group_id
+    const recurrenceGroupId = crypto.randomUUID();
+
+    const appointments = await this.prisma.$transaction(
+      validDates.map((dateStr) =>
+        this.prisma.appointment.create({
+          data: {
+            clinic_id: clinicId,
+            branch_id: dto.branch_id,
+            patient_id: dto.patient_id,
+            dentist_id: dto.dentist_id,
+            appointment_date: new Date(dateStr),
+            start_time: dto.start_time,
+            end_time: dto.end_time,
+            notes: dto.notes,
+            recurrence_group_id: recurrenceGroupId,
+          },
+          include: { patient: true, dentist: true, branch: true },
+        }),
+      ),
+    );
+
+    return appointments;
   }
 
   async remove(clinicId: string, id: string): Promise<Appointment> {

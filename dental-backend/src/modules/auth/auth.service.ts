@@ -1,8 +1,10 @@
 import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Request } from 'express';
 import { UserService } from '../user/user.service.js';
 import { PasswordService } from '../../common/services/password.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { AuditLogService } from '../audit-log/audit-log.service.js';
 import { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 import { LoginDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
 
@@ -26,9 +28,10 @@ export class AuthService {
     private readonly passwordService: PasswordService,
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
-  async login(dto: LoginDto): Promise<LoginResponse> {
+  async login(dto: LoginDto, req?: Request): Promise<LoginResponse> {
     const user = await this.userService.findByEmail(dto.email, dto.clinic_id);
 
     if (!user) {
@@ -53,7 +56,7 @@ export class AuthService {
       branch_id: user.branch_id,
     };
 
-    return {
+    const result = {
       access_token: await this.jwtService.signAsync(payload),
       user: {
         id: user.id,
@@ -65,6 +68,22 @@ export class AuthService {
         status: user.status,
       },
     };
+
+    // Await login audit so it appears immediately in audit logs
+    const ip = req?.ip || req?.headers?.['x-forwarded-for'] || undefined;
+    const userAgent = req?.headers?.['user-agent'] || undefined;
+    await this.auditLogService
+      .log({
+        clinic_id: user.clinic_id,
+        user_id: user.id,
+        action: 'login',
+        entity: 'auth',
+        entity_id: user.id,
+        metadata: { email: user.email, role: user.role, ...(ip ? { ip } : {}), ...(userAgent ? { user_agent: userAgent } : {}) },
+      })
+      .catch(() => {});
+
+    return result;
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto): Promise<{ message: string }> {

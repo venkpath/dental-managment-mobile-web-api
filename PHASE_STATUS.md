@@ -52,7 +52,7 @@
 | 5.5 – Billing | DONE | Invoice model (UUID, clinic_id FK, branch_id FK, patient_id FK, invoice_number unique per clinic auto-generated INV-YYYYMMDD-XXXX, total_amount/tax_amount/discount_amount/net_amount Decimal(10,2), gst_number optional GSTIN validation, tax_breakdown JSON for CGST/SGST split, status pending/paid/partially_paid) + InvoiceItem (invoice_id FK, treatment_id optional FK→Treatment, item_type enum treatment/service/pharmacy, description, quantity, unit_price, total_price) + Payment (invoice_id FK, method cash/card/upi, amount, notes, installment_item_id optional FK→InstallmentItem, paid_at) + InstallmentPlan (invoice_id unique FK, total_amount, num_installments, notes) + InstallmentItem (installment_plan_id FK, installment_number, amount, due_date, status pending/paid/overdue, paid_at), Prisma migration, POST /invoices (tax % calc, discount, nested items with item_type), GET /invoices (filter by patient/branch/status), GET /invoices/:id (includes installment_plan), POST /payments (validates balance, auto-marks paid/partially_paid, links to installment items), POST /invoices/:id/installment-plan (create plan with items), DELETE /invoices/:id/installment-plan, India GST-ready, 17 unit tests (204 total) |
 | 5.6 – Inventory | DONE | InventoryItem model (UUID, clinic_id FK, branch_id FK, name, category, quantity, unit, reorder_level, supplier, timestamps), Prisma migration, POST /inventory (create with branch validation), GET /inventory (filter by branch/name/category, case-insensitive search, low_stock filter), GET /inventory/:id, PATCH /inventory/:id (update quantity/name/category/unit/reorder_level/supplier), clinic_id tenant scoping, includes branch in responses, Swagger docs, 14 unit tests (218 total) |
 | 5.7 – Attachments | DONE | Attachment model (UUID, clinic_id FK, branch_id FK, patient_id FK, file_url, type enum xray/report/document, uploaded_by FK→User, created_at), Prisma migration pending (DB offline), POST /attachments (validates branch/patient/uploader belong to clinic), GET /patients/:patientId/attachments (validates patient belongs to clinic), clinic_id tenant scoping, includes branch/patient/uploader in responses, AttachmentType enum, Swagger docs, 11 unit tests (229 total) |
-| 5.8 – Audit Logs | DONE | AuditLog model (UUID, clinic_id, user_id nullable, action, entity, entity_id, metadata JSON, created_at), global AuditLogInterceptor (APP_INTERCEPTOR) automatically logs create/update/delete on POST/PATCH/PUT/DELETE, extracts entity from URL path, skips GET/auth/health/no-clinic requests, fire-and-forget logging (non-blocking), AuditLogService with log() and findByClinic() (filter by entity/entity_id/action/user_id, limit 100), GET /audit-logs endpoint with QueryAuditLogDto, @Global() AuditLogModule, Swagger docs, 19 unit tests (248 total) |
+| 5.8 – Audit Logs | DONE | AuditLog model (UUID, clinic_id, user_id nullable, action, entity, entity_id, metadata JSON, created_at), global AuditLogInterceptor registered in main.ts BEFORE ResponseInterceptor (correct ordering so tap() sees raw response with `id`), automatically logs create/update/delete on POST/PATCH/PUT/DELETE, extracts entity from URL (originalUrl) + ENTITY_MAP for singular names, skips GET/auth/health/no-clinic requests, captures IP + user-agent in metadata, strips sensitive fields (password), AuditLogService with log() and findByClinic() (filter by entity/entity_id/action/user_id, paginated), GET /audit-logs endpoint with QueryAuditLogDto, @Global() AuditLogModule, Swagger docs, 19 unit tests (248 total) |
 | 5.9 – Dental Tooth Chart | DONE | Tooth model (UUID, fdi_number unique, name, quadrant, position) + ToothSurface model (UUID, name unique, code unique) + PatientToothCondition model (UUID, clinic_id FK, branch_id FK, patient_id FK, tooth_id FK, surface_id nullable FK, condition, severity, notes, diagnosed_by FK→User named relation, timestamps), seed script adds 32 FDI teeth + 5 surfaces (Mesial/Distal/Buccal/Lingual/Occlusal), GET /teeth + GET /tooth-surfaces (reference data), GET /patients/:id/tooth-chart (returns teeth+surfaces+conditions), POST /patient-tooth-condition (validates branch/patient/tooth/surface/dentist), PATCH /patient-tooth-condition/:id (validates surface on update), clinic_id tenant scoping, Swagger docs, 17 unit tests (265 total) |
 
 ### EPIC 6 – Testing & API Hardening
@@ -200,7 +200,7 @@
 
 | Story | Status | Notes |
 |---|---|---|
-| 12.1 – Audit Log Page | DONE | DataTable with timestamp (Clock icon + formatted), action badges (create=green, update=blue, delete=red, login=purple, logout=gray), entity (capitalized), entity ID (truncated mono), user ID (truncated mono or "System"), metadata preview (truncated JSON), entity filter dropdown (10 entity types), action filter dropdown (5 action types), pagination 30/page |
+| 12.1 – Audit Log Page | DONE | DataTable with timestamp (Clock icon + formatted), action badges (create=green, update=blue, delete=red, login=purple, logout=gray), entity (capitalized), entity ID (truncated mono), user ID (truncated mono or "System"), metadata preview (truncated JSON), entity filter dropdown (13 entity types incl. auth/attachment/notification), action filter dropdown (5 action types), pagination 30/page |
 
 ### EPIC 13 – Responsiveness & Polish
 
@@ -285,45 +285,54 @@
 
 ---
 
-## PHASE 3 — Operational Features
+## PHASE 3 — Operational Features ✅
 
 **Goal:** Real-world clinic features — notifications, scheduling, activity tracking.
 
-### Epic 1 — Notification System (Backend)
+### Epic 1 — Notification System (Backend) ✅
 
 | Story | Status | Notes |
 |---|---|---|
-| 1.1 – Notification Module & Model | TODO | Notification model, CRUD, Prisma migration |
-| 1.2 – Email Service | TODO | @nestjs-modules/mailer + BullMQ email queue, templates |
-| 1.3 – Appointment Reminders | TODO | BullMQ cron: next-day reminders, configurable timing |
-| 1.4 – Payment & Overdue Alerts | TODO | Cron: overdue installments, pending invoices > 7 days |
-| 1.5 – Low Inventory Alerts | TODO | Cron: items below reorder level, daily for clinic admin |
-| 1.6 – Real-Time Notifications (WebSocket) | TODO | NestJS gateway, push to connected clients |
+| 1.1 – Notification Module & Model | ✅ DONE | Prisma model, migration, CRUD service, controller (GET list, unread-count, PATCH read, read-all) |
+| 1.2 – Notification Queue | ✅ DONE | BullMQ notification_queue, producer + processor pattern |
+| 1.3 – Appointment Reminders | ✅ DONE | @nestjs/schedule cron daily 8AM — next-day appointment reminders for dentists |
+| 1.4 – Payment & Overdue Alerts | ✅ DONE | Cron daily 9AM — overdue installments, marks as overdue, notifies admins |
+| 1.5 – Low Inventory Alerts | ✅ DONE | Cron daily 7AM — items where quantity <= reorder_level, notifies admins |
+| 1.6 – Real-Time Notifications (WebSocket) | DEFERRED | Planned for later phase — requires WebSocket gateway infrastructure |
 
-### Epic 2 — Notification System (Frontend)
-
-| Story | Status | Notes |
-|---|---|---|
-| 2.1 – Notification Bell & Dropdown | TODO | Bell icon + unread badge in topbar, grouped dropdown |
-| 2.2 – Notification Center Page | TODO | /notifications page, filters, bulk mark-as-read |
-| 2.3 – Notification Preferences | TODO | Per-user enable/disable by type, email opt-in/out |
-
-### Epic 3 — Enhanced Audit & Activity
+### Epic 2 — Notification System (Frontend) ✅
 
 | Story | Status | Notes |
 |---|---|---|
-| 3.1 – Audit Log Detail View | TODO | Side panel with full metadata, entity link, before/after diff |
-| 3.2 – User Activity Timeline | TODO | Staff detail page — recent actions from audit logs |
-| 3.3 – Login History | TODO | Track login IP/user-agent/timestamp, show on profile |
+| 2.1 – Notification Bell & Dropdown | ✅ DONE | Bell icon in topbar with unread count badge, recent 5 dropdown, auto-refresh 30s |
+| 2.2 – Notification Center Page | ✅ DONE | /notifications page with type filter, read status filter, pagination, mark-as-read |
+| 2.3 – Notification Preferences | DEFERRED | Per-user preferences planned for later |
 
-### Epic 4 — Scheduling Enhancements
+### Epic 3 — Enhanced Audit & Activity ✅
 
 | Story | Status | Notes |
 |---|---|---|
-| 4.1 – Branch Working Hours | TODO | Working hours model (per weekday), settings UI, validate appointments |
-| 4.2 – Dentist Availability | TODO | Availability model, show only open slots when booking |
-| 4.3 – Appointment Reschedule | TODO | Dedicated reschedule flow with notification |
-| 4.4 – Recurring Appointments | TODO | Follow-up batch creation with recurrence_group_id |
+| 3.1 – Audit Log Detail View | ✅ DONE | Redesigned Sheet sidebar: hero section with action icon + badge + entity name + timestamp, IDs card (Entity ID, User ID, Log ID) with click-to-copy, "View" deep link to entity pages, smart MetadataViewer separates simple key-values (2-col grid) from complex objects (styled JSON blocks), underscore-to-space label formatting, wider panel (sm:max-w-xl) |
+| 3.2 – User Activity Timeline | ✅ DONE | Staff edit page — 2-column layout with recent activity card (last 20 actions) |
+| 3.3 – Login History | ✅ DONE | Login events logged via AuditLogService with `await` (immediate, not fire-and-forget), email + role + IP + user-agent metadata |
+
+### Epic 4 — Scheduling Enhancements ✅
+
+| Story | Status | Notes |
+|---|---|---|
+| 4.1 – Branch Working Hours | ✅ EXISTED | Already implemented — working hours, lunch break, slot duration, buffer, advance booking, working days |
+| 4.2 – Dentist Availability | ✅ EXISTED | Available slots API with slot visualization in booking form |
+| 4.3 – Appointment Reschedule | ✅ EXISTED | Update endpoint supports date/time/status changes |
+| 4.4 – Recurring Appointments | ✅ DONE | recurrence_group_id field, backend createRecurring (weekly/biweekly/monthly), frontend booking form with proper display names in Select dropdowns (patient/dentist/branch show name, not UUID) |
+
+### Bug Fixes & Improvements (Post Phase 3)
+
+| Fix | Status | Notes |
+|---|---|---|
+| Audit Log Interceptor — CRUD entries not recorded | ✅ FIXED | Root cause: NestJS interceptor ordering. `ResponseInterceptor` (useGlobalInterceptors) wrapped response in `{success, data}` envelope before `AuditLogInterceptor` (APP_INTERCEPTOR in module) could read `id`. Fix: moved AuditLogInterceptor to main.ts registered BEFORE ResponseInterceptor, added fallback to check `data.id` for robustness, added `ENTITY_MAP` for singular entity names, `request.originalUrl` instead of `request.path`, IP + user-agent metadata capture, try/catch in tap() |
+| Login Audit Delay | ✅ FIXED | Changed from fire-and-forget to `await` so login appears immediately in audit logs |
+| Recurring Appointment Select Display | ✅ FIXED | Patient/Doctor/Branch Select components showed UUID after selection. Added lookup maps and explicit children in `<SelectValue>` for display names |
+| TypeScript Compilation Errors (19 errors) | ✅ FIXED | prisma.config.ts directUrl removal, import type for JwtPayload (TS1272), enum string literals in integration specs, missing item_type in invoice spec |
 
 ---
 

@@ -34,6 +34,7 @@ model Clinic {
   inventory_items InventoryItem[]
   attachments          Attachment[]
   tooth_conditions     PatientToothCondition[]
+  notifications        Notification[]
 
   @@index([email])
   @@index([plan_id])
@@ -194,18 +195,19 @@ model Patient {
 }
 
 model Appointment {
-  id               String   @id @default(uuid()) @db.Uuid
-  clinic_id        String   @db.Uuid
-  branch_id        String   @db.Uuid
-  patient_id       String   @db.Uuid
-  dentist_id       String   @db.Uuid
-  appointment_date DateTime @db.Date
-  start_time       String   @db.VarChar(5)
-  end_time         String   @db.VarChar(5)
-  status           String   @default("scheduled") @db.VarChar(20)
-  notes            String?  @db.Text
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
+  id                  String   @id @default(uuid()) @db.Uuid
+  clinic_id           String   @db.Uuid
+  branch_id           String   @db.Uuid
+  patient_id          String   @db.Uuid
+  dentist_id          String   @db.Uuid
+  appointment_date    DateTime @db.Date
+  start_time          String   @db.VarChar(5)
+  end_time            String   @db.VarChar(5)
+  status              String   @default("scheduled") @db.VarChar(20)
+  notes               String?  @db.Text
+  recurrence_group_id String?  @db.Uuid
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
 
   clinic  Clinic  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   branch  Branch  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
@@ -218,6 +220,7 @@ model Appointment {
   @@index([dentist_id])
   @@index([dentist_id, appointment_date])
   @@index([appointment_date])
+  @@index([recurrence_group_id])
   @@map("appointments")
 }
 
@@ -499,4 +502,24 @@ model PatientToothCondition {
   @@index([tooth_id])
   @@index([patient_id, tooth_id])
   @@map("patient_tooth_conditions")
+}
+
+model Notification {
+  id         String   @id @default(uuid()) @db.Uuid
+  clinic_id  String   @db.Uuid
+  user_id    String?  @db.Uuid
+  type       String   @db.VarChar(50)  // appointment_reminder, payment_overdue, low_inventory, system
+  title      String   @db.VarChar(255)
+  body       String   @db.Text
+  is_read    Boolean  @default(false)
+  metadata   Json?
+  created_at DateTime @default(now())
+
+  clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+
+  @@index([clinic_id])
+  @@index([user_id])
+  @@index([clinic_id, user_id, is_read])
+  @@index([created_at])
+  @@map("notifications")
 }

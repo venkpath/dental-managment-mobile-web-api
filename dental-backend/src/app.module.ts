@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { HealthModule } from './modules/health/health.module.js';
 import { ClinicModule } from './modules/clinic/clinic.module.js';
@@ -18,6 +19,7 @@ import { InvoiceModule } from './modules/invoice/invoice.module.js';
 import { InventoryModule } from './modules/inventory/inventory.module.js';
 import { AttachmentModule } from './modules/attachment/attachment.module.js';
 import { AuditLogModule } from './modules/audit-log/audit-log.module.js';
+import { NotificationModule } from './modules/notification/notification.module.js';
 import { ToothChartModule } from './modules/tooth-chart/tooth-chart.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
 import { TestQueueModule } from './modules/test-queue/test-queue.module.js';
@@ -47,6 +49,7 @@ import { AiUsageGuard } from './common/guards/ai-usage.guard.js';
       ],
     }),
     PrismaModule,
+    ScheduleModule.forRoot(),
     PasswordModule,
     QueueModule,
     HealthModule,
@@ -65,6 +68,7 @@ import { AiUsageGuard } from './common/guards/ai-usage.guard.js';
     InventoryModule,
     AttachmentModule,
     AuditLogModule,
+    NotificationModule,
     ToothChartModule,
     ReportsModule,
     TestQueueModule,

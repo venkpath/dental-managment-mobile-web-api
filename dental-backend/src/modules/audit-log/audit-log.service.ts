@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
 import { AuditLog, Prisma } from '@prisma/client';
 import { QueryAuditLogDto } from './dto/index.js';
@@ -30,6 +30,14 @@ export class AuditLogService {
           : undefined,
       },
     });
+  }
+
+  async findOne(clinicId: string, id: string): Promise<AuditLog> {
+    const log = await this.prisma.auditLog.findUnique({ where: { id } });
+    if (!log || log.clinic_id !== clinicId) {
+      throw new NotFoundException(`Audit log with ID "${id}" not found`);
+    }
+    return log;
   }
 
   async findByClinic(

@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { InvoiceService } from './invoice.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
-import { PaymentMethod, InvoiceStatus } from './dto/index.js';
+import { PaymentMethod, InvoiceStatus, InvoiceItemType } from './dto/index.js';
 
 const clinicId = '123e4567-e89b-12d3-a456-426614174000';
 const branchId = 'aaa11111-bbbb-cccc-dddd-eeeeeeeeeeee';
@@ -105,7 +105,7 @@ describe('InvoiceService', () => {
       patient_id: patientId,
       tax_percentage: 18,
       items: [
-        { description: 'Composite restoration', quantity: 1, unit_price: 5000 },
+        { item_type: InvoiceItemType.SERVICE, description: 'Composite restoration', quantity: 1, unit_price: 5000 },
       ],
     };
 
@@ -135,7 +135,7 @@ describe('InvoiceService', () => {
     it('should validate treatment IDs belong to clinic', async () => {
       const dtoWithTreatment = {
         ...createDto,
-        items: [{ description: 'Test', quantity: 1, unit_price: 100, treatment_id: 'treat-1' }],
+        items: [{ item_type: InvoiceItemType.TREATMENT, description: 'Test', quantity: 1, unit_price: 100, treatment_id: 'treat-1' }],
       };
       mockPrismaService.treatment.findMany.mockResolvedValueOnce([]);
       await expect(service.create(clinicId, dtoWithTreatment)).rejects.toThrow(NotFoundException);

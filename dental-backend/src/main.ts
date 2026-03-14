@@ -3,6 +3,8 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module.js';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter.js';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor.js';
+import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor.js';
+import { AuditLogService } from './modules/audit-log/audit-log.service.js';
 import { setupSwagger } from './config/swagger.config.js';
 
 async function bootstrap() {
@@ -24,7 +26,14 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new GlobalExceptionFilter());
-  app.useGlobalInterceptors(new ResponseInterceptor());
+
+  // AuditLogInterceptor MUST be registered before ResponseInterceptor
+  // so tap() sees the raw response {id: '...'} before it's wrapped in {success, data}
+  const auditLogService = app.get(AuditLogService);
+  app.useGlobalInterceptors(
+    new AuditLogInterceptor(auditLogService),
+    new ResponseInterceptor(),
+  );
 
   setupSwagger(app);
 

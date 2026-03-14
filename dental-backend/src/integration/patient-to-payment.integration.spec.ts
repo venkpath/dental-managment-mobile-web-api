@@ -6,6 +6,10 @@ import { TreatmentService } from '../modules/treatment/treatment.service.js';
 import { InvoiceService } from '../modules/invoice/invoice.service.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { Prisma } from '@prisma/client';
+import { Gender } from '../modules/patient/dto/create-patient.dto.js';
+import { TreatmentStatus } from '../modules/treatment/dto/create-treatment.dto.js';
+import { InvoiceItemType } from '../modules/invoice/dto/create-invoice.dto.js';
+import { PaymentMethod } from '../modules/invoice/dto/create-payment.dto.js';
 
 /**
  * Integration Test: Patient → Appointment → Treatment → Invoice → Payment
@@ -211,7 +215,7 @@ describe('Integration: Patient → Appointment → Treatment → Invoice → Pay
       first_name: 'Rajesh',
       last_name: 'Kumar',
       phone: '+919876543210',
-      gender: 'male',
+      gender: Gender.MALE,
       date_of_birth: '1990-05-15',
     });
     expect(patient.id).toBe(patientId);
@@ -243,9 +247,9 @@ describe('Integration: Patient → Appointment → Treatment → Invoice → Pay
       dentist_id: dentistId,
       diagnosis: 'Dental caries - lower right second molar',
       procedure: 'Composite filling',
-      tooth_number: 47,
+      tooth_number: '47',
       cost: 2500,
-      status: 'completed',
+      status: TreatmentStatus.COMPLETED,
       notes: 'Class II composite restoration',
     });
     expect(treatment.id).toBe(treatmentId);
@@ -259,6 +263,7 @@ describe('Integration: Patient → Appointment → Treatment → Invoice → Pay
       items: [
         {
           treatment_id: treatmentId,
+          item_type: InvoiceItemType.TREATMENT,
           description: 'Composite filling - tooth 47',
           quantity: 1,
           unit_price: 2500,
@@ -271,7 +276,7 @@ describe('Integration: Patient → Appointment → Treatment → Invoice → Pay
     // Step 5: Record UPI payment (common in India)
     const payment = await invoiceService.addPayment(clinicId, {
       invoice_id: invoiceId,
-      method: 'upi',
+      method: PaymentMethod.UPI,
       amount: 2500,
     });
     expect(payment.method).toBe('upi');
@@ -308,7 +313,7 @@ describe('Integration: Patient → Appointment → Treatment → Invoice → Pay
     await expect(
       invoiceService.addPayment(clinicId, {
         invoice_id: invoiceId,
-        method: 'cash',
+        method: PaymentMethod.CASH,
         amount: 100,
       }),
     ).rejects.toThrow(BadRequestException);
@@ -325,6 +330,7 @@ describe('Integration: Patient → Appointment → Treatment → Invoice → Pay
         items: [
           {
             treatment_id: 'non-existent-treatment',
+            item_type: InvoiceItemType.TREATMENT,
             description: 'Fake treatment',
             quantity: 1,
             unit_price: 1000,
@@ -370,7 +376,7 @@ describe('Integration: Clinic Isolation (Multi-Tenant Security)', () => {
         first_name: 'Test',
         last_name: 'User',
         phone: '+911234567890',
-        gender: 'male',
+        gender: Gender.MALE,
         date_of_birth: '2000-01-01',
       }),
     ).rejects.toThrow(NotFoundException);
@@ -455,7 +461,7 @@ describe('Integration: Clinic Isolation (Multi-Tenant Security)', () => {
       invoiceService.create(clinicId, {
         branch_id: branchIdB,
         patient_id: patientId,
-        items: [{ description: 'Consultation', quantity: 1, unit_price: 500 }],
+        items: [{ item_type: InvoiceItemType.SERVICE, description: 'Consultation', quantity: 1, unit_price: 500 }],
       }),
     ).rejects.toThrow(NotFoundException);
   });
@@ -469,7 +475,7 @@ describe('Integration: Clinic Isolation (Multi-Tenant Security)', () => {
     await expect(
       invoiceService.addPayment(clinicId, {
         invoice_id: invoiceId,
-        method: 'cash',
+        method: PaymentMethod.CASH,
         amount: 500,
       }),
     ).rejects.toThrow(NotFoundException);

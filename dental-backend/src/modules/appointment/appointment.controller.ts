@@ -21,7 +21,7 @@ import {
   ApiBadRequestResponse,
 } from '@nestjs/swagger';
 import { AppointmentService } from './appointment.service.js';
-import { CreateAppointmentDto, UpdateAppointmentDto, QueryAppointmentDto, QueryAvailableSlotsDto } from './dto/index.js';
+import { CreateAppointmentDto, UpdateAppointmentDto, QueryAppointmentDto, QueryAvailableSlotsDto, CreateRecurringAppointmentDto } from './dto/index.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 
@@ -42,6 +42,17 @@ export class AppointmentController {
     @Body() dto: CreateAppointmentDto,
   ) {
     return this.appointmentService.create(clinicId, dto);
+  }
+
+  @Post('recurring')
+  @ApiOperation({ summary: 'Create a recurring appointment series (weekly/biweekly/monthly)' })
+  @ApiCreatedResponse({ description: 'Recurring appointments created. Conflicting dates are automatically skipped.' })
+  @ApiBadRequestResponse({ description: 'Invalid input or no valid dates available' })
+  async createRecurring(
+    @CurrentClinic() clinicId: string,
+    @Body() dto: CreateRecurringAppointmentDto,
+  ) {
+    return this.appointmentService.createRecurring(clinicId, dto);
   }
 
   @Get()

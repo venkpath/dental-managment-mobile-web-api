@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Param,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -10,6 +11,7 @@ import {
   ApiOkResponse,
   ApiHeader,
   ApiBadRequestResponse,
+  ApiNotFoundResponse,
 } from '@nestjs/swagger';
 import { AuditLogService } from './audit-log.service.js';
 import { QueryAuditLogDto } from './dto/index.js';
@@ -32,5 +34,16 @@ export class AuditLogController {
     @Query() query: QueryAuditLogDto,
   ) {
     return this.auditLogService.findByClinic(clinicId, query);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a single audit log entry by ID' })
+  @ApiOkResponse({ description: 'Audit log entry details with full metadata' })
+  @ApiNotFoundResponse({ description: 'Audit log entry not found' })
+  async findOne(
+    @CurrentClinic() clinicId: string,
+    @Param('id') id: string,
+  ) {
+    return this.auditLogService.findOne(clinicId, id);
   }
 }
