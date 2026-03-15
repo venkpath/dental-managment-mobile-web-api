@@ -36,6 +36,8 @@ export const AUTOMATION_RULE_TYPES = [
   'payment_reminder',
   'feedback_collection',
   'appointment_reminder_patient',
+  'anniversary_greeting',
+  'prescription_refill',
 ] as const;
 
 export type AutomationRuleType = typeof AUTOMATION_RULE_TYPES[number];

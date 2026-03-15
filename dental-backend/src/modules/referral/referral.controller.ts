@@ -70,6 +70,17 @@ export class ReferralController {
     return this.referralService.getStats(clinicId);
   }
 
+  @Get('analytics')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get detailed referral analytics — conversion rate, revenue, trends' })
+  async getDetailedAnalytics(
+    @CurrentClinic() clinicId: string,
+    @Query('start_date') startDate?: string,
+    @Query('end_date') endDate?: string,
+  ) {
+    return this.referralService.getDetailedAnalytics(clinicId, startDate, endDate);
+  }
+
   @Get('leaderboard')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get top referrers leaderboard' })

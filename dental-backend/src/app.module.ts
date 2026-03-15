@@ -41,18 +41,39 @@ import { RolesGuard } from './common/guards/roles.guard.js';
 import { SuperAdminGuard } from './common/guards/super-admin.guard.js';
 import { FeatureGuard } from './common/guards/feature.guard.js';
 import { AiUsageGuard } from './common/guards/ai-usage.guard.js';
+import { CsrfGuard } from './common/guards/csrf.guard.js';
+import { CsrfModule } from './modules/csrf/csrf.module.js';
+import { SentryModule } from './modules/sentry/sentry.module.js';
+import { BackupModule } from './modules/backup/backup.module.js';
+import { DataExportModule } from './modules/data-export/data-export.module.js';
+import { PaymentModule } from './modules/payment/payment.module.js';
+import { LoggerModule } from 'nestjs-pino';
+import razorpayConfig from './config/razorpay.config.js';
 
 @Module({
   imports: [
+    SentryModule,
+    LoggerModule.forRoot({
+      pinoHttp: {
+        transport: process.env['NODE_ENV'] !== 'production'
+          ? { target: 'pino-pretty', options: { colorize: true, singleLine: true } }
+          : undefined,
+        level: process.env['LOG_LEVEL'] || 'info',
+        autoLogging: true,
+        redact: ['req.headers.authorization', 'req.headers.cookie'],
+      },
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, redisConfig],
+      load: [appConfig, databaseConfig, redisConfig, razorpayConfig],
       envFilePath: '.env',
     }),
     ThrottlerModule.forRoot({
       throttlers: [
         { name: 'default', ttl: 60000, limit: 100 },
+        { name: 'strict', ttl: 60000, limit: 10 },
       ],
+      errorMessage: 'Too many requests. Please try again later.',
     }),
     PrismaModule,
     ScheduleModule.forRoot(),
@@ -84,6 +105,10 @@ import { AiUsageGuard } from './common/guards/ai-usage.guard.js';
     FeedbackModule,
     ClinicEventsModule,
     TestQueueModule,
+    CsrfModule,
+    BackupModule,
+    DataExportModule,
+    PaymentModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
@@ -92,6 +117,7 @@ import { AiUsageGuard } from './common/guards/ai-usage.guard.js';
     { provide: APP_GUARD, useClass: SuperAdminGuard },
     { provide: APP_GUARD, useClass: FeatureGuard },
     { provide: APP_GUARD, useClass: AiUsageGuard },
+    { provide: APP_GUARD, useClass: CsrfGuard },
   ],
 })
 export class AppModule implements NestModule {

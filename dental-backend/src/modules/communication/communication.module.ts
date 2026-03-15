@@ -3,6 +3,8 @@ import { BullModule } from '@nestjs/bullmq';
 import { QUEUE_NAMES } from '../../common/queue/queue-names.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationController } from './communication.controller.js';
+import { OptOutController } from './communication.controller.js';
+import { WebhookController } from './communication.controller.js';
 import { TemplateController } from './template.controller.js';
 import { CommunicationService } from './communication.service.js';
 import { TemplateService } from './template.service.js';
@@ -25,7 +27,7 @@ import { seedDefaultTemplates } from './seed-templates.js';
       { name: QUEUE_NAMES.COMMUNICATION_WHATSAPP },
     ),
   ],
-  controllers: [CommunicationController, TemplateController],
+  controllers: [CommunicationController, TemplateController, OptOutController, WebhookController],
   providers: [
     CommunicationService,
     TemplateService,

@@ -3,10 +3,6 @@ import { ApiTags, ApiOperation, ApiOkResponse } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { HealthService } from './health.service.js';
 
-class HealthCheckResponse {
-  status!: string;
-}
-
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {
@@ -31,7 +27,21 @@ export class HealthController {
       },
     },
   })
-  check(): HealthCheckResponse {
+  check() {
     return this.healthService.check();
+  }
+
+  @Public()
+  @Get('detailed')
+  @ApiOperation({ summary: 'Detailed health check', description: 'Returns detailed health status including DB, memory, disk' })
+  detailed() {
+    return this.healthService.checkDetailed();
+  }
+
+  @Public()
+  @Get('ready')
+  @ApiOperation({ summary: 'Readiness probe', description: 'Kubernetes-style readiness check — returns 200 only when DB is connected' })
+  ready() {
+    return this.healthService.checkReady();
   }
 }

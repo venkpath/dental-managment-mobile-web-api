@@ -1,5 +1,7 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
+import { CommunicationService } from '../communication/communication.service.js';
+import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
 import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
 import { Invoice, Payment, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
@@ -14,7 +16,12 @@ const INVOICE_INCLUDE = {
 
 @Injectable()
 export class InvoiceService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(InvoiceService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly communicationService: CommunicationService,
+  ) {}
 
   async create(clinicId: string, dto: CreateInvoiceDto): Promise<Invoice> {
     const [branch, patient] = await Promise.all([
@@ -139,7 +146,7 @@ export class InvoiceService {
     }
 
     // Transaction: check balance + create payment + update invoice status atomically
-    return this.prisma.$transaction(async (tx) => {
+    const payment = await this.prisma.$transaction(async (tx) => {
       const existingPayments = await tx.payment.aggregate({
         where: { invoice_id: dto.invoice_id },
         _sum: { amount: true },
@@ -196,6 +203,13 @@ export class InvoiceService {
 
       return payment;
     });
+
+    // Send payment confirmation to patient (fire-and-forget)
+    this.sendPaymentConfirmation(clinicId, invoice.patient_id, invoice.invoice_number, dto.amount).catch((e) =>
+      this.logger.warn(`Payment confirmation failed: ${(e as Error).message}`),
+    );
+
+    return payment;
   }
 
   async createInstallmentPlan(clinicId: string, dto: CreateInstallmentPlanDto) {
@@ -282,5 +296,37 @@ export class InvoiceService {
     }
 
     return `${prefix}-${seq.toString().padStart(4, '0')}`;
+  }
+
+  private async sendPaymentConfirmation(
+    clinicId: string,
+    patientId: string,
+    invoiceNumber: string,
+    amount: number,
+  ): Promise<void> {
+    const [patient, clinic, settings] = await Promise.all([
+      this.prisma.patient.findUnique({ where: { id: patientId }, select: { first_name: true, last_name: true } }),
+      this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true } }),
+      this.prisma.clinicCommunicationSettings.findUnique({ where: { clinic_id: clinicId } }),
+    ]);
+    if (!patient || !settings) return;
+
+    const channel = settings.enable_whatsapp ? MessageChannel.WHATSAPP : settings.enable_sms ? MessageChannel.SMS : settings.enable_email ? MessageChannel.EMAIL : null;
+    if (!channel) return;
+
+    await this.communicationService.sendMessage(clinicId, {
+      patient_id: patientId,
+      channel,
+      category: MessageCategory.TRANSACTIONAL,
+      body: `Hi ${patient.first_name}, your payment of ₹${amount} for invoice ${invoiceNumber} has been received. Thank you! — ${clinic?.name || 'Your Dental Clinic'}`,
+      variables: {
+        patient_name: `${patient.first_name} ${patient.last_name}`,
+        patient_first_name: patient.first_name,
+        amount: amount.toString(),
+        invoice_number: invoiceNumber,
+        clinic_name: clinic?.name || '',
+      },
+      metadata: { automation: 'payment_confirmation', invoice_id: invoiceNumber },
+    });
   }
 }

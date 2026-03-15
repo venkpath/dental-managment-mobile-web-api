@@ -63,6 +63,17 @@ export class EmailWorker extends WorkerHost {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Email worker error: ${messageId}: ${message}`);
+
+      // On final attempt, try channel fallback
+      const maxAttempts = (job.opts?.attempts ?? 3);
+      if (job.attemptsMade >= maxAttempts - 1) {
+        try {
+          await this.communicationService.handleChannelFallback(messageId, 'email');
+        } catch {
+          // Fallback failed — nothing more to do
+        }
+      }
+
       throw error;
     }
   }

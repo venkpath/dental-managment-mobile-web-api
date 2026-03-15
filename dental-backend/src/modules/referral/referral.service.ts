@@ -163,6 +163,97 @@ export class ReferralService {
     }));
   }
 
+  /** Get detailed referral analytics — conversion rate, revenue attribution, trends */
+  async getDetailedAnalytics(clinicId: string, startDate?: string, endDate?: string) {
+    const where: { clinic_id: string; created_at?: { gte?: Date; lte?: Date } } = { clinic_id: clinicId };
+    if (startDate || endDate) {
+      where.created_at = {};
+      if (startDate) where.created_at.gte = new Date(startDate);
+      if (endDate) where.created_at.lte = new Date(endDate);
+    }
+
+    const [total, completed, rewarded, pending] = await Promise.all([
+      this.prisma.referral.count({ where }),
+      this.prisma.referral.count({ where: { ...where, status: 'completed' } }),
+      this.prisma.referral.count({ where: { ...where, reward_status: 'credited' } }),
+      this.prisma.referral.count({ where: { ...where, reward_status: 'pending' } }),
+    ]);
+
+    const conversionRate = total > 0 ? Math.round((completed / total) * 1000) / 10 : 0;
+
+    // Top referrers with reward value
+    const topReferrers = await this.prisma.referral.groupBy({
+      by: ['referrer_patient_id'],
+      where: { clinic_id: clinicId, status: 'completed' },
+      _count: { id: true },
+      _sum: { reward_value: true },
+      orderBy: { _count: { id: 'desc' } },
+      take: 10,
+    });
+
+    const referrerIds = topReferrers.map((r) => r.referrer_patient_id);
+    const referrerPatients = await this.prisma.patient.findMany({
+      where: { id: { in: referrerIds } },
+      select: { id: true, first_name: true, last_name: true },
+    });
+    const referrerMap = new Map(referrerPatients.map((p) => [p.id, p]));
+
+    // Monthly trend (last 6 months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    sixMonthsAgo.setDate(1);
+    sixMonthsAgo.setHours(0, 0, 0, 0);
+
+    const monthlyTrend = await this.prisma.$queryRaw<
+      { month: string; referral_count: number; completed_count: number }[]
+    >`
+      SELECT
+        TO_CHAR(created_at, 'YYYY-MM') AS month,
+        COUNT(*)::int AS referral_count,
+        COUNT(*) FILTER (WHERE status = 'completed')::int AS completed_count
+      FROM referrals
+      WHERE clinic_id = ${clinicId}::uuid
+        AND created_at >= ${sixMonthsAgo}
+      GROUP BY TO_CHAR(created_at, 'YYYY-MM')
+      ORDER BY month ASC
+    `;
+
+    // Attributed revenue — sum of invoice net_amount for referred patients
+    const referredPatientIds = await this.prisma.referral.findMany({
+      where: { clinic_id: clinicId, status: 'completed', referred_patient_id: { not: null } },
+      select: { referred_patient_id: true },
+    });
+    const rpIds = referredPatientIds
+      .map((r) => r.referred_patient_id)
+      .filter((id): id is string => id !== null);
+
+    let attributedRevenue = 0;
+    if (rpIds.length > 0) {
+      const result = await this.prisma.invoice.aggregate({
+        where: { clinic_id: clinicId, patient_id: { in: rpIds }, status: 'paid' },
+        _sum: { net_amount: true },
+      });
+      attributedRevenue = Number(result?._sum?.net_amount || 0);
+    }
+
+    return {
+      summary: {
+        total_referrals: total,
+        completed,
+        rewarded,
+        pending_rewards: pending,
+        conversion_rate: conversionRate,
+        attributed_revenue: attributedRevenue,
+      },
+      top_referrers: topReferrers.map((r) => ({
+        patient: referrerMap.get(r.referrer_patient_id),
+        referral_count: r._count.id,
+        total_reward_value: Number(r._sum.reward_value || 0),
+      })),
+      monthly_trend: monthlyTrend,
+    };
+  }
+
   /** Get all referrals for a patient (as referrer) */
   async getPatientReferrals(clinicId: string, patientId: string) {
     return this.prisma.referral.findMany({

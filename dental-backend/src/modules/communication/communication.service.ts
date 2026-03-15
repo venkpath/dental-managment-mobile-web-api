@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createHmac } from 'crypto';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service.js';
 import { paginate } from '../../common/interfaces/paginated-result.interface.js';
@@ -80,6 +81,28 @@ export class CommunicationService {
       }
     }
 
+    // 4.5 Circuit breaker — pause channel if failure rate is too high
+    const circuitOpen = await this.isCircuitOpen(clinicId, dto.channel);
+    if (circuitOpen) {
+      return this.createSkippedMessage(clinicId, dto, patient, 'circuit_breaker_open');
+    }
+
+    // 4.6 Check daily rate limit
+    if (clinicSettings.daily_message_limit && clinicSettings.daily_message_limit > 0) {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const todayCount = await this.prisma.communicationMessage.count({
+        where: {
+          clinic_id: clinicId,
+          created_at: { gte: startOfDay },
+          status: { notIn: ['skipped'] },
+        },
+      });
+      if (todayCount >= clinicSettings.daily_message_limit) {
+        return this.createSkippedMessage(clinicId, dto, patient, 'daily_limit_exceeded');
+      }
+    }
+
     // 5. Resolve message body (from template or direct)
     let body = dto.body || '';
     let subject = dto.subject;
@@ -123,6 +146,16 @@ export class CommunicationService {
 
     if (!body) {
       throw new BadRequestException('Message body is required — provide body or template_id');
+    }
+
+    // 5.5 Auto-append opt-out link for promotional messages
+    if (dto.category === 'promotional' && dto.channel !== 'in_app') {
+      const optOutUrl = this.generateOptOutUrl(dto.patient_id);
+      if (dto.channel === 'email') {
+        body += `\n\nDon't want to receive these emails? Unsubscribe: ${optOutUrl}`;
+      } else {
+        body += `\nOpt-out: ${optOutUrl}`;
+      }
     }
 
     // 6. Sanitize rendered content for the target channel
@@ -235,6 +268,49 @@ export class CommunicationService {
     }
 
     return message;
+  }
+
+  /** Get all messages sent to a specific patient (timeline view) */
+  async getPatientTimeline(
+    clinicId: string,
+    patientId: string,
+    page = 1,
+    limit = 20,
+    channel?: string,
+  ) {
+    // Validate patient belongs to clinic
+    const patient = await this.prisma.patient.findFirst({
+      where: { id: patientId, clinic_id: clinicId },
+      select: { id: true, first_name: true, last_name: true },
+    });
+    if (!patient) {
+      throw new NotFoundException(`Patient with ID "${patientId}" not found`);
+    }
+
+    const where: Prisma.CommunicationMessageWhereInput = {
+      clinic_id: clinicId,
+      patient_id: patientId,
+    };
+    if (channel) where.channel = channel;
+
+    const [data, total] = await Promise.all([
+      this.prisma.communicationMessage.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        include: {
+          template: { select: { template_name: true, channel: true } },
+          logs: { orderBy: { created_at: 'desc' }, take: 1 },
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.communicationMessage.count({ where }),
+    ]);
+
+    return {
+      patient,
+      ...paginate(data, total, page, limit),
+    };
   }
 
   // ─── Communication Log ───
@@ -359,6 +435,105 @@ export class CommunicationService {
     return updated;
   }
 
+  // ─── Self-Service Opt-Out ───
+
+  /** Generate signed opt-out token for a patient (HMAC-SHA256) */
+  generateOptOutToken(patientId: string): string {
+    const secret = this.configService.get<string>('app.jwtSecret') || 'fallback-secret';
+    const payload = Buffer.from(JSON.stringify({ pid: patientId, ts: Date.now() })).toString('base64url');
+    const sig = createHmac('sha256', secret).update(payload).digest('base64url');
+    return `${payload}.${sig}`;
+  }
+
+  /** Generate a full opt-out URL for inclusion in messages */
+  generateOptOutUrl(patientId: string): string {
+    const token = this.generateOptOutToken(patientId);
+    const baseUrl = this.configService.get<string>('app.frontendUrl') || 'http://localhost:3001';
+    return `${baseUrl}/unsubscribe?token=${token}`;
+  }
+
+  /** Verify opt-out token and return patient ID */
+  verifyOptOutToken(token: string): { patientId: string } | null {
+    const parts = token.split('.');
+    if (parts.length !== 2) return null;
+
+    const [payload, sig] = parts;
+    const secret = this.configService.get<string>('app.jwtSecret') || 'fallback-secret';
+    const expectedSig = createHmac('sha256', secret).update(payload).digest('base64url');
+
+    // Constant-time comparison
+    if (sig.length !== expectedSig.length) return null;
+    let diff = 0;
+    for (let i = 0; i < sig.length; i++) {
+      diff |= sig.charCodeAt(i) ^ expectedSig.charCodeAt(i);
+    }
+    if (diff !== 0) return null;
+
+    try {
+      const data = JSON.parse(Buffer.from(payload, 'base64url').toString());
+      // Token expires after 90 days
+      if (Date.now() - data.ts > 90 * 24 * 60 * 60 * 1000) return null;
+      return { patientId: data.pid };
+    } catch {
+      return null;
+    }
+  }
+
+  /** Process opt-out request — disable marketing communications for the patient */
+  async processOptOut(token: string, channels?: string[], ipAddress?: string) {
+    const verified = this.verifyOptOutToken(token);
+    if (!verified) {
+      throw new BadRequestException('Invalid or expired unsubscribe link');
+    }
+
+    const patient = await this.prisma.patient.findUnique({
+      where: { id: verified.patientId },
+      select: { id: true, first_name: true, clinic_id: true },
+    });
+    if (!patient) {
+      throw new NotFoundException('Patient not found');
+    }
+
+    // Default: disable all marketing. If specific channels provided, disable only those
+    const updateData: Record<string, boolean> = {};
+    if (!channels || channels.length === 0) {
+      updateData.allow_marketing = false;
+    } else {
+      if (channels.includes('email')) updateData.allow_email = false;
+      if (channels.includes('sms')) updateData.allow_sms = false;
+      if (channels.includes('whatsapp')) updateData.allow_whatsapp = false;
+    }
+
+    const prefs = await this.prisma.patientCommunicationPreference.upsert({
+      where: { patient_id: patient.id },
+      create: { patient_id: patient.id, ...updateData },
+      update: updateData,
+    });
+
+    // Consent audit trail
+    const auditEntries: Prisma.ConsentAuditLogCreateManyInput[] = Object.entries(updateData).map(
+      ([field, value]) => ({
+        patient_id: patient.id,
+        field_changed: field,
+        old_value: 'true',
+        new_value: String(value),
+        changed_by: 'patient_self_service',
+        source: 'opt_out_link',
+        ip_address: ipAddress,
+      }),
+    );
+
+    if (auditEntries.length > 0) {
+      await this.prisma.consentAuditLog.createMany({ data: auditEntries });
+    }
+
+    return {
+      message: 'Your communication preferences have been updated',
+      patient_name: patient.first_name,
+      preferences: prefs,
+    };
+  }
+
   // ─── Clinic Settings ───
 
   async getClinicSettings(clinicId: string) {
@@ -424,7 +599,7 @@ export class CommunicationService {
       if (endDate) where.created_at.lte = new Date(endDate);
     }
 
-    const [total, byChannel, byStatus] = await Promise.all([
+    const [total, byChannel, byStatus, byCategory] = await Promise.all([
       this.prisma.communicationMessage.count({ where }),
       this.prisma.communicationMessage.groupBy({
         by: ['channel'],
@@ -436,12 +611,52 @@ export class CommunicationService {
         where,
         _count: true,
       }),
+      this.prisma.communicationMessage.groupBy({
+        by: ['category'],
+        where,
+        _count: true,
+      }),
     ]);
+
+    // Delivery metrics
+    const statusMap = Object.fromEntries(byStatus.map((s) => [s.status, s._count]));
+    const sent = (statusMap['sent'] || 0) + (statusMap['delivered'] || 0);
+    const delivered = statusMap['delivered'] || 0;
+    const failed = statusMap['failed'] || 0;
+    const skipped = statusMap['skipped'] || 0;
+
+    const deliveryRate = sent > 0 ? Math.round((delivered / sent) * 1000) / 10 : 0;
+    const failureRate = (sent + failed) > 0 ? Math.round((failed / (sent + failed)) * 1000) / 10 : 0;
+
+    // Daily volume trend (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+    const dailyTrend = await this.prisma.$queryRaw<
+      { date: string; count: number; delivered: number; failed: number }[]
+    >`
+      SELECT
+        TO_CHAR(created_at, 'YYYY-MM-DD') AS date,
+        COUNT(*)::int AS count,
+        COUNT(*) FILTER (WHERE status = 'delivered')::int AS delivered,
+        COUNT(*) FILTER (WHERE status = 'failed')::int AS failed
+      FROM communication_messages
+      WHERE clinic_id = ${clinicId}::uuid
+        AND created_at >= ${thirtyDaysAgo}
+      GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
+      ORDER BY date ASC
+    `;
 
     return {
       total,
+      delivery_rate: deliveryRate,
+      failure_rate: failureRate,
       by_channel: byChannel.map((c) => ({ channel: c.channel, count: c._count })),
       by_status: byStatus.map((s) => ({ status: s.status, count: s._count })),
+      by_category: byCategory.map((c) => ({ category: c.category, count: c._count })),
+      metrics: { sent, delivered, failed, skipped },
+      daily_trend: dailyTrend,
     };
   }
 
@@ -569,6 +784,62 @@ export class CommunicationService {
 
     const result = await this.emailProvider.verify(clinicId);
     return result;
+  }
+
+  // ─── Channel Fallback ───
+
+  /**
+   * Called by workers when a message fails after all retries.
+   * Checks the clinic's fallback_chain and re-queues to the next channel.
+   */
+  async handleChannelFallback(messageId: string, failedChannel: string): Promise<boolean> {
+    const message = await this.prisma.communicationMessage.findUnique({
+      where: { id: messageId },
+    });
+    if (!message || !message.patient_id) return false;
+
+    const settings = await this.prisma.clinicCommunicationSettings.findUnique({
+      where: { clinic_id: message.clinic_id },
+    });
+    if (!settings?.fallback_chain) return false;
+
+    const chain = settings.fallback_chain as string[];
+    const currentIndex = chain.indexOf(failedChannel);
+    if (currentIndex === -1 || currentIndex >= chain.length - 1) return false;
+
+    const nextChannel = chain[currentIndex + 1];
+
+    // Check if the next channel is enabled
+    if (!this.isChannelEnabled(settings, nextChannel)) return false;
+
+    // Get patient for recipient resolution
+    const patient = await this.prisma.patient.findUnique({
+      where: { id: message.patient_id },
+      select: { phone: true, email: true },
+    });
+    if (!patient) return false;
+
+    const recipient = this.getRecipient(patient, nextChannel);
+    if (!recipient) return false;
+
+    await this.prisma.communicationMessage.update({
+      where: { id: messageId },
+      data: { channel: nextChannel, recipient, status: 'queued' },
+    });
+
+    // Re-queue to the fallback channel
+    await this.producer.enqueue({
+      messageId,
+      clinicId: message.clinic_id,
+      channel: nextChannel,
+      to: recipient,
+      subject: message.subject ?? undefined,
+      body: message.body,
+      metadata: (message.metadata as Record<string, unknown>) ?? undefined,
+    });
+
+    this.logger.log(`Fallback: ${messageId} ${failedChannel} → ${nextChannel}`);
+    return true;
   }
 
   // ─── Private Helpers ───
@@ -924,6 +1195,74 @@ export class CommunicationService {
       .replace(/"/g, '&quot;');
   }
 
+  // ─── Circuit Breaker ───
+
+  private static readonly CIRCUIT_BREAKER_WINDOW = 100; // last N messages to check
+  private static readonly CIRCUIT_BREAKER_THRESHOLD = 0.2; // 20% failure rate
+
+  /** Get circuit breaker status for all channels in a clinic */
+  async getCircuitBreakerStatus(clinicId: string) {
+    const channels = ['email', 'sms', 'whatsapp'];
+    const result: Record<string, { is_open: boolean; failure_rate: number; sample_size: number }> = {};
+
+    for (const channel of channels) {
+      const recentMessages = await this.prisma.communicationMessage.findMany({
+        where: {
+          clinic_id: clinicId,
+          channel,
+          status: { in: ['sent', 'delivered', 'failed'] },
+        },
+        orderBy: { created_at: 'desc' },
+        take: CommunicationService.CIRCUIT_BREAKER_WINDOW,
+        select: { status: true },
+      });
+
+      const failedCount = recentMessages.filter((m) => m.status === 'failed').length;
+      const failureRate = recentMessages.length > 0 ? failedCount / recentMessages.length : 0;
+
+      result[channel] = {
+        is_open: recentMessages.length >= 10 && failureRate >= CommunicationService.CIRCUIT_BREAKER_THRESHOLD,
+        failure_rate: Math.round(failureRate * 1000) / 10, // percentage with 1 decimal
+        sample_size: recentMessages.length,
+      };
+    }
+
+    return result;
+  }
+
+  /**
+   * Check if the circuit breaker is open for a clinic + channel.
+   * Looks at the last 100 messages — if >20% failed, the channel is paused.
+   */
+  private async isCircuitOpen(clinicId: string, channel: string): Promise<boolean> {
+    const recentMessages = await this.prisma.communicationMessage.findMany({
+      where: {
+        clinic_id: clinicId,
+        channel,
+        status: { in: ['sent', 'delivered', 'failed'] },
+      },
+      orderBy: { created_at: 'desc' },
+      take: CommunicationService.CIRCUIT_BREAKER_WINDOW,
+      select: { status: true },
+    });
+
+    // Not enough data to trip the breaker
+    if (recentMessages.length < 10) return false;
+
+    const failedCount = recentMessages.filter((m) => m.status === 'failed').length;
+    const failureRate = failedCount / recentMessages.length;
+
+    if (failureRate >= CommunicationService.CIRCUIT_BREAKER_THRESHOLD) {
+      this.logger.warn(
+        `Circuit breaker OPEN for clinic ${clinicId} channel ${channel}: ` +
+        `${failedCount}/${recentMessages.length} failed (${(failureRate * 100).toFixed(1)}%)`,
+      );
+      return true;
+    }
+
+    return false;
+  }
+
   // ─── Feature Check ───
 
   /**
@@ -946,5 +1285,332 @@ export class CommunicationService {
     });
 
     return !!planFeature;
+  }
+
+  // ─── SMS Delivery Webhook (MSG91 DLR) ───
+
+  /**
+   * Process MSG91 delivery report webhook.
+   * MSG91 posts delivery updates to this endpoint with:
+   *   { request_id, user_pid, report: [{ number, status }] }
+   * or individual: { request_id, status, number, desc }
+   */
+  async handleSmsDeliveryWebhook(payload: Record<string, unknown>) {
+    const requestId = payload['request_id'] as string;
+    if (!requestId) {
+      this.logger.warn('SMS webhook: missing request_id');
+      return { processed: 0 };
+    }
+
+    // Map MSG91 status codes to our internal status
+    const statusMap: Record<string, string> = {
+      '1': 'delivered', // Delivered
+      '2': 'failed',    // Failed
+      '3': 'delivered', // Delivered to handset
+      '5': 'sent',      // Pending / Submitted
+      '9': 'failed',    // NDNC number
+      '16': 'failed',   // Rejected by network
+      '17': 'failed',   // Blocked number
+      '25': 'sent',     // Operator accepted
+      '26': 'failed',   // Duplicate
+      delivered: 'delivered',
+      failed: 'failed',
+      sent: 'sent',
+      bounced: 'failed',
+    };
+
+    let processed = 0;
+
+    // Find the communication log(s) matching this request_id
+    const logs = await this.prisma.communicationLog.findMany({
+      where: { provider_message_id: requestId },
+      include: { message: { select: { id: true, clinic_id: true } } },
+    });
+
+    if (logs.length === 0) {
+      this.logger.debug(`SMS webhook: no matching log for request_id ${requestId}`);
+      return { processed: 0 };
+    }
+
+    const reportStatus = String(payload['status'] || payload['report_status'] || '');
+    const internalStatus = statusMap[reportStatus] || 'sent';
+
+    for (const log of logs) {
+      // Update the log entry
+      const updateData: Record<string, unknown> = { status: internalStatus };
+      if (internalStatus === 'delivered') updateData['delivered_at'] = new Date();
+      if (internalStatus === 'failed') {
+        updateData['failed_at'] = new Date();
+        updateData['error_message'] = (payload['desc'] || payload['description'] || 'Delivery failed') as string;
+      }
+
+      await this.prisma.communicationLog.update({
+        where: { id: log.id },
+        data: updateData,
+      });
+
+      // Update the parent message status
+      await this.updateMessageStatus(log.message.id, internalStatus);
+      processed++;
+    }
+
+    this.logger.log(`SMS webhook processed: request_id=${requestId}, status=${internalStatus}, count=${processed}`);
+    return { processed, status: internalStatus };
+  }
+
+  // ─── WhatsApp Delivery Webhook (Gupshup) ───
+
+  /**
+   * Process Gupshup WhatsApp delivery/read receipts.
+   * Gupshup posts: { type: 'message-event', payload: { id, type, destination, ... } }
+   */
+  async handleWhatsAppWebhook(payload: Record<string, unknown>) {
+    const eventType = payload['type'] as string;
+
+    // Handle delivery status events
+    if (eventType === 'message-event') {
+      const eventPayload = payload['payload'] as Record<string, unknown> | undefined;
+      if (!eventPayload) return { processed: 0 };
+
+      const providerMessageId = eventPayload['id'] as string;
+      const statusType = eventPayload['type'] as string; // enqueued, sent, delivered, read, failed
+      const destination = eventPayload['destination'] as string;
+
+      if (!providerMessageId) return { processed: 0 };
+
+      const statusMap: Record<string, string> = {
+        enqueued: 'queued',
+        sent: 'sent',
+        delivered: 'delivered',
+        read: 'read',
+        failed: 'failed',
+      };
+
+      const internalStatus = statusMap[statusType] || 'sent';
+
+      const logs = await this.prisma.communicationLog.findMany({
+        where: { provider_message_id: providerMessageId, channel: 'whatsapp' },
+        include: { message: { select: { id: true } } },
+      });
+
+      let processed = 0;
+      for (const log of logs) {
+        const updateData: Record<string, unknown> = { status: internalStatus };
+        if (internalStatus === 'delivered') updateData['delivered_at'] = new Date();
+        if (internalStatus === 'read') updateData['read_at'] = new Date();
+        if (internalStatus === 'failed') {
+          updateData['failed_at'] = new Date();
+          updateData['error_message'] = (eventPayload['errorMessage'] || 'Delivery failed') as string;
+        }
+
+        await this.prisma.communicationLog.update({
+          where: { id: log.id },
+          data: updateData,
+        });
+
+        await this.updateMessageStatus(log.message.id, internalStatus);
+        processed++;
+      }
+
+      this.logger.log(`WhatsApp webhook: ${statusType} for ${destination}, processed=${processed}`);
+      return { processed, status: internalStatus };
+    }
+
+    // Handle incoming messages (session messaging — 24hr reply window)
+    if (eventType === 'message') {
+      const msgPayload = payload['payload'] as Record<string, unknown> | undefined;
+      if (!msgPayload) return { type: 'message', processed: false };
+
+      const from = msgPayload['source'] as string;
+      const text = (msgPayload['payload'] as Record<string, unknown>)?.['text'] as string || '';
+
+      this.logger.log(`WhatsApp incoming message from ${from}: ${text.substring(0, 50)}`);
+
+      // Track the session window — patient responded, so free-form messaging is open for 24hrs
+      // In production, store session windows per-patient for cost optimization
+      return { type: 'message', from, text: text.substring(0, 200), session_open: true };
+    }
+
+    return { processed: 0, type: eventType };
+  }
+
+  // ─── NDNC Registry Check ───
+
+  /**
+   * Check if a phone number is registered in the NDNC (National Do Not Call) registry.
+   * This is an optional compliance check before sending the first SMS to a patient.
+   * Returns true if the number is on the NDNC list (should not receive promotional SMS).
+   *
+   * Note: Actual NDNC API requires registration with TRAI. This provides the integration
+   * point — configure NDNC_API_URL and NDNC_API_KEY env vars when credentials are obtained.
+   */
+  async checkNdncStatus(phone: string): Promise<{ is_ndnc: boolean; checked: boolean; message: string }> {
+    const ndncApiUrl = this.configService.get<string>('app.ndnc.apiUrl');
+    const ndncApiKey = this.configService.get<string>('app.ndnc.apiKey');
+
+    if (!ndncApiUrl || !ndncApiKey) {
+      return {
+        is_ndnc: false,
+        checked: false,
+        message: 'NDNC check not configured. Set NDNC_API_URL and NDNC_API_KEY env vars.',
+      };
+    }
+
+    const cleanPhone = phone.replace(/[^0-9]/g, '').replace(/^91/, '');
+
+    try {
+      const response = await fetch(`${ndncApiUrl}/check?phone=${encodeURIComponent(cleanPhone)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${ndncApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (!response.ok) {
+        this.logger.warn(`NDNC check failed (${response.status}) for ${cleanPhone}`);
+        return { is_ndnc: false, checked: false, message: `NDNC API error: ${response.status}` };
+      }
+
+      const data = await response.json() as { is_ndnc?: boolean };
+      return {
+        is_ndnc: !!data.is_ndnc,
+        checked: true,
+        message: data.is_ndnc ? 'Number is on NDNC registry' : 'Number is not on NDNC registry',
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.warn(`NDNC check error for ${cleanPhone}: ${msg}`);
+      return { is_ndnc: false, checked: false, message: `NDNC check error: ${msg}` };
+    }
+  }
+
+  // ─── Enhanced HTML Email Rendering ───
+
+  // ─── WhatsApp Template Approval (5.2) ───
+
+  async submitWhatsAppTemplate(clinicId: string, templateData: {
+    elementName: string;
+    languageCode: string;
+    category: string;
+    templateType: string;
+    body: string;
+    header?: string;
+    footer?: string;
+  }) {
+    await this.ensureProvidersConfigured(clinicId);
+    const result = await this.whatsAppProvider.submitTemplate(clinicId, templateData);
+
+    // If successful, create/update the DB template record
+    if (result.success) {
+      await this.prisma.messageTemplate.upsert({
+        where: {
+          id: result.templateId || '',
+        },
+        create: {
+          clinic_id: clinicId,
+          channel: 'whatsapp',
+          category: templateData.category === 'MARKETING' ? 'campaign' : 'transactional',
+          template_name: templateData.elementName,
+          body: templateData.body,
+          language: templateData.languageCode,
+          whatsapp_template_status: 'submitted',
+          is_active: false,
+        },
+        update: {
+          whatsapp_template_status: 'submitted',
+        },
+      });
+    }
+
+    return result;
+  }
+
+  async getWhatsAppTemplateStatus(clinicId: string, templateName: string) {
+    await this.ensureProvidersConfigured(clinicId);
+    const status = await this.whatsAppProvider.getTemplateStatus(clinicId, templateName);
+
+    // Sync status to DB
+    if (status.status === 'APPROVED' || status.status === 'REJECTED') {
+      await this.prisma.messageTemplate.updateMany({
+        where: {
+          clinic_id: clinicId,
+          template_name: templateName,
+          channel: 'whatsapp',
+        },
+        data: {
+          whatsapp_template_status: status.status.toLowerCase(),
+          is_active: status.status === 'APPROVED',
+        },
+      });
+    }
+
+    return status;
+  }
+
+  renderRichEmailHtml(body: string, subject?: string, options?: {
+    clinicName?: string;
+    clinicLogo?: string;
+    footerText?: string;
+    ctaText?: string;
+    ctaUrl?: string;
+    preheader?: string;
+  }): string {
+    const clinicName = options?.clinicName || 'DentalCare';
+    const preheader = options?.preheader || '';
+
+    // Convert newlines to paragraphs and handle bullet lists
+    const processedBody = body
+      .split('\n')
+      .map(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return '';
+        if (trimmed.startsWith('• ') || trimmed.startsWith('- ')) {
+          return `<li style="margin: 4px 0; line-height: 1.6;">${this.escapeHtml(trimmed.substring(2))}</li>`;
+        }
+        return `<p style="margin: 0 0 12px 0; line-height: 1.6;">${this.escapeHtml(trimmed)}</p>`;
+      })
+      .join('\n')
+      .replace(/(<li[^>]*>.*<\/li>\n?)+/g, match =>
+        `<ul style="margin: 12px 0; padding-left: 20px;">${match}</ul>`
+      );
+
+    const ctaBlock = options?.ctaUrl && options?.ctaText
+      ? `<tr><td style="padding: 16px 32px;">
+          <a href="${this.escapeHtml(options.ctaUrl)}" style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #0d9488, #0891b2); color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px;">
+            ${this.escapeHtml(options.ctaText)}
+          </a>
+        </td></tr>`
+      : '';
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>@media only screen and (max-width: 600px){.email-container{width:100% !important;}}</style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  ${preheader ? `<div style="display:none;font-size:1px;color:#f4f4f7;line-height:1px;max-height:0;overflow:hidden;">${this.escapeHtml(preheader)}</div>` : ''}
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f7; padding: 24px 0;">
+    <tr><td align="center">
+      <table class="email-container" width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+        <tr><td style="background: linear-gradient(135deg, #0d9488, #0891b2); padding: 24px 32px;">
+          ${options?.clinicLogo ? `<img src="${this.escapeHtml(options.clinicLogo)}" alt="${this.escapeHtml(clinicName)}" style="max-height: 40px; margin-bottom: 8px;" />` : ''}
+          <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 600;">${this.escapeHtml(subject || 'Notification')}</h1>
+        </td></tr>
+        <tr><td style="padding: 32px; color: #374151; font-size: 15px;">
+          ${processedBody}
+        </td></tr>
+        ${ctaBlock}
+        <tr><td style="padding: 16px 32px; background-color: #f9fafb; border-top: 1px solid #e5e7eb;">
+          <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
+            ${this.escapeHtml(options?.footerText || `Sent by ${clinicName} • This is an automated message`)}
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
   }
 }

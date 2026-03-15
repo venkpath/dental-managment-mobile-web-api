@@ -62,6 +62,17 @@ export class SmsWorker extends WorkerHost {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`SMS worker error: ${messageId}: ${message}`);
+
+      // On final attempt, try channel fallback
+      const maxAttempts = (job.opts?.attempts ?? 3);
+      if (job.attemptsMade >= maxAttempts - 1) {
+        try {
+          await this.communicationService.handleChannelFallback(messageId, 'sms');
+        } catch {
+          // Fallback failed — nothing more to do
+        }
+      }
+
       throw error;
     }
   }

@@ -1,0 +1,46 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy backend to staging
+        run: |
+          echo "Deploy backend to staging environment"
+          echo "Configure your deployment target (Render, Railway, etc.) here"
+          # Example for Render:
+          # curl -X POST ${{ secrets.RENDER_BACKEND_DEPLOY_HOOK }}
+          # Example for Railway:
+          # railway up --service dental-backend
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy frontend to staging
+        run: |
+          echo "Deploy frontend to staging environment"
+          echo "Configure your deployment target (Vercel, Render, etc.) here"
+          # Example for Vercel:
+          # vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
+          # Example for Render:
+          # curl -X POST ${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK }}
+
+  deploy-production:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to production
+        run: |
+          echo "Deploy to production environment"
+          echo "Requires manual approval via GitHub environment protection rules"
