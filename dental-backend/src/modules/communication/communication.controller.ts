@@ -126,6 +126,24 @@ export class CommunicationController {
     return this.communicationService.sendTestEmail(clinicId, body.to);
   }
 
+  @Post('test-sms')
+  @ApiOperation({
+    summary: 'Send a test SMS to verify MSG91/DLT configuration',
+    description: 'Uses the SMS template configured via env vars (SMS_OTP_TEMPLATE / SMS_OTP_TEMPLATE_ID). ' +
+      'Pass optional "variables" to fill {#var#} placeholders in the template body. ' +
+      'To change the template, update the env vars and restart — no code changes needed.',
+  })
+  @ApiCreatedResponse({ description: 'Test SMS sent' })
+  async sendTestSms(
+    @CurrentClinic() clinicId: string,
+    @Body() body: { to: string; dlt_template_id?: string; variables?: Record<string, string> },
+  ) {
+    if (!body.to) {
+      throw new BadRequestException('Property "to" (phone number) is required');
+    }
+    return this.communicationService.sendTestSms(clinicId, body.to, body.dlt_template_id, body.variables);
+  }
+
   @Post('verify-smtp')
   @ApiOperation({ summary: 'Verify SMTP connectivity without sending an email' })
   @ApiOkResponse({ description: 'SMTP verification result' })

@@ -94,9 +94,23 @@ export class CommunicationService {
       dltTemplateId = template.dlt_template_id ?? undefined;
     }
 
-    // SMS fallback: use global default DLT template ID when template has none
+    // SMS: resolve DLT template ID and body from env when no DB template is linked.
+    // Fully configurable via env vars (SMS_DEFAULT_DLT_TEMPLATE_ID, SMS_DLT_TEMPLATE_BODY).
+    // Change env + restart — no code changes needed.
     if (dto.channel === 'sms' && !dltTemplateId) {
-      dltTemplateId = this.configService.get<string>('sms.defaultDltTemplateId') || undefined;
+      dltTemplateId = this.configService.get<string>('app.sms.defaultDltTemplateId') || undefined;
+
+      // If no body was set (no DB template, no direct body), use env template body
+      // and fill {#var#} placeholders sequentially from dto.variables values.
+      const envTemplateBody = this.configService.get<string>('app.sms.dltTemplateBody');
+      if (!body && envTemplateBody) {
+        let filled = envTemplateBody;
+        const varValues = Object.values(dto.variables || {});
+        for (const val of varValues) {
+          filled = filled.replace('{#var#}', val);
+        }
+        body = filled;
+      }
     }
 
     if (!body) {
@@ -467,6 +481,73 @@ export class CommunicationService {
     return {
       message: 'Test email sent successfully',
       to,
+      provider_message_id: result.providerMessageId,
+    };
+  }
+
+  // ─── Test SMS ───
+
+  async sendTestSms(
+    clinicId: string,
+    to: string,
+    dltTemplateId?: string,
+    variables?: Record<string, string>,
+  ) {
+    await this.ensureProvidersConfigured(clinicId);
+
+    const settings = await this.prisma.clinicCommunicationSettings.findUnique({
+      where: { clinic_id: clinicId },
+    });
+
+    if (settings && !settings.enable_sms) {
+      throw new BadRequestException('SMS is not enabled. Go to Communication → Settings and enable SMS first.');
+    }
+
+    if (!this.smsProvider.isConfigured(clinicId)) {
+      throw new BadRequestException('SMS provider not configured. Set SMS env vars or configure in Communication → Settings (Professional+ plans).');
+    }
+
+    // Resolve DLT template ID: explicit param → env default
+    const templateId = dltTemplateId
+      || this.configService.get<string>('app.sms.defaultDltTemplateId')
+      || undefined;
+
+    if (!templateId) {
+      throw new BadRequestException(
+        'DLT template ID is required. Provide dlt_template_id in the request or set SMS_DEFAULT_DLT_TEMPLATE_ID env var.',
+      );
+    }
+
+    // Resolve body: use env-configured DLT template body, fill {#var#} with provided variables
+    const envBody = this.configService.get<string>('app.sms.dltTemplateBody') || '';
+    let testBody = envBody;
+    const varValues = Object.values(variables || {});
+    for (const val of varValues) {
+      testBody = testBody.replace('{#var#}', val);
+    }
+    // Replace any remaining {#var#} with 'test'
+    testBody = testBody.replace(/\{#var#\}/g, 'test');
+
+    if (!testBody) {
+      throw new BadRequestException('SMS template body is empty. Set SMS_DLT_TEMPLATE_BODY env var.');
+    }
+
+    const result = await this.smsProvider.send({
+      to,
+      body: testBody,
+      templateId,
+      clinicId,
+    });
+
+    if (!result.success) {
+      throw new BadRequestException(`SMS sending failed: ${result.error}`);
+    }
+
+    return {
+      message: 'Test SMS sent successfully',
+      to,
+      dlt_template_id: templateId,
+      body_sent: testBody,
       provider_message_id: result.providerMessageId,
     };
   }
