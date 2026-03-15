@@ -90,6 +90,8 @@ export class SmsProvider implements ChannelProvider {
           ...options.variables,
         };
 
+        this.logger.debug(`[SMS ${providerName}] Flow payload: ${JSON.stringify(flowPayload)}`);
+
         const flowRes = await fetch('https://control.msg91.com/api/v5/flow/', {
           method: 'POST',
           headers: {
@@ -99,14 +101,24 @@ export class SmsProvider implements ChannelProvider {
           body: JSON.stringify(flowPayload),
         });
 
-        const flowData = await flowRes.json() as { type: string; message: string; request_id?: string };
+        const flowRaw = await flowRes.text();
+        this.logger.debug(`[SMS ${providerName}] Flow response (${flowRes.status}): ${flowRaw}`);
+
+        let flowData: Record<string, unknown>;
+        try {
+          flowData = JSON.parse(flowRaw);
+        } catch (_e) {
+          return { success: false, error: `MSG91 flow returned non-JSON (${flowRes.status}): ${flowRaw.slice(0, 200)}` };
+        }
+
+        const flowMsg = (flowData.message ?? flowData.msg ?? flowRaw) as string;
 
         if (flowData.type === 'success') {
-          this.logger.log(`SMS sent via flow to ${phone}: ${flowData.message}`);
-          return { success: true, providerMessageId: flowData.request_id || flowData.message };
+          this.logger.log(`SMS sent via flow to ${phone}: ${flowMsg}`);
+          return { success: true, providerMessageId: (flowData.request_id || flowMsg) as string };
         } else {
-          this.logger.warn(`SMS flow failed to ${phone}: ${flowData.message}`);
-          return { success: false, error: flowData.message };
+          this.logger.warn(`SMS flow failed to ${phone}: ${flowMsg}`);
+          return { success: false, error: flowMsg };
         }
       }
 
@@ -125,6 +137,8 @@ export class SmsProvider implements ChannelProvider {
         ],
       };
 
+      this.logger.debug(`[SMS ${providerName}] Payload: ${JSON.stringify(payload)}`);
+
       const response = await fetch('https://control.msg91.com/api/v5/sms/send', {
         method: 'POST',
         headers: {
@@ -134,14 +148,28 @@ export class SmsProvider implements ChannelProvider {
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json() as { type: string; message: string; request_id?: string };
+      const rawText = await response.text();
+      this.logger.debug(`[SMS ${providerName}] MSG91 response (${response.status}): ${rawText}`);
 
-      if (data.type === 'success') {
-        this.logger.log(`SMS sent to ${phone}: ${data.message}`);
-        return { success: true, providerMessageId: data.request_id || data.message };
+      let data: Record<string, unknown>;
+      try {
+        data = JSON.parse(rawText) as Record<string, unknown>;
+      } catch {
+        if (response.ok) {
+          return { success: true, providerMessageId: rawText };
+        }
+        return { success: false, error: `MSG91 error (${response.status}): ${rawText.slice(0, 200)}` };
+      }
+
+      const isSuccess = data.type === 'success' || (response.ok && data.request_id);
+      const msg = (data.message ?? data.msg ?? data.error ?? rawText) as string;
+
+      if (isSuccess) {
+        this.logger.log(`SMS sent to ${phone}: ${msg}`);
+        return { success: true, providerMessageId: (data.request_id || msg) as string };
       } else {
-        this.logger.warn(`SMS send failed to ${phone}: ${data.message}`);
-        return { success: false, error: data.message };
+        this.logger.warn(`SMS send failed to ${phone}: ${msg}`);
+        return { success: false, error: msg };
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown SMS error';

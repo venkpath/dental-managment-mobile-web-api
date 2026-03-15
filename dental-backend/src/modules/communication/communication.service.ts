@@ -87,29 +87,37 @@ export class CommunicationService {
 
     let dltTemplateId: string | undefined;
 
+    // Build enriched variables with common aliases so any template resolves cleanly.
+    // e.g. automation sends patient_first_name → also available as {{name}}.
+    const vars: Record<string, string> = { ...(dto.variables || {}) };
+    if (!vars['name']) vars['name'] = vars['patient_first_name'] || vars['patient_name'] || '';
+    if (!vars['code']) vars['code'] = vars['otp_code'] || '';
+
     if (dto.template_id) {
       const template = await this.templateService.findOne(clinicId, dto.template_id);
-      body = this.renderer.render(template.body, dto.variables || {});
-      subject = subject || (template.subject ? this.renderer.render(template.subject, dto.variables || {}) : undefined);
+      body = this.renderer.render(template.body, vars);
+      subject = subject || (template.subject ? this.renderer.render(template.subject, vars) : undefined);
       dltTemplateId = template.dlt_template_id ?? undefined;
     }
 
-    // SMS: resolve DLT template ID and body from env when no DB template is linked.
-    // Fully configurable via env vars (SMS_DEFAULT_DLT_TEMPLATE_ID, SMS_DLT_TEMPLATE_BODY).
-    // Change env + restart — no code changes needed.
+    // SMS DLT compliance: when no template is linked, auto-resolve from env default.
+    // This finds the DB template matching the default DLT ID and uses its body,
+    // ensuring the SMS body always matches the registered DLT pattern.
+    // → Test with 1 template: set SMS_DEFAULT_DLT_TEMPLATE_ID in env, all SMS works.
+    // → Add more templates later: set dlt_template_id on each DB template, they take priority.
     if (dto.channel === 'sms' && !dltTemplateId) {
-      dltTemplateId = this.configService.get<string>('app.sms.defaultDltTemplateId') || undefined;
+      const defaultDltId = this.configService.get<string>('app.sms.defaultDltTemplateId');
+      if (defaultDltId) {
+        dltTemplateId = defaultDltId;
 
-      // If no body was set (no DB template, no direct body), use env template body
-      // and fill {#var#} placeholders sequentially from dto.variables values.
-      const envTemplateBody = this.configService.get<string>('app.sms.dltTemplateBody');
-      if (!body && envTemplateBody) {
-        let filled = envTemplateBody;
-        const varValues = Object.values(dto.variables || {});
-        for (const val of varValues) {
-          filled = filled.replace('{#var#}', val);
+        // Find the DB template with this DLT ID and render its body
+        const fallbackTemplate = await this.prisma.messageTemplate.findFirst({
+          where: { dlt_template_id: defaultDltId, is_active: true, channel: { in: ['sms', 'all'] } },
+        });
+
+        if (fallbackTemplate) {
+          body = this.renderer.render(fallbackTemplate.body, vars);
         }
-        body = filled;
       }
     }
 
