@@ -94,6 +94,11 @@ export class CommunicationService {
       dltTemplateId = template.dlt_template_id ?? undefined;
     }
 
+    // SMS fallback: use global default DLT template ID when template has none
+    if (dto.channel === 'sms' && !dltTemplateId) {
+      dltTemplateId = this.configService.get<string>('sms.defaultDltTemplateId') || undefined;
+    }
+
     if (!body) {
       throw new BadRequestException('Message body is required — provide body or template_id');
     }

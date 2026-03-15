@@ -66,36 +66,27 @@ export class SmsProvider implements ChannelProvider {
     try {
       const { config, providerName } = ctx;
       const phone = options.to.replace(/[^0-9+]/g, ''); // clean the number
+      const mobileNumber = phone.replace(/^\+91/, '').replace(/^\+/, '');
 
       this.logger.debug(
         `[SMS ${providerName}] Sending to: ${phone} | DLT: ${options.templateId || 'none'} | Length: ${options.body.length}`,
       );
 
-      // MSG91 Send SMS API
-      const url = new URL('https://control.msg91.com/api/v5/flow/');
+      // DLT template ID is mandatory for India SMS via MSG91
+      if (!options.templateId) {
+        this.logger.warn(`SMS send skipped to ${phone}: DLT template ID is required. Assign a template with a DLT ID to the automation rule.`);
+        return {
+          success: false,
+          error: 'DLT template ID is required for SMS in India. Assign a message template with a DLT Template ID.',
+        };
+      }
 
-      const payload: Record<string, unknown> = {
-        sender: config.senderId,
-        route: config.route === 'promotional' ? '1' : '4', // 4 = transactional
-        country: '91',
-        sms: [
-          {
-            message: options.body,
-            to: [phone.replace(/^\+91/, '').replace(/^\+/, '')], // strip country code for MSG91
-          },
-        ],
-        // DLT fields (required by TRAI for India)
-        ...(config.dltEntityId && { DLT_TE_ID: options.templateId }),
-        ...(config.dltEntityId && { pe_id: config.dltEntityId }),
-      };
-
-      // If the provider uses flow-based API and we have template variables
-      if (options.variables && options.templateId) {
-        // For MSG91 flow-based API
+      // If the caller provided template variables, use MSG91 flow API
+      if (options.variables) {
         const flowPayload = {
           flow_id: options.templateId,
           sender: config.senderId,
-          mobiles: phone.replace(/^\+91/, '').replace(/^\+/, ''),
+          mobiles: mobileNumber,
           ...options.variables,
         };
 
@@ -119,8 +110,22 @@ export class SmsProvider implements ChannelProvider {
         }
       }
 
-      // Standard non-flow send
-      const response = await fetch(url.toString(), {
+      // Standard send SMS API (non-flow) with DLT compliance
+      const payload = {
+        sender: config.senderId,
+        route: config.route === 'promotional' ? '1' : '4',
+        country: '91',
+        DLT_TE_ID: options.templateId,
+        ...(config.dltEntityId && { pe_id: config.dltEntityId }),
+        sms: [
+          {
+            message: options.body,
+            to: [mobileNumber],
+          },
+        ],
+      };
+
+      const response = await fetch('https://control.msg91.com/api/v5/sms/send', {
         method: 'POST',
         headers: {
           'authkey': config.apiKey,

@@ -17,5 +17,6 @@ export default registerAs('app', () => ({
     apiKey: process.env['SMS_API_KEY'] || '',
     senderId: process.env['SMS_SENDER_ID'] || '',
     entityId: process.env['SMS_ENTITY_ID'] || '',
+    defaultDltTemplateId: process.env['SMS_DEFAULT_DLT_TEMPLATE_ID'] || '',
   },
 }));
