@@ -29,17 +29,43 @@ export class EmailProvider implements ChannelProvider {
   private readonly clinicTransporters = new Map<string, ClinicEmailContext>();
 
   configure(clinicId: string, config: EmailProviderConfig, providerName: string): void {
+    const port = config.port;
+    const secure = config.secure ?? port === 465;
+
     const transporter = nodemailer.createTransport({
       host: config.host,
-      port: config.port,
-      secure: config.secure ?? config.port === 465,
+      port,
+      secure,
       auth: {
         user: config.user,
         pass: config.pass,
       },
+      // Fast-fail timeouts instead of default 2-min wait
+      connectionTimeout: 30_000, // 30s to establish TCP connection
+      greetingTimeout: 30_000,   // 30s to receive SMTP greeting
+      socketTimeout: 60_000,     // 60s idle timeout on the socket
+      // Port 587 uses STARTTLS — allow self-signed / mismatched certs
+      ...(!secure && {
+        tls: { rejectUnauthorized: false },
+      }),
     });
     this.clinicTransporters.set(clinicId, { transporter, providerName, from: config.from || config.user });
-    this.logger.log(`Email provider configured for clinic ${clinicId}: ${providerName} (${config.host}:${config.port})`);
+    this.logger.log(`Email provider configured for clinic ${clinicId}: ${providerName} (${config.host}:${port}, secure=${secure})`);
+  }
+
+  /** Verify SMTP connectivity (used for diagnostics / settings test) */
+  async verify(clinicId: string): Promise<{ ok: boolean; error?: string }> {
+    const ctx = this.clinicTransporters.get(clinicId);
+    if (!ctx) return { ok: false, error: 'Email provider not configured for this clinic' };
+
+    try {
+      await ctx.transporter.verify();
+      return { ok: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`SMTP verify failed for clinic ${clinicId}: ${message}`);
+      return { ok: false, error: message };
+    }
   }
 
   getProviderName(clinicId: string): string {

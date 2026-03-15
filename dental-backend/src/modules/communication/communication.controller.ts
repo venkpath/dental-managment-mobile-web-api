@@ -125,4 +125,11 @@ export class CommunicationController {
     }
     return this.communicationService.sendTestEmail(clinicId, body.to);
   }
+
+  @Post('verify-smtp')
+  @ApiOperation({ summary: 'Verify SMTP connectivity without sending an email' })
+  @ApiOkResponse({ description: 'SMTP verification result' })
+  async verifySmtp(@CurrentClinic() clinicId: string) {
+    return this.communicationService.verifySmtp(clinicId);
+  }
 }

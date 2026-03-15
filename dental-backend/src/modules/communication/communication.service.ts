@@ -424,6 +424,12 @@ export class CommunicationService {
     // Force re-configure to pick up latest settings
     this.configureProviders(clinicId, settings);
 
+    // Verify SMTP connectivity before sending
+    const verification = await this.emailProvider.verify(clinicId);
+    if (!verification.ok) {
+      throw new BadRequestException(`SMTP connection failed: ${verification.error}. Check host, port, and credentials in Communication → Settings.`);
+    }
+
     const result = await this.emailProvider.send({
       to,
       subject: 'Dental Clinic — SMTP Test Email',
@@ -445,6 +451,25 @@ export class CommunicationService {
       to,
       provider_message_id: result.providerMessageId,
     };
+  }
+
+  async verifySmtp(clinicId: string) {
+    const settings = await this.prisma.clinicCommunicationSettings.findUnique({
+      where: { clinic_id: clinicId },
+    });
+
+    if (!settings || !settings.enable_email || !settings.email_config) {
+      return { ok: false, error: 'Email not enabled or SMTP not configured.' };
+    }
+
+    if (!settings.email_provider) {
+      settings.email_provider = 'smtp';
+    }
+
+    this.configureProviders(clinicId, settings);
+    const result = await this.emailProvider.verify(clinicId);
+
+    return result;
   }
 
   // ─── Private Helpers ───
