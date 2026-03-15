@@ -1,6 +1,7 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Logger, Module, type OnModuleInit } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { QUEUE_NAMES } from '../../common/queue/queue-names.js';
+import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationController } from './communication.controller.js';
 import { TemplateController } from './template.controller.js';
 import { CommunicationService } from './communication.service.js';
@@ -13,6 +14,7 @@ import { WhatsAppWorker } from './workers/whatsapp.worker.js';
 import { EmailProvider } from './providers/email.provider.js';
 import { SmsProvider } from './providers/sms.provider.js';
 import { WhatsAppProvider } from './providers/whatsapp.provider.js';
+import { seedDefaultTemplates } from './seed-templates.js';
 
 @Global()
 @Module({
@@ -40,4 +42,16 @@ import { WhatsAppProvider } from './providers/whatsapp.provider.js';
   ],
   exports: [CommunicationService, TemplateService, CommunicationProducer, TemplateRenderer],
 })
-export class CommunicationModule {}
+export class CommunicationModule implements OnModuleInit {
+  private readonly logger = new Logger(CommunicationModule.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  async onModuleInit() {
+    try {
+      await seedDefaultTemplates(this.prisma);
+    } catch (error) {
+      this.logger.error('Failed to seed default templates', error);
+    }
+  }
+}

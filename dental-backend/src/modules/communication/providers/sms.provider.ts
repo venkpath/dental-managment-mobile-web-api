@@ -26,7 +26,7 @@ export class SmsProvider implements ChannelProvider {
 
   configure(clinicId: string, config: SmsProviderConfig, providerName: string): void {
     this.clinicConfigs.set(clinicId, { config, providerName });
-    this.logger.log(`SMS provider configured for clinic ${clinicId}: ${providerName}`);
+    this.logger.log(`SMS provider configured for clinic ${clinicId}: ${providerName} (sender=${config.senderId})`);
   }
 
   getProviderName(clinicId: string): string {
@@ -64,32 +64,80 @@ export class SmsProvider implements ChannelProvider {
     }
 
     try {
-      // SMS provider integration placeholder
-      // When MSG91/Textlocal is configured, the actual API call goes here
-      this.logger.log(
-        `[SMS ${ctx.providerName}] To: ${options.to} | ` +
-        `DLT: ${options.templateId || 'none'} | ` +
-        `Length: ${options.body.length} | ` +
-        `Body: ${options.body.substring(0, 50)}...`,
+      const { config, providerName } = ctx;
+      const phone = options.to.replace(/[^0-9+]/g, ''); // clean the number
+
+      this.logger.debug(
+        `[SMS ${providerName}] Sending to: ${phone} | DLT: ${options.templateId || 'none'} | Length: ${options.body.length}`,
       );
 
-      // TODO: Replace with actual MSG91/Textlocal API call when credentials are available
-      // const response = await fetch(`https://api.msg91.com/api/v5/flow/`, {
-      //   method: 'POST',
-      //   headers: { authkey: ctx.config.apiKey },
-      //   body: JSON.stringify({
-      //     sender: ctx.config.senderId,
-      //     DLT_TE_ID: options.templateId,
-      //     mobiles: options.to,
-      //     message: options.body,
-      //   }),
-      // });
+      // MSG91 Send SMS API
+      const url = new URL('https://control.msg91.com/api/v5/flow/');
 
-      // Return not-sent status since SMS API is not yet wired
-      return {
-        success: false,
-        error: `SMS provider "${ctx.providerName}" is configured but API integration is pending. Message logged but not delivered.`,
+      const payload: Record<string, unknown> = {
+        sender: config.senderId,
+        route: config.route === 'promotional' ? '1' : '4', // 4 = transactional
+        country: '91',
+        sms: [
+          {
+            message: options.body,
+            to: [phone.replace(/^\+91/, '').replace(/^\+/, '')], // strip country code for MSG91
+          },
+        ],
+        // DLT fields (required by TRAI for India)
+        ...(config.dltEntityId && { DLT_TE_ID: options.templateId }),
+        ...(config.dltEntityId && { pe_id: config.dltEntityId }),
       };
+
+      // If the provider uses flow-based API and we have template variables
+      if (options.variables && options.templateId) {
+        // For MSG91 flow-based API
+        const flowPayload = {
+          flow_id: options.templateId,
+          sender: config.senderId,
+          mobiles: phone.replace(/^\+91/, '').replace(/^\+/, ''),
+          ...options.variables,
+        };
+
+        const flowRes = await fetch('https://control.msg91.com/api/v5/flow/', {
+          method: 'POST',
+          headers: {
+            'authkey': config.apiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(flowPayload),
+        });
+
+        const flowData = await flowRes.json() as { type: string; message: string; request_id?: string };
+
+        if (flowData.type === 'success') {
+          this.logger.log(`SMS sent via flow to ${phone}: ${flowData.message}`);
+          return { success: true, providerMessageId: flowData.request_id || flowData.message };
+        } else {
+          this.logger.warn(`SMS flow failed to ${phone}: ${flowData.message}`);
+          return { success: false, error: flowData.message };
+        }
+      }
+
+      // Standard non-flow send
+      const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: {
+          'authkey': config.apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json() as { type: string; message: string; request_id?: string };
+
+      if (data.type === 'success') {
+        this.logger.log(`SMS sent to ${phone}: ${data.message}`);
+        return { success: true, providerMessageId: data.request_id || data.message };
+      } else {
+        this.logger.warn(`SMS send failed to ${phone}: ${data.message}`);
+        return { success: false, error: data.message };
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown SMS error';
       this.logger.error(`SMS send failed to ${options.to}: ${message}`);

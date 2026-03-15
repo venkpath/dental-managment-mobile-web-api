@@ -1,4 +1,5 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service.js';
 import { paginate } from '../../common/interfaces/paginated-result.interface.js';
@@ -24,6 +25,7 @@ export class CommunicationService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
     private readonly templateService: TemplateService,
     private readonly renderer: TemplateRenderer,
     private readonly producer: CommunicationProducer,
@@ -83,10 +85,13 @@ export class CommunicationService {
     let subject = dto.subject;
     let html: string | undefined;
 
+    let dltTemplateId: string | undefined;
+
     if (dto.template_id) {
       const template = await this.templateService.findOne(clinicId, dto.template_id);
       body = this.renderer.render(template.body, dto.variables || {});
       subject = subject || (template.subject ? this.renderer.render(template.subject, dto.variables || {}) : undefined);
+      dltTemplateId = template.dlt_template_id ?? undefined;
     }
 
     if (!body) {
@@ -144,6 +149,7 @@ export class CommunicationService {
       subject,
       body,
       html,
+      templateId: dltTemplateId, // DLT template ID for SMS compliance
       metadata: dto.metadata,
       scheduledAt: dto.scheduled_at,
     });
@@ -329,10 +335,25 @@ export class CommunicationService {
   // ─── Clinic Settings ───
 
   async getClinicSettings(clinicId: string) {
-    return this.getOrCreateClinicSettings(clinicId);
+    const [settings, canCustomize] = await Promise.all([
+      this.getOrCreateClinicSettings(clinicId),
+      this.hasClinicFeature(clinicId, 'CUSTOM_PROVIDER_CONFIG'),
+    ]);
+
+    return { ...settings, can_customize_providers: canCustomize };
   }
 
   async updateClinicSettings(clinicId: string, dto: UpdateClinicSettingsDto) {
+    // Check if clinic can customize provider configs
+    const canCustomize = await this.hasClinicFeature(clinicId, 'CUSTOM_PROVIDER_CONFIG');
+
+    if (!canCustomize && (dto.email_config || dto.sms_config || dto.whatsapp_config)) {
+      throw new ForbiddenException(
+        'Custom provider configuration is available on Professional and Enterprise plans. ' +
+        'Your clinic currently uses the platform default settings.',
+      );
+    }
+
     const data = {
       ...dto,
       email_config: dto.email_config ? JSON.parse(JSON.stringify(dto.email_config)) : undefined,
@@ -400,29 +421,21 @@ export class CommunicationService {
   // ─── Test Email ───
 
   async sendTestEmail(clinicId: string, to: string) {
+    // Ensure providers are configured (env fallback or clinic-level)
+    await this.ensureProvidersConfigured(clinicId);
+
     const settings = await this.prisma.clinicCommunicationSettings.findUnique({
       where: { clinic_id: clinicId },
     });
 
-    if (!settings || !settings.enable_email) {
+    if (settings && !settings.enable_email) {
       throw new BadRequestException('Email is not enabled. Go to Communication → Settings and enable email first.');
     }
 
-    if (!settings.email_config) {
-      throw new BadRequestException('Email SMTP config is missing. Go to Communication → Settings and configure SMTP (host, port, user, password).');
+    // Check if email provider is configured (either from clinic config or env)
+    if (!this.emailProvider.isConfigured(clinicId)) {
+      throw new BadRequestException('Email provider not configured. Set SMTP env vars or configure in Communication → Settings (Professional+ plans).');
     }
-
-    // Auto-fix missing email_provider
-    if (!settings.email_provider) {
-      await this.prisma.clinicCommunicationSettings.update({
-        where: { clinic_id: clinicId },
-        data: { email_provider: 'smtp' },
-      });
-      settings.email_provider = 'smtp';
-    }
-
-    // Force re-configure to pick up latest settings
-    this.configureProviders(clinicId, settings);
 
     // Verify SMTP connectivity before sending
     const verification = await this.emailProvider.verify(clinicId);
@@ -454,21 +467,13 @@ export class CommunicationService {
   }
 
   async verifySmtp(clinicId: string) {
-    const settings = await this.prisma.clinicCommunicationSettings.findUnique({
-      where: { clinic_id: clinicId },
-    });
+    await this.ensureProvidersConfigured(clinicId);
 
-    if (!settings || !settings.enable_email || !settings.email_config) {
-      return { ok: false, error: 'Email not enabled or SMTP not configured.' };
+    if (!this.emailProvider.isConfigured(clinicId)) {
+      return { ok: false, error: 'Email not configured. Set SMTP env vars or configure in Communication → Settings (Professional+ plans).' };
     }
 
-    if (!settings.email_provider) {
-      settings.email_provider = 'smtp';
-    }
-
-    this.configureProviders(clinicId, settings);
     const result = await this.emailProvider.verify(clinicId);
-
     return result;
   }
 
@@ -672,12 +677,48 @@ export class CommunicationService {
   }
 
   private async loadAndConfigureProviders(clinicId: string): Promise<void> {
-    const settings = await this.prisma.clinicCommunicationSettings.findUnique({
-      where: { clinic_id: clinicId },
-    });
+    const [settings, canCustomize] = await Promise.all([
+      this.prisma.clinicCommunicationSettings.findUnique({
+        where: { clinic_id: clinicId },
+      }),
+      this.hasClinicFeature(clinicId, 'CUSTOM_PROVIDER_CONFIG'),
+    ]);
 
-    if (settings) {
+    // Only apply clinic-level provider configs if the plan supports customization
+    if (settings && canCustomize) {
       this.configureProviders(clinicId, settings);
+    }
+
+    // Fallback: configure email from env vars if not already configured
+    if (!this.emailProvider.isConfigured(clinicId)) {
+      const envHost = this.configService.get<string>('app.smtp.host');
+      const envUser = this.configService.get<string>('app.smtp.user');
+      if (envHost && envUser) {
+        this.emailProvider.configure(clinicId, {
+          host: envHost,
+          port: this.configService.get<number>('app.smtp.port') || 587,
+          secure: this.configService.get<boolean>('app.smtp.secure') || false,
+          user: envUser,
+          pass: this.configService.get<string>('app.smtp.pass') || '',
+          from: this.configService.get<string>('app.smtp.from'),
+        }, 'smtp');
+        this.logger.log(`Email provider configured from env vars for clinic ${clinicId}`);
+      }
+    }
+
+    // Fallback: configure SMS from env vars if not already configured
+    if (!this.smsProvider.isConfigured(clinicId)) {
+      const envApiKey = this.configService.get<string>('app.sms.apiKey');
+      const envSenderId = this.configService.get<string>('app.sms.senderId');
+      if (envApiKey && envSenderId) {
+        this.smsProvider.configure(clinicId, {
+          apiKey: envApiKey,
+          senderId: envSenderId,
+          dltEntityId: this.configService.get<string>('app.sms.entityId'),
+          route: 'transactional',
+        }, 'msg91');
+        this.logger.log(`SMS provider configured from env vars for clinic ${clinicId}`);
+      }
     }
   }
 
@@ -710,7 +751,14 @@ export class CommunicationService {
 
     // Configure SMS provider
     if (settings.enable_sms && settings.sms_config && settings.sms_provider) {
-      const smsConfig = settings.sms_config as SmsProviderConfig;
+      const raw = settings.sms_config as Record<string, unknown>;
+      // Normalise: frontend stores api_key/sender_id (snake), provider expects camelCase
+      const smsConfig: SmsProviderConfig = {
+        apiKey: (raw.apiKey ?? raw.api_key) as string,
+        senderId: (raw.senderId ?? raw.sender_id) as string,
+        dltEntityId: (raw.dltEntityId ?? raw.dlt_entity_id) as string | undefined,
+        route: (raw.route as 'transactional' | 'promotional' | undefined) ?? 'transactional',
+      };
       this.smsProvider.configure(clinicId, smsConfig, settings.sms_provider);
       this.logger.log(`SMS provider configured for clinic ${clinicId}: ${settings.sms_provider}`);
     }
@@ -780,5 +828,29 @@ export class CommunicationService {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  // ─── Feature Check ───
+
+  /**
+   * Check if the clinic's plan has a specific feature enabled.
+   */
+  private async hasClinicFeature(clinicId: string, featureKey: string): Promise<boolean> {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { plan_id: true },
+    });
+
+    if (!clinic?.plan_id) return false;
+
+    const planFeature = await this.prisma.planFeature.findFirst({
+      where: {
+        plan_id: clinic.plan_id,
+        feature: { key: featureKey },
+        is_enabled: true,
+      },
+    });
+
+    return !!planFeature;
   }
 }

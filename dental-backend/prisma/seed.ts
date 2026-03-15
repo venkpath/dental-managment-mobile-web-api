@@ -59,6 +59,7 @@ async function main() {
     { key: 'WHATSAPP_INTEGRATION', description: 'WhatsApp messaging for patient communication' },
     { key: 'DIGITAL_XRAY', description: 'Digital X-ray management and storage' },
     { key: 'INVENTORY_MANAGEMENT', description: 'Dental inventory and supply tracking' },
+    { key: 'CUSTOM_PROVIDER_CONFIG', description: 'Override default email/SMS provider config per clinic' },
   ];
 
   for (const feature of features) {
@@ -148,11 +149,12 @@ async function main() {
     const planFeatureMappings = [
       // Starter: inventory only
       { plan_id: starterPlan.id, feature_id: featureMap['INVENTORY_MANAGEMENT']!, is_enabled: true },
-      // Professional: inventory + SMS + digital xray + AI prescription
+      // Professional: inventory + SMS + digital xray + AI prescription + custom providers
       { plan_id: professionalPlan.id, feature_id: featureMap['INVENTORY_MANAGEMENT']!, is_enabled: true },
       { plan_id: professionalPlan.id, feature_id: featureMap['SMS_REMINDERS']!, is_enabled: true },
       { plan_id: professionalPlan.id, feature_id: featureMap['DIGITAL_XRAY']!, is_enabled: true },
       { plan_id: professionalPlan.id, feature_id: featureMap['AI_PRESCRIPTION']!, is_enabled: true },
+      { plan_id: professionalPlan.id, feature_id: featureMap['CUSTOM_PROVIDER_CONFIG']!, is_enabled: true },
       // Enterprise: all features
       { plan_id: enterprisePlan.id, feature_id: featureMap['INVENTORY_MANAGEMENT']!, is_enabled: true },
       { plan_id: enterprisePlan.id, feature_id: featureMap['SMS_REMINDERS']!, is_enabled: true },
@@ -160,6 +162,7 @@ async function main() {
       { plan_id: enterprisePlan.id, feature_id: featureMap['AI_PRESCRIPTION']!, is_enabled: true },
       { plan_id: enterprisePlan.id, feature_id: featureMap['AI_TREATMENT_PLAN']!, is_enabled: true },
       { plan_id: enterprisePlan.id, feature_id: featureMap['WHATSAPP_INTEGRATION']!, is_enabled: true },
+      { plan_id: enterprisePlan.id, feature_id: featureMap['CUSTOM_PROVIDER_CONFIG']!, is_enabled: true },
     ];
 
     for (const mapping of planFeatureMappings) {

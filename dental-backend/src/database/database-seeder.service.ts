@@ -120,9 +120,6 @@ export class DatabaseSeederService implements OnModuleInit {
   }
 
   private async seedFeatures() {
-    const count = await this.prisma.feature.count();
-    if (count > 0) return;
-
     const features = [
       { key: 'AI_PRESCRIPTION', description: 'AI-powered prescription generation' },
       { key: 'AI_TREATMENT_PLAN', description: 'AI-assisted treatment planning' },
@@ -130,18 +127,21 @@ export class DatabaseSeederService implements OnModuleInit {
       { key: 'WHATSAPP_INTEGRATION', description: 'WhatsApp messaging for patient communication' },
       { key: 'DIGITAL_XRAY', description: 'Digital X-ray management and storage' },
       { key: 'INVENTORY_MANAGEMENT', description: 'Dental inventory and supply tracking' },
+      { key: 'CUSTOM_PROVIDER_CONFIG', description: 'Override default email/SMS provider config per clinic' },
     ];
 
+    let created = 0;
     for (const f of features) {
-      await this.prisma.feature.upsert({ where: { key: f.key }, update: {}, create: f });
+      const existing = await this.prisma.feature.findUnique({ where: { key: f.key } });
+      if (!existing) {
+        await this.prisma.feature.create({ data: f });
+        created++;
+      }
     }
-    this.logger.log('Seeded 6 features');
+    if (created > 0) this.logger.log(`Seeded ${created} new features`);
   }
 
   private async seedPlanFeatures() {
-    const count = await this.prisma.planFeature.count();
-    if (count > 0) return;
-
     const starter = await this.prisma.plan.findUnique({ where: { name: 'Starter' } });
     const professional = await this.prisma.plan.findUnique({ where: { name: 'Professional' } });
     const enterprise = await this.prisma.plan.findUnique({ where: { name: 'Enterprise' } });
@@ -156,22 +156,27 @@ export class DatabaseSeederService implements OnModuleInit {
       { plan_id: professional.id, feature_id: fm['SMS_REMINDERS']! },
       { plan_id: professional.id, feature_id: fm['DIGITAL_XRAY']! },
       { plan_id: professional.id, feature_id: fm['AI_PRESCRIPTION']! },
+      { plan_id: professional.id, feature_id: fm['CUSTOM_PROVIDER_CONFIG']! },
       { plan_id: enterprise.id, feature_id: fm['INVENTORY_MANAGEMENT']! },
       { plan_id: enterprise.id, feature_id: fm['SMS_REMINDERS']! },
       { plan_id: enterprise.id, feature_id: fm['DIGITAL_XRAY']! },
       { plan_id: enterprise.id, feature_id: fm['AI_PRESCRIPTION']! },
       { plan_id: enterprise.id, feature_id: fm['AI_TREATMENT_PLAN']! },
       { plan_id: enterprise.id, feature_id: fm['WHATSAPP_INTEGRATION']! },
+      { plan_id: enterprise.id, feature_id: fm['CUSTOM_PROVIDER_CONFIG']! },
     ];
 
+    let created = 0;
     for (const m of mappings) {
-      await this.prisma.planFeature.upsert({
+      const existing = await this.prisma.planFeature.findUnique({
         where: { plan_id_feature_id: { plan_id: m.plan_id, feature_id: m.feature_id } },
-        update: {},
-        create: { ...m, is_enabled: true },
       });
+      if (!existing) {
+        await this.prisma.planFeature.create({ data: { ...m, is_enabled: true } });
+        created++;
+      }
     }
-    this.logger.log('Seeded plan-feature mappings');
+    if (created > 0) this.logger.log(`Seeded ${created} new plan-feature mappings`);
   }
 
   private async seedTestClinic() {
