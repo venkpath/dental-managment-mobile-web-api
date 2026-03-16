@@ -29,14 +29,14 @@ export class SubscriptionGuard implements CanActivate {
     const user = request.user;
 
     // Skip if no user (handled by JwtAuthGuard) or super_admin
-    if (!user || !user.clinic_id) return true;
+    if (!user || !user.clinicId) return true;
 
     // Allow payment endpoints so expired clinics can still subscribe
     const path = request.originalUrl || request.url || '';
     if (path.includes('/payment') || path.includes('/auth')) return true;
 
     const clinic = await this.prisma.clinic.findUnique({
-      where: { id: user.clinic_id },
+      where: { id: user.clinicId },
       select: { subscription_status: true, trial_ends_at: true },
     });
 
