@@ -130,6 +130,15 @@ export class AuthService {
       throw new ConflictException('A clinic with this email already exists');
     }
 
+    // If a paid plan was selected, look it up
+    let planId: string | undefined;
+    if (dto.plan_key && dto.plan_key !== 'trial') {
+      const plan = await this.prisma.plan.findFirst({
+        where: { name: { contains: dto.plan_key, mode: 'insensitive' } },
+      });
+      if (plan) planId = plan.id;
+    }
+
     // Create clinic + admin user in a single transaction
     const result = await this.prisma.$transaction(async (tx) => {
       const clinic = await tx.clinic.create({
@@ -141,6 +150,8 @@ export class AuthService {
           city: dto.city,
           state: dto.state,
           trial_ends_at: trialEndsAt,
+          subscription_status: 'trial',
+          ...(planId ? { plan_id: planId } : {}),
         },
       });
 
@@ -194,6 +205,7 @@ export class AuthService {
         email: result.clinic.email,
         subscription_status: result.clinic.subscription_status,
         trial_ends_at: result.clinic.trial_ends_at,
+        plan_id: result.clinic.plan_id,
       },
       admin: result.admin,
     };

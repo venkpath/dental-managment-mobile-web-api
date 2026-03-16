@@ -42,6 +42,7 @@ import { SuperAdminGuard } from './common/guards/super-admin.guard.js';
 import { FeatureGuard } from './common/guards/feature.guard.js';
 import { AiUsageGuard } from './common/guards/ai-usage.guard.js';
 import { CsrfGuard } from './common/guards/csrf.guard.js';
+import { SubscriptionGuard } from './common/guards/subscription.guard.js';
 import { CsrfModule } from './modules/csrf/csrf.module.js';
 import { SentryModule } from './modules/sentry/sentry.module.js';
 import { BackupModule } from './modules/backup/backup.module.js';
@@ -117,6 +118,7 @@ import razorpayConfig from './config/razorpay.config.js';
     { provide: APP_GUARD, useClass: SuperAdminGuard },
     { provide: APP_GUARD, useClass: FeatureGuard },
     { provide: APP_GUARD, useClass: AiUsageGuard },
+    { provide: APP_GUARD, useClass: SubscriptionGuard },
     { provide: APP_GUARD, useClass: CsrfGuard },
   ],
 })

@@ -18,6 +18,7 @@ model Clinic {
   country             String?   @db.VarChar(100)
   plan_id             String?   @db.Uuid
   subscription_status String    @default("trial") @db.VarChar(20)
+  subscription_id     String?   @db.VarChar(100)
   trial_ends_at       DateTime?
   ai_usage_count      Int       @default(0)
   created_at          DateTime  @default(now())
@@ -89,14 +90,15 @@ model Branch {
 }
 
 model Plan {
-  id            String   @id @default(uuid()) @db.Uuid
-  name          String   @unique @db.VarChar(100)
-  price_monthly Decimal  @db.Decimal(10, 2)
-  max_branches  Int
-  max_staff     Int
-  ai_quota      Int      @default(0)
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String   @unique @db.VarChar(100)
+  price_monthly   Decimal  @db.Decimal(10, 2)
+  max_branches    Int
+  max_staff       Int
+  ai_quota        Int      @default(0)
+  razorpay_plan_id String? @db.VarChar(100)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
 
   clinics       Clinic[]
   plan_features PlanFeature[]

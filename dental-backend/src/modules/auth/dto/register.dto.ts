@@ -50,4 +50,10 @@ export class RegisterClinicDto {
   @IsString()
   @MinLength(8)
   admin_password!: string;
+
+  @ApiPropertyOptional({ example: 'starter', description: 'Plan key: starter, professional, enterprise. Defaults to trial.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  plan_key?: string;
 }

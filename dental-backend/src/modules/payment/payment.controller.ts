@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Headers, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, Headers, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -11,6 +11,21 @@ import { PaymentService } from './payment.service.js';
 @Controller('payment')
 export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
+
+  @Get('status')
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get subscription status', description: 'Returns current plan, trial info, and subscription status' })
+  async getSubscriptionStatus(@CurrentUser() user: JwtPayload) {
+    return this.paymentService.getSubscriptionStatus(user.clinic_id);
+  }
+
+  @Get('plans')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get available plans' })
+  async getPlans() {
+    return this.paymentService.getPlans();
+  }
 
   @Post('subscribe')
   @Roles(UserRole.ADMIN)
