@@ -3,9 +3,10 @@ import { SuperAdminController } from './super-admin.controller.js';
 import { SuperAdminService } from './super-admin.service.js';
 import { SuperAdminAuthService } from './super-admin-auth.service.js';
 import { AuthModule } from '../auth/auth.module.js';
+import { ClinicModule } from '../clinic/clinic.module.js';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, ClinicModule],
   controllers: [SuperAdminController],
   providers: [SuperAdminService, SuperAdminAuthService],
   exports: [SuperAdminService],

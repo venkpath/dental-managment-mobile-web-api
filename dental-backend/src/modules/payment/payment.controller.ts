@@ -3,8 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../user/dto/create-user.dto.js';
-import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
-import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
+import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { PaymentService } from './payment.service.js';
 
 @ApiTags('Payment')
@@ -17,11 +16,11 @@ export class PaymentController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get subscription status', description: 'Returns current plan, trial info, and subscription status' })
-  async getSubscriptionStatus(@CurrentUser() user: JwtPayload) {
+  async getSubscriptionStatus(@CurrentClinic() clinicId: string) {
     try {
-      return await this.paymentService.getSubscriptionStatus(user.clinic_id);
+      return await this.paymentService.getSubscriptionStatus(clinicId);
     } catch (error) {
-      this.logger.error(`Failed to get subscription status for clinic ${user.clinic_id}`, (error as Error).stack);
+      this.logger.error(`Failed to get subscription status for clinic ${clinicId}`, (error as Error).stack);
       throw error;
     }
   }
@@ -38,11 +37,11 @@ export class PaymentController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a subscription', description: 'Creates a Razorpay subscription for the clinic' })
   async createSubscription(
-    @CurrentUser() user: JwtPayload,
+    @CurrentClinic() clinicId: string,
     @Body() body: { planKey: string },
   ) {
     return this.paymentService.createSubscription({
-      clinicId: user.clinic_id,
+      clinicId,
       planKey: body.planKey,
     });
   }
@@ -51,8 +50,8 @@ export class PaymentController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Cancel subscription' })
-  async cancelSubscription(@CurrentUser() user: JwtPayload) {
-    await this.paymentService.cancelSubscription(user.clinic_id);
+  async cancelSubscription(@CurrentClinic() clinicId: string) {
+    await this.paymentService.cancelSubscription(clinicId);
     return { message: 'Subscription cancelled' };
   }
 

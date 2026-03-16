@@ -25,16 +25,16 @@ export class ClinicController {
   }
 
   @Get()
-  @Public()
-  @ApiOperation({ summary: 'List all clinics' })
+  @SuperAdmin()
+  @ApiOperation({ summary: 'List all clinics (Super Admin)' })
   @ApiOkResponse({ description: 'List of clinics' })
   async findAll() {
     return this.clinicService.findAll();
   }
 
   @Get(':id')
-  @Public()
-  @ApiOperation({ summary: 'Get a clinic by ID' })
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Get a clinic by ID (Super Admin)' })
   @ApiOkResponse({ description: 'Clinic found' })
   @ApiNotFoundResponse({ description: 'Clinic not found' })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
@@ -42,8 +42,8 @@ export class ClinicController {
   }
 
   @Patch(':id')
-  @Public()
-  @ApiOperation({ summary: 'Update clinic details' })
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Update clinic details (Super Admin)' })
   @ApiOkResponse({ description: 'Clinic updated successfully' })
   @ApiNotFoundResponse({ description: 'Clinic not found' })
   async update(

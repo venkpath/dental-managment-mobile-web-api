@@ -15,9 +15,12 @@ export class PlanService {
     return this.prisma.plan.create({ data: dto });
   }
 
-  async findAll(): Promise<Plan[]> {
+  async findAll() {
     return this.prisma.plan.findMany({
       orderBy: { created_at: 'desc' },
+      include: {
+        plan_features: { include: { feature: true } },
+      },
     });
   }
 
