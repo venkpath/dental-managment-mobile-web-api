@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Headers, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, Headers, HttpCode, HttpStatus, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -10,6 +10,7 @@ import { PaymentService } from './payment.service.js';
 @ApiTags('Payment')
 @Controller('payment')
 export class PaymentController {
+  private readonly logger = new Logger(PaymentController.name);
   constructor(private readonly paymentService: PaymentService) {}
 
   @Get('status')
@@ -17,7 +18,12 @@ export class PaymentController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get subscription status', description: 'Returns current plan, trial info, and subscription status' })
   async getSubscriptionStatus(@CurrentUser() user: JwtPayload) {
-    return this.paymentService.getSubscriptionStatus(user.clinic_id);
+    try {
+      return await this.paymentService.getSubscriptionStatus(user.clinic_id);
+    } catch (error) {
+      this.logger.error(`Failed to get subscription status for clinic ${user.clinic_id}`, (error as Error).stack);
+      throw error;
+    }
   }
 
   @Get('plans')

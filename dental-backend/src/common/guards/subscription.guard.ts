@@ -32,8 +32,8 @@ export class SubscriptionGuard implements CanActivate {
     if (!user || !user.clinic_id) return true;
 
     // Allow payment endpoints so expired clinics can still subscribe
-    const path = request.route?.path || request.url || '';
-    if (path.includes('/payment/') || path.includes('/auth/')) return true;
+    const path = request.originalUrl || request.url || '';
+    if (path.includes('/payment') || path.includes('/auth')) return true;
 
     const clinic = await this.prisma.clinic.findUnique({
       where: { id: user.clinic_id },

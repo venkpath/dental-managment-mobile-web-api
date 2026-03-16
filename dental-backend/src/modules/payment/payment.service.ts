@@ -42,6 +42,8 @@ export class PaymentService implements OnModuleInit {
    * Get subscription status for a clinic
    */
   async getSubscriptionStatus(clinicId: string) {
+    if (!clinicId) throw new BadRequestException('Clinic ID is required');
+
     const clinic = await this.prisma.clinic.findUnique({
       where: { id: clinicId },
       include: { plan: true },
