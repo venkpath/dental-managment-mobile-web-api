@@ -28,7 +28,12 @@ describe('CurrentUser Decorator', () => {
     } as unknown as ExecutionContext;
 
     const result = factory(undefined, mockContext);
-    expect(result).toEqual(user);
+    expect(result).toEqual({
+      ...user,
+      sub: 'u1',
+      clinic_id: 'c1',
+      branch_id: null,
+    });
   });
 
   it('should return undefined when user is not set', () => {

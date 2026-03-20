@@ -20,4 +20,13 @@ export class FeatureService {
       orderBy: { key: 'asc' },
     });
   }
+
+  async remove(id: string): Promise<Feature> {
+    const feature = await this.prisma.feature.findUnique({ where: { id } });
+    if (!feature) {
+      throw new ConflictException(`Feature with ID "${id}" not found`);
+    }
+    // PlanFeatures referencing this feature will be cascade deleted
+    return this.prisma.feature.delete({ where: { id } });
+  }
 }

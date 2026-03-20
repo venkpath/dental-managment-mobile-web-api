@@ -55,7 +55,7 @@ export class NotificationCronService {
 
         // Also notify clinic admins so they see it in their bell
         const admins = await this.prisma.user.findMany({
-          where: { clinic_id: appt.clinic_id, role: 'admin', status: 'active' },
+          where: { clinic_id: appt.clinic_id, role: 'Admin', status: 'active' },
           select: { id: true },
         });
         for (const admin of admins) {
@@ -127,7 +127,7 @@ export class NotificationCronService {
       const notifications: CreateNotificationInput[] = [];
       for (const [clinicId, items] of byClinic) {
         const admins = await this.prisma.user.findMany({
-          where: { clinic_id: clinicId, role: 'admin', status: 'active' },
+          where: { clinic_id: clinicId, role: 'Admin', status: 'active' },
           select: { id: true },
         });
 
@@ -192,7 +192,7 @@ export class NotificationCronService {
       const notifications: CreateNotificationInput[] = [];
       for (const [clinicId, items] of byClinic) {
         const admins = await this.prisma.user.findMany({
-          where: { clinic_id: clinicId, role: 'admin', status: 'active' },
+          where: { clinic_id: clinicId, role: 'Admin', status: 'active' },
           select: { id: true },
         });
 

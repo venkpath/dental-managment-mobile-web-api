@@ -10,7 +10,7 @@ import { AuditLogService } from '../audit-log/audit-log.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
 import { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
-import { LoginDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
+import { LoginDto, LookupDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
 
 export interface LoginResponse {
   access_token: string;
@@ -40,6 +40,42 @@ export class AuthService {
     private readonly auditLogService: AuditLogService,
     private readonly communicationService: CommunicationService,
   ) {}
+
+  async lookup(dto: LookupDto) {
+    // Find all users with this email across all clinics
+    const users = await this.prisma.user.findMany({
+      where: { email: dto.email, status: 'active' },
+      include: {
+        clinic: { select: { id: true, name: true, email: true, subscription_status: true } },
+      },
+    });
+
+    if (users.length === 0) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    // Verify password and collect matching users in a single pass
+    const validUsers = [];
+    for (const user of users) {
+      if (await this.passwordService.verify(dto.password, user.password_hash)) {
+        validUsers.push(user);
+      }
+    }
+
+    if (validUsers.length === 0) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const clinics = validUsers.map((u) => ({
+      clinic_id: u.clinic.id,
+      clinic_name: u.clinic.name,
+      clinic_email: u.clinic.email,
+      subscription_status: u.clinic.subscription_status,
+      role: u.role,
+    }));
+
+    return { clinics, requires_clinic_selection: clinics.length > 1 };
+  }
 
   async login(dto: LoginDto, req?: Request): Promise<LoginResponse> {
     const user = await this.userService.findByEmail(dto.email, dto.clinic_id);
@@ -149,6 +185,7 @@ export class AuthService {
           address: dto.address,
           city: dto.city,
           state: dto.state,
+          country: dto.country,
           trial_ends_at: trialEndsAt,
           subscription_status: 'trial',
           ...(planId ? { plan_id: planId } : {}),

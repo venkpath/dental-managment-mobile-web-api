@@ -214,11 +214,11 @@ export class DatabaseSeederService implements OnModuleInit {
     });
 
     const testUsers = [
-      { name: 'Dr. Priya Sharma', email: 'priya@smiledental.in', role: 'admin', password: 'Admin@123' },
-      { name: 'Dr. Rahul Verma', email: 'rahul@smiledental.in', role: 'dentist', password: 'Dentist@123' },
-      { name: 'Dr. Anjali Patel', email: 'anjali@smiledental.in', role: 'dentist', password: 'Dentist@123' },
-      { name: 'Meera Nair', email: 'meera@smiledental.in', role: 'receptionist', password: 'Reception@123' },
-      { name: 'Suresh Kumar', email: 'suresh@smiledental.in', role: 'staff', password: 'Staff@123' },
+      { name: 'Dr. Priya Sharma', email: 'priya@smiledental.in', role: 'Admin', password: 'Admin@123' },
+      { name: 'Dr. Rahul Verma', email: 'rahul@smiledental.in', role: 'Dentist', password: 'Dentist@123' },
+      { name: 'Dr. Anjali Patel', email: 'anjali@smiledental.in', role: 'Dentist', password: 'Dentist@123' },
+      { name: 'Meera Nair', email: 'meera@smiledental.in', role: 'Receptionist', password: 'Reception@123' },
+      { name: 'Suresh Kumar', email: 'suresh@smiledental.in', role: 'Staff', password: 'Staff@123' },
     ];
 
     for (const u of testUsers) {

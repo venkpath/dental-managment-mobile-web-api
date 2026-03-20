@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
 import { PasswordService } from '../../common/services/password.service.js';
 import { CreateSuperAdminDto } from './dto/index.js';
@@ -153,6 +153,10 @@ export class SuperAdminService {
     clinic_name: string;
     clinic_email: string;
     clinic_phone?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    country?: string;
     admin_name: string;
     admin_email: string;
     admin_password: string;
@@ -174,6 +178,10 @@ export class SuperAdminService {
           name: dto.clinic_name,
           email: dto.clinic_email,
           phone: dto.clinic_phone,
+          address: dto.address,
+          city: dto.city,
+          state: dto.state,
+          country: dto.country,
           plan_id: dto.plan_id || null,
           subscription_status: dto.plan_id ? 'active' : 'trial',
           trial_ends_at: dto.plan_id ? null : trialEndsAt,
@@ -189,7 +197,7 @@ export class SuperAdminService {
           name: dto.admin_name,
           email: dto.admin_email,
           password_hash: passwordHash,
-          role: 'admin',
+          role: 'Admin',
           clinic_id: clinic.id,
           branch_id: branch.id,
         },
@@ -198,5 +206,59 @@ export class SuperAdminService {
 
       return { clinic, branch, admin: user };
     });
+  }
+
+  // ─── Delete Clinic ───
+
+  async deleteClinic(id: string) {
+    const clinic = await this.prisma.clinic.findUnique({ where: { id } });
+    if (!clinic) throw new NotFoundException('Clinic not found');
+
+    // All child relations use onDelete: Cascade, so deleting the clinic
+    // automatically removes all associated data (users, patients, etc.)
+    await this.prisma.clinic.delete({ where: { id } });
+
+    return { deleted: true, clinic_name: clinic.name };
+  }
+
+  // ─── Change Password ───
+
+  async changePassword(adminId: string, currentPassword: string, newPassword: string) {
+    const admin = await this.prisma.superAdmin.findUnique({ where: { id: adminId } });
+    if (!admin) throw new NotFoundException('Super admin not found');
+
+    const valid = await this.passwordService.verify(currentPassword, admin.password_hash);
+    if (!valid) throw new UnauthorizedException('Current password is incorrect');
+
+    const newHash = await this.passwordService.hash(newPassword);
+    await this.prisma.superAdmin.update({
+      where: { id: adminId },
+      data: { password_hash: newHash },
+    });
+
+    return { message: 'Password changed successfully' };
+  }
+
+  // ─── Audit Logs ───
+
+  async getAuditLogs(params: { page: number; limit: number; clinicId?: string; action?: string }) {
+    const { page, limit, clinicId, action } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Record<string, unknown> = {};
+    if (clinicId) where['clinic_id'] = clinicId;
+    if (action) where['action'] = action;
+
+    const [logs, total] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { created_at: 'desc' },
+      }),
+      this.prisma.auditLog.count({ where }),
+    ]);
+
+    return { data: logs, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
 }

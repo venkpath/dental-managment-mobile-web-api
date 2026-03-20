@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { TemplateService } from '../communication/template.service.js';
@@ -8,6 +8,26 @@ import { paginate } from '../../common/interfaces/paginated-result.interface.js'
 import type { CreateCampaignDto } from './dto/create-campaign.dto.js';
 import type { UpdateCampaignDto } from './dto/update-campaign.dto.js';
 import type { QueryCampaignDto } from './dto/query-campaign.dto.js';
+
+type CampaignChannel = 'email' | 'sms' | 'whatsapp' | 'all';
+type DeliveryChannel = Exclude<CampaignChannel, 'all'>;
+
+interface SegmentPatient {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  email: string | null;
+}
+
+interface DispatchStats {
+  attempted_count: number;
+  queued_count: number;
+  scheduled_count: number;
+  skipped_count: number;
+  failed_count: number;
+  accepted_by_channel: Record<DeliveryChannel, number>;
+}
 
 @Injectable()
 export class CampaignService {
@@ -20,11 +40,105 @@ export class CampaignService {
     email: 0.02,
   };
 
+  private static readonly DELIVERY_CHANNELS: DeliveryChannel[] = ['whatsapp', 'sms', 'email'];
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly communicationService: CommunicationService,
     private readonly templateService: TemplateService,
   ) {}
+
+  private getDeliveryChannels(channel: string): DeliveryChannel[] {
+    if (channel === 'all') return [...CampaignService.DELIVERY_CHANNELS];
+    if (CampaignService.DELIVERY_CHANNELS.includes(channel as DeliveryChannel)) {
+      return [channel as DeliveryChannel];
+    }
+    throw new BadRequestException(`Unsupported channel "${channel}"`);
+  }
+
+  private toMessageChannel(channel: DeliveryChannel): MessageChannel {
+    if (channel === 'whatsapp') return MessageChannel.WHATSAPP;
+    if (channel === 'sms') return MessageChannel.SMS;
+    return MessageChannel.EMAIL;
+  }
+
+  private getPerRecipientCost(channels: DeliveryChannel[]): number {
+    return channels.reduce((sum, channel) => sum + (CampaignService.COST_PER_MESSAGE[channel] || 0), 0);
+  }
+
+  private calculateActualCost(acceptedByChannel: Record<DeliveryChannel, number>): number {
+    const raw = CampaignService.DELIVERY_CHANNELS.reduce(
+      (sum, channel) => sum + acceptedByChannel[channel] * (CampaignService.COST_PER_MESSAGE[channel] || 0),
+      0,
+    );
+    return Math.round(raw * 100) / 100;
+  }
+
+  private buildPatientVariables(patient: SegmentPatient): Record<string, string> {
+    return {
+      patient_name: `${patient.first_name} ${patient.last_name}`,
+      patient_first_name: patient.first_name,
+      patient_last_name: patient.last_name,
+      patient_phone: patient.phone,
+      patient_email: patient.email || '',
+    };
+  }
+
+  private async dispatchMessages(
+    clinicId: string,
+    patients: SegmentPatient[],
+    channels: DeliveryChannel[],
+    templateId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<DispatchStats> {
+    const stats: DispatchStats = {
+      attempted_count: 0,
+      queued_count: 0,
+      scheduled_count: 0,
+      skipped_count: 0,
+      failed_count: 0,
+      accepted_by_channel: { whatsapp: 0, sms: 0, email: 0 },
+    };
+
+    for (const patient of patients) {
+      const variables = this.buildPatientVariables(patient);
+
+      for (const channel of channels) {
+        stats.attempted_count++;
+
+        try {
+          const message = await this.communicationService.sendMessage(clinicId, {
+            patient_id: patient.id,
+            channel: this.toMessageChannel(channel),
+            category: MessageCategory.PROMOTIONAL,
+            template_id: templateId,
+            variables,
+            metadata,
+          });
+
+          if (message.status === 'skipped') {
+            stats.skipped_count++;
+            continue;
+          }
+
+          stats.accepted_by_channel[channel]++;
+
+          if (message.status === 'scheduled') {
+            stats.scheduled_count++;
+          } else {
+            stats.queued_count++;
+          }
+        } catch (error) {
+          stats.failed_count++;
+          this.logger.warn(
+            `Failed to queue campaign message for patient ${patient.id} on ${channel}: ${(error as Error).message}`,
+          );
+        }
+      }
+    }
+
+    return stats;
+  }
 
   // ─── CRUD ───
 
@@ -145,13 +259,8 @@ export class CampaignService {
       throw new BadRequestException('Campaign must have a template to execute');
     }
 
-    // Mark as running
-    await this.prisma.campaign.update({
-      where: { id },
-      data: { status: 'running', started_at: new Date() },
-    });
-
     try {
+      const channels = this.getDeliveryChannels(campaign.channel);
       const patients = await this.resolveSegment(
         clinicId,
         campaign.segment_type,
@@ -160,43 +269,53 @@ export class CampaignService {
 
       await this.templateService.findOne(clinicId, campaign.template_id);
 
-      // Track counters
-      let sentCount = 0;
-      let failedCount = 0;
+      const estimatedCost = Math.round((patients.length * this.getPerRecipientCost(channels)) * 100) / 100;
 
-      // Determine channels to send on
-      const channelMap: Record<string, MessageChannel> = {
-        whatsapp: MessageChannel.WHATSAPP,
-        sms: MessageChannel.SMS,
-        email: MessageChannel.EMAIL,
-      };
-      const channelKeys = campaign.channel === 'all'
-        ? ['whatsapp', 'sms', 'email']
-        : [campaign.channel];
+      await this.prisma.campaign.update({
+        where: { id },
+        data: {
+          status: 'running',
+          started_at: new Date(),
+          estimated_cost: estimatedCost,
+        },
+      });
 
-      // Queue messages for each patient
-      for (const patient of patients) {
-        for (const ch of channelKeys) {
-          try {
-            await this.communicationService.sendMessage(clinicId, {
-              patient_id: patient.id,
-              channel: channelMap[ch] || MessageChannel.WHATSAPP,
-              category: MessageCategory.PROMOTIONAL,
-              template_id: campaign.template_id,
-              variables: {
-                patient_name: `${patient.first_name} ${patient.last_name}`,
-                patient_first_name: patient.first_name,
-                patient_phone: patient.phone,
-                patient_email: patient.email || '',
-              },
-              metadata: { campaign_id: campaign.id },
-            });
-            sentCount++;
-          } catch {
-            failedCount++;
-          }
-        }
+      if (patients.length === 0) {
+        await this.prisma.campaign.update({
+          where: { id },
+          data: {
+            status: 'completed',
+            completed_at: new Date(),
+            total_recipients: 0,
+            sent_count: 0,
+            failed_count: 0,
+            actual_cost: 0,
+          },
+        });
+
+        return {
+          total_recipients: 0,
+          attempted_count: 0,
+          sent_count: 0,
+          scheduled_count: 0,
+          skipped_count: 0,
+          failed_count: 0,
+          estimated_cost: estimatedCost,
+          actual_cost: 0,
+        };
       }
+
+      const stats = await this.dispatchMessages(
+        clinicId,
+        patients,
+        channels,
+        campaign.template_id,
+        { campaign_id: campaign.id },
+      );
+
+      const sentCount = stats.queued_count + stats.scheduled_count;
+      const unsentCount = stats.failed_count + stats.skipped_count;
+      const actualCost = this.calculateActualCost(stats.accepted_by_channel);
 
       // Mark completed
       await this.prisma.campaign.update({
@@ -206,11 +325,21 @@ export class CampaignService {
           completed_at: new Date(),
           total_recipients: patients.length,
           sent_count: sentCount,
-          failed_count: failedCount,
+          failed_count: unsentCount,
+          actual_cost: actualCost,
         },
       });
 
-      return { total_recipients: patients.length, sent_count: sentCount, failed_count: failedCount };
+      return {
+        total_recipients: patients.length,
+        attempted_count: stats.attempted_count,
+        sent_count: sentCount,
+        scheduled_count: stats.scheduled_count,
+        skipped_count: stats.skipped_count,
+        failed_count: stats.failed_count,
+        estimated_cost: estimatedCost,
+        actual_cost: actualCost,
+      };
     } catch (error) {
       // Revert to draft on critical failure
       await this.prisma.campaign.update({
@@ -227,8 +356,12 @@ export class CampaignService {
     clinicId: string,
     segmentType: string,
     config: Record<string, unknown>,
-  ) {
-    const baseWhere: Prisma.PatientWhereInput = { clinic_id: clinicId };
+  ): Promise<SegmentPatient[]> {
+    const branchIdFromConfig = typeof config.branch_id === 'string' ? config.branch_id : undefined;
+    const baseWhere: Prisma.PatientWhereInput = {
+      clinic_id: clinicId,
+      ...(branchIdFromConfig ? { branch_id: branchIdFromConfig } : {}),
+    };
 
     switch (segmentType) {
       case 'all':
@@ -238,7 +371,8 @@ export class CampaignService {
         });
 
       case 'inactive': {
-        const months = (config.inactive_months as number) || 6;
+        const monthsRaw = Number(config.inactive_months ?? 6);
+        const months = Number.isFinite(monthsRaw) ? Math.max(1, Math.trunc(monthsRaw)) : 6;
         const cutoffDate = new Date();
         cutoffDate.setMonth(cutoffDate.getMonth() - months);
 
@@ -255,7 +389,9 @@ export class CampaignService {
 
       case 'treatment_type': {
         const procedure = config.procedure as string;
-        if (!procedure) return [];
+        if (!procedure) {
+          throw new BadRequestException('segment_config.procedure is required for treatment_type segment');
+        }
 
         return this.prisma.patient.findMany({
           where: {
@@ -269,7 +405,13 @@ export class CampaignService {
       }
 
       case 'birthday_month': {
-        const month = (config.month as number) || new Date().getMonth() + 1;
+        const monthRaw = Number(config.month ?? (new Date().getMonth() + 1));
+        const month = Math.trunc(monthRaw);
+
+        if (!Number.isFinite(monthRaw) || month < 1 || month > 12) {
+          throw new BadRequestException('segment_config.month must be between 1 and 12 for birthday_month segment');
+        }
+
         // Use raw SQL for month extraction
         const patients = await this.prisma.$queryRaw<
           { id: string; first_name: string; last_name: string; phone: string; email: string | null }[]
@@ -277,6 +419,7 @@ export class CampaignService {
           SELECT id, first_name, last_name, phone, email
           FROM patients
           WHERE clinic_id = ${clinicId}::uuid
+            ${branchIdFromConfig ? Prisma.sql`AND branch_id = ${branchIdFromConfig}::uuid` : Prisma.empty}
             AND EXTRACT(MONTH FROM date_of_birth) = ${month}
         `;
         return patients;
@@ -284,7 +427,9 @@ export class CampaignService {
 
       case 'location': {
         const branchId = config.branch_id as string;
-        if (!branchId) return [];
+        if (!branchId) {
+          throw new BadRequestException('segment_config.branch_id is required for location segment');
+        }
 
         return this.prisma.patient.findMany({
           where: { ...baseWhere, branch_id: branchId },
@@ -297,7 +442,15 @@ export class CampaignService {
 
         if (config.gender) where.gender = config.gender as string;
         if (config.branch_id) where.branch_id = config.branch_id as string;
-        if (config.created_after) where.created_at = { gte: new Date(config.created_after as string) };
+        if (config.created_after || config.created_before) {
+          where.created_at = {
+            ...(config.created_after ? { gte: new Date(config.created_after as string) } : {}),
+            ...(config.created_before ? { lte: new Date(config.created_before as string) } : {}),
+          };
+        }
+
+        if (config.has_email === true) where.email = { not: null };
+        if (config.has_email === false) where.email = null;
 
         return this.prisma.patient.findMany({
           where,
@@ -306,7 +459,7 @@ export class CampaignService {
       }
 
       default:
-        return [];
+        throw new BadRequestException(`Unsupported segment type "${segmentType}"`);
     }
   }
 
@@ -360,7 +513,7 @@ export class CampaignService {
     channel: string;
   }) {
     const patients = await this.resolveSegment(clinicId, params.segment_type, params.segment_config || {});
-    const channels = params.channel === 'all' ? ['whatsapp', 'sms', 'email'] : [params.channel];
+    const channels = this.getDeliveryChannels(params.channel);
 
     const costBreakdown = channels.map(ch => ({
       channel: ch,
@@ -370,9 +523,11 @@ export class CampaignService {
     }));
 
     const totalEstimatedCost = costBreakdown.reduce((sum, c) => sum + c.total_cost, 0);
+    const totalMessages = patients.length * channels.length;
 
     return {
       total_recipients: patients.length,
+      total_messages: totalMessages,
       channels: costBreakdown,
       total_estimated_cost: Math.round(totalEstimatedCost * 100) / 100,
       currency: 'INR',
@@ -410,20 +565,53 @@ export class CampaignService {
       throw new BadRequestException('Campaign must have a primary template (variant A)');
     }
 
+    if (splitPercentage <= 0 || splitPercentage >= 100) {
+      throw new BadRequestException('split_percentage must be between 1 and 99');
+    }
+
     // Validate variant B template
     await this.templateService.findOne(clinicId, variantTemplateId);
 
-    await this.prisma.campaign.update({
-      where: { id },
-      data: { status: 'running', started_at: new Date() },
-    });
-
     try {
+      const channels = this.getDeliveryChannels(campaign.channel);
       const patients = await this.resolveSegment(
         clinicId,
         campaign.segment_type,
         (campaign.segment_config as Record<string, unknown>) || {},
       );
+
+      const estimatedCost = Math.round((patients.length * this.getPerRecipientCost(channels)) * 100) / 100;
+
+      await this.prisma.campaign.update({
+        where: { id },
+        data: {
+          status: 'running',
+          started_at: new Date(),
+          estimated_cost: estimatedCost,
+        },
+      });
+
+      if (patients.length === 0) {
+        await this.prisma.campaign.update({
+          where: { id },
+          data: {
+            status: 'completed',
+            completed_at: new Date(),
+            total_recipients: 0,
+            sent_count: 0,
+            failed_count: 0,
+            actual_cost: 0,
+          },
+        });
+
+        return {
+          total_recipients: 0,
+          variant_a: { template_id: campaign.template_id, recipients: 0, sent: 0, skipped: 0, failed: 0 },
+          variant_b: { template_id: variantTemplateId, recipients: 0, sent: 0, skipped: 0, failed: 0 },
+          estimated_cost: estimatedCost,
+          actual_cost: 0,
+        };
+      }
 
       // Randomly split patients into A and B groups
       const shuffled = [...patients].sort(() => Math.random() - 0.5);
@@ -431,60 +619,31 @@ export class CampaignService {
       const groupA = shuffled.slice(0, splitIndex);
       const groupB = shuffled.slice(splitIndex);
 
-      const channelMap: Record<string, MessageChannel> = {
-        whatsapp: MessageChannel.WHATSAPP,
-        sms: MessageChannel.SMS,
-        email: MessageChannel.EMAIL,
-      };
-      const channelKeys = campaign.channel === 'all'
-        ? ['whatsapp', 'sms', 'email']
-        : [campaign.channel];
+      const statsA = await this.dispatchMessages(
+        clinicId,
+        groupA,
+        channels,
+        campaign.template_id,
+        { campaign_id: campaign.id, ab_variant: 'A' },
+      );
 
-      let sentA = 0, failedA = 0, sentB = 0, failedB = 0;
+      const statsB = await this.dispatchMessages(
+        clinicId,
+        groupB,
+        channels,
+        variantTemplateId,
+        { campaign_id: campaign.id, ab_variant: 'B' },
+      );
 
-      // Send variant A
-      for (const patient of groupA) {
-        for (const ch of channelKeys) {
-          try {
-            await this.communicationService.sendMessage(clinicId, {
-              patient_id: patient.id,
-              channel: channelMap[ch] || MessageChannel.WHATSAPP,
-              category: MessageCategory.PROMOTIONAL,
-              template_id: campaign.template_id,
-              variables: {
-                patient_name: `${patient.first_name} ${patient.last_name}`,
-                patient_first_name: patient.first_name,
-              },
-              metadata: { campaign_id: campaign.id, ab_variant: 'A' },
-            });
-            sentA++;
-          } catch { failedA++; }
-        }
-      }
-
-      // Send variant B
-      for (const patient of groupB) {
-        for (const ch of channelKeys) {
-          try {
-            await this.communicationService.sendMessage(clinicId, {
-              patient_id: patient.id,
-              channel: channelMap[ch] || MessageChannel.WHATSAPP,
-              category: MessageCategory.PROMOTIONAL,
-              template_id: variantTemplateId,
-              variables: {
-                patient_name: `${patient.first_name} ${patient.last_name}`,
-                patient_first_name: patient.first_name,
-              },
-              metadata: { campaign_id: campaign.id, ab_variant: 'B' },
-            });
-            sentB++;
-          } catch { failedB++; }
-        }
-      }
-
-      // Calculate cost
-      const totalSent = sentA + sentB;
-      const costPerMsg = channelKeys.reduce((sum, ch) => sum + (CampaignService.COST_PER_MESSAGE[ch] || 0), 0);
+      const totalSent = statsA.queued_count + statsA.scheduled_count + statsB.queued_count + statsB.scheduled_count;
+      const totalUnsent =
+        statsA.failed_count + statsA.skipped_count +
+        statsB.failed_count + statsB.skipped_count;
+      const actualCost = this.calculateActualCost({
+        whatsapp: statsA.accepted_by_channel.whatsapp + statsB.accepted_by_channel.whatsapp,
+        sms: statsA.accepted_by_channel.sms + statsB.accepted_by_channel.sms,
+        email: statsA.accepted_by_channel.email + statsB.accepted_by_channel.email,
+      });
 
       await this.prisma.campaign.update({
         where: { id },
@@ -493,15 +652,29 @@ export class CampaignService {
           completed_at: new Date(),
           total_recipients: patients.length,
           sent_count: totalSent,
-          failed_count: failedA + failedB,
-          actual_cost: totalSent * costPerMsg,
+          failed_count: totalUnsent,
+          actual_cost: actualCost,
         },
       });
 
       return {
         total_recipients: patients.length,
-        variant_a: { template_id: campaign.template_id, recipients: groupA.length, sent: sentA, failed: failedA },
-        variant_b: { template_id: variantTemplateId, recipients: groupB.length, sent: sentB, failed: failedB },
+        variant_a: {
+          template_id: campaign.template_id,
+          recipients: groupA.length,
+          sent: statsA.queued_count + statsA.scheduled_count,
+          skipped: statsA.skipped_count,
+          failed: statsA.failed_count,
+        },
+        variant_b: {
+          template_id: variantTemplateId,
+          recipients: groupB.length,
+          sent: statsB.queued_count + statsB.scheduled_count,
+          skipped: statsB.skipped_count,
+          failed: statsB.failed_count,
+        },
+        estimated_cost: estimatedCost,
+        actual_cost: actualCost,
       };
     } catch (error) {
       await this.prisma.campaign.update({
@@ -651,37 +824,19 @@ export class CampaignService {
       config,
     );
 
-    const channelMap: Record<string, MessageChannel> = {
-      whatsapp: MessageChannel.WHATSAPP,
-      sms: MessageChannel.SMS,
-      email: MessageChannel.EMAIL,
-    };
-    const channelKeys = campaign.channel === 'all'
-      ? ['whatsapp', 'sms', 'email']
-      : [campaign.channel];
+    const channels = this.getDeliveryChannels(campaign.channel);
+    const stats = await this.dispatchMessages(
+      clinicId,
+      patients,
+      channels,
+      step.template_id,
+      {
+        campaign_id: campaignId,
+        drip_step: stepIndex,
+      },
+    );
 
-    let sent = 0;
-    for (const patient of patients) {
-      for (const ch of channelKeys) {
-        try {
-          await this.communicationService.sendMessage(clinicId, {
-            patient_id: patient.id,
-            channel: channelMap[ch] || MessageChannel.WHATSAPP,
-            category: MessageCategory.PROMOTIONAL,
-            template_id: step.template_id,
-            variables: {
-              patient_name: `${patient.first_name} ${patient.last_name}`,
-              patient_first_name: patient.first_name,
-            },
-            metadata: {
-              campaign_id: campaignId,
-              drip_step: stepIndex,
-            },
-          });
-          sent++;
-        } catch { /* continue */ }
-      }
-    }
+    const sent = stats.queued_count + stats.scheduled_count;
 
     // Update campaign progress
     await this.prisma.campaign.update({
@@ -689,13 +844,20 @@ export class CampaignService {
       data: {
         status: stepIndex >= steps.length - 1 ? 'completed' : 'running',
         sent_count: { increment: sent },
+        failed_count: { increment: stats.failed_count + stats.skipped_count },
         total_recipients: patients.length,
         ...(stepIndex >= steps.length - 1 ? { completed_at: new Date() } : {}),
       },
     });
 
     this.logger.log(`Drip step ${stepIndex + 1}/${steps.length} for campaign ${campaignId}: sent ${sent} messages`);
-    return { step: stepIndex + 1, total_steps: steps.length, sent };
+    return {
+      step: stepIndex + 1,
+      total_steps: steps.length,
+      sent,
+      skipped: stats.skipped_count,
+      failed: stats.failed_count,
+    };
   }
 
   // ─── Festival Offer → Campaign (10.4) ───

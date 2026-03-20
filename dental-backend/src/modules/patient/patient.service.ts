@@ -16,12 +16,20 @@ export class PatientService {
       throw new NotFoundException(`Branch with ID "${dto.branch_id}" not found in this clinic`);
     }
 
-    const { date_of_birth, medical_history, ...rest } = dto;
+    const { date_of_birth, age, medical_history, ...rest } = dto;
+
+    // Compute date_of_birth from age if dob not provided
+    let dob: Date | undefined;
+    if (date_of_birth) {
+      dob = new Date(date_of_birth);
+    }
+
     return this.prisma.patient.create({
       data: {
         ...rest,
         clinic_id: clinicId,
-        date_of_birth: new Date(date_of_birth),
+        ...(dob ? { date_of_birth: dob } : {}),
+        ...(age !== undefined ? { age } : {}),
         ...(medical_history !== undefined
           ? { medical_history: medical_history as Prisma.InputJsonValue }
           : {}),

@@ -5,9 +5,18 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
   ApiNotFoundResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { SuperAdmin } from '../../common/decorators/super-admin.decorator.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
+// request.user is set by JwtAuthGuard with camelCase properties
+interface RequestUser {
+  userId: string;
+  clinicId: string;
+  role: string;
+  branchId: string | null;
+}
 import { ClinicService } from './clinic.service.js';
 import { CreateClinicDto, UpdateClinicDto, UpdateSubscriptionDto } from './dto/index.js';
 
@@ -22,6 +31,22 @@ export class ClinicController {
   @ApiCreatedResponse({ description: 'Clinic created successfully with 14-day trial' })
   async create(@Body() dto: CreateClinicDto) {
     return this.clinicService.create(dto);
+  }
+
+  @Get('me')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get the current user\'s clinic details' })
+  @ApiOkResponse({ description: 'Clinic details' })
+  async getMyClinic(@CurrentUser() user: RequestUser) {
+    return this.clinicService.findOne(user.clinicId);
+  }
+
+  @Patch('me')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update the current user\'s clinic details' })
+  @ApiOkResponse({ description: 'Clinic updated' })
+  async updateMyClinic(@CurrentUser() user: RequestUser, @Body() dto: UpdateClinicDto) {
+    return this.clinicService.update(user.clinicId, dto);
   }
 
   @Get()

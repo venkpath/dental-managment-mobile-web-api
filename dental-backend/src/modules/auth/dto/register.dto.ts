@@ -36,6 +36,12 @@ export class RegisterClinicDto {
   @MaxLength(100)
   state?: string;
 
+  @ApiPropertyOptional({ example: 'India', maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  country?: string;
+
   @ApiProperty({ example: 'Dr. Priya Sharma', maxLength: 255 })
   @IsString()
   @MaxLength(255)

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, ParseUUIDPipe } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -72,5 +72,14 @@ export class PlanController {
   @ApiNotFoundResponse({ description: 'Plan not found' })
   async getFeatures(@Param('id', ParseUUIDPipe) id: string) {
     return this.planService.getFeatures(id);
+  }
+
+  @Delete(':id')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Delete a subscription plan' })
+  @ApiOkResponse({ description: 'Plan deleted successfully' })
+  @ApiNotFoundResponse({ description: 'Plan not found' })
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.planService.remove(id);
   }
 }

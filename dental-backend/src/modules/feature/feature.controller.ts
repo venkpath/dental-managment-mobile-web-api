@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Body, ParseUUIDPipe } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -29,5 +29,13 @@ export class FeatureController {
   @ApiOkResponse({ description: 'List of features' })
   async findAll() {
     return this.featureService.findAll();
+  }
+
+  @Delete(':id')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Delete a feature flag' })
+  @ApiOkResponse({ description: 'Feature deleted successfully' })
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.featureService.remove(id);
   }
 }

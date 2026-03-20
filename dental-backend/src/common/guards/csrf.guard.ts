@@ -26,6 +26,12 @@ export class CsrfGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<Request>();
 
+    // CSRF protection is only needed for cookie-based auth. When the client
+    // authenticates via Authorization header (Bearer token), CSRF is not
+    // applicable because the browser never sends Bearer tokens automatically.
+    const authHeader = request.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) return true;
+
     // Safe methods don't need CSRF validation — generate token if missing
     if (SAFE_METHODS.has(request.method)) {
       this.ensureCsrfCookie(request);

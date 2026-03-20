@@ -59,6 +59,7 @@ model Branch {
   address    String?  @db.VarChar(500)
   city       String?  @db.VarChar(100)
   state      String?  @db.VarChar(100)
+  country    String?  @db.VarChar(100)
 
   // Configurable scheduling settings (admin-managed per branch)
   working_start_time    String?  @db.VarChar(5)  // HH:mm e.g. "09:00"
@@ -180,7 +181,8 @@ model Patient {
   phone           String   @db.VarChar(50)
   email           String?  @db.VarChar(255)
   gender          String   @db.VarChar(20)
-  date_of_birth   DateTime @db.Date
+  date_of_birth   DateTime? @db.Date
+  age             Int?
   blood_group     String?  @db.VarChar(10)
   medical_history Json?    @default("{}")
   allergies       String?  @db.VarChar(1000)

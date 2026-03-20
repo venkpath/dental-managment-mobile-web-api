@@ -6,12 +6,23 @@ import { Public } from '../../common/decorators/public.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 import { AuthService } from './auth.service.js';
-import { LoginDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
+import { LoginDto, LookupDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Post('lookup')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Look up clinics for an email/password combination' })
+  @ApiResponse({ status: 200, description: 'List of clinics the user belongs to' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  async lookup(@Body() dto: LookupDto) {
+    return this.authService.lookup(dto);
+  }
 
   @Public()
   @Throttle({ default: { ttl: 60000, limit: 5 } })

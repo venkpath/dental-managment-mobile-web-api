@@ -88,4 +88,11 @@ export class PlanService {
       include: { feature: true },
     });
   }
+
+  async remove(id: string): Promise<Plan> {
+    await this.findOne(id);
+    // Clinics referencing this plan will have plan_id set to null (onDelete: SetNull)
+    // PlanFeatures will be cascade deleted
+    return this.prisma.plan.delete({ where: { id } });
+  }
 }

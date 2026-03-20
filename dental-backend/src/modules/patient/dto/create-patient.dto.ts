@@ -6,6 +6,9 @@ import {
   IsDateString,
   IsEnum,
   IsObject,
+  IsInt,
+  Min,
+  Max,
   MaxLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -46,9 +49,17 @@ export class CreatePatientDto {
   @IsEnum(Gender)
   gender!: Gender;
 
-  @ApiProperty({ example: '1990-05-15', description: 'Date of birth (YYYY-MM-DD)' })
+  @ApiPropertyOptional({ example: '1990-05-15', description: 'Date of birth (YYYY-MM-DD)' })
+  @IsOptional()
   @IsDateString()
-  date_of_birth!: string;
+  date_of_birth?: string;
+
+  @ApiPropertyOptional({ example: 30, description: 'Patient age (used when DOB is not known)' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(150)
+  age?: number;
 
   @ApiPropertyOptional({ example: 'O+', maxLength: 10 })
   @IsOptional()

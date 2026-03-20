@@ -545,15 +545,17 @@ export class CommunicationService {
     return { ...settings, can_customize_providers: canCustomize };
   }
 
-  async updateClinicSettings(clinicId: string, dto: UpdateClinicSettingsDto) {
-    // Check if clinic can customize provider configs
-    const canCustomize = await this.hasClinicFeature(clinicId, 'CUSTOM_PROVIDER_CONFIG');
+  async updateClinicSettings(clinicId: string, dto: UpdateClinicSettingsDto, options?: { skipFeatureCheck?: boolean }) {
+    // Check if clinic can customize provider configs (super admin bypasses this)
+    if (!options?.skipFeatureCheck) {
+      const canCustomize = await this.hasClinicFeature(clinicId, 'CUSTOM_PROVIDER_CONFIG');
 
-    if (!canCustomize && (dto.email_config || dto.sms_config || dto.whatsapp_config)) {
-      throw new ForbiddenException(
-        'Custom provider configuration is available on Professional and Enterprise plans. ' +
-        'Your clinic currently uses the platform default settings.',
-      );
+      if (!canCustomize && (dto.email_config || dto.sms_config || dto.whatsapp_config)) {
+        throw new ForbiddenException(
+          'Custom provider configuration is available on Professional and Enterprise plans. ' +
+          'Your clinic currently uses the platform default settings.',
+        );
+      }
     }
 
     const data = {
@@ -981,10 +983,36 @@ export class CommunicationService {
   private async createSkippedMessage(
     clinicId: string,
     dto: SendMessageDto,
-    patient: { phone: string; email: string | null },
+    patient: { phone: string; email: string | null; first_name?: string; last_name?: string },
     reason: string,
   ) {
     this.logger.debug(`Message skipped for patient ${dto.patient_id}: ${reason}`);
+
+    let body = dto.body || '';
+    let subject = dto.subject || '';
+
+    // Skipped messages should still carry the rendered content for audit/debug UI.
+    if (!body && dto.template_id) {
+      try {
+        const vars: Record<string, string> = {
+          ...(dto.variables || {}),
+          patient_name:
+            dto.variables?.['patient_name'] ||
+            `${patient.first_name || ''} ${patient.last_name || ''}`.trim(),
+          patient_first_name: dto.variables?.['patient_first_name'] || patient.first_name || '',
+          patient_last_name: dto.variables?.['patient_last_name'] || patient.last_name || '',
+        };
+        if (!vars['name']) vars['name'] = vars['patient_first_name'] || vars['patient_name'] || '';
+
+        const template = await this.templateService.findOne(clinicId, dto.template_id);
+        body = this.renderer.render(template.body, vars);
+        subject = dto.subject || (template.subject ? this.renderer.render(template.subject, vars) : '') || '';
+      } catch (error) {
+        this.logger.warn(
+          `Failed to render skipped message body for template ${dto.template_id}: ${(error as Error).message}`,
+        );
+      }
+    }
 
     return this.prisma.communicationMessage.create({
       data: {
@@ -993,8 +1021,8 @@ export class CommunicationService {
         template_id: dto.template_id,
         channel: dto.channel,
         category: dto.category || 'transactional',
-        subject: dto.subject || '',
-        body: dto.body || '',
+        subject,
+        body,
         recipient: this.getRecipient(patient, dto.channel) || '',
         status: 'skipped',
         skip_reason: reason,

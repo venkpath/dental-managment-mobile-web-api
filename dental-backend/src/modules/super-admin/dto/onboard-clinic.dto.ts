@@ -20,6 +20,30 @@ export class OnboardClinicDto {
   @MaxLength(50)
   clinic_phone?: string;
 
+  @ApiPropertyOptional({ example: 'MG Road, Koramangala' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  address?: string;
+
+  @ApiPropertyOptional({ example: 'Bangalore' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  city?: string;
+
+  @ApiPropertyOptional({ example: 'Karnataka' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  state?: string;
+
+  @ApiPropertyOptional({ example: 'India' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  country?: string;
+
   @ApiProperty({ example: 'Dr. John Doe' })
   @IsNotEmpty()
   @IsString()
