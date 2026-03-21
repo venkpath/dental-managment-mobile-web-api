@@ -46,8 +46,11 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.enableCors({
-    origin: process.env['CORS_ORIGIN'] || 'http://localhost:3001',
+    origin: process.env['CORS_ORIGIN']
+      ? process.env['CORS_ORIGIN'].split(',')
+      : 'http://localhost:3001',
     credentials: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   });
 
   app.setGlobalPrefix('api/v1');
