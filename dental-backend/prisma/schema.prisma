@@ -21,6 +21,7 @@ model Clinic {
   subscription_id     String?   @db.VarChar(100)
   trial_ends_at       DateTime?
   ai_usage_count      Int       @default(0)
+  ai_quota_override   Int?      // per-clinic AI quota override (null = use global/plan default)
   created_at          DateTime  @default(now())
   updated_at          DateTime  @updatedAt
 
@@ -45,6 +46,7 @@ model Clinic {
   patient_feedback       PatientFeedback[]
   referral_codes         PatientReferralCode[]
   referrals              Referral[]
+  ai_insights            AiInsight[]
 
   @@index([email])
   @@index([plan_id])
@@ -164,6 +166,7 @@ model User {
   prescriptions Prescription[]
   attachments      Attachment[]
   tooth_conditions PatientToothCondition[] @relation("ToothConditionDentist")
+  ai_insights      AiInsight[]
 
   @@unique([email, clinic_id])
   @@index([clinic_id])
@@ -848,4 +851,33 @@ model Referral {
   @@index([referral_code_id])
   @@index([status])
   @@map("referrals")
+}
+
+model AiInsight {
+  id          String   @id @default(uuid()) @db.Uuid
+  clinic_id   String   @db.Uuid
+  type        String   @db.VarChar(50) // revenue_insights | chart_analysis | appointment_summary | campaign_content | clinical_notes | prescription | treatment_plan
+  title       String   @db.VarChar(255)
+  data        Json     // full AI response stored as JSON
+  context     Json?    // input params (date range, patient_id, etc.) for reference
+  generated_by String? @db.Uuid
+  created_at  DateTime @default(now())
+
+  clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [generated_by], references: [id], onDelete: SetNull)
+
+  @@index([clinic_id])
+  @@index([clinic_id, type])
+  @@index([created_at])
+  @@map("ai_insights")
+}
+
+// ─── Global Settings (key-value store for platform-wide config) ───
+
+model GlobalSetting {
+  key        String   @id @db.VarChar(100)
+  value      String   @db.Text
+  updated_at DateTime @updatedAt
+
+  @@map("global_settings")
 }

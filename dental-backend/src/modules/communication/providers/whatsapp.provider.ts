@@ -267,7 +267,7 @@ export class WhatsAppProvider implements ChannelProvider {
       source: config.phoneNumberId,
       destination,
       message: JSON.stringify({ type: 'text', text: body }),
-      'src.name': 'DentalCare',
+      'src.name': 'Smart Dental Desk',
     };
   }
 
@@ -286,7 +286,7 @@ export class WhatsAppProvider implements ChannelProvider {
         id: templateId,
         params,
       }),
-      'src.name': 'DentalCare',
+      'src.name': 'Smart Dental Desk',
     };
   }
 
@@ -317,7 +317,7 @@ export class WhatsAppProvider implements ChannelProvider {
         type: 'interactive',
         interactive: interactiveContent,
       }),
-      'src.name': 'DentalCare',
+      'src.name': 'Smart Dental Desk',
     };
   }
 
@@ -377,7 +377,7 @@ export class WhatsAppProvider implements ChannelProvider {
       source: config.phoneNumberId,
       destination,
       message: JSON.stringify(message),
-      'src.name': 'DentalCare',
+      'src.name': 'Smart Dental Desk',
     };
   }
 }

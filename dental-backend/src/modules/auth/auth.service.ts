@@ -292,7 +292,7 @@ export class AuthService {
             variables: {
               user_name: user.name,
               verification_link: verificationLink,
-              clinic_name: (await this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true } }))?.name || 'DentalCare',
+              clinic_name: (await this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true } }))?.name || 'Smart Dental Desk',
             },
           });
         }
@@ -370,7 +370,7 @@ export class AuthService {
             variables: {
               user_name: user.name,
               reset_link: resetLink,
-              clinic_name: (await this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true } }))?.name || 'DentalCare',
+              clinic_name: (await this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true } }))?.name || 'Smart Dental Desk',
             },
           });
         }

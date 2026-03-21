@@ -261,4 +261,43 @@ export class SuperAdminService {
 
     return { data: logs, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
+
+  // ─── Global Settings ───
+
+  async getGlobalSettings() {
+    const settings = await this.prisma.globalSetting.findMany();
+    return Object.fromEntries(settings.map((s) => [s.key, s.value]));
+  }
+
+  async updateGlobalSetting(key: string, value: string) {
+    return this.prisma.globalSetting.upsert({
+      where: { key },
+      update: { value },
+      create: { key, value },
+    });
+  }
+
+  // ─── Per-Clinic AI Quota ───
+
+  async updateClinicAiQuota(clinicId: string, quota: number | null) {
+    const clinic = await this.prisma.clinic.findUnique({ where: { id: clinicId } });
+    if (!clinic) throw new NotFoundException('Clinic not found');
+
+    return this.prisma.clinic.update({
+      where: { id: clinicId },
+      data: { ai_quota_override: quota },
+      select: { id: true, name: true, ai_quota_override: true, ai_usage_count: true },
+    });
+  }
+
+  async resetClinicAiUsage(clinicId: string) {
+    const clinic = await this.prisma.clinic.findUnique({ where: { id: clinicId } });
+    if (!clinic) throw new NotFoundException('Clinic not found');
+
+    return this.prisma.clinic.update({
+      where: { id: clinicId },
+      data: { ai_usage_count: 0 },
+      select: { id: true, name: true, ai_usage_count: true },
+    });
+  }
 }

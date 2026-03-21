@@ -48,6 +48,7 @@ import { SentryModule } from './modules/sentry/sentry.module.js';
 import { BackupModule } from './modules/backup/backup.module.js';
 import { DataExportModule } from './modules/data-export/data-export.module.js';
 import { PaymentModule } from './modules/payment/payment.module.js';
+import { AiModule } from './modules/ai/ai.module.js';
 import { LoggerModule } from 'nestjs-pino';
 import razorpayConfig from './config/razorpay.config.js';
 
@@ -110,6 +111,7 @@ import razorpayConfig from './config/razorpay.config.js';
     BackupModule,
     DataExportModule,
     PaymentModule,
+    AiModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

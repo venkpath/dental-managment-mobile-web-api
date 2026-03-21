@@ -121,6 +121,7 @@ export class DatabaseSeederService implements OnModuleInit {
 
   private async seedFeatures() {
     const features = [
+      { key: 'AI_CLINICAL_NOTES', description: 'AI-generated SOAP clinical notes' },
       { key: 'AI_PRESCRIPTION', description: 'AI-powered prescription generation' },
       { key: 'AI_TREATMENT_PLAN', description: 'AI-assisted treatment planning' },
       { key: 'SMS_REMINDERS', description: 'SMS appointment reminders' },
@@ -155,11 +156,13 @@ export class DatabaseSeederService implements OnModuleInit {
       { plan_id: professional.id, feature_id: fm['INVENTORY_MANAGEMENT']! },
       { plan_id: professional.id, feature_id: fm['SMS_REMINDERS']! },
       { plan_id: professional.id, feature_id: fm['DIGITAL_XRAY']! },
+      { plan_id: professional.id, feature_id: fm['AI_CLINICAL_NOTES']! },
       { plan_id: professional.id, feature_id: fm['AI_PRESCRIPTION']! },
       { plan_id: professional.id, feature_id: fm['CUSTOM_PROVIDER_CONFIG']! },
       { plan_id: enterprise.id, feature_id: fm['INVENTORY_MANAGEMENT']! },
       { plan_id: enterprise.id, feature_id: fm['SMS_REMINDERS']! },
       { plan_id: enterprise.id, feature_id: fm['DIGITAL_XRAY']! },
+      { plan_id: enterprise.id, feature_id: fm['AI_CLINICAL_NOTES']! },
       { plan_id: enterprise.id, feature_id: fm['AI_PRESCRIPTION']! },
       { plan_id: enterprise.id, feature_id: fm['AI_TREATMENT_PLAN']! },
       { plan_id: enterprise.id, feature_id: fm['WHATSAPP_INTEGRATION']! },

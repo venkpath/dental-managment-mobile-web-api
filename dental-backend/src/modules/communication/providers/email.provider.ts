@@ -94,7 +94,7 @@ export class EmailProvider implements ChannelProvider {
 
     try {
       const info = await ctx.transporter.sendMail({
-        from: (options.metadata?.['from'] as string) || ctx.from || process.env['EMAIL_FROM'] || 'noreply@dentalcare.com',
+        from: (options.metadata?.['from'] as string) || ctx.from || process.env['EMAIL_FROM'] || 'noreply@smartdentaldesk.com',
         to: options.to,
         subject: options.subject || 'Notification',
         text: options.body,

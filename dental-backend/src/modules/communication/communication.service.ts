@@ -1205,7 +1205,7 @@ export class CommunicationService {
         </td></tr>
         <tr><td style="padding: 16px 32px; background-color: #f9fafb; border-top: 1px solid #e5e7eb;">
           <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
-            Sent by DentalCare Platform &bull; This is an automated message
+            Sent by Smart Dental Desk Platform &bull; This is an automated message
           </p>
         </td></tr>
       </table>
@@ -1585,7 +1585,7 @@ export class CommunicationService {
     ctaUrl?: string;
     preheader?: string;
   }): string {
-    const clinicName = options?.clinicName || 'DentalCare';
+    const clinicName = options?.clinicName || 'Smart Dental Desk';
     const preheader = options?.preheader || '';
 
     // Convert newlines to paragraphs and handle bullet lists

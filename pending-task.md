@@ -1,6 +1,6 @@
 # Dental SaaS Platform — Project Status & Pending Tasks
 
-**Last Updated: 2026-03-20**
+**Last Updated: 2026-03-21**
 
 ## Codebase Stats
 
@@ -35,7 +35,7 @@ All 13 epics:
 - Keyboard shortcuts, Cmd+K search, notification bell + center
 - Settings page, audit log viewer
 
-### Phase 2.5 — Frontend Hardening: ~85% DONE
+### Phase 2.5 — Frontend Hardening: 100% DONE
 
 | Feature | Status |
 |---------|--------|
@@ -56,8 +56,8 @@ All 13 epics:
 | DOB optional + Age field for patients | DONE |
 | Virtual scrolling for large tables | DONE |
 | E2E tests (Playwright) — 5 spec files | DONE |
-| PDF export | TODO |
-| Print enhancements | TODO |
+| PDF export | DONE |
+| Print enhancements | DONE |
 
 ### Phase 3 — Communication & Patient Engagement: ~75% DONE
 
@@ -99,16 +99,37 @@ All 13 epics:
 | A/B testing for campaigns | LOW |
 | Campaign ROI tracking | LOW |
 
-### Phase 4 — Production Readiness: PARTIALLY DONE
-- Helmet, CSRF guard, input sanitization — DONE (verified in codebase)
+### Phase 4 — Production Readiness: 100% DONE
+- Helmet, CSRF guard, input sanitization — DONE
 - Docker Compose — DONE
 - CI/CD (GitHub Actions) — DONE
 - Backup automation — DONE
 - Razorpay payment integration — DONE
-- Landing page + onboarding flow — TODO
+- Landing page + onboarding flow — DONE
 
-### Phase 5 — AI Features: NOT STARTED (quota guard exists)
-Auto clinical notes, prescription suggestions, patient education, smart scheduling
+### Phase 5 — AI Features: 100% DONE
+OpenAI GPT-4o-mini powered, gated by `@RequireFeature()` + `@TrackAiUsage()` quota decorator.
+
+| Feature | Backend | Frontend | Location |
+|---------|---------|----------|----------|
+| AI Clinical Notes (SOAP format) | DONE | DONE | Patient profile → AI Assistant tab |
+| AI Prescription Assistant | DONE | DONE | Patient profile → AI Assistant tab (saves real prescription) |
+| AI Treatment Plan Builder | DONE | DONE | Patient profile → AI Assistant tab (creates treatment records) |
+| AI Revenue Insights | DONE | DONE | Reports page → AI Insights button |
+| AI Dental Chart Analyzer | DONE | DONE | Patient dental chart → AI Risk Analysis button |
+| AI Appointment Summary | DONE | DONE | Appointment detail → Generate Summary card |
+| AI Campaign Content Generator | DONE | DONE | Campaign wizard Step 2 → AI Content Generator |
+
+Backend module: `ai.module.ts` (controller + service + 7 prompt files + 7 DTOs)
+Frontend service: `ai.service.ts` (typed client for all 7 endpoints)
+
+**AI Insights Storage & History:**
+- `AiInsight` Prisma model — stores all AI-generated results as JSON
+- All 7 AI features auto-save results to `ai_insights` table
+- GET `/ai/insights` — list stored insights (filterable by type, paginated)
+- GET `/ai/insights/:id` — get single insight
+- DELETE `/ai/insights/:id` — delete insight (Admin only)
+- Reports page: carousel UI with prev/next navigation to browse past revenue insights
 
 ### Phase 6 — Mobile App (React Native): NOT STARTED
 Dentist mobile workflow, push notifications, offline support
@@ -117,20 +138,14 @@ Dentist mobile workflow, push notifications, offline support
 
 ## Current Pending Items (Ranked)
 
-### Immediate — In Progress
-1. **PDF export** — patient summary, treatments, reports, invoices
-2. **Print enhancements** — treatments/reports/patient summary print-friendly layouts
-
 ### Medium Priority
-3. Landing page + onboarding flow
-4. SMS/WhatsApp provider integration (needs API keys from clinic)
-5. Authentication messaging (email verify, password reset, OTP)
+1. SMS/WhatsApp provider integration (needs API keys from clinic)
+2. Authentication messaging (email verify, password reset, OTP)
 
 ### Lower Priority / Larger Effort
-6. A/B testing for campaigns
-7. Campaign ROI tracking
-8. Phase 5 — AI Features
-9. Phase 6 — Mobile App
+4. A/B testing for campaigns
+5. Campaign ROI tracking
+6. Phase 6 — Mobile App (React Native)
 
 ---
 

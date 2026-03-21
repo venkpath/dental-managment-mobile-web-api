@@ -250,4 +250,42 @@ export class SuperAdminController {
   ) {
     return this.branchService.updateSchedulingSettings(id, branchId, dto);
   }
+
+  // ─── Global Settings ───
+
+  @Get('super-admins/global-settings')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Get all global settings (key-value pairs)' })
+  async getGlobalSettings() {
+    return this.superAdminService.getGlobalSettings();
+  }
+
+  @Patch('super-admins/global-settings/:key')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Update a global setting' })
+  async updateGlobalSetting(
+    @Param('key') key: string,
+    @Body() body: { value: string },
+  ) {
+    return this.superAdminService.updateGlobalSetting(key, body.value);
+  }
+
+  // ─── Per-Clinic AI Quota ───
+
+  @Patch('super-admins/clinics/:id/ai-quota')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Set per-clinic AI quota override (null to use global/default)' })
+  async updateClinicAiQuota(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { quota: number | null },
+  ) {
+    return this.superAdminService.updateClinicAiQuota(id, body.quota);
+  }
+
+  @Post('super-admins/clinics/:id/ai-usage/reset')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Reset AI usage counter for a clinic' })
+  async resetClinicAiUsage(@Param('id', ParseUUIDPipe) id: string) {
+    return this.superAdminService.resetClinicAiUsage(id);
+  }
 }
