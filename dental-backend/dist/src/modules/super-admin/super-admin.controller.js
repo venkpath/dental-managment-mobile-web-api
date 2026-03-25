@@ -1,0 +1,426 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SuperAdminController = void 0;
+const openapi = require("@nestjs/swagger");
+const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
+const throttler_1 = require("@nestjs/throttler");
+const public_decorator_js_1 = require("../../common/decorators/public.decorator.js");
+const super_admin_decorator_js_1 = require("../../common/decorators/super-admin.decorator.js");
+const current_super_admin_decorator_js_1 = require("../../common/decorators/current-super-admin.decorator.js");
+const super_admin_service_js_1 = require("./super-admin.service.js");
+const super_admin_auth_service_js_1 = require("./super-admin-auth.service.js");
+const index_js_1 = require("./dto/index.js");
+const clinic_service_js_1 = require("../clinic/clinic.service.js");
+const index_js_2 = require("../clinic/dto/index.js");
+const communication_service_js_1 = require("../communication/communication.service.js");
+const automation_service_js_1 = require("../automation/automation.service.js");
+const branch_service_js_1 = require("../branch/branch.service.js");
+const update_clinic_settings_dto_js_1 = require("../communication/dto/update-clinic-settings.dto.js");
+const upsert_automation_rule_dto_js_1 = require("../automation/dto/upsert-automation-rule.dto.js");
+const create_branch_dto_js_1 = require("../branch/dto/create-branch.dto.js");
+const update_branch_dto_js_1 = require("../branch/dto/update-branch.dto.js");
+const update_branch_scheduling_dto_js_1 = require("../branch/dto/update-branch-scheduling.dto.js");
+let SuperAdminController = class SuperAdminController {
+    superAdminService;
+    superAdminAuthService;
+    clinicService;
+    communicationService;
+    automationService;
+    branchService;
+    constructor(superAdminService, superAdminAuthService, clinicService, communicationService, automationService, branchService) {
+        this.superAdminService = superAdminService;
+        this.superAdminAuthService = superAdminAuthService;
+        this.clinicService = clinicService;
+        this.communicationService = communicationService;
+        this.automationService = automationService;
+        this.branchService = branchService;
+    }
+    async login(dto) {
+        return this.superAdminAuthService.login(dto);
+    }
+    async create(dto) {
+        return this.superAdminService.create(dto);
+    }
+    async getProfile(admin) {
+        return this.superAdminService.findOne(admin.id);
+    }
+    async getDashboardStats() {
+        return this.superAdminService.getDashboardStats();
+    }
+    async listClinics(status, search, page, limit) {
+        return this.superAdminService.listClinics({
+            status,
+            search,
+            page: page ? parseInt(page, 10) : 1,
+            limit: limit ? parseInt(limit, 10) : 20,
+        });
+    }
+    async getClinicDetail(id) {
+        return this.superAdminService.getClinicDetail(id);
+    }
+    async updateSubscription(id, dto) {
+        return this.clinicService.updateSubscription(id, dto);
+    }
+    async onboardClinic(dto) {
+        return this.superAdminService.onboardClinic(dto);
+    }
+    async deleteClinic(id) {
+        return this.superAdminService.deleteClinic(id);
+    }
+    async changePassword(admin, dto) {
+        return this.superAdminService.changePassword(admin.id, dto.current_password, dto.new_password);
+    }
+    async getAuditLogs(page, limit, clinicId, action) {
+        return this.superAdminService.getAuditLogs({
+            page: page ? parseInt(page, 10) : 1,
+            limit: limit ? parseInt(limit, 10) : 50,
+            clinicId,
+            action,
+        });
+    }
+    async impersonateClinic(id) {
+        return this.superAdminAuthService.impersonate(id);
+    }
+    async getClinicCommunicationSettings(id) {
+        return this.communicationService.getClinicSettings(id);
+    }
+    async updateClinicCommunicationSettings(id, dto) {
+        return this.communicationService.updateClinicSettings(id, dto, { skipFeatureCheck: true });
+    }
+    async getClinicAutomationRules(id) {
+        return this.automationService.getAllRules(id);
+    }
+    async updateClinicAutomationRule(id, ruleType, dto) {
+        return this.automationService.upsertRule(id, ruleType, dto);
+    }
+    async getClinicBranches(id) {
+        return this.branchService.findAll(id);
+    }
+    async createClinicBranch(id, dto) {
+        return this.branchService.create(id, dto);
+    }
+    async updateClinicBranch(id, branchId, dto) {
+        return this.branchService.update(id, branchId, dto);
+    }
+    async getClinicBranchScheduling(id, branchId) {
+        return this.branchService.getSchedulingSettings(id, branchId);
+    }
+    async updateClinicBranchScheduling(id, branchId, dto) {
+        return this.branchService.updateSchedulingSettings(id, branchId, dto);
+    }
+    async getGlobalSettings() {
+        return this.superAdminService.getGlobalSettings();
+    }
+    async updateGlobalSetting(key, body) {
+        return this.superAdminService.updateGlobalSetting(key, body.value);
+    }
+    async updateClinicAiQuota(id, body) {
+        return this.superAdminService.updateClinicAiQuota(id, body.quota);
+    }
+    async resetClinicAiUsage(id) {
+        return this.superAdminService.resetClinicAiUsage(id);
+    }
+};
+exports.SuperAdminController = SuperAdminController;
+__decorate([
+    (0, public_decorator_js_1.Public)(),
+    (0, throttler_1.Throttle)({ default: { ttl: 60000, limit: 5 } }),
+    (0, common_1.Post)('auth/super-admin/login'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Super admin login' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Login successful' }),
+    (0, swagger_1.ApiResponse)({ status: 429, description: 'Too many login attempts' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.OK, type: Object }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [index_js_1.LoginSuperAdminDto]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "login", null);
+__decorate([
+    (0, common_1.Post)('super-admins'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Create a new super admin' }),
+    (0, swagger_1.ApiCreatedResponse)({ description: 'Super admin created successfully' }),
+    (0, swagger_1.ApiConflictResponse)({ description: 'Email already exists' }),
+    openapi.ApiResponse({ status: 201, type: Object }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [index_js_1.CreateSuperAdminDto]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "create", null);
+__decorate([
+    (0, common_1.Get)('super-admins/me'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get current super admin profile' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Super admin profile' }),
+    openapi.ApiResponse({ status: 200, type: Object }),
+    __param(0, (0, current_super_admin_decorator_js_1.CurrentSuperAdmin)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getProfile", null);
+__decorate([
+    (0, common_1.Get)('super-admins/dashboard/stats'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get platform dashboard statistics' }),
+    openapi.ApiResponse({ status: 200 }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getDashboardStats", null);
+__decorate([
+    (0, common_1.Get)('super-admins/clinics'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List all clinics with pagination, filtering, and search' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Query)('status')),
+    __param(1, (0, common_1.Query)('search')),
+    __param(2, (0, common_1.Query)('page')),
+    __param(3, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "listClinics", null);
+__decorate([
+    (0, common_1.Get)('super-admins/clinics/:id'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get detailed clinic info (users, branches, stats)' }),
+    openapi.ApiResponse({ status: 200, type: Object }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getClinicDetail", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/clinics/:id/subscription'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Update clinic subscription (plan, status, trial)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, index_js_2.UpdateSubscriptionDto]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "updateSubscription", null);
+__decorate([
+    (0, common_1.Post)('super-admins/clinics/onboard'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Manually onboard a new clinic with admin user' }),
+    (0, swagger_1.ApiCreatedResponse)({ description: 'Clinic onboarded successfully' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [index_js_1.OnboardClinicDto]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "onboardClinic", null);
+__decorate([
+    (0, common_1.Delete)('super-admins/clinics/:id'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete a clinic and all its data' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Clinic deleted successfully' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "deleteClinic", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/me/password'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Change super admin password' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Password changed successfully' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_super_admin_decorator_js_1.CurrentSuperAdmin)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "changePassword", null);
+__decorate([
+    (0, common_1.Get)('super-admins/audit-logs'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get platform-wide audit logs' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __param(2, (0, common_1.Query)('clinic_id')),
+    __param(3, (0, common_1.Query)('action')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getAuditLogs", null);
+__decorate([
+    (0, common_1.Post)('super-admins/clinics/:id/impersonate'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Generate a token to impersonate a clinic admin' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Impersonation token' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "impersonateClinic", null);
+__decorate([
+    (0, common_1.Get)('super-admins/clinics/:id/communication-settings'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get communication settings for a clinic' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getClinicCommunicationSettings", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/clinics/:id/communication-settings'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Update communication settings for a clinic (bypasses feature gate)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, update_clinic_settings_dto_js_1.UpdateClinicSettingsDto]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "updateClinicCommunicationSettings", null);
+__decorate([
+    (0, common_1.Get)('super-admins/clinics/:id/automation-rules'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get all automation rules for a clinic' }),
+    openapi.ApiResponse({ status: 200, type: [Object] }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getClinicAutomationRules", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/clinics/:id/automation-rules/:ruleType'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Update an automation rule for a clinic' }),
+    openapi.ApiResponse({ status: 200, type: Object }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Param)('ruleType')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, upsert_automation_rule_dto_js_1.UpsertAutomationRuleDto]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "updateClinicAutomationRule", null);
+__decorate([
+    (0, common_1.Get)('super-admins/clinics/:id/branches'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get all branches for a clinic' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getClinicBranches", null);
+__decorate([
+    (0, common_1.Post)('super-admins/clinics/:id/branches'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Create a new branch for a clinic' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, create_branch_dto_js_1.CreateBranchDto]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "createClinicBranch", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/clinics/:id/branches/:branchId'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Update a branch for a clinic' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Param)('branchId', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, update_branch_dto_js_1.UpdateBranchDto]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "updateClinicBranch", null);
+__decorate([
+    (0, common_1.Get)('super-admins/clinics/:id/branches/:branchId/scheduling'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get scheduling settings for a branch' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Param)('branchId', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getClinicBranchScheduling", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/clinics/:id/branches/:branchId/scheduling'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Update scheduling settings for a branch' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Param)('branchId', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, update_branch_scheduling_dto_js_1.UpdateBranchSchedulingDto]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "updateClinicBranchScheduling", null);
+__decorate([
+    (0, common_1.Get)('super-admins/global-settings'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get all global settings (key-value pairs)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getGlobalSettings", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/global-settings/:key'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Update a global setting' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('key')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "updateGlobalSetting", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/clinics/:id/ai-quota'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Set per-clinic AI quota override (null to use global/default)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "updateClinicAiQuota", null);
+__decorate([
+    (0, common_1.Post)('super-admins/clinics/:id/ai-usage/reset'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Reset AI usage counter for a clinic' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "resetClinicAiUsage", null);
+exports.SuperAdminController = SuperAdminController = __decorate([
+    (0, swagger_1.ApiTags)('Super Admin'),
+    (0, common_1.Controller)(),
+    __metadata("design:paramtypes", [super_admin_service_js_1.SuperAdminService,
+        super_admin_auth_service_js_1.SuperAdminAuthService,
+        clinic_service_js_1.ClinicService,
+        communication_service_js_1.CommunicationService,
+        automation_service_js_1.AutomationService,
+        branch_service_js_1.BranchService])
+], SuperAdminController);
+//# sourceMappingURL=super-admin.controller.js.map

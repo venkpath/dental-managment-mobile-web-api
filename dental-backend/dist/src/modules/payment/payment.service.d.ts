@@ -1,0 +1,76 @@
+import { OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../database/prisma.service.js';
+interface CreateSubscriptionDto {
+    clinicId: string;
+    planKey: string;
+}
+interface RazorpayWebhookPayload {
+    event: string;
+    payload: {
+        subscription?: {
+            entity: Record<string, unknown>;
+        };
+        payment?: {
+            entity: Record<string, unknown>;
+        };
+    };
+}
+export declare class PaymentService implements OnModuleInit {
+    private readonly configService;
+    private readonly prisma;
+    private readonly logger;
+    private razorpay;
+    constructor(configService: ConfigService, prisma: PrismaService);
+    onModuleInit(): void;
+    getSubscriptionStatus(clinicId: string): Promise<{
+        subscription_status: string;
+        plan: {
+            id: string;
+            name: string;
+            price_monthly: import("@prisma/client-runtime-utils").Decimal;
+        } | null;
+        trial_ends_at: Date | null;
+        is_trial_active: boolean | null;
+        trial_days_left: number;
+        subscription_id: string | null;
+        razorpay_key_id: string;
+    }>;
+    getPlans(): Promise<({
+        plan_features: ({
+            feature: {
+                id: string;
+                created_at: Date;
+                key: string;
+                description: string;
+            };
+        } & {
+            id: string;
+            plan_id: string;
+            feature_id: string;
+            is_enabled: boolean;
+        })[];
+    } & {
+        id: string;
+        name: string;
+        created_at: Date;
+        updated_at: Date;
+        price_monthly: import("@prisma/client-runtime-utils").Decimal;
+        max_branches: number;
+        max_staff: number;
+        ai_quota: number;
+        razorpay_plan_id: string | null;
+    })[]>;
+    createSubscription(dto: CreateSubscriptionDto): Promise<{
+        subscriptionId: string;
+        shortUrl: string;
+    }>;
+    handleWebhook(body: RazorpayWebhookPayload, signature: string): Promise<void>;
+    private handleSubscriptionActivated;
+    private handleSubscriptionCharged;
+    private handleSubscriptionCancelled;
+    private handlePaymentFailed;
+    cancelSubscription(clinicId: string): Promise<void>;
+    handleTrialExpiry(): Promise<void>;
+}
+export {};

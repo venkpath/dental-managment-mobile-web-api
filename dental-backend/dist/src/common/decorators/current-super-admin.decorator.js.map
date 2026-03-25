@@ -1,0 +1,1 @@
+{"version":3,"file":"current-super-admin.decorator.js","sourceRoot":"","sources":["../../../../src/common/decorators/current-super-admin.decorator.ts"],"names":[],"mappings":";;;AAAA,2CAAwE;AAG3D,QAAA,iBAAiB,GAAG,IAAA,6BAAoB,EACnD,CAAC,KAAc,EAAE,GAAqB,EAAE,EAAE;IACxC,MAAM,OAAO,GAAG,GAAG,CAAC,YAAY,EAAE,CAAC,UAAU,EAAW,CAAC;IACzD,OAAO,OAAO,CAAC,UAAU,CAAC;AAC5B,CAAC,CACF,CAAC"}

@@ -1,0 +1,97 @@
+import { AppointmentService } from './appointment.service.js';
+import { CreateAppointmentDto, UpdateAppointmentDto, QueryAppointmentDto, QueryAvailableSlotsDto, CreateRecurringAppointmentDto } from './dto/index.js';
+export declare class AppointmentController {
+    private readonly appointmentService;
+    constructor(appointmentService: AppointmentService);
+    create(clinicId: string, dto: CreateAppointmentDto): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        branch_id: string;
+        appointment_date: Date;
+        patient_id: string;
+        notes: string | null;
+        dentist_id: string;
+        start_time: string;
+        end_time: string;
+        recurrence_group_id: string | null;
+    }>;
+    createRecurring(clinicId: string, dto: CreateRecurringAppointmentDto): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        branch_id: string;
+        appointment_date: Date;
+        patient_id: string;
+        notes: string | null;
+        dentist_id: string;
+        start_time: string;
+        end_time: string;
+        recurrence_group_id: string | null;
+    }[]>;
+    findAll(clinicId: string, query: QueryAppointmentDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        branch_id: string;
+        appointment_date: Date;
+        patient_id: string;
+        notes: string | null;
+        dentist_id: string;
+        start_time: string;
+        end_time: string;
+        recurrence_group_id: string | null;
+    }>>;
+    getAvailableSlots(clinicId: string, query: QueryAvailableSlotsDto): Promise<import("./appointment.service.js").AvailableSlot[]>;
+    findOne(clinicId: string, id: string): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        branch_id: string;
+        appointment_date: Date;
+        patient_id: string;
+        notes: string | null;
+        dentist_id: string;
+        start_time: string;
+        end_time: string;
+        recurrence_group_id: string | null;
+    }>;
+    update(clinicId: string, id: string, dto: UpdateAppointmentDto): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        branch_id: string;
+        appointment_date: Date;
+        patient_id: string;
+        notes: string | null;
+        dentist_id: string;
+        start_time: string;
+        end_time: string;
+        recurrence_group_id: string | null;
+    }>;
+    remove(clinicId: string, id: string): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        branch_id: string;
+        appointment_date: Date;
+        patient_id: string;
+        notes: string | null;
+        dentist_id: string;
+        start_time: string;
+        end_time: string;
+        recurrence_group_id: string | null;
+    }>;
+}

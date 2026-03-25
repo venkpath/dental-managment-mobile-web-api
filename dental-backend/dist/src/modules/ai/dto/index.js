@@ -1,0 +1,18 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.GenerateCampaignContentDto = exports.GenerateAppointmentSummaryDto = exports.GenerateChartAnalysisDto = exports.GenerateRevenueInsightsDto = exports.GenerateTreatmentPlanDto = exports.GeneratePrescriptionDto = exports.GenerateClinicalNotesDto = void 0;
+var generate_clinical_notes_dto_js_1 = require("./generate-clinical-notes.dto.js");
+Object.defineProperty(exports, "GenerateClinicalNotesDto", { enumerable: true, get: function () { return generate_clinical_notes_dto_js_1.GenerateClinicalNotesDto; } });
+var generate_prescription_dto_js_1 = require("./generate-prescription.dto.js");
+Object.defineProperty(exports, "GeneratePrescriptionDto", { enumerable: true, get: function () { return generate_prescription_dto_js_1.GeneratePrescriptionDto; } });
+var generate_treatment_plan_dto_js_1 = require("./generate-treatment-plan.dto.js");
+Object.defineProperty(exports, "GenerateTreatmentPlanDto", { enumerable: true, get: function () { return generate_treatment_plan_dto_js_1.GenerateTreatmentPlanDto; } });
+var generate_revenue_insights_dto_js_1 = require("./generate-revenue-insights.dto.js");
+Object.defineProperty(exports, "GenerateRevenueInsightsDto", { enumerable: true, get: function () { return generate_revenue_insights_dto_js_1.GenerateRevenueInsightsDto; } });
+var generate_chart_analysis_dto_js_1 = require("./generate-chart-analysis.dto.js");
+Object.defineProperty(exports, "GenerateChartAnalysisDto", { enumerable: true, get: function () { return generate_chart_analysis_dto_js_1.GenerateChartAnalysisDto; } });
+var generate_appointment_summary_dto_js_1 = require("./generate-appointment-summary.dto.js");
+Object.defineProperty(exports, "GenerateAppointmentSummaryDto", { enumerable: true, get: function () { return generate_appointment_summary_dto_js_1.GenerateAppointmentSummaryDto; } });
+var generate_campaign_content_dto_js_1 = require("./generate-campaign-content.dto.js");
+Object.defineProperty(exports, "GenerateCampaignContentDto", { enumerable: true, get: function () { return generate_campaign_content_dto_js_1.GenerateCampaignContentDto; } });
+//# sourceMappingURL=index.js.map

@@ -1,0 +1,23 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.UpdateClinicSettingsDto = exports.PreferredChannel = exports.UpdatePreferencesDto = exports.QueryMessageDto = exports.MessageCategory = exports.MessageChannel = exports.SendMessageDto = exports.QueryTemplateDto = exports.UpdateTemplateDto = exports.TemplateCategory = exports.TemplateChannel = exports.CreateTemplateDto = void 0;
+var create_template_dto_js_1 = require("./create-template.dto.js");
+Object.defineProperty(exports, "CreateTemplateDto", { enumerable: true, get: function () { return create_template_dto_js_1.CreateTemplateDto; } });
+Object.defineProperty(exports, "TemplateChannel", { enumerable: true, get: function () { return create_template_dto_js_1.TemplateChannel; } });
+Object.defineProperty(exports, "TemplateCategory", { enumerable: true, get: function () { return create_template_dto_js_1.TemplateCategory; } });
+var update_template_dto_js_1 = require("./update-template.dto.js");
+Object.defineProperty(exports, "UpdateTemplateDto", { enumerable: true, get: function () { return update_template_dto_js_1.UpdateTemplateDto; } });
+var query_template_dto_js_1 = require("./query-template.dto.js");
+Object.defineProperty(exports, "QueryTemplateDto", { enumerable: true, get: function () { return query_template_dto_js_1.QueryTemplateDto; } });
+var send_message_dto_js_1 = require("./send-message.dto.js");
+Object.defineProperty(exports, "SendMessageDto", { enumerable: true, get: function () { return send_message_dto_js_1.SendMessageDto; } });
+Object.defineProperty(exports, "MessageChannel", { enumerable: true, get: function () { return send_message_dto_js_1.MessageChannel; } });
+Object.defineProperty(exports, "MessageCategory", { enumerable: true, get: function () { return send_message_dto_js_1.MessageCategory; } });
+var query_message_dto_js_1 = require("./query-message.dto.js");
+Object.defineProperty(exports, "QueryMessageDto", { enumerable: true, get: function () { return query_message_dto_js_1.QueryMessageDto; } });
+var update_preferences_dto_js_1 = require("./update-preferences.dto.js");
+Object.defineProperty(exports, "UpdatePreferencesDto", { enumerable: true, get: function () { return update_preferences_dto_js_1.UpdatePreferencesDto; } });
+Object.defineProperty(exports, "PreferredChannel", { enumerable: true, get: function () { return update_preferences_dto_js_1.PreferredChannel; } });
+var update_clinic_settings_dto_js_1 = require("./update-clinic-settings.dto.js");
+Object.defineProperty(exports, "UpdateClinicSettingsDto", { enumerable: true, get: function () { return update_clinic_settings_dto_js_1.UpdateClinicSettingsDto; } });
+//# sourceMappingURL=index.js.map

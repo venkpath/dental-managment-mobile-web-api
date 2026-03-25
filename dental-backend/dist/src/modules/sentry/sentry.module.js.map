@@ -1,0 +1,1 @@
+{"version":3,"file":"sentry.module.js","sourceRoot":"","sources":["../../../../src/modules/sentry/sentry.module.ts"],"names":[],"mappings":";;;;;;;;;AAAA,2CAAwC;AACxC,gDAAwE;AAKjE,IAAM,YAAY,GAAlB,MAAM,YAAY;CAAG,CAAA;AAAf,oCAAY;uBAAZ,YAAY;IAHxB,IAAA,eAAM,EAAC;QACN,OAAO,EAAE,CAAC,oBAAgB,CAAC,OAAO,EAAE,CAAC;KACtC,CAAC;GACW,YAAY,CAAG"}
