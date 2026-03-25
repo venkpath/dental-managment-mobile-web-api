@@ -21,4 +21,11 @@ export default registerAs('app', () => ({
     defaultDltTemplateId: process.env['SMS_DEFAULT_DLT_TEMPLATE_ID'] || '',
     dltTemplateBody: process.env['SMS_DLT_TEMPLATE_BODY'] || '',
   },
+  whatsapp: {
+    accessToken: process.env['WHATSAPP_ACCESS_TOKEN'] || '',
+    phoneNumberId: process.env['WHATSAPP_PHONE_NUMBER_ID'] || '',
+    wabaId: process.env['WHATSAPP_WABA_ID'] || '',
+    webhookVerifyToken: process.env['WHATSAPP_WEBHOOK_VERIFY_TOKEN'] || '',
+    appSecret: process.env['WHATSAPP_APP_SECRET'] || '',
+  },
 }));

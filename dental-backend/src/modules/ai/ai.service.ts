@@ -39,6 +39,10 @@ import {
   CAMPAIGN_CONTENT_SYSTEM_PROMPT,
   buildCampaignContentUserPrompt,
 } from './prompts/campaign-content.prompt.js';
+import {
+  XRAY_ANALYSIS_SYSTEM_PROMPT,
+  buildXrayAnalysisUserPrompt,
+} from './prompts/xray-analysis.prompt.js';
 
 @Injectable()
 export class AiService {
@@ -183,6 +187,35 @@ export class AiService {
     }
     await this.prisma.aiInsight.delete({ where: { id: insightId } });
     return { deleted: true };
+  }
+
+  private async callVisionLLM(systemPrompt: string, userPrompt: string, imageBase64: string, mimeType: string): Promise<Record<string, unknown>> {
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userPrompt },
+              { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}`, detail: 'high' } },
+            ],
+          },
+        ],
+        temperature: 0.1,
+        max_tokens: 8000,
+        response_format: { type: 'json_object' },
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) throw new BadRequestException('AI returned empty response');
+      return JSON.parse(content) as Record<string, unknown>;
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      this.logger.error('Vision LLM call failed', (error as Error).stack);
+      throw new BadRequestException('AI X-ray analysis temporarily unavailable. Please try again.');
+    }
   }
 
   private async callLLM(systemPrompt: string, userPrompt: string): Promise<Record<string, unknown>> {
@@ -690,6 +723,79 @@ export class AiService {
       title: `Campaign: ${dto.campaign_name}`,
       data: response as Record<string, unknown>,
       context: { campaign_name: dto.campaign_name, campaign_type: dto.campaign_type, channel: dto.channel },
+    });
+
+    return { ...response, insight_id: saved?.id };
+  }
+
+  // ─── 8. X-ray Analysis (Vision) ────────────────────────────────
+
+  async analyzeXray(clinicId: string, params: {
+    attachmentId: string;
+    notes?: string;
+    userId?: string;
+  }) {
+    // Fetch attachment
+    const attachment = await this.prisma.attachment.findUnique({
+      where: { id: params.attachmentId },
+      include: { patient: true },
+    });
+    if (!attachment || attachment.clinic_id !== clinicId) {
+      throw new NotFoundException('Attachment not found');
+    }
+    if (attachment.type !== 'xray') {
+      throw new BadRequestException('Only X-ray attachments can be analyzed');
+    }
+
+    // Read file from disk
+    const { readFile } = await import('fs/promises');
+    const { join } = await import('path');
+    const filePath = join(process.cwd(), attachment.file_url);
+    const fileBuffer = await readFile(filePath);
+    const imageBase64 = fileBuffer.toString('base64');
+
+    const patient = attachment.patient;
+    const age = patient.date_of_birth
+      ? Math.floor((Date.now() - new Date(patient.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+      : patient.age ?? null;
+
+    const userPrompt = buildXrayAnalysisUserPrompt({
+      patient_name: `${patient.first_name} ${patient.last_name}`,
+      patient_age: age,
+      patient_gender: patient.gender,
+      notes: params.notes,
+    });
+
+    this.logger.log(`Analyzing X-ray for patient ${patient.id}, attachment ${params.attachmentId}`);
+    const result = await this.callVisionLLM(
+      XRAY_ANALYSIS_SYSTEM_PROMPT,
+      userPrompt,
+      imageBase64,
+      attachment.mime_type || 'image/jpeg',
+    );
+
+    const response = {
+      ...result,
+      attachment_id: params.attachmentId,
+      patient_id: patient.id,
+      patient_name: `${patient.first_name} ${patient.last_name}`,
+      generated_at: new Date().toISOString(),
+    };
+
+    // Save analysis to attachment record
+    await this.prisma.attachment.update({
+      where: { id: params.attachmentId },
+      data: { ai_analysis: response as never },
+    });
+
+    // Also save as AI insight
+    const saved = await this.saveInsight({
+      clinicId,
+      type: 'xray_analysis',
+      title: `X-ray Analysis: ${patient.first_name} ${patient.last_name}`,
+      data: response as Record<string, unknown>,
+      context: { attachment_id: params.attachmentId, patient_id: patient.id },
+      userId: params.userId,
     });
 
     return { ...response, insight_id: saved?.id };

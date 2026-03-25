@@ -575,7 +575,7 @@ export class CommunicationService {
       data.sms_provider = 'msg91';
     }
     if (data.whatsapp_config && !dto.whatsapp_provider) {
-      data.whatsapp_provider = 'gupshup';
+      data.whatsapp_provider = 'meta';
     }
 
     const settings = await this.prisma.clinicCommunicationSettings.upsert({
@@ -1113,6 +1113,20 @@ export class CommunicationService {
         this.logger.log(`SMS provider configured from env vars for clinic ${clinicId}`);
       }
     }
+
+    // Fallback: configure WhatsApp from env vars if not already configured
+    if (!this.whatsAppProvider.isConfigured(clinicId)) {
+      const envAccessToken = this.configService.get<string>('app.whatsapp.accessToken');
+      const envPhoneNumberId = this.configService.get<string>('app.whatsapp.phoneNumberId');
+      if (envAccessToken && envPhoneNumberId) {
+        this.whatsAppProvider.configure(clinicId, {
+          accessToken: envAccessToken,
+          phoneNumberId: envPhoneNumberId,
+          wabaId: this.configService.get<string>('app.whatsapp.wabaId'),
+        }, 'meta');
+        this.logger.log(`WhatsApp provider configured from env vars for clinic ${clinicId}`);
+      }
+    }
   }
 
   private configureProviders(clinicId: string, settings: {
@@ -1156,9 +1170,14 @@ export class CommunicationService {
       this.logger.log(`SMS provider configured for clinic ${clinicId}: ${settings.sms_provider}`);
     }
 
-    // Configure WhatsApp provider
+    // Configure WhatsApp provider (Meta Cloud API)
     if (settings.enable_whatsapp && settings.whatsapp_config && settings.whatsapp_provider) {
-      const waConfig = settings.whatsapp_config as WhatsAppProviderConfig;
+      const raw = settings.whatsapp_config as Record<string, unknown>;
+      const waConfig: WhatsAppProviderConfig = {
+        accessToken: (raw.accessToken ?? raw.access_token) as string,
+        phoneNumberId: (raw.phoneNumberId ?? raw.phone_number_id) as string,
+        wabaId: (raw.wabaId ?? raw.waba_id) as string | undefined,
+      };
       this.whatsAppProvider.configure(clinicId, waConfig, settings.whatsapp_provider);
       this.logger.log(`WhatsApp provider configured for clinic ${clinicId}: ${settings.whatsapp_provider}`);
     }
@@ -1386,80 +1405,147 @@ export class CommunicationService {
     return { processed, status: internalStatus };
   }
 
-  // ─── WhatsApp Delivery Webhook (Gupshup) ───
+  // ─── WhatsApp Webhook (Meta Cloud API) ───
 
   /**
-   * Process Gupshup WhatsApp delivery/read receipts.
-   * Gupshup posts: { type: 'message-event', payload: { id, type, destination, ... } }
+   * Process Meta WhatsApp Cloud API webhook events.
+   *
+   * Meta sends: {
+   *   object: 'whatsapp_business_account',
+   *   entry: [{ id: WABA_ID, changes: [{ value: { ... }, field: 'messages' }] }]
+   * }
+   *
+   * value.statuses[] — delivery/read receipts
+   * value.messages[] — incoming messages from patients
    */
   async handleWhatsAppWebhook(payload: Record<string, unknown>) {
-    const eventType = payload['type'] as string;
+    if (payload['object'] !== 'whatsapp_business_account') {
+      this.logger.warn(`WhatsApp webhook: unexpected object type "${payload['object']}"`);
+      return { processed: 0 };
+    }
 
-    // Handle delivery status events
-    if (eventType === 'message-event') {
-      const eventPayload = payload['payload'] as Record<string, unknown> | undefined;
-      if (!eventPayload) return { processed: 0 };
+    const entries = payload['entry'] as Array<Record<string, unknown>> | undefined;
+    if (!entries || entries.length === 0) return { processed: 0 };
 
-      const providerMessageId = eventPayload['id'] as string;
-      const statusType = eventPayload['type'] as string; // enqueued, sent, delivered, read, failed
-      const destination = eventPayload['destination'] as string;
+    let totalProcessed = 0;
 
-      if (!providerMessageId) return { processed: 0 };
+    for (const entry of entries) {
+      const changes = entry['changes'] as Array<Record<string, unknown>> | undefined;
+      if (!changes) continue;
 
-      const statusMap: Record<string, string> = {
-        enqueued: 'queued',
-        sent: 'sent',
-        delivered: 'delivered',
-        read: 'read',
-        failed: 'failed',
-      };
+      for (const change of changes) {
+        if (change['field'] !== 'messages') continue;
 
-      const internalStatus = statusMap[statusType] || 'sent';
+        const value = change['value'] as Record<string, unknown> | undefined;
+        if (!value) continue;
 
-      const logs = await this.prisma.communicationLog.findMany({
-        where: { provider_message_id: providerMessageId, channel: 'whatsapp' },
-        include: { message: { select: { id: true } } },
-      });
-
-      let processed = 0;
-      for (const log of logs) {
-        const updateData: Record<string, unknown> = { status: internalStatus };
-        if (internalStatus === 'delivered') updateData['delivered_at'] = new Date();
-        if (internalStatus === 'read') updateData['read_at'] = new Date();
-        if (internalStatus === 'failed') {
-          updateData['failed_at'] = new Date();
-          updateData['error_message'] = (eventPayload['errorMessage'] || 'Delivery failed') as string;
+        // ─── Handle delivery/read status updates ───
+        const statuses = value['statuses'] as Array<Record<string, unknown>> | undefined;
+        if (statuses) {
+          for (const status of statuses) {
+            const processed = await this.processMetaStatusUpdate(status);
+            totalProcessed += processed;
+          }
         }
 
-        await this.prisma.communicationLog.update({
-          where: { id: log.id },
-          data: updateData,
-        });
+        // ─── Handle incoming messages ───
+        const messages = value['messages'] as Array<Record<string, unknown>> | undefined;
+        if (messages) {
+          for (const msg of messages) {
+            await this.processMetaIncomingMessage(msg, value);
+            totalProcessed++;
+          }
+        }
+      }
+    }
 
-        await this.updateMessageStatus(log.message.id, internalStatus);
-        processed++;
+    return { processed: totalProcessed };
+  }
+
+  /**
+   * Process a single status update from Meta Cloud API.
+   * Status object: { id: 'wamid.xxx', status: 'sent'|'delivered'|'read'|'failed', timestamp, recipient_id, errors? }
+   */
+  private async processMetaStatusUpdate(status: Record<string, unknown>): Promise<number> {
+    const providerMessageId = status['id'] as string;
+    const statusType = status['status'] as string;
+    const recipientId = status['recipient_id'] as string;
+
+    if (!providerMessageId) return 0;
+
+    const statusMap: Record<string, string> = {
+      sent: 'sent',
+      delivered: 'delivered',
+      read: 'read',
+      failed: 'failed',
+    };
+
+    const internalStatus = statusMap[statusType];
+    if (!internalStatus) return 0;
+
+    const logs = await this.prisma.communicationLog.findMany({
+      where: { provider_message_id: providerMessageId, channel: 'whatsapp' },
+      include: { message: { select: { id: true } } },
+    });
+
+    let processed = 0;
+    for (const log of logs) {
+      const updateData: Record<string, unknown> = { status: internalStatus };
+      if (internalStatus === 'delivered') updateData['delivered_at'] = new Date();
+      if (internalStatus === 'read') updateData['read_at'] = new Date();
+      if (internalStatus === 'failed') {
+        updateData['failed_at'] = new Date();
+        const errors = status['errors'] as Array<Record<string, unknown>> | undefined;
+        const errorMsg = errors?.[0]?.['title'] as string || 'Delivery failed';
+        updateData['error_message'] = errorMsg;
       }
 
-      this.logger.log(`WhatsApp webhook: ${statusType} for ${destination}, processed=${processed}`);
-      return { processed, status: internalStatus };
+      await this.prisma.communicationLog.update({
+        where: { id: log.id },
+        data: updateData,
+      });
+
+      await this.updateMessageStatus(log.message.id, internalStatus);
+      processed++;
     }
 
-    // Handle incoming messages (session messaging — 24hr reply window)
-    if (eventType === 'message') {
-      const msgPayload = payload['payload'] as Record<string, unknown> | undefined;
-      if (!msgPayload) return { type: 'message', processed: false };
+    this.logger.log(`WhatsApp webhook: ${statusType} for ${recipientId}, processed=${processed}`);
+    return processed;
+  }
 
-      const from = msgPayload['source'] as string;
-      const text = (msgPayload['payload'] as Record<string, unknown>)?.['text'] as string || '';
+  /**
+   * Process an incoming message from Meta Cloud API.
+   * Message object: { from: '91xxxxxxxxxx', id: 'wamid.xxx', timestamp, type: 'text', text: { body: '...' } }
+   */
+  private async processMetaIncomingMessage(
+    msg: Record<string, unknown>,
+    value: Record<string, unknown>,
+  ): Promise<void> {
+    const from = msg['from'] as string;
+    const msgType = msg['type'] as string;
+    let text = '';
 
-      this.logger.log(`WhatsApp incoming message from ${from}: ${text.substring(0, 50)}`);
-
-      // Track the session window — patient responded, so free-form messaging is open for 24hrs
-      // In production, store session windows per-patient for cost optimization
-      return { type: 'message', from, text: text.substring(0, 200), session_open: true };
+    if (msgType === 'text') {
+      const textObj = msg['text'] as Record<string, unknown> | undefined;
+      text = (textObj?.['body'] as string) || '';
+    } else if (msgType === 'button') {
+      const buttonObj = msg['button'] as Record<string, unknown> | undefined;
+      text = (buttonObj?.['text'] as string) || '';
+    } else if (msgType === 'interactive') {
+      const interactive = msg['interactive'] as Record<string, unknown> | undefined;
+      const buttonReply = interactive?.['button_reply'] as Record<string, unknown> | undefined;
+      text = (buttonReply?.['title'] as string) || '';
     }
 
-    return { processed: 0, type: eventType };
+    this.logger.log(`WhatsApp incoming message from ${from} (type: ${msgType}): ${text.substring(0, 50)}`);
+
+    // Track the session window — patient responded, so free-form messaging is open for 24hrs
+    // The phone_number_id in the metadata tells us which clinic number received the message
+    const metadata = value['metadata'] as Record<string, unknown> | undefined;
+    const phoneNumberId = metadata?.['phone_number_id'] as string;
+    if (phoneNumberId) {
+      this.logger.debug(`Session window opened for ${from} on phone_number_id ${phoneNumberId}`);
+    }
   }
 
   // ─── NDNC Registry Check ───

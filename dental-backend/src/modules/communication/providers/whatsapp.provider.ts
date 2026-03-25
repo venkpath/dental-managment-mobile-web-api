@@ -6,10 +6,12 @@ import type {
 } from './channel-provider.interface.js';
 
 export interface WhatsAppProviderConfig {
-  apiKey: string;
+  /** Meta WhatsApp Cloud API — permanent access token */
+  accessToken: string;
+  /** Phone Number ID from Meta developer dashboard */
   phoneNumberId: string;
+  /** WhatsApp Business Account ID (optional, used for template management) */
   wabaId?: string;
-  apiBaseUrl?: string;
 }
 
 export interface WhatsAppInteractiveButton {
@@ -37,6 +39,8 @@ interface ClinicWhatsAppContext {
   sessionWindows: Map<string, number>;
 }
 
+const META_GRAPH_API = 'https://graph.facebook.com/v21.0';
+
 @Injectable()
 export class WhatsAppProvider implements ChannelProvider {
   readonly channel = 'whatsapp' as const;
@@ -51,7 +55,7 @@ export class WhatsAppProvider implements ChannelProvider {
       providerName,
       sessionWindows: existing?.sessionWindows || new Map(),
     });
-    this.logger.log(`WhatsApp provider configured for clinic ${clinicId}: ${providerName}`);
+    this.logger.log(`WhatsApp provider configured for clinic ${clinicId}: ${providerName} (Meta Cloud API)`);
   }
 
   getProviderName(clinicId: string): string {
@@ -92,13 +96,12 @@ export class WhatsAppProvider implements ChannelProvider {
       this.logger.warn(`WhatsApp provider not configured for clinic ${clinicId} — message not sent`);
       return {
         success: false,
-        error: 'WhatsApp provider not configured. Enable WhatsApp in clinic communication settings and provide API credentials.',
+        error: 'WhatsApp provider not configured. Enable WhatsApp in clinic communication settings and provide Meta API credentials.',
       };
     }
 
     try {
-      const { config, providerName } = ctx;
-      const baseUrl = config.apiBaseUrl || 'https://api.gupshup.io/wa/api/v1';
+      const { config } = ctx;
       const destination = options.to.replace(/[^0-9]/g, '');
 
       // Determine message type based on options
@@ -108,59 +111,43 @@ export class WhatsAppProvider implements ChannelProvider {
       let messagePayload: Record<string, unknown>;
 
       if (mediaOptions) {
-        // ─── Media Message (5.4) ───
-        messagePayload = this.buildMediaPayload(config, destination, mediaOptions, options.body);
+        messagePayload = this.buildMediaPayload(destination, mediaOptions, options.body);
       } else if (interactiveButtons && interactiveButtons.length > 0) {
-        // ─── Interactive Message (5.3) ───
-        messagePayload = this.buildInteractivePayload(config, destination, options.body, interactiveButtons);
+        messagePayload = this.buildInteractivePayload(destination, options.body, interactiveButtons);
       } else if (options.templateId) {
-        // ─── HSM Template Message ───
-        messagePayload = this.buildTemplatePayload(config, destination, options.templateId, options.variables);
+        messagePayload = this.buildTemplatePayload(destination, options.templateId, options.variables);
       } else {
-        // ─── Session/Text Message (5.5) ───
-        // Check if session window is open for free-form text
+        // Session/Text Message — check if session window is open
         const sessionOpen = this.isSessionOpen(clinicId, destination);
-        if (!sessionOpen && !options.templateId) {
+        if (!sessionOpen) {
           this.logger.warn(`WhatsApp session expired for ${destination}. Use a template message or wait for patient to respond.`);
         }
-        messagePayload = this.buildTextPayload(config, destination, options.body);
+        messagePayload = this.buildTextPayload(destination, options.body);
       }
 
-      this.logger.debug(`[WhatsApp ${providerName}] Sending to ${destination}: ${JSON.stringify(messagePayload).substring(0, 200)}`);
+      this.logger.debug(`[WhatsApp Meta] Sending to ${destination}: ${JSON.stringify(messagePayload).substring(0, 200)}`);
 
-      const response = await fetch(`${baseUrl}/msg`, {
+      const url = `${META_GRAPH_API}/${config.phoneNumberId}/messages`;
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'apikey': config.apiKey,
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Bearer ${config.accessToken}`,
+          'Content-Type': 'application/json',
         },
-        body: new URLSearchParams(
-          Object.entries(messagePayload).reduce((acc, [k, v]) => {
-            acc[k] = typeof v === 'string' ? v : JSON.stringify(v);
-            return acc;
-          }, {} as Record<string, string>),
-        ),
+        body: JSON.stringify(messagePayload),
       });
 
-      const rawText = await response.text();
-      this.logger.debug(`[WhatsApp ${providerName}] Response (${response.status}): ${rawText.substring(0, 300)}`);
+      const data = await response.json() as Record<string, unknown>;
+      this.logger.debug(`[WhatsApp Meta] Response (${response.status}): ${JSON.stringify(data).substring(0, 300)}`);
 
-      let data: Record<string, unknown>;
-      try {
-        data = JSON.parse(rawText);
-      } catch {
-        if (response.ok) {
-          return { success: true, providerMessageId: rawText };
-        }
-        return { success: false, error: `Gupshup returned non-JSON (${response.status}): ${rawText.substring(0, 200)}` };
-      }
-
-      if (data.status === 'submitted' || data.status === 'success' || response.ok) {
-        const msgId = (data.messageId || data.id || '') as string;
+      if (response.ok && data.messages) {
+        const messages = data.messages as Array<{ id: string }>;
+        const msgId = messages[0]?.id || '';
         this.logger.log(`WhatsApp sent to ${destination}: ${msgId}`);
         return { success: true, providerMessageId: msgId };
       } else {
-        const errorMsg = (data.message || data.error || rawText) as string;
+        const error = data.error as Record<string, unknown> | undefined;
+        const errorMsg = (error?.message || 'Meta API error') as string;
         this.logger.warn(`WhatsApp send failed to ${destination}: ${errorMsg}`);
         return { success: false, error: errorMsg };
       }
@@ -171,11 +158,8 @@ export class WhatsAppProvider implements ChannelProvider {
     }
   }
 
-  // ─── Template Approval Workflow (5.2) ───
+  // ─── Template Management (Meta Cloud API) ───
 
-  /**
-   * Submit a WhatsApp message template for Meta approval via Gupshup.
-   */
   async submitTemplate(clinicId: string, templateData: {
     elementName: string;
     languageCode: string;
@@ -191,42 +175,49 @@ export class WhatsAppProvider implements ChannelProvider {
       return { success: false, error: 'WhatsApp not configured for this clinic' };
     }
 
-    const baseUrl = ctx.config.apiBaseUrl || 'https://api.gupshup.io/wa/app';
+    const { config } = ctx;
+    if (!config.wabaId) {
+      return { success: false, error: 'WABA ID is required for template management. Set it in your WhatsApp config.' };
+    }
 
     try {
-      const response = await fetch(`${baseUrl}/${ctx.config.phoneNumberId}/templates`, {
+      const components: Array<Record<string, unknown>> = [];
+
+      if (templateData.header) {
+        components.push({ type: 'HEADER', format: 'TEXT', text: templateData.header });
+      }
+      components.push({ type: 'BODY', text: templateData.body });
+      if (templateData.footer) {
+        components.push({ type: 'FOOTER', text: templateData.footer });
+      }
+
+      const response = await fetch(`${META_GRAPH_API}/${config.wabaId}/message_templates`, {
         method: 'POST',
         headers: {
-          'apikey': ctx.config.apiKey,
+          'Authorization': `Bearer ${config.accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          elementName: templateData.elementName,
-          languageCode: templateData.languageCode,
-          category: templateData.category,
-          templateType: templateData.templateType,
-          body: templateData.body,
-          header: templateData.header,
-          footer: templateData.footer,
-          buttons: templateData.buttons,
+          name: templateData.elementName,
+          language: templateData.languageCode,
+          category: templateData.category.toUpperCase(),
+          components,
         }),
       });
 
       const data = await response.json() as Record<string, unknown>;
 
-      if (response.ok && data.status === 'success') {
+      if (response.ok && data.id) {
         return { success: true, templateId: data.id as string };
       }
 
-      return { success: false, error: (data.message || 'Template submission failed') as string };
+      const error = data.error as Record<string, unknown> | undefined;
+      return { success: false, error: (error?.message || 'Template submission failed') as string };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
 
-  /**
-   * Check the approval status of a submitted template.
-   */
   async getTemplateStatus(clinicId: string, templateName: string): Promise<{
     status: string;
     rejectedReason?: string;
@@ -234,150 +225,153 @@ export class WhatsAppProvider implements ChannelProvider {
     const ctx = this.clinicConfigs.get(clinicId);
     if (!ctx) return { status: 'not_configured' };
 
-    const baseUrl = ctx.config.apiBaseUrl || 'https://api.gupshup.io/wa/app';
+    const { config } = ctx;
+    if (!config.wabaId) return { status: 'waba_id_required' };
 
     try {
       const response = await fetch(
-        `${baseUrl}/${ctx.config.phoneNumberId}/templates?elementName=${encodeURIComponent(templateName)}`,
+        `${META_GRAPH_API}/${config.wabaId}/message_templates?name=${encodeURIComponent(templateName)}`,
         {
-          headers: { 'apikey': ctx.config.apiKey },
+          headers: { 'Authorization': `Bearer ${config.accessToken}` },
         },
       );
 
       const data = await response.json() as Record<string, unknown>;
-      const templates = (data.templates || []) as Array<Record<string, unknown>>;
-      const template = templates.find(t => t.elementName === templateName);
+      const templates = (data.data || []) as Array<Record<string, unknown>>;
+      const template = templates.find(t => t.name === templateName);
 
       if (!template) return { status: 'not_found' };
 
       return {
         status: (template.status as string) || 'unknown',
-        rejectedReason: template.rejectedReason as string | undefined,
+        rejectedReason: template.rejected_reason as string | undefined,
       };
     } catch {
       return { status: 'error' };
     }
   }
 
-  // ─── Private Payload Builders ───
+  // ─── Private Payload Builders (Meta Cloud API format) ───
 
-  private buildTextPayload(config: WhatsAppProviderConfig, destination: string, body: string): Record<string, unknown> {
+  private buildTextPayload(destination: string, body: string): Record<string, unknown> {
     return {
-      channel: 'whatsapp',
-      source: config.phoneNumberId,
-      destination,
-      message: JSON.stringify({ type: 'text', text: body }),
-      'src.name': 'Smart Dental Desk',
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: destination,
+      type: 'text',
+      text: { preview_url: false, body },
     };
   }
 
   private buildTemplatePayload(
-    config: WhatsAppProviderConfig,
     destination: string,
-    templateId: string,
+    templateName: string,
     variables?: Record<string, string>,
   ): Record<string, unknown> {
-    const params = variables ? Object.values(variables) : [];
+    const components: Array<Record<string, unknown>> = [];
+
+    if (variables && Object.keys(variables).length > 0) {
+      components.push({
+        type: 'body',
+        parameters: Object.values(variables).map(value => ({
+          type: 'text',
+          text: value,
+        })),
+      });
+    }
+
     return {
-      channel: 'whatsapp',
-      source: config.phoneNumberId,
-      destination,
-      template: JSON.stringify({
-        id: templateId,
-        params,
-      }),
-      'src.name': 'Smart Dental Desk',
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: destination,
+      type: 'template',
+      template: {
+        name: templateName,
+        language: { code: 'en' },
+        components: components.length > 0 ? components : undefined,
+      },
     };
   }
 
   private buildInteractivePayload(
-    config: WhatsAppProviderConfig,
     destination: string,
     body: string,
     buttons: WhatsAppInteractiveButton[],
   ): Record<string, unknown> {
-    const interactiveContent: Record<string, unknown> = {
-      type: 'button',
-      body: { text: body },
-      action: {
-        buttons: buttons.slice(0, 3).map((btn, idx) => ({
-          type: btn.type === 'url' ? 'url' : 'reply',
-          reply: btn.type === 'reply' ? { id: btn.id || `btn_${idx}`, title: btn.title } : undefined,
-          url: btn.type === 'url' ? btn.url : undefined,
-          title: btn.title,
-        })),
-      },
-    };
-
     return {
-      channel: 'whatsapp',
-      source: config.phoneNumberId,
-      destination,
-      message: JSON.stringify({
-        type: 'interactive',
-        interactive: interactiveContent,
-      }),
-      'src.name': 'Smart Dental Desk',
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: destination,
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        body: { text: body },
+        action: {
+          buttons: buttons.slice(0, 3).map((btn, idx) => ({
+            type: 'reply',
+            reply: {
+              id: btn.id || `btn_${idx}`,
+              title: btn.title.substring(0, 20), // Meta limit: 20 chars
+            },
+          })),
+        },
+      },
     };
   }
 
   private buildMediaPayload(
-    config: WhatsAppProviderConfig,
     destination: string,
     media: WhatsAppMediaOptions,
     caption?: string,
   ): Record<string, unknown> {
-    let message: Record<string, unknown>;
+    const base = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: destination,
+    };
 
     switch (media.type) {
       case 'image':
-        message = {
+        return {
+          ...base,
           type: 'image',
-          originalUrl: media.url,
-          previewUrl: media.url,
-          caption: caption || media.caption || '',
+          image: { link: media.url, caption: caption || media.caption || '' },
         };
-        break;
       case 'document':
-        message = {
-          type: 'file',
-          url: media.url,
-          filename: media.filename || 'document.pdf',
-          caption: caption || media.caption || '',
+        return {
+          ...base,
+          type: 'document',
+          document: {
+            link: media.url,
+            caption: caption || media.caption || '',
+            filename: media.filename || 'document.pdf',
+          },
         };
-        break;
       case 'video':
-        message = {
+        return {
+          ...base,
           type: 'video',
-          url: media.url,
-          caption: caption || media.caption || '',
+          video: { link: media.url, caption: caption || media.caption || '' },
         };
-        break;
       case 'audio':
-        message = {
+        return {
+          ...base,
           type: 'audio',
-          url: media.url,
+          audio: { link: media.url },
         };
-        break;
       case 'location':
-        message = {
+        return {
+          ...base,
           type: 'location',
-          longitude: media.longitude,
-          latitude: media.latitude,
-          name: media.name || '',
-          address: media.address || '',
+          location: {
+            longitude: media.longitude,
+            latitude: media.latitude,
+            name: media.name || '',
+            address: media.address || '',
+          },
         };
-        break;
       default:
-        message = { type: 'text', text: caption || '' };
+        return { ...base, type: 'text', text: { body: caption || '' } };
     }
-
-    return {
-      channel: 'whatsapp',
-      source: config.phoneNumberId,
-      destination,
-      message: JSON.stringify(message),
-      'src.name': 'Smart Dental Desk',
-    };
   }
 }

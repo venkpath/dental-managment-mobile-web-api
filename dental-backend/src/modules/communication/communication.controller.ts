@@ -7,13 +7,15 @@ import {
   Param,
   Query,
   Req,
+  Res,
   UseGuards,
   ParseUUIDPipe,
   BadRequestException,
   Logger,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiOperation, ApiHeader, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { CommunicationService } from './communication.service.js';
@@ -56,14 +58,17 @@ export class OptOutController {
   }
 }
 
-// ─── Public Webhook Controller (no auth — called by MSG91/Gupshup) ───
+// ─── Public Webhook Controller (no auth — called by MSG91 / Meta WhatsApp Cloud API) ───
 
 @ApiTags('Communication — Webhooks')
 @Controller('communication/webhooks')
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
 
-  constructor(private readonly communicationService: CommunicationService) {}
+  constructor(
+    private readonly communicationService: CommunicationService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Post('sms/delivery')
   @ApiOperation({ summary: 'MSG91 SMS delivery report webhook (DLR callback)' })
@@ -72,10 +77,41 @@ export class WebhookController {
     return this.communicationService.handleSmsDeliveryWebhook(body);
   }
 
+  /**
+   * Meta WhatsApp Cloud API — Webhook Verification (GET).
+   * Meta sends a GET request with hub.mode, hub.verify_token, hub.challenge
+   * to verify your webhook URL. Must respond with the challenge value.
+   */
+  @Get('whatsapp')
+  @ApiOperation({ summary: 'Meta WhatsApp webhook verification (responds to hub.challenge)' })
+  verifyWhatsAppWebhook(
+    @Query('hub.mode') mode: string,
+    @Query('hub.verify_token') verifyToken: string,
+    @Query('hub.challenge') challenge: string,
+    @Res() res: Response,
+  ) {
+    const expectedToken = this.configService.get<string>('app.whatsapp.webhookVerifyToken');
+
+    this.logger.log(`WhatsApp webhook verification: mode=${mode}, token=${verifyToken ? '***' : 'missing'}`);
+
+    if (mode === 'subscribe' && verifyToken === expectedToken) {
+      this.logger.log('WhatsApp webhook verified successfully');
+      return res.status(200).send(challenge);
+    }
+
+    this.logger.warn('WhatsApp webhook verification failed — token mismatch');
+    return res.status(403).send('Verification failed');
+  }
+
+  /**
+   * Meta WhatsApp Cloud API — Incoming Webhooks (POST).
+   * Receives message status updates (sent, delivered, read, failed)
+   * and incoming messages from patients.
+   */
   @Post('whatsapp')
-  @ApiOperation({ summary: 'Gupshup WhatsApp webhook (delivery receipts + incoming messages)' })
+  @ApiOperation({ summary: 'Meta WhatsApp Cloud API webhook (status updates + incoming messages)' })
   async whatsappWebhook(@Body() body: Record<string, unknown>) {
-    this.logger.debug(`WhatsApp webhook received: ${JSON.stringify(body).substring(0, 200)}`);
+    this.logger.debug(`WhatsApp webhook received: ${JSON.stringify(body).substring(0, 500)}`);
     return this.communicationService.handleWhatsAppWebhook(body);
   }
 }

@@ -177,6 +177,79 @@ prisma/
 
 Unique constraint: `(email, clinic_id)`
 
+## AWS EC2 Deployment
+
+### Server Info
+
+- **Host:** EC2 instance (Ubuntu)
+- **Domain:** api.smartdentaldesk.com
+- **Process Manager:** PM2
+- **Reverse Proxy:** Nginx with SSL (Certbot/Let's Encrypt)
+- **Project Path:** `~/dental-managment-mobile-web-api/dental-backend`
+
+### Environment Variables
+
+Set these in your `.env` file on the EC2 server:
+
+```
+CORS_ORIGIN=https://smartdentaldesk.com,https://www.smartdentaldesk.com
+```
+
+### Deploy (Quick Copy-Paste)
+
+```bash
+cd ~/dental-managment-mobile-web-api/dental-backend && \
+git pull origin main && \
+npm install && \
+npx prisma generate && \
+NODE_OPTIONS="--max-old-space-size=2048" npm run build && \
+pm2 restart dental-backend
+```
+
+### Deploy (Step-by-Step)
+
+```bash
+# 1. Go to project
+cd ~/dental-managment-mobile-web-api/dental-backend
+
+# 2. Pull latest code
+git pull origin main
+
+# 3. Install dependencies (if any changed)
+npm install
+
+# 4. Prisma (if schema changed)
+npx prisma generate
+npx prisma migrate deploy
+
+# 5. Build (with increased memory for small instances)
+NODE_OPTIONS="--max-old-space-size=2048" npm run build
+
+# 6. Restart backend
+pm2 restart dental-backend
+
+# 7. Check logs
+pm2 logs dental-backend --lines 50
+```
+
+### Useful PM2 Commands
+
+| Command | Description |
+|---|---|
+| `pm2 status` | Check running processes |
+| `pm2 logs dental-backend --lines 50` | View recent logs |
+| `pm2 restart dental-backend` | Restart the backend |
+| `pm2 stop dental-backend` | Stop the backend |
+| `pm2 monit` | Real-time monitoring dashboard |
+
+### Nginx Config
+
+- Config location: `/etc/nginx/sites-available/` (or `/etc/nginx/conf.d/`)
+- Proxies `api.smartdentaldesk.com` to `localhost:3000`
+- SSL managed by Certbot (auto-renews)
+- Test config: `sudo nginx -t`
+- Reload after changes: `sudo systemctl reload nginx`
+
 ## API Response Format
 
 All endpoints return a standard response:

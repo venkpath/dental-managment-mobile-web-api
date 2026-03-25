@@ -106,6 +106,24 @@ export class AiController {
     return this.aiService.generateCampaignContent(req.user!.clinicId, dto);
   }
 
+  // ─── 8. X-ray Analysis ──────────────────────────────────────
+
+  @Post('xray-analysis')
+  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @TrackAiUsage()
+  @RequireFeature('AI_CLINICAL_NOTES')
+  @ApiOperation({ summary: 'AI-powered dental X-ray analysis using vision model' })
+  async analyzeXray(
+    @Req() req: Request,
+    @Body() body: { attachment_id: string; notes?: string },
+  ) {
+    return this.aiService.analyzeXray(req.user!.clinicId, {
+      attachmentId: body.attachment_id,
+      notes: body.notes,
+      userId: req.user!.userId,
+    });
+  }
+
   // ─── Usage Stats ─────────────────────────────────────────────
 
   @Get('usage')

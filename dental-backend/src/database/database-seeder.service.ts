@@ -129,6 +129,7 @@ export class DatabaseSeederService implements OnModuleInit {
       { key: 'DIGITAL_XRAY', description: 'Digital X-ray management and storage' },
       { key: 'INVENTORY_MANAGEMENT', description: 'Dental inventory and supply tracking' },
       { key: 'CUSTOM_PROVIDER_CONFIG', description: 'Override default email/SMS provider config per clinic' },
+      { key: 'PATIENT_IMPORT', description: 'Bulk patient import from CSV/Excel and AI image extraction' },
     ];
 
     let created = 0;
@@ -167,6 +168,9 @@ export class DatabaseSeederService implements OnModuleInit {
       { plan_id: enterprise.id, feature_id: fm['AI_TREATMENT_PLAN']! },
       { plan_id: enterprise.id, feature_id: fm['WHATSAPP_INTEGRATION']! },
       { plan_id: enterprise.id, feature_id: fm['CUSTOM_PROVIDER_CONFIG']! },
+      // Patient Import — Professional & Enterprise only (not Starter)
+      { plan_id: professional.id, feature_id: fm['PATIENT_IMPORT']! },
+      { plan_id: enterprise.id, feature_id: fm['PATIENT_IMPORT']! },
     ];
 
     let created = 0;
