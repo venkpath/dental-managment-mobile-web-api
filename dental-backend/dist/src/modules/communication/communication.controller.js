@@ -19,6 +19,7 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const swagger_1 = require("@nestjs/swagger");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
+const public_decorator_js_1 = require("../../common/decorators/public.decorator.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
 const communication_service_js_1 = require("./communication.service.js");
 const send_message_dto_js_1 = require("./dto/send-message.dto.js");
@@ -69,6 +70,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], OptOutController.prototype, "verify", null);
 exports.OptOutController = OptOutController = __decorate([
+    (0, public_decorator_js_1.Public)(),
     (0, swagger_1.ApiTags)('Communication — Opt-Out'),
     (0, common_1.Controller)('communication/opt-out'),
     __metadata("design:paramtypes", [communication_service_js_1.CommunicationService])
@@ -132,6 +134,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], WebhookController.prototype, "whatsappWebhook", null);
 exports.WebhookController = WebhookController = WebhookController_1 = __decorate([
+    (0, public_decorator_js_1.Public)(),
     (0, swagger_1.ApiTags)('Communication — Webhooks'),
     (0, common_1.Controller)('communication/webhooks'),
     __metadata("design:paramtypes", [communication_service_js_1.CommunicationService,

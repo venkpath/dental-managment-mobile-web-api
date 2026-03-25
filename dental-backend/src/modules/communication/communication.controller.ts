@@ -17,6 +17,7 @@ import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiOperation, ApiHeader, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
+import { Public } from '../../common/decorators/public.decorator.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { CommunicationService } from './communication.service.js';
 import { SendMessageDto } from './dto/send-message.dto.js';
@@ -26,6 +27,7 @@ import { UpdateClinicSettingsDto } from './dto/update-clinic-settings.dto.js';
 
 // ─── Public Opt-Out Controller (no auth required) ───
 
+@Public()
 @ApiTags('Communication — Opt-Out')
 @Controller('communication/opt-out')
 export class OptOutController {
@@ -60,6 +62,7 @@ export class OptOutController {
 
 // ─── Public Webhook Controller (no auth — called by MSG91 / Meta WhatsApp Cloud API) ───
 
+@Public()
 @ApiTags('Communication — Webhooks')
 @Controller('communication/webhooks')
 export class WebhookController {
