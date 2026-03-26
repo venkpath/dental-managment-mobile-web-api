@@ -152,11 +152,11 @@ let CommunicationController = class CommunicationController {
     async findAllMessages(clinicId, query) {
         return this.communicationService.findAllMessages(clinicId, query);
     }
-    async findOneMessage(clinicId, id) {
-        return this.communicationService.findOneMessage(clinicId, id);
-    }
     async getStats(clinicId, startDate, endDate) {
         return this.communicationService.getMessageStats(clinicId, startDate, endDate);
+    }
+    async findOneMessage(clinicId, id) {
+        return this.communicationService.findOneMessage(clinicId, id);
     }
     async getCircuitBreakerStatus(clinicId) {
         return this.communicationService.getCircuitBreakerStatus(clinicId);
@@ -235,17 +235,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], CommunicationController.prototype, "findAllMessages", null);
 __decorate([
-    (0, common_1.Get)('messages/:id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get a message with delivery logs' }),
-    openapi.ApiResponse({ status: 200, type: Object }),
-    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
-    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
-    __metadata("design:returntype", Promise)
-], CommunicationController.prototype, "findOneMessage", null);
-__decorate([
-    (0, common_1.Get)('stats'),
+    (0, common_1.Get)('messages/stats'),
     (0, swagger_1.ApiOperation)({ summary: 'Get communication statistics' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
@@ -255,6 +245,16 @@ __decorate([
     __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], CommunicationController.prototype, "getStats", null);
+__decorate([
+    (0, common_1.Get)('messages/:id'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get a message with delivery logs' }),
+    openapi.ApiResponse({ status: 200, type: Object }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], CommunicationController.prototype, "findOneMessage", null);
 __decorate([
     (0, common_1.Get)('circuit-breaker'),
     (0, swagger_1.ApiOperation)({ summary: 'Get circuit breaker status for all channels' }),

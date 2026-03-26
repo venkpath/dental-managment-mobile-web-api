@@ -151,16 +151,7 @@ export class CommunicationController {
     return this.communicationService.findAllMessages(clinicId, query);
   }
 
-  @Get('messages/:id')
-  @ApiOperation({ summary: 'Get a message with delivery logs' })
-  async findOneMessage(
-    @CurrentClinic() clinicId: string,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.communicationService.findOneMessage(clinicId, id);
-  }
-
-  @Get('stats')
+  @Get('messages/stats')
   @ApiOperation({ summary: 'Get communication statistics' })
   async getStats(
     @CurrentClinic() clinicId: string,
@@ -168,6 +159,15 @@ export class CommunicationController {
     @Query('end_date') endDate?: string,
   ) {
     return this.communicationService.getMessageStats(clinicId, startDate, endDate);
+  }
+
+  @Get('messages/:id')
+  @ApiOperation({ summary: 'Get a message with delivery logs' })
+  async findOneMessage(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.communicationService.findOneMessage(clinicId, id);
   }
 
   @Get('circuit-breaker')

@@ -115,6 +115,35 @@ export declare class CommunicationController {
         skip_reason: string | null;
         sent_at: Date | null;
     }>>;
+    getStats(clinicId: string, startDate?: string, endDate?: string): Promise<{
+        total: number;
+        delivery_rate: number;
+        failure_rate: number;
+        by_channel: {
+            channel: string;
+            count: number;
+        }[];
+        by_status: {
+            status: string;
+            count: number;
+        }[];
+        by_category: {
+            category: string;
+            count: number;
+        }[];
+        metrics: {
+            sent: number;
+            delivered: number;
+            failed: number;
+            skipped: number;
+        };
+        daily_trend: {
+            date: string;
+            count: number;
+            delivered: number;
+            failed: number;
+        }[];
+    }>;
     findOneMessage(clinicId: string, id: string): Promise<{
         patient: {
             email: string | null;
@@ -169,35 +198,6 @@ export declare class CommunicationController {
         recipient: string;
         skip_reason: string | null;
         sent_at: Date | null;
-    }>;
-    getStats(clinicId: string, startDate?: string, endDate?: string): Promise<{
-        total: number;
-        delivery_rate: number;
-        failure_rate: number;
-        by_channel: {
-            channel: string;
-            count: number;
-        }[];
-        by_status: {
-            status: string;
-            count: number;
-        }[];
-        by_category: {
-            category: string;
-            count: number;
-        }[];
-        metrics: {
-            sent: number;
-            delivered: number;
-            failed: number;
-            skipped: number;
-        };
-        daily_trend: {
-            date: string;
-            count: number;
-            delivered: number;
-            failed: number;
-        }[];
     }>;
     getCircuitBreakerStatus(clinicId: string): Promise<Record<string, {
         is_open: boolean;
