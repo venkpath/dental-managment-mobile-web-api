@@ -26,13 +26,14 @@ let WhatsAppWorker = WhatsAppWorker_1 = class WhatsAppWorker extends bullmq_1.Wo
         this.communicationService = communicationService;
     }
     async process(job) {
-        const { messageId, clinicId, to, body, templateId, mediaUrl } = job.data;
+        const { messageId, clinicId, to, body, templateId, variables, mediaUrl } = job.data;
         this.logger.debug(`Processing WhatsApp job: ${messageId} → ${to}`);
         try {
             const result = await this.whatsappProvider.send({
                 to,
                 body,
                 templateId,
+                variables,
                 mediaUrl,
                 clinicId,
             });

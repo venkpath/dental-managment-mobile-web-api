@@ -92,6 +92,7 @@ let CommunicationService = class CommunicationService {
         let subject = dto.subject;
         let html;
         let dltTemplateId;
+        let whatsappTemplateName;
         const vars = { ...(dto.variables || {}) };
         if (!vars['name'])
             vars['name'] = vars['patient_first_name'] || vars['patient_name'] || '';
@@ -102,6 +103,9 @@ let CommunicationService = class CommunicationService {
             body = this.renderer.render(template.body, vars);
             subject = subject || (template.subject ? this.renderer.render(template.subject, vars) : undefined);
             dltTemplateId = template.dlt_template_id ?? undefined;
+            if (dto.channel === 'whatsapp') {
+                whatsappTemplateName = template.template_name;
+            }
         }
         if (dto.channel === 'sms' && !dltTemplateId) {
             const defaultDltId = this.configService.get('app.sms.defaultDltTemplateId');
@@ -164,7 +168,8 @@ let CommunicationService = class CommunicationService {
             subject,
             body,
             html,
-            templateId: dltTemplateId,
+            templateId: dto.channel === 'whatsapp' ? whatsappTemplateName : dltTemplateId,
+            variables: dto.channel === 'whatsapp' && whatsappTemplateName ? vars : undefined,
             metadata: dto.metadata,
             scheduledAt: dto.scheduled_at,
         });

@@ -109,6 +109,8 @@ export class CommunicationService {
     let html: string | undefined;
 
     let dltTemplateId: string | undefined;
+    /** For WhatsApp: the Meta-approved template name (e.g. "appointment_reminder") */
+    let whatsappTemplateName: string | undefined;
 
     // Build enriched variables with common aliases so any template resolves cleanly.
     // e.g. automation sends patient_first_name → also available as {{name}}.
@@ -121,6 +123,12 @@ export class CommunicationService {
       body = this.renderer.render(template.body, vars);
       subject = subject || (template.subject ? this.renderer.render(template.subject, vars) : undefined);
       dltTemplateId = template.dlt_template_id ?? undefined;
+
+      // For WhatsApp, pass the template name so the provider sends a proper
+      // Meta template message (required for business-initiated conversations).
+      if (dto.channel === 'whatsapp') {
+        whatsappTemplateName = template.template_name;
+      }
     }
 
     // SMS DLT compliance: when no template is linked, auto-resolve from env default.
@@ -209,7 +217,10 @@ export class CommunicationService {
       subject,
       body,
       html,
-      templateId: dltTemplateId, // DLT template ID for SMS compliance
+      // For SMS: DLT template ID; for WhatsApp: Meta-approved template name
+      templateId: dto.channel === 'whatsapp' ? whatsappTemplateName : dltTemplateId,
+      // For WhatsApp template messages: pass variables so the provider can build components
+      variables: dto.channel === 'whatsapp' && whatsappTemplateName ? vars : undefined,
       metadata: dto.metadata,
       scheduledAt: dto.scheduled_at,
     });

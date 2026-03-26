@@ -12,6 +12,8 @@ export interface CommunicationJobData {
   body: string;
   html?: string;
   templateId?: string; // provider-specific (DLT/HSM)
+  /** WhatsApp template variables — ordered values for Meta template components */
+  variables?: Record<string, string>;
   mediaUrl?: string;
   metadata?: Record<string, unknown>;
   scheduledAt?: string;
