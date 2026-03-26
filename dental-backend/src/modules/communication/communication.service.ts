@@ -111,6 +111,8 @@ export class CommunicationService {
     let dltTemplateId: string | undefined;
     /** For WhatsApp: the Meta-approved template name (e.g. "appointment_reminder") */
     let whatsappTemplateName: string | undefined;
+    /** For WhatsApp: ordered variable values matching Meta template {{1}}, {{2}}, etc. */
+    let whatsappOrderedVars: string[] | undefined;
 
     // Build enriched variables with common aliases so any template resolves cleanly.
     // e.g. automation sends patient_first_name → also available as {{name}}.
@@ -126,8 +128,16 @@ export class CommunicationService {
 
       // For WhatsApp, pass the template name so the provider sends a proper
       // Meta template message (required for business-initiated conversations).
+      // Build ordered variable values matching Meta's {{1}}, {{2}}, ... placeholders
+      // using the template's variables array as the canonical order.
       if (dto.channel === 'whatsapp') {
         whatsappTemplateName = template.template_name;
+        const templateVarNames = (template.variables as string[] | null) || [];
+        if (templateVarNames.length > 0 && dto.variables) {
+          whatsappOrderedVars = templateVarNames.map(
+            (varName) => dto.variables?.[varName] || vars[varName] || '',
+          );
+        }
       }
     }
 
@@ -219,8 +229,10 @@ export class CommunicationService {
       html,
       // For SMS: DLT template ID; for WhatsApp: Meta-approved template name
       templateId: dto.channel === 'whatsapp' ? whatsappTemplateName : dltTemplateId,
-      // For WhatsApp template messages: pass variables so the provider can build components
-      variables: dto.channel === 'whatsapp' && whatsappTemplateName ? vars : undefined,
+      // For WhatsApp template messages: pass ordered variable values matching Meta's {{1}}, {{2}}, ...
+      variables: dto.channel === 'whatsapp' && whatsappOrderedVars
+        ? Object.fromEntries(whatsappOrderedVars.map((v, i) => [String(i), v]))
+        : undefined,
       metadata: dto.metadata,
       scheduledAt: dto.scheduled_at,
     });

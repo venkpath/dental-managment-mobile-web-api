@@ -93,6 +93,7 @@ let CommunicationService = class CommunicationService {
         let html;
         let dltTemplateId;
         let whatsappTemplateName;
+        let whatsappOrderedVars;
         const vars = { ...(dto.variables || {}) };
         if (!vars['name'])
             vars['name'] = vars['patient_first_name'] || vars['patient_name'] || '';
@@ -105,6 +106,10 @@ let CommunicationService = class CommunicationService {
             dltTemplateId = template.dlt_template_id ?? undefined;
             if (dto.channel === 'whatsapp') {
                 whatsappTemplateName = template.template_name;
+                const templateVarNames = template.variables || [];
+                if (templateVarNames.length > 0 && dto.variables) {
+                    whatsappOrderedVars = templateVarNames.map((varName) => dto.variables?.[varName] || vars[varName] || '');
+                }
             }
         }
         if (dto.channel === 'sms' && !dltTemplateId) {
@@ -169,7 +174,9 @@ let CommunicationService = class CommunicationService {
             body,
             html,
             templateId: dto.channel === 'whatsapp' ? whatsappTemplateName : dltTemplateId,
-            variables: dto.channel === 'whatsapp' && whatsappTemplateName ? vars : undefined,
+            variables: dto.channel === 'whatsapp' && whatsappOrderedVars
+                ? Object.fromEntries(whatsappOrderedVars.map((v, i) => [String(i), v]))
+                : undefined,
             metadata: dto.metadata,
             scheduledAt: dto.scheduled_at,
         });
