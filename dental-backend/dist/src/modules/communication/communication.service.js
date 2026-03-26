@@ -1280,6 +1280,116 @@ let CommunicationService = class CommunicationService {
 </body>
 </html>`;
     }
+    static META_GRAPH_API = 'https://graph.facebook.com/v21.0';
+    async completeWhatsAppEmbeddedSignup(clinicId, code) {
+        const appId = this.configService.get('app.facebook.appId');
+        const appSecret = this.configService.get('app.facebook.appSecret');
+        if (!appId || !appSecret) {
+            throw new common_1.InternalServerErrorException('Facebook App ID and App Secret must be configured. Set FACEBOOK_APP_ID and FACEBOOK_APP_SECRET environment variables.');
+        }
+        this.logger.log(`Embedded Signup: exchanging auth code for clinic ${clinicId}`);
+        const tokenUrl = new URL(`${CommunicationService_1.META_GRAPH_API}/oauth/access_token`);
+        tokenUrl.searchParams.set('client_id', appId);
+        tokenUrl.searchParams.set('client_secret', appSecret);
+        tokenUrl.searchParams.set('code', code);
+        const tokenRes = await fetch(tokenUrl.toString());
+        const tokenData = await tokenRes.json();
+        if (!tokenRes.ok || !tokenData.access_token) {
+            this.logger.error(`Embedded Signup token exchange failed: ${JSON.stringify(tokenData)}`);
+            throw new common_1.BadRequestException(tokenData.error?.message || 'Failed to exchange authorization code. Please try connecting again.');
+        }
+        const userToken = tokenData.access_token;
+        this.logger.log('Embedded Signup: debugging token to find shared WABAs');
+        const debugUrl = new URL(`${CommunicationService_1.META_GRAPH_API}/debug_token`);
+        debugUrl.searchParams.set('input_token', userToken);
+        debugUrl.searchParams.set('access_token', `${appId}|${appSecret}`);
+        const debugRes = await fetch(debugUrl.toString());
+        const debugData = await debugRes.json();
+        if (!debugRes.ok) {
+            this.logger.error(`Embedded Signup debug_token failed: ${JSON.stringify(debugData)}`);
+            throw new common_1.BadRequestException('Failed to verify authorization. Please try again.');
+        }
+        const wabaScopes = debugData.data?.granular_scopes?.find((s) => s.permission === 'whatsapp_business_management');
+        const wabaId = wabaScopes?.target_ids?.[0];
+        if (!wabaId) {
+            this.logger.error(`Embedded Signup: no WABA ID found in scopes: ${JSON.stringify(debugData.data?.granular_scopes)}`);
+            throw new common_1.BadRequestException('No WhatsApp Business Account was shared during signup. Please try again and make sure to select your WhatsApp Business Account.');
+        }
+        this.logger.log(`Embedded Signup: found WABA ID ${wabaId}`);
+        this.logger.log(`Embedded Signup: subscribing WABA ${wabaId} to app webhooks`);
+        const subscribeRes = await fetch(`${CommunicationService_1.META_GRAPH_API}/${wabaId}/subscribed_apps`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${userToken}`,
+                'Content-Type': 'application/json',
+            },
+        });
+        const subscribeData = await subscribeRes.json();
+        if (!subscribeRes.ok || !subscribeData.success) {
+            this.logger.warn(`Embedded Signup: webhook subscription warning: ${JSON.stringify(subscribeData)}`);
+        }
+        this.logger.log(`Embedded Signup: fetching phone numbers for WABA ${wabaId}`);
+        const phonesRes = await fetch(`${CommunicationService_1.META_GRAPH_API}/${wabaId}/phone_numbers`, {
+            headers: { Authorization: `Bearer ${userToken}` },
+        });
+        const phonesData = await phonesRes.json();
+        if (!phonesRes.ok || !phonesData.data?.length) {
+            this.logger.error(`Embedded Signup: no phone numbers found: ${JSON.stringify(phonesData)}`);
+            throw new common_1.BadRequestException('No phone numbers found for the WhatsApp Business Account. Please add a phone number in Meta Business Suite first.');
+        }
+        const phone = phonesData.data[0];
+        this.logger.log(`Embedded Signup: using phone ${phone.display_phone_number} (ID: ${phone.id})`);
+        this.logger.log('Embedded Signup: exchanging for long-lived token');
+        const longLivedUrl = new URL(`${CommunicationService_1.META_GRAPH_API}/oauth/access_token`);
+        longLivedUrl.searchParams.set('grant_type', 'fb_exchange_token');
+        longLivedUrl.searchParams.set('client_id', appId);
+        longLivedUrl.searchParams.set('client_secret', appSecret);
+        longLivedUrl.searchParams.set('fb_exchange_token', userToken);
+        const longLivedRes = await fetch(longLivedUrl.toString());
+        const longLivedData = await longLivedRes.json();
+        const finalToken = longLivedData.access_token || userToken;
+        const tokenExpiresAt = longLivedData.expires_in
+            ? new Date(Date.now() + longLivedData.expires_in * 1000).toISOString()
+            : undefined;
+        this.logger.log(`Embedded Signup: saving credentials for clinic ${clinicId}`);
+        await this.updateClinicSettings(clinicId, {
+            enable_whatsapp: true,
+            whatsapp_provider: 'meta',
+            whatsapp_config: {
+                accessToken: finalToken,
+                phoneNumberId: phone.id,
+                wabaId,
+                displayPhone: phone.display_phone_number,
+                verifiedName: phone.verified_name,
+                qualityRating: phone.quality_rating,
+                connectedAt: new Date().toISOString(),
+                connectionMethod: 'embedded_signup',
+                ...(tokenExpiresAt ? { tokenExpiresAt } : {}),
+            },
+        }, { skipFeatureCheck: true });
+        this.logger.log(`Embedded Signup complete for clinic ${clinicId}: ${phone.display_phone_number}`);
+        return {
+            success: true,
+            waba_id: wabaId,
+            phone_number_id: phone.id,
+            display_phone: phone.display_phone_number,
+            verified_name: phone.verified_name,
+            quality_rating: phone.quality_rating,
+        };
+    }
+    async disconnectWhatsApp(clinicId) {
+        this.logger.log(`Disconnecting WhatsApp for clinic ${clinicId}`);
+        await this.prisma.clinicCommunicationSettings.update({
+            where: { clinic_id: clinicId },
+            data: {
+                enable_whatsapp: false,
+                whatsapp_provider: null,
+                whatsapp_config: {},
+            },
+        });
+        this.whatsAppProvider.removeClinic(clinicId);
+        return { success: true, message: 'WhatsApp disconnected successfully' };
+    }
 };
 exports.CommunicationService = CommunicationService;
 exports.CommunicationService = CommunicationService = CommunicationService_1 = __decorate([

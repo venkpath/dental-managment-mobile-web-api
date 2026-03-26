@@ -28,4 +28,8 @@ export default registerAs('app', () => ({
     webhookVerifyToken: process.env['WHATSAPP_WEBHOOK_VERIFY_TOKEN'] || '',
     appSecret: process.env['WHATSAPP_APP_SECRET'] || '',
   },
+  facebook: {
+    appId: process.env['FACEBOOK_APP_ID'] || '',
+    appSecret: process.env['FACEBOOK_APP_SECRET'] || '',
+  },
 }));

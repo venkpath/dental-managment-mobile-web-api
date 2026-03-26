@@ -26,6 +26,7 @@ const send_message_dto_js_1 = require("./dto/send-message.dto.js");
 const query_message_dto_js_1 = require("./dto/query-message.dto.js");
 const update_preferences_dto_js_1 = require("./dto/update-preferences.dto.js");
 const update_clinic_settings_dto_js_1 = require("./dto/update-clinic-settings.dto.js");
+const whatsapp_embedded_signup_dto_js_1 = require("./dto/whatsapp-embedded-signup.dto.js");
 let OptOutController = class OptOutController {
     communicationService;
     constructor(communicationService) {
@@ -203,6 +204,12 @@ let CommunicationController = class CommunicationController {
     async getWhatsAppTemplateStatus(clinicId, templateName) {
         return this.communicationService.getWhatsAppTemplateStatus(clinicId, templateName);
     }
+    async completeEmbeddedSignup(clinicId, dto) {
+        return this.communicationService.completeWhatsAppEmbeddedSignup(clinicId, dto.code);
+    }
+    async disconnectWhatsApp(clinicId) {
+        return this.communicationService.disconnectWhatsApp(clinicId);
+    }
 };
 exports.CommunicationController = CommunicationController;
 __decorate([
@@ -377,6 +384,29 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], CommunicationController.prototype, "getWhatsAppTemplateStatus", null);
+__decorate([
+    (0, common_1.Post)('whatsapp/embedded-signup'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Complete WhatsApp Embedded Signup — exchanges Meta auth code for credentials and saves them',
+    }),
+    (0, swagger_1.ApiCreatedResponse)({ description: 'WhatsApp Business Account connected successfully' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, whatsapp_embedded_signup_dto_js_1.WhatsAppEmbeddedSignupDto]),
+    __metadata("design:returntype", Promise)
+], CommunicationController.prototype, "completeEmbeddedSignup", null);
+__decorate([
+    (0, common_1.Post)('whatsapp/disconnect'),
+    (0, swagger_1.ApiOperation)({ summary: 'Disconnect WhatsApp Business Account from this clinic' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'WhatsApp disconnected' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], CommunicationController.prototype, "disconnectWhatsApp", null);
 exports.CommunicationController = CommunicationController = __decorate([
     (0, swagger_1.ApiTags)('Communication'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true }),

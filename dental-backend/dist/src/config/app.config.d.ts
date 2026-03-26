@@ -26,6 +26,10 @@ declare const _default: (() => {
         webhookVerifyToken: string;
         appSecret: string;
     };
+    facebook: {
+        appId: string;
+        appSecret: string;
+    };
 }) & import("@nestjs/config").ConfigFactoryKeyHost<{
     port: number;
     nodeEnv: string;
@@ -52,6 +56,10 @@ declare const _default: (() => {
         phoneNumberId: string;
         wabaId: string;
         webhookVerifyToken: string;
+        appSecret: string;
+    };
+    facebook: {
+        appId: string;
         appSecret: string;
     };
 }>;

@@ -433,4 +433,17 @@ export declare class CommunicationService {
         ctaUrl?: string;
         preheader?: string;
     }): string;
+    private static readonly META_GRAPH_API;
+    completeWhatsAppEmbeddedSignup(clinicId: string, code: string): Promise<{
+        success: boolean;
+        waba_id: string;
+        phone_number_id: string;
+        display_phone: string;
+        verified_name: string;
+        quality_rating: string;
+    }>;
+    disconnectWhatsApp(clinicId: string): Promise<{
+        success: boolean;
+        message: string;
+    }>;
 }

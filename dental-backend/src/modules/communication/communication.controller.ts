@@ -24,6 +24,7 @@ import { SendMessageDto } from './dto/send-message.dto.js';
 import { QueryMessageDto } from './dto/query-message.dto.js';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto.js';
 import { UpdateClinicSettingsDto } from './dto/update-clinic-settings.dto.js';
+import { WhatsAppEmbeddedSignupDto } from './dto/whatsapp-embedded-signup.dto.js';
 
 // ─── Public Opt-Out Controller (no auth required) ───
 
@@ -310,5 +311,26 @@ export class CommunicationController {
     @Param('templateName') templateName: string,
   ) {
     return this.communicationService.getWhatsAppTemplateStatus(clinicId, templateName);
+  }
+
+  // ─── WhatsApp Embedded Signup (Connect / Disconnect) ───
+
+  @Post('whatsapp/embedded-signup')
+  @ApiOperation({
+    summary: 'Complete WhatsApp Embedded Signup — exchanges Meta auth code for credentials and saves them',
+  })
+  @ApiCreatedResponse({ description: 'WhatsApp Business Account connected successfully' })
+  async completeEmbeddedSignup(
+    @CurrentClinic() clinicId: string,
+    @Body() dto: WhatsAppEmbeddedSignupDto,
+  ) {
+    return this.communicationService.completeWhatsAppEmbeddedSignup(clinicId, dto.code);
+  }
+
+  @Post('whatsapp/disconnect')
+  @ApiOperation({ summary: 'Disconnect WhatsApp Business Account from this clinic' })
+  @ApiOkResponse({ description: 'WhatsApp disconnected' })
+  async disconnectWhatsApp(@CurrentClinic() clinicId: string) {
+    return this.communicationService.disconnectWhatsApp(clinicId);
   }
 }

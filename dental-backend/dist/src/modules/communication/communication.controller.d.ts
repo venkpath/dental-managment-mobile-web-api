@@ -5,6 +5,7 @@ import { SendMessageDto } from './dto/send-message.dto.js';
 import { QueryMessageDto } from './dto/query-message.dto.js';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto.js';
 import { UpdateClinicSettingsDto } from './dto/update-clinic-settings.dto.js';
+import { WhatsAppEmbeddedSignupDto } from './dto/whatsapp-embedded-signup.dto.js';
 export declare class OptOutController {
     private readonly communicationService;
     constructor(communicationService: CommunicationService);
@@ -364,5 +365,17 @@ export declare class CommunicationController {
     getWhatsAppTemplateStatus(clinicId: string, templateName: string): Promise<{
         status: string;
         rejectedReason?: string;
+    }>;
+    completeEmbeddedSignup(clinicId: string, dto: WhatsAppEmbeddedSignupDto): Promise<{
+        success: boolean;
+        waba_id: string;
+        phone_number_id: string;
+        display_phone: string;
+        verified_name: string;
+        quality_rating: string;
+    }>;
+    disconnectWhatsApp(clinicId: string): Promise<{
+        success: boolean;
+        message: string;
     }>;
 }
