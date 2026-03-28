@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MaxLength } from 'class-validator';
+import { IsString, IsOptional, MaxLength, IsNumber, IsLatitude, IsLongitude } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateBranchDto {
@@ -36,4 +36,22 @@ export class CreateBranchDto {
   @IsString()
   @MaxLength(100)
   country?: string;
+
+  @ApiPropertyOptional({ example: 12.9716, description: 'Branch latitude for Google Maps' })
+  @IsOptional()
+  @IsNumber()
+  @IsLatitude()
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: 77.5946, description: 'Branch longitude for Google Maps' })
+  @IsOptional()
+  @IsNumber()
+  @IsLongitude()
+  longitude?: number;
+
+  @ApiPropertyOptional({ example: 'https://maps.google.com/?q=12.9716,77.5946', maxLength: 500 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  map_url?: string;
 }

@@ -5,4 +5,7 @@ export declare class CreateBranchDto {
     city?: string;
     state?: string;
     country?: string;
+    latitude?: number;
+    longitude?: number;
+    map_url?: string;
 }

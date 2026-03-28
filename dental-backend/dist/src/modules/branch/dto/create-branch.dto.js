@@ -20,8 +20,11 @@ class CreateBranchDto {
     city;
     state;
     country;
+    latitude;
+    longitude;
+    map_url;
     static _OPENAPI_METADATA_FACTORY() {
-        return { name: { required: true, type: () => String, maxLength: 255 }, phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 } };
+        return { name: { required: true, type: () => String, maxLength: 255 }, phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, latitude: { required: false, type: () => Number }, longitude: { required: false, type: () => Number }, map_url: { required: false, type: () => String, maxLength: 500 } };
     }
 }
 exports.CreateBranchDto = CreateBranchDto;
@@ -66,4 +69,25 @@ __decorate([
     (0, class_validator_1.MaxLength)(100),
     __metadata("design:type", String)
 ], CreateBranchDto.prototype, "country", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 12.9716, description: 'Branch latitude for Google Maps' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsLatitude)(),
+    __metadata("design:type", Number)
+], CreateBranchDto.prototype, "latitude", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 77.5946, description: 'Branch longitude for Google Maps' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsLongitude)(),
+    __metadata("design:type", Number)
+], CreateBranchDto.prototype, "longitude", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'https://maps.google.com/?q=12.9716,77.5946', maxLength: 500 }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(500),
+    __metadata("design:type", String)
+], CreateBranchDto.prototype, "map_url", void 0);
 //# sourceMappingURL=create-branch.dto.js.map

@@ -115,7 +115,8 @@ export class WhatsAppProvider implements ChannelProvider {
       } else if (interactiveButtons && interactiveButtons.length > 0) {
         messagePayload = this.buildInteractivePayload(destination, options.body, interactiveButtons);
       } else if (options.templateId) {
-        messagePayload = this.buildTemplatePayload(destination, options.templateId, options.variables, options.language);
+        const buttonParams = options.metadata?.['whatsapp_button_params'] as Array<{ type: string; index: number; parameters: string[] }> | undefined;
+        messagePayload = this.buildTemplatePayload(destination, options.templateId, options.variables, options.language, buttonParams);
       } else {
         // Session/Text Message — check if session window is open
         const sessionOpen = this.isSessionOpen(clinicId, destination);
@@ -341,6 +342,7 @@ export class WhatsAppProvider implements ChannelProvider {
     templateName: string,
     variables?: Record<string, string>,
     language?: string,
+    buttonParams?: Array<{ type: string; index: number; parameters: string[] }>,
   ): Record<string, unknown> {
     const components: Array<Record<string, unknown>> = [];
 
@@ -359,6 +361,22 @@ export class WhatsAppProvider implements ChannelProvider {
           text: value,
         })),
       });
+    }
+
+    // URL buttons with dynamic parameters (e.g. URL containing {{1}})
+    if (buttonParams && buttonParams.length > 0) {
+      for (const btn of buttonParams) {
+        components.push({
+          type: 'button',
+          sub_type: btn.type, // 'url'
+          index: String(btn.index),
+          parameters: btn.parameters.map(value => ({
+            type: 'text',
+            text: value,
+          })),
+        });
+      }
+      this.logger.debug(`[WhatsApp Template] ${templateName}: ${buttonParams.length} button params`);
     }
 
     return {

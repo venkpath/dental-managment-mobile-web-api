@@ -18,7 +18,7 @@ export class WhatsAppWorker extends WorkerHost {
   }
 
   async process(job: Job<CommunicationJobData>): Promise<void> {
-    const { messageId, clinicId, to, body, templateId, variables, language, mediaUrl } = job.data;
+    const { messageId, clinicId, to, body, templateId, variables, language, mediaUrl, metadata } = job.data;
 
     this.logger.debug(`Processing WhatsApp job: ${messageId} → ${to} (template: ${templateId || 'none'}, vars: ${variables ? Object.keys(variables).length : 0}, lang: ${language || 'en'})`);
 
@@ -31,6 +31,7 @@ export class WhatsAppWorker extends WorkerHost {
         language,   // Template language code
         mediaUrl,
         clinicId,
+        metadata,   // Carries button params, etc.
       });
 
       const providerName = this.whatsappProvider.getProviderName(clinicId);

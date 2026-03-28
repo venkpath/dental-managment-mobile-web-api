@@ -37,9 +37,11 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
                 return;
             const templateName = 'dental_appointment_confirmation';
             const variables = this.buildVariables(templateName, appt);
+            const mapUrl = this.getBranchMapUrl(appt);
             await this.sendWhatsAppTemplate(clinicId, appt.patient_id, templateName, variables, {
                 automation: 'appointment_confirmation',
                 appointment_id: appointmentId,
+                button_url_suffix: mapUrl,
             });
             this.logger.log(`Appointment confirmation sent for ${appointmentId}`);
         }
@@ -54,9 +56,11 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
                 return;
             const templateName = 'dental_appointment_cancel';
             const variables = this.buildVariables(templateName, appt);
+            const mapUrl = this.getBranchMapUrl(appt);
             await this.sendWhatsAppTemplate(clinicId, appt.patient_id, templateName, variables, {
                 automation: 'appointment_cancellation',
                 appointment_id: appointmentId,
+                button_url_suffix: mapUrl,
             });
             this.logger.log(`Appointment cancellation sent for ${appointmentId}`);
         }
@@ -71,9 +75,11 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
                 return;
             const templateName = 'dental_appointment_rescheduled';
             const variables = this.buildVariables(templateName, appt, { oldDate, oldTime });
+            const mapUrl = this.getBranchMapUrl(appt);
             await this.sendWhatsAppTemplate(clinicId, appt.patient_id, templateName, variables, {
                 automation: 'appointment_rescheduled',
                 appointment_id: appointmentId,
+                button_url_suffix: mapUrl,
             });
             this.logger.log(`Appointment reschedule notification sent for ${appointmentId}`);
         }
@@ -81,13 +87,24 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
             this.logger.warn(`Failed to send appointment reschedule for ${appointmentId}: ${e.message}`);
         }
     }
+    getBranchMapUrl(appt) {
+        if (appt.branch.map_url)
+            return appt.branch.map_url;
+        if (appt.branch.latitude && appt.branch.longitude) {
+            return `https://www.google.com/maps/dir/?api=1&destination=${appt.branch.latitude},${appt.branch.longitude}`;
+        }
+        if (appt.branch.address) {
+            return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(appt.branch.address)}`;
+        }
+        return '';
+    }
     async loadAppointment(appointmentId) {
         const appt = await this.prisma.appointment.findUnique({
             where: { id: appointmentId },
             include: {
                 patient: true,
                 dentist: { select: { name: true } },
-                branch: { select: { name: true, address: true } },
+                branch: { select: { name: true, address: true, map_url: true, latitude: true, longitude: true } },
                 clinic: { select: { id: true, name: true, phone: true } },
             },
         });

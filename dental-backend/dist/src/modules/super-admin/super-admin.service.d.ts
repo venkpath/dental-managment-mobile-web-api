@@ -133,6 +133,9 @@ export declare class SuperAdminService {
             city: string | null;
             state: string | null;
             country: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            map_url: string | null;
             working_start_time: string | null;
             working_end_time: string | null;
             lunch_start_time: string | null;
@@ -203,6 +206,9 @@ export declare class SuperAdminService {
             city: string | null;
             state: string | null;
             country: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            map_url: string | null;
             working_start_time: string | null;
             working_end_time: string | null;
             lunch_start_time: string | null;

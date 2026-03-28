@@ -108,7 +108,17 @@ let CommunicationService = class CommunicationService {
             if (dto.channel === 'whatsapp') {
                 whatsappTemplateName = template.template_name;
                 whatsappLanguage = template.language || 'en';
-                const templateVarNames = template.variables || [];
+                const rawVars = template.variables;
+                let templateVarNames = [];
+                let templateButtons = [];
+                if (Array.isArray(rawVars)) {
+                    templateVarNames = rawVars;
+                }
+                else if (rawVars && typeof rawVars === 'object' && 'body' in rawVars) {
+                    const structured = rawVars;
+                    templateVarNames = structured.body || [];
+                    templateButtons = structured.buttons || [];
+                }
                 if (templateVarNames.length > 0 && dto.variables) {
                     whatsappOrderedVars = templateVarNames.map((varName) => dto.variables?.[varName] || vars[varName] || '');
                 }
@@ -120,7 +130,15 @@ let CommunicationService = class CommunicationService {
                             .map(k => dto.variables[k]);
                     }
                 }
-                this.logger.debug(`[WhatsApp] template="${whatsappTemplateName}" lang="${whatsappLanguage}" vars=${whatsappOrderedVars?.length ?? 0} (db_vars=${templateVarNames.length}, dto_vars=${dto.variables ? Object.keys(dto.variables).length : 0})`);
+                if (templateButtons.length > 0) {
+                    const btnParams = templateButtons.map(btn => ({
+                        type: btn.type,
+                        index: btn.index,
+                        parameters: [dto.variables?.[`button_${btn.index}`] || dto.metadata?.['button_url_suffix'] || ''],
+                    }));
+                    dto.metadata = { ...(dto.metadata || {}), whatsapp_button_params: btnParams };
+                }
+                this.logger.debug(`[WhatsApp] template="${whatsappTemplateName}" lang="${whatsappLanguage}" vars=${whatsappOrderedVars?.length ?? 0} (db_vars=${templateVarNames.length}, dto_vars=${dto.variables ? Object.keys(dto.variables).length : 0}, buttons=${templateButtons.length})`);
             }
         }
         if (dto.channel === 'sms' && !dltTemplateId) {
@@ -1248,6 +1266,19 @@ let CommunicationService = class CommunicationService {
             const bodyText = bodyComponent?.text || '';
             const varMatches = bodyText.match(/\{\{(\d+)\}\}/g) || [];
             const variables = varMatches.map((m) => m.replace(/[{}]/g, ''));
+            const buttonsComponent = metaTemplate.components.find((c) => c.type?.toUpperCase() === 'BUTTONS');
+            const urlButtons = [];
+            if (buttonsComponent) {
+                const buttons = (buttonsComponent.buttons || []);
+                buttons.forEach((btn, idx) => {
+                    if (btn.type?.toUpperCase() === 'URL' && btn.url) {
+                        const btnUrl = btn.url;
+                        if (/\{\{\d+\}\}/.test(btnUrl)) {
+                            urlButtons.push({ index: idx, url: btnUrl });
+                        }
+                    }
+                });
+            }
             const categoryMap = {
                 MARKETING: 'campaign',
                 UTILITY: 'transactional',
@@ -1274,6 +1305,9 @@ let CommunicationService = class CommunicationService {
                     language: metaTemplate.language,
                 },
             });
+            const variablesJson = urlButtons.length > 0
+                ? { body: variables, buttons: urlButtons.map(b => ({ type: 'url', index: b.index })) }
+                : (variables.length > 0 ? variables : undefined);
             if (existing) {
                 await this.prisma.messageTemplate.update({
                     where: { id: existing.id },
@@ -1281,7 +1315,7 @@ let CommunicationService = class CommunicationService {
                         whatsapp_template_status: whatsappStatus,
                         is_active: metaTemplate.status === 'APPROVED',
                         body: bodyText || existing.body,
-                        variables: variables.length > 0 ? variables : undefined,
+                        variables: variablesJson !== undefined ? variablesJson : undefined,
                     },
                 });
                 updated++;
@@ -1294,7 +1328,7 @@ let CommunicationService = class CommunicationService {
                         category,
                         template_name: metaTemplate.name,
                         body: bodyText || `[Template: ${metaTemplate.name}]`,
-                        variables: variables.length > 0 ? variables : undefined,
+                        variables: variablesJson !== undefined ? variablesJson : undefined,
                         language: metaTemplate.language,
                         whatsapp_template_status: whatsappStatus,
                         is_active: metaTemplate.status === 'APPROVED',

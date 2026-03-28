@@ -135,7 +135,22 @@ export class CommunicationService {
       if (dto.channel === 'whatsapp') {
         whatsappTemplateName = template.template_name;
         whatsappLanguage = template.language || 'en';
-        const templateVarNames = (template.variables as string[] | null) || [];
+
+        // template.variables can be:
+        //   - string[] like ["1","2","3"] (body vars only)
+        //   - { body: ["1","2"], buttons: [{ type:"url", index:0 }] } (structured with button info)
+        const rawVars = template.variables as unknown;
+        let templateVarNames: string[] = [];
+        let templateButtons: Array<{ type: string; index: number }> = [];
+
+        if (Array.isArray(rawVars)) {
+          templateVarNames = rawVars as string[];
+        } else if (rawVars && typeof rawVars === 'object' && 'body' in rawVars) {
+          const structured = rawVars as { body: string[]; buttons?: Array<{ type: string; index: number }> };
+          templateVarNames = structured.body || [];
+          templateButtons = structured.buttons || [];
+        }
+
         if (templateVarNames.length > 0 && dto.variables) {
           whatsappOrderedVars = templateVarNames.map(
             (varName) => dto.variables?.[varName] || vars[varName] || '',
@@ -143,7 +158,6 @@ export class CommunicationService {
         } else if (dto.variables && Object.keys(dto.variables).length > 0) {
           // Fallback: if template.variables is empty/null but caller provided
           // numbered variables (e.g. {"1": "John", "2": "Dr. Smith"}), use them directly.
-          // This handles templates that were created before sync populated the variables array.
           const numberedKeys = Object.keys(dto.variables).filter(k => /^\d+$/.test(k));
           if (numberedKeys.length > 0) {
             whatsappOrderedVars = numberedKeys
@@ -152,8 +166,19 @@ export class CommunicationService {
           }
         }
 
+        // If template has URL buttons with dynamic params, inject button params into metadata
+        if (templateButtons.length > 0) {
+          const btnParams = templateButtons.map(btn => ({
+            type: btn.type,
+            index: btn.index,
+            // Use button-specific var from dto (e.g. "button_0") or fall back to a reasonable default
+            parameters: [dto.variables?.[`button_${btn.index}`] || dto.metadata?.['button_url_suffix'] as string || ''],
+          }));
+          dto.metadata = { ...(dto.metadata || {}), whatsapp_button_params: btnParams };
+        }
+
         this.logger.debug(
-          `[WhatsApp] template="${whatsappTemplateName}" lang="${whatsappLanguage}" vars=${whatsappOrderedVars?.length ?? 0} (db_vars=${templateVarNames.length}, dto_vars=${dto.variables ? Object.keys(dto.variables).length : 0})`,
+          `[WhatsApp] template="${whatsappTemplateName}" lang="${whatsappLanguage}" vars=${whatsappOrderedVars?.length ?? 0} (db_vars=${templateVarNames.length}, dto_vars=${dto.variables ? Object.keys(dto.variables).length : 0}, buttons=${templateButtons.length})`,
         );
       }
     }
@@ -1712,6 +1737,23 @@ export class CommunicationService {
       // Build variable names as ordered array: ["1", "2", "3", ...]
       const variables = varMatches.map((m) => m.replace(/[{}]/g, ''));
 
+      // Detect URL buttons with dynamic parameters
+      const buttonsComponent = metaTemplate.components.find(
+        (c) => (c.type as string)?.toUpperCase() === 'BUTTONS',
+      );
+      const urlButtons: Array<{ index: number; url: string }> = [];
+      if (buttonsComponent) {
+        const buttons = (buttonsComponent.buttons || []) as Array<Record<string, unknown>>;
+        buttons.forEach((btn, idx) => {
+          if ((btn.type as string)?.toUpperCase() === 'URL' && btn.url) {
+            const btnUrl = btn.url as string;
+            if (/\{\{\d+\}\}/.test(btnUrl)) {
+              urlButtons.push({ index: idx, url: btnUrl });
+            }
+          }
+        });
+      }
+
       // Map Meta category to our category
       const categoryMap: Record<string, string> = {
         MARKETING: 'campaign',
@@ -1744,6 +1786,11 @@ export class CommunicationService {
         },
       });
 
+      // Build variables JSON: simple array when no buttons, structured object when URL buttons exist
+      const variablesJson: unknown = urlButtons.length > 0
+        ? { body: variables, buttons: urlButtons.map(b => ({ type: 'url', index: b.index })) }
+        : (variables.length > 0 ? variables : undefined);
+
       if (existing) {
         // Update status and body if changed
         await this.prisma.messageTemplate.update({
@@ -1752,7 +1799,7 @@ export class CommunicationService {
             whatsapp_template_status: whatsappStatus,
             is_active: metaTemplate.status === 'APPROVED',
             body: bodyText || existing.body,
-            variables: variables.length > 0 ? variables : undefined,
+            variables: variablesJson !== undefined ? variablesJson as any : undefined,
           },
         });
         updated++;
@@ -1765,7 +1812,7 @@ export class CommunicationService {
             category,
             template_name: metaTemplate.name,
             body: bodyText || `[Template: ${metaTemplate.name}]`,
-            variables: variables.length > 0 ? variables : undefined,
+            variables: variablesJson !== undefined ? variablesJson as any : undefined,
             language: metaTemplate.language,
             whatsapp_template_status: whatsappStatus,
             is_active: metaTemplate.status === 'APPROVED',

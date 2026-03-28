@@ -63,6 +63,11 @@ model Branch {
   state      String?  @db.VarChar(100)
   country    String?  @db.VarChar(100)
 
+  // Location (for Google Maps directions / WhatsApp "Get Directions" button)
+  latitude   Float?
+  longitude  Float?
+  map_url    String?  @db.VarChar(500) // Google Maps directions URL
+
   // Configurable scheduling settings (admin-managed per branch)
   working_start_time    String?  @db.VarChar(5)  // HH:mm e.g. "09:00"
   working_end_time      String?  @db.VarChar(5)  // HH:mm e.g. "18:00"

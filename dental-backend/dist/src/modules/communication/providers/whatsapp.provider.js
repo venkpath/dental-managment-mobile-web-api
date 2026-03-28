@@ -71,7 +71,8 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
                 messagePayload = this.buildInteractivePayload(destination, options.body, interactiveButtons);
             }
             else if (options.templateId) {
-                messagePayload = this.buildTemplatePayload(destination, options.templateId, options.variables, options.language);
+                const buttonParams = options.metadata?.['whatsapp_button_params'];
+                messagePayload = this.buildTemplatePayload(destination, options.templateId, options.variables, options.language, buttonParams);
             }
             else {
                 const sessionOpen = this.isSessionOpen(clinicId, destination);
@@ -228,7 +229,7 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             text: { preview_url: false, body },
         };
     }
-    buildTemplatePayload(destination, templateName, variables, language) {
+    buildTemplatePayload(destination, templateName, variables, language, buttonParams) {
         const components = [];
         if (variables && Object.keys(variables).length > 0) {
             const sortedValues = Object.entries(variables)
@@ -242,6 +243,20 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
                     text: value,
                 })),
             });
+        }
+        if (buttonParams && buttonParams.length > 0) {
+            for (const btn of buttonParams) {
+                components.push({
+                    type: 'button',
+                    sub_type: btn.type,
+                    index: String(btn.index),
+                    parameters: btn.parameters.map(value => ({
+                        type: 'text',
+                        text: value,
+                    })),
+                });
+            }
+            this.logger.debug(`[WhatsApp Template] ${templateName}: ${buttonParams.length} button params`);
         }
         return {
             messaging_product: 'whatsapp',
