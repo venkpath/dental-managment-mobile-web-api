@@ -115,7 +115,7 @@ export class WhatsAppProvider implements ChannelProvider {
       } else if (interactiveButtons && interactiveButtons.length > 0) {
         messagePayload = this.buildInteractivePayload(destination, options.body, interactiveButtons);
       } else if (options.templateId) {
-        messagePayload = this.buildTemplatePayload(destination, options.templateId, options.variables);
+        messagePayload = this.buildTemplatePayload(destination, options.templateId, options.variables, options.language);
       } else {
         // Session/Text Message — check if session window is open
         const sessionOpen = this.isSessionOpen(clinicId, destination);
@@ -125,7 +125,7 @@ export class WhatsAppProvider implements ChannelProvider {
         messagePayload = this.buildTextPayload(destination, options.body);
       }
 
-      this.logger.debug(`[WhatsApp Meta] Sending to ${destination}: ${JSON.stringify(messagePayload).substring(0, 200)}`);
+      this.logger.debug(`[WhatsApp Meta] Sending to ${destination}: ${JSON.stringify(messagePayload).substring(0, 500)}`);
 
       const url = `${META_GRAPH_API}/${config.phoneNumberId}/messages`;
       const response = await fetch(url, {
@@ -340,13 +340,19 @@ export class WhatsAppProvider implements ChannelProvider {
     destination: string,
     templateName: string,
     variables?: Record<string, string>,
+    language?: string,
   ): Record<string, unknown> {
     const components: Array<Record<string, unknown>> = [];
 
     if (variables && Object.keys(variables).length > 0) {
+      // Sort by numeric key to guarantee order: "0","1","2",...
+      const sortedValues = Object.entries(variables)
+        .sort(([a], [b]) => Number(a) - Number(b))
+        .map(([, value]) => value);
+
       components.push({
         type: 'body',
-        parameters: Object.values(variables).map(value => ({
+        parameters: sortedValues.map(value => ({
           type: 'text',
           text: value,
         })),
@@ -360,7 +366,7 @@ export class WhatsAppProvider implements ChannelProvider {
       type: 'template',
       template: {
         name: templateName,
-        language: { code: 'en' },
+        language: { code: language || 'en' },
         components: components.length > 0 ? components : undefined,
       },
     };

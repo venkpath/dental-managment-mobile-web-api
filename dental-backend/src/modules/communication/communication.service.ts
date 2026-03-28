@@ -113,6 +113,8 @@ export class CommunicationService {
     let whatsappTemplateName: string | undefined;
     /** For WhatsApp: ordered variable values matching Meta template {{1}}, {{2}}, etc. */
     let whatsappOrderedVars: string[] | undefined;
+    /** Template language code for WhatsApp (e.g. 'en', 'en_US') */
+    let whatsappLanguage: string | undefined;
 
     // Build enriched variables with common aliases so any template resolves cleanly.
     // e.g. automation sends patient_first_name → also available as {{name}}.
@@ -132,6 +134,7 @@ export class CommunicationService {
       // using the template's variables array as the canonical order.
       if (dto.channel === 'whatsapp') {
         whatsappTemplateName = template.template_name;
+        whatsappLanguage = template.language || 'en';
         const templateVarNames = (template.variables as string[] | null) || [];
         if (templateVarNames.length > 0 && dto.variables) {
           whatsappOrderedVars = templateVarNames.map(
@@ -233,6 +236,7 @@ export class CommunicationService {
       variables: dto.channel === 'whatsapp' && whatsappOrderedVars
         ? Object.fromEntries(whatsappOrderedVars.map((v, i) => [String(i), v]))
         : undefined,
+      language: whatsappLanguage,
       metadata: dto.metadata,
       scheduledAt: dto.scheduled_at,
     });

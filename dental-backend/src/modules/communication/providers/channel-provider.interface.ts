@@ -6,6 +6,7 @@ export interface SendMessageOptions {
   mediaUrl?: string; // for WhatsApp media messages
   templateId?: string; // provider-specific template ID (DLT for SMS, HSM for WhatsApp)
   variables?: Record<string, string>; // template variables for provider-managed templates
+  language?: string; // template language code (e.g. 'en', 'en_US') for WhatsApp
   metadata?: Record<string, unknown>;
   clinicId?: string; // multi-tenant: identifies which clinic config to use
 }

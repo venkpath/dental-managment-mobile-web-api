@@ -26,14 +26,15 @@ let WhatsAppWorker = WhatsAppWorker_1 = class WhatsAppWorker extends bullmq_1.Wo
         this.communicationService = communicationService;
     }
     async process(job) {
-        const { messageId, clinicId, to, body, templateId, variables, mediaUrl } = job.data;
-        this.logger.debug(`Processing WhatsApp job: ${messageId} → ${to}`);
+        const { messageId, clinicId, to, body, templateId, variables, language, mediaUrl } = job.data;
+        this.logger.debug(`Processing WhatsApp job: ${messageId} → ${to} (template: ${templateId || 'none'}, vars: ${variables ? Object.keys(variables).length : 0}, lang: ${language || 'en'})`);
         try {
             const result = await this.whatsappProvider.send({
                 to,
                 body,
                 templateId,
                 variables,
+                language,
                 mediaUrl,
                 clinicId,
             });

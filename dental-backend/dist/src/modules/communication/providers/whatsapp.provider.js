@@ -71,7 +71,7 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
                 messagePayload = this.buildInteractivePayload(destination, options.body, interactiveButtons);
             }
             else if (options.templateId) {
-                messagePayload = this.buildTemplatePayload(destination, options.templateId, options.variables);
+                messagePayload = this.buildTemplatePayload(destination, options.templateId, options.variables, options.language);
             }
             else {
                 const sessionOpen = this.isSessionOpen(clinicId, destination);
@@ -80,7 +80,7 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
                 }
                 messagePayload = this.buildTextPayload(destination, options.body);
             }
-            this.logger.debug(`[WhatsApp Meta] Sending to ${destination}: ${JSON.stringify(messagePayload).substring(0, 200)}`);
+            this.logger.debug(`[WhatsApp Meta] Sending to ${destination}: ${JSON.stringify(messagePayload).substring(0, 500)}`);
             const url = `${META_GRAPH_API}/${config.phoneNumberId}/messages`;
             const response = await fetch(url, {
                 method: 'POST',
@@ -228,12 +228,15 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             text: { preview_url: false, body },
         };
     }
-    buildTemplatePayload(destination, templateName, variables) {
+    buildTemplatePayload(destination, templateName, variables, language) {
         const components = [];
         if (variables && Object.keys(variables).length > 0) {
+            const sortedValues = Object.entries(variables)
+                .sort(([a], [b]) => Number(a) - Number(b))
+                .map(([, value]) => value);
             components.push({
                 type: 'body',
-                parameters: Object.values(variables).map(value => ({
+                parameters: sortedValues.map(value => ({
                     type: 'text',
                     text: value,
                 })),
@@ -246,7 +249,7 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             type: 'template',
             template: {
                 name: templateName,
-                language: { code: 'en' },
+                language: { code: language || 'en' },
                 components: components.length > 0 ? components : undefined,
             },
         };

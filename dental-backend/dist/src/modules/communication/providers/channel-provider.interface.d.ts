@@ -6,6 +6,7 @@ export interface SendMessageOptions {
     mediaUrl?: string;
     templateId?: string;
     variables?: Record<string, string>;
+    language?: string;
     metadata?: Record<string, unknown>;
     clinicId?: string;
 }

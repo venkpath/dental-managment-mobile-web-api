@@ -9,6 +9,7 @@ export interface CommunicationJobData {
     html?: string;
     templateId?: string;
     variables?: Record<string, string>;
+    language?: string;
     mediaUrl?: string;
     metadata?: Record<string, unknown>;
     scheduledAt?: string;
