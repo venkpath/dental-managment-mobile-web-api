@@ -2,6 +2,7 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { CreateAppointmentDto, UpdateAppointmentDto, QueryAppointmentDto, QueryAvailableSlotsDto, CreateRecurringAppointmentDto } from './dto/index.js';
 import { Appointment } from '@prisma/client';
 import { PaginatedResult } from '../../common/interfaces/paginated-result.interface.js';
+import { AppointmentNotificationService } from './appointment-notification.service.js';
 export interface AvailableSlot {
     start_time: string;
     end_time: string;
@@ -9,7 +10,9 @@ export interface AvailableSlot {
 }
 export declare class AppointmentService {
     private readonly prisma;
-    constructor(prisma: PrismaService);
+    private readonly notificationService;
+    private readonly logger;
+    constructor(prisma: PrismaService, notificationService: AppointmentNotificationService);
     create(clinicId: string, dto: CreateAppointmentDto): Promise<Appointment>;
     getAvailableSlots(clinicId: string, query: QueryAvailableSlotsDto): Promise<AvailableSlot[]>;
     findAll(clinicId: string, query: QueryAppointmentDto): Promise<PaginatedResult<Appointment>>;

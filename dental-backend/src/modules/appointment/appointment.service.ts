@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
 import { CreateAppointmentDto, UpdateAppointmentDto, QueryAppointmentDto, QueryAvailableSlotsDto, CreateRecurringAppointmentDto } from './dto/index.js';
 import { Appointment, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
+import { AppointmentNotificationService } from './appointment-notification.service.js';
 
 export interface AvailableSlot {
   start_time: string;
@@ -33,7 +34,12 @@ function getIsoDay(dateStr: string): number {
 
 @Injectable()
 export class AppointmentService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(AppointmentService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationService: AppointmentNotificationService,
+  ) {}
 
   async create(clinicId: string, dto: CreateAppointmentDto): Promise<Appointment> {
     if (dto.start_time >= dto.end_time) {
@@ -95,7 +101,7 @@ export class AppointmentService {
     await this.checkTimeConflict(dto.dentist_id, dto.appointment_date, dto.start_time, dto.end_time);
 
     const { appointment_date, ...rest } = dto;
-    return this.prisma.appointment.create({
+    const appointment = await this.prisma.appointment.create({
       data: {
         ...rest,
         clinic_id: clinicId,
@@ -103,6 +109,13 @@ export class AppointmentService {
       },
       include: { patient: true, dentist: true, branch: true },
     });
+
+    // Send WhatsApp confirmation (fire-and-forget — don't block the response)
+    this.notificationService.sendConfirmation(clinicId, appointment.id).catch((e) => {
+      this.logger.warn(`Appointment confirmation notification failed: ${(e as Error).message}`);
+    });
+
+    return appointment;
   }
 
   async getAvailableSlots(clinicId: string, query: QueryAvailableSlotsDto): Promise<AvailableSlot[]> {
@@ -288,8 +301,16 @@ export class AppointmentService {
       }
     }
 
+    // Track old date/time for reschedule notification
+    const oldDate = (existing.appointment_date as Date).toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata',
+    });
+    const oldTime = existing.start_time;
+    const isRescheduled = !!(dto.appointment_date || dto.start_time || dto.end_time);
+    const isCancelled = dto.status === 'cancelled' && existing.status !== 'cancelled';
+
     const { appointment_date, ...rest } = dto;
-    return this.prisma.appointment.update({
+    const updated = await this.prisma.appointment.update({
       where: { id },
       data: {
         ...rest,
@@ -297,6 +318,19 @@ export class AppointmentService {
       },
       include: { patient: true, dentist: true, branch: true },
     });
+
+    // Send WhatsApp notifications (fire-and-forget)
+    if (isCancelled) {
+      this.notificationService.sendCancellation(clinicId, id).catch((e) => {
+        this.logger.warn(`Cancellation notification failed: ${(e as Error).message}`);
+      });
+    } else if (isRescheduled) {
+      this.notificationService.sendReschedule(clinicId, id, oldDate, oldTime).catch((e) => {
+        this.logger.warn(`Reschedule notification failed: ${(e as Error).message}`);
+      });
+    }
+
+    return updated;
   }
 
   async createRecurring(clinicId: string, dto: CreateRecurringAppointmentDto): Promise<Appointment[]> {

@@ -8,11 +8,13 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var AppointmentService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppointmentService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
+const appointment_notification_service_js_1 = require("./appointment-notification.service.js");
 const CLINIC_TIMEZONE = process.env.CLINIC_TIMEZONE || 'Asia/Kolkata';
 function getTodayDate(tz = CLINIC_TIMEZONE) {
     return new Date().toLocaleDateString('en-CA', { timeZone: tz });
@@ -26,10 +28,13 @@ function getIsoDay(dateStr) {
     const dow = d.getUTCDay();
     return dow === 0 ? 7 : dow;
 }
-let AppointmentService = class AppointmentService {
+let AppointmentService = AppointmentService_1 = class AppointmentService {
     prisma;
-    constructor(prisma) {
+    notificationService;
+    logger = new common_1.Logger(AppointmentService_1.name);
+    constructor(prisma, notificationService) {
         this.prisma = prisma;
+        this.notificationService = notificationService;
     }
     async create(clinicId, dto) {
         if (dto.start_time >= dto.end_time) {
@@ -79,7 +84,7 @@ let AppointmentService = class AppointmentService {
         }
         await this.checkTimeConflict(dto.dentist_id, dto.appointment_date, dto.start_time, dto.end_time);
         const { appointment_date, ...rest } = dto;
-        return this.prisma.appointment.create({
+        const appointment = await this.prisma.appointment.create({
             data: {
                 ...rest,
                 clinic_id: clinicId,
@@ -87,6 +92,10 @@ let AppointmentService = class AppointmentService {
             },
             include: { patient: true, dentist: true, branch: true },
         });
+        this.notificationService.sendConfirmation(clinicId, appointment.id).catch((e) => {
+            this.logger.warn(`Appointment confirmation notification failed: ${e.message}`);
+        });
+        return appointment;
     }
     async getAvailableSlots(clinicId, query) {
         const branch = await this.prisma.branch.findUnique({ where: { id: query.branch_id } });
@@ -237,8 +246,14 @@ let AppointmentService = class AppointmentService {
                 }
             }
         }
+        const oldDate = existing.appointment_date.toLocaleDateString('en-IN', {
+            day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata',
+        });
+        const oldTime = existing.start_time;
+        const isRescheduled = !!(dto.appointment_date || dto.start_time || dto.end_time);
+        const isCancelled = dto.status === 'cancelled' && existing.status !== 'cancelled';
         const { appointment_date, ...rest } = dto;
-        return this.prisma.appointment.update({
+        const updated = await this.prisma.appointment.update({
             where: { id },
             data: {
                 ...rest,
@@ -246,6 +261,17 @@ let AppointmentService = class AppointmentService {
             },
             include: { patient: true, dentist: true, branch: true },
         });
+        if (isCancelled) {
+            this.notificationService.sendCancellation(clinicId, id).catch((e) => {
+                this.logger.warn(`Cancellation notification failed: ${e.message}`);
+            });
+        }
+        else if (isRescheduled) {
+            this.notificationService.sendReschedule(clinicId, id, oldDate, oldTime).catch((e) => {
+                this.logger.warn(`Reschedule notification failed: ${e.message}`);
+            });
+        }
+        return updated;
     }
     async createRecurring(clinicId, dto) {
         if (dto.start_time >= dto.end_time) {
@@ -363,8 +389,9 @@ let AppointmentService = class AppointmentService {
     }
 };
 exports.AppointmentService = AppointmentService;
-exports.AppointmentService = AppointmentService = __decorate([
+exports.AppointmentService = AppointmentService = AppointmentService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
+        appointment_notification_service_js_1.AppointmentNotificationService])
 ], AppointmentService);
 //# sourceMappingURL=appointment.service.js.map

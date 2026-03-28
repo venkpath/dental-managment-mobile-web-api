@@ -10,13 +10,14 @@ exports.AppointmentModule = void 0;
 const common_1 = require("@nestjs/common");
 const appointment_controller_js_1 = require("./appointment.controller.js");
 const appointment_service_js_1 = require("./appointment.service.js");
+const appointment_notification_service_js_1 = require("./appointment-notification.service.js");
 let AppointmentModule = class AppointmentModule {
 };
 exports.AppointmentModule = AppointmentModule;
 exports.AppointmentModule = AppointmentModule = __decorate([
     (0, common_1.Module)({
         controllers: [appointment_controller_js_1.AppointmentController],
-        providers: [appointment_service_js_1.AppointmentService],
+        providers: [appointment_service_js_1.AppointmentService, appointment_notification_service_js_1.AppointmentNotificationService],
         exports: [appointment_service_js_1.AppointmentService],
     })
 ], AppointmentModule);
