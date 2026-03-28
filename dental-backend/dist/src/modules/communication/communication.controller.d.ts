@@ -349,6 +349,23 @@ export declare class CommunicationController {
         ok: boolean;
         error?: string;
     }>;
+    syncWhatsAppTemplates(clinicId: string): Promise<{
+        success: boolean;
+        error: string | undefined;
+        synced: number;
+        total_from_meta?: undefined;
+        created?: undefined;
+        updated?: undefined;
+        skipped?: undefined;
+    } | {
+        success: boolean;
+        total_from_meta: number;
+        created: number;
+        updated: number;
+        skipped: number;
+        error?: undefined;
+        synced?: undefined;
+    }>;
     submitWhatsAppTemplate(clinicId: string, body: {
         elementName: string;
         languageCode: string;

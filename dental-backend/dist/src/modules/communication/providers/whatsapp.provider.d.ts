@@ -45,6 +45,19 @@ export declare class WhatsAppProvider implements ChannelProvider {
         templateId?: string;
         error?: string;
     }>;
+    fetchAllTemplates(clinicId: string): Promise<{
+        success: boolean;
+        templates?: Array<{
+            name: string;
+            language: string;
+            status: string;
+            category: string;
+            components: Array<Record<string, unknown>>;
+            id: string;
+            rejectedReason?: string;
+        }>;
+        error?: string;
+    }>;
     getTemplateStatus(clinicId: string, templateName: string): Promise<{
         status: string;
         rejectedReason?: string;

@@ -153,6 +153,47 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
         }
     }
+    async fetchAllTemplates(clinicId) {
+        const ctx = this.clinicConfigs.get(clinicId);
+        if (!ctx)
+            return { success: false, error: 'WhatsApp not configured for this clinic' };
+        const { config } = ctx;
+        if (!config.wabaId)
+            return { success: false, error: 'WABA ID is required for template management' };
+        try {
+            const allTemplates = [];
+            let url = `${META_GRAPH_API}/${config.wabaId}/message_templates?limit=100&fields=name,language,status,category,components,rejected_reason`;
+            while (url) {
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${config.accessToken}` },
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    const error = data.error;
+                    return { success: false, error: (error?.message || 'Failed to fetch templates') };
+                }
+                const templates = (data.data || []);
+                for (const t of templates) {
+                    allTemplates.push({
+                        name: t.name,
+                        language: t.language || 'en',
+                        status: t.status || 'unknown',
+                        category: t.category || 'UTILITY',
+                        components: t.components || [],
+                        id: t.id,
+                        rejectedReason: t.rejected_reason,
+                    });
+                }
+                const paging = data.paging;
+                url = paging?.next || null;
+            }
+            this.logger.log(`Fetched ${allTemplates.length} WhatsApp templates for clinic ${clinicId}`);
+            return { success: true, templates: allTemplates };
+        }
+        catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+    }
     async getTemplateStatus(clinicId, templateName) {
         const ctx = this.clinicConfigs.get(clinicId);
         if (!ctx)

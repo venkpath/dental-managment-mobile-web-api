@@ -1664,6 +1664,111 @@ export class CommunicationService {
     return result;
   }
 
+  /**
+   * Sync all WhatsApp templates from Meta Cloud API into the local DB.
+   * Creates new templates and updates status of existing ones.
+   */
+  async syncWhatsAppTemplates(clinicId: string) {
+    await this.ensureProvidersConfigured(clinicId);
+    const result = await this.whatsAppProvider.fetchAllTemplates(clinicId);
+
+    if (!result.success || !result.templates) {
+      return { success: false, error: result.error, synced: 0 };
+    }
+
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+
+    for (const metaTemplate of result.templates) {
+      // Extract body text and variables from Meta components
+      const bodyComponent = metaTemplate.components.find(
+        (c) => (c.type as string)?.toUpperCase() === 'BODY',
+      );
+      const bodyText = (bodyComponent?.text as string) || '';
+
+      // Extract numbered variables {{1}}, {{2}} etc from body
+      const varMatches = bodyText.match(/\{\{(\d+)\}\}/g) || [];
+
+      // Build variable names as ordered array: ["1", "2", "3", ...]
+      const variables = varMatches.map((m) => m.replace(/[{}]/g, ''));
+
+      // Map Meta category to our category
+      const categoryMap: Record<string, string> = {
+        MARKETING: 'campaign',
+        UTILITY: 'transactional',
+        AUTHENTICATION: 'transactional',
+      };
+      const category = categoryMap[metaTemplate.category] || 'transactional';
+
+      // Map Meta status to our status
+      const statusMap: Record<string, string> = {
+        APPROVED: 'approved',
+        REJECTED: 'rejected',
+        PENDING: 'submitted',
+        IN_APPEAL: 'submitted',
+        PENDING_DELETION: 'rejected',
+        DELETED: 'rejected',
+        DISABLED: 'rejected',
+        PAUSED: 'submitted',
+        LIMIT_EXCEEDED: 'rejected',
+      };
+      const whatsappStatus = statusMap[metaTemplate.status] || 'submitted';
+
+      // Check if template already exists in DB
+      const existing = await this.prisma.messageTemplate.findFirst({
+        where: {
+          clinic_id: clinicId,
+          template_name: metaTemplate.name,
+          channel: 'whatsapp',
+          language: metaTemplate.language,
+        },
+      });
+
+      if (existing) {
+        // Update status and body if changed
+        await this.prisma.messageTemplate.update({
+          where: { id: existing.id },
+          data: {
+            whatsapp_template_status: whatsappStatus,
+            is_active: metaTemplate.status === 'APPROVED',
+            body: bodyText || existing.body,
+            variables: variables.length > 0 ? variables : undefined,
+          },
+        });
+        updated++;
+      } else {
+        // Create new template in DB
+        await this.prisma.messageTemplate.create({
+          data: {
+            clinic_id: clinicId,
+            channel: 'whatsapp',
+            category,
+            template_name: metaTemplate.name,
+            body: bodyText || `[Template: ${metaTemplate.name}]`,
+            variables: variables.length > 0 ? variables : undefined,
+            language: metaTemplate.language,
+            whatsapp_template_status: whatsappStatus,
+            is_active: metaTemplate.status === 'APPROVED',
+          },
+        });
+        created++;
+      }
+    }
+
+    this.logger.log(
+      `WhatsApp template sync for clinic ${clinicId}: ${created} created, ${updated} updated, ${skipped} skipped (${result.templates.length} total from Meta)`,
+    );
+
+    return {
+      success: true,
+      total_from_meta: result.templates.length,
+      created,
+      updated,
+      skipped,
+    };
+  }
+
   async getWhatsAppTemplateStatus(clinicId: string, templateName: string) {
     await this.ensureProvidersConfigured(clinicId);
     const status = await this.whatsAppProvider.getTemplateStatus(clinicId, templateName);

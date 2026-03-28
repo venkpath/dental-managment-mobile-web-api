@@ -195,6 +195,9 @@ let CommunicationController = class CommunicationController {
     async verifySmtp(clinicId) {
         return this.communicationService.verifySmtp(clinicId);
     }
+    async syncWhatsAppTemplates(clinicId) {
+        return this.communicationService.syncWhatsAppTemplates(clinicId);
+    }
     async submitWhatsAppTemplate(clinicId, body) {
         if (!body.elementName || !body.body) {
             throw new common_1.BadRequestException('elementName and body are required');
@@ -364,6 +367,18 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], CommunicationController.prototype, "verifySmtp", null);
+__decorate([
+    (0, common_1.Post)('whatsapp/templates/sync'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Sync WhatsApp templates from Meta — fetches all templates and upserts into local DB',
+    }),
+    (0, swagger_1.ApiCreatedResponse)({ description: 'Templates synced from Meta' }),
+    openapi.ApiResponse({ status: 201, type: Object }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], CommunicationController.prototype, "syncWhatsAppTemplates", null);
 __decorate([
     (0, common_1.Post)('whatsapp/templates/submit'),
     (0, swagger_1.ApiOperation)({ summary: 'Submit a WhatsApp message template for Meta approval via Gupshup' }),

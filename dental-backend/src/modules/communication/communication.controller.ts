@@ -284,6 +284,15 @@ export class CommunicationController {
 
   // ─── WhatsApp Template Management (5.2) ───
 
+  @Post('whatsapp/templates/sync')
+  @ApiOperation({
+    summary: 'Sync WhatsApp templates from Meta — fetches all templates and upserts into local DB',
+  })
+  @ApiCreatedResponse({ description: 'Templates synced from Meta' })
+  async syncWhatsAppTemplates(@CurrentClinic() clinicId: string) {
+    return this.communicationService.syncWhatsAppTemplates(clinicId);
+  }
+
   @Post('whatsapp/templates/submit')
   @ApiOperation({ summary: 'Submit a WhatsApp message template for Meta approval via Gupshup' })
   async submitWhatsAppTemplate(

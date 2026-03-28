@@ -218,6 +218,79 @@ export class WhatsAppProvider implements ChannelProvider {
     }
   }
 
+  /**
+   * Fetch ALL message templates from Meta Cloud API for a WABA.
+   * Paginates through results automatically.
+   */
+  async fetchAllTemplates(clinicId: string): Promise<{
+    success: boolean;
+    templates?: Array<{
+      name: string;
+      language: string;
+      status: string;
+      category: string;
+      components: Array<Record<string, unknown>>;
+      id: string;
+      rejectedReason?: string;
+    }>;
+    error?: string;
+  }> {
+    const ctx = this.clinicConfigs.get(clinicId);
+    if (!ctx) return { success: false, error: 'WhatsApp not configured for this clinic' };
+
+    const { config } = ctx;
+    if (!config.wabaId) return { success: false, error: 'WABA ID is required for template management' };
+
+    try {
+      const allTemplates: Array<{
+        name: string;
+        language: string;
+        status: string;
+        category: string;
+        components: Array<Record<string, unknown>>;
+        id: string;
+        rejectedReason?: string;
+      }> = [];
+
+      let url: string | null = `${META_GRAPH_API}/${config.wabaId}/message_templates?limit=100&fields=name,language,status,category,components,rejected_reason`;
+
+      while (url) {
+        const response = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${config.accessToken}` },
+        });
+
+        const data = await response.json() as Record<string, unknown>;
+
+        if (!response.ok) {
+          const error = data.error as Record<string, unknown> | undefined;
+          return { success: false, error: (error?.message || 'Failed to fetch templates') as string };
+        }
+
+        const templates = (data.data || []) as Array<Record<string, unknown>>;
+        for (const t of templates) {
+          allTemplates.push({
+            name: t.name as string,
+            language: (t.language as string) || 'en',
+            status: (t.status as string) || 'unknown',
+            category: (t.category as string) || 'UTILITY',
+            components: (t.components as Array<Record<string, unknown>>) || [],
+            id: t.id as string,
+            rejectedReason: t.rejected_reason as string | undefined,
+          });
+        }
+
+        // Handle pagination
+        const paging = data.paging as Record<string, unknown> | undefined;
+        url = (paging?.next as string) || null;
+      }
+
+      this.logger.log(`Fetched ${allTemplates.length} WhatsApp templates for clinic ${clinicId}`);
+      return { success: true, templates: allTemplates };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
   async getTemplateStatus(clinicId: string, templateName: string): Promise<{
     status: string;
     rejectedReason?: string;
