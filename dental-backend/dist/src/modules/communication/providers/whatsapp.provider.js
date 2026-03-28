@@ -80,7 +80,7 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
                 }
                 messagePayload = this.buildTextPayload(destination, options.body);
             }
-            this.logger.debug(`[WhatsApp Meta] Sending to ${destination}: ${JSON.stringify(messagePayload).substring(0, 500)}`);
+            this.logger.log(`[WhatsApp Meta] Sending to ${destination}: ${JSON.stringify(messagePayload).substring(0, 800)}`);
             const url = `${META_GRAPH_API}/${config.phoneNumberId}/messages`;
             const response = await fetch(url, {
                 method: 'POST',
@@ -91,7 +91,7 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
                 body: JSON.stringify(messagePayload),
             });
             const data = await response.json();
-            this.logger.debug(`[WhatsApp Meta] Response (${response.status}): ${JSON.stringify(data).substring(0, 300)}`);
+            this.logger.log(`[WhatsApp Meta] Response (${response.status}): ${JSON.stringify(data).substring(0, 500)}`);
             if (response.ok && data.messages) {
                 const messages = data.messages;
                 const msgId = messages[0]?.id || '';
@@ -234,6 +234,7 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             const sortedValues = Object.entries(variables)
                 .sort(([a], [b]) => Number(a) - Number(b))
                 .map(([, value]) => value);
+            this.logger.debug(`[WhatsApp Template] ${templateName}: ${sortedValues.length} body params, lang=${language || 'en'}`);
             components.push({
                 type: 'body',
                 parameters: sortedValues.map(value => ({

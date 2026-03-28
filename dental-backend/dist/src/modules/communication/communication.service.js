@@ -112,6 +112,15 @@ let CommunicationService = class CommunicationService {
                 if (templateVarNames.length > 0 && dto.variables) {
                     whatsappOrderedVars = templateVarNames.map((varName) => dto.variables?.[varName] || vars[varName] || '');
                 }
+                else if (dto.variables && Object.keys(dto.variables).length > 0) {
+                    const numberedKeys = Object.keys(dto.variables).filter(k => /^\d+$/.test(k));
+                    if (numberedKeys.length > 0) {
+                        whatsappOrderedVars = numberedKeys
+                            .sort((a, b) => Number(a) - Number(b))
+                            .map(k => dto.variables[k]);
+                    }
+                }
+                this.logger.debug(`[WhatsApp] template="${whatsappTemplateName}" lang="${whatsappLanguage}" vars=${whatsappOrderedVars?.length ?? 0} (db_vars=${templateVarNames.length}, dto_vars=${dto.variables ? Object.keys(dto.variables).length : 0})`);
             }
         }
         if (dto.channel === 'sms' && !dltTemplateId) {
@@ -177,7 +186,7 @@ let CommunicationService = class CommunicationService {
             html,
             templateId: dto.channel === 'whatsapp' ? whatsappTemplateName : dltTemplateId,
             variables: dto.channel === 'whatsapp' && whatsappOrderedVars
-                ? Object.fromEntries(whatsappOrderedVars.map((v, i) => [String(i), v]))
+                ? Object.fromEntries(whatsappOrderedVars.map((v, i) => [String(i + 1), v]))
                 : undefined,
             language: whatsappLanguage,
             metadata: dto.metadata,

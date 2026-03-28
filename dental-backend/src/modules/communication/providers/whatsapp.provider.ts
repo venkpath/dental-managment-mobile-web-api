@@ -125,7 +125,7 @@ export class WhatsAppProvider implements ChannelProvider {
         messagePayload = this.buildTextPayload(destination, options.body);
       }
 
-      this.logger.debug(`[WhatsApp Meta] Sending to ${destination}: ${JSON.stringify(messagePayload).substring(0, 500)}`);
+      this.logger.log(`[WhatsApp Meta] Sending to ${destination}: ${JSON.stringify(messagePayload).substring(0, 800)}`);
 
       const url = `${META_GRAPH_API}/${config.phoneNumberId}/messages`;
       const response = await fetch(url, {
@@ -138,7 +138,7 @@ export class WhatsAppProvider implements ChannelProvider {
       });
 
       const data = await response.json() as Record<string, unknown>;
-      this.logger.debug(`[WhatsApp Meta] Response (${response.status}): ${JSON.stringify(data).substring(0, 300)}`);
+      this.logger.log(`[WhatsApp Meta] Response (${response.status}): ${JSON.stringify(data).substring(0, 500)}`);
 
       if (response.ok && data.messages) {
         const messages = data.messages as Array<{ id: string }>;
@@ -345,10 +345,12 @@ export class WhatsAppProvider implements ChannelProvider {
     const components: Array<Record<string, unknown>> = [];
 
     if (variables && Object.keys(variables).length > 0) {
-      // Sort by numeric key to guarantee order: "0","1","2",...
+      // Sort by numeric key to guarantee order: "1","2","3",...
       const sortedValues = Object.entries(variables)
         .sort(([a], [b]) => Number(a) - Number(b))
         .map(([, value]) => value);
+
+      this.logger.debug(`[WhatsApp Template] ${templateName}: ${sortedValues.length} body params, lang=${language || 'en'}`);
 
       components.push({
         type: 'body',

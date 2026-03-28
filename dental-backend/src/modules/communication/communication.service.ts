@@ -140,7 +140,21 @@ export class CommunicationService {
           whatsappOrderedVars = templateVarNames.map(
             (varName) => dto.variables?.[varName] || vars[varName] || '',
           );
+        } else if (dto.variables && Object.keys(dto.variables).length > 0) {
+          // Fallback: if template.variables is empty/null but caller provided
+          // numbered variables (e.g. {"1": "John", "2": "Dr. Smith"}), use them directly.
+          // This handles templates that were created before sync populated the variables array.
+          const numberedKeys = Object.keys(dto.variables).filter(k => /^\d+$/.test(k));
+          if (numberedKeys.length > 0) {
+            whatsappOrderedVars = numberedKeys
+              .sort((a, b) => Number(a) - Number(b))
+              .map(k => dto.variables![k]);
+          }
         }
+
+        this.logger.debug(
+          `[WhatsApp] template="${whatsappTemplateName}" lang="${whatsappLanguage}" vars=${whatsappOrderedVars?.length ?? 0} (db_vars=${templateVarNames.length}, dto_vars=${dto.variables ? Object.keys(dto.variables).length : 0})`,
+        );
       }
     }
 
@@ -233,8 +247,9 @@ export class CommunicationService {
       // For SMS: DLT template ID; for WhatsApp: Meta-approved template name
       templateId: dto.channel === 'whatsapp' ? whatsappTemplateName : dltTemplateId,
       // For WhatsApp template messages: pass ordered variable values matching Meta's {{1}}, {{2}}, ...
+      // Keys are 1-based ("1", "2", "3") to match Meta's {{1}}, {{2}}, {{3}} convention.
       variables: dto.channel === 'whatsapp' && whatsappOrderedVars
-        ? Object.fromEntries(whatsappOrderedVars.map((v, i) => [String(i), v]))
+        ? Object.fromEntries(whatsappOrderedVars.map((v, i) => [String(i + 1), v]))
         : undefined,
       language: whatsappLanguage,
       metadata: dto.metadata,
