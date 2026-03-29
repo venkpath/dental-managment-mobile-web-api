@@ -171,10 +171,17 @@ export class CommunicationService {
           const btnParams = templateButtons.map(btn => ({
             type: btn.type,
             index: btn.index,
-            // Use button-specific var from dto (e.g. "button_0") or fall back to a reasonable default
             parameters: [dto.variables?.[`button_${btn.index}`] || dto.metadata?.['button_url_suffix'] as string || ''],
           }));
           dto.metadata = { ...(dto.metadata || {}), whatsapp_button_params: btnParams };
+        } else if (dto.metadata?.['button_url_suffix']) {
+          // DB template variables don't include button info — fall back to index 0 URL button
+          const rawSuffix = dto.metadata['button_url_suffix'] as string;
+          const suffix = rawSuffix.replace(/&amp;/g, '&');
+          dto.metadata = {
+            ...(dto.metadata || {}),
+            whatsapp_button_params: [{ type: 'url', index: 0, parameters: [suffix] }],
+          };
         }
 
         this.logger.debug(

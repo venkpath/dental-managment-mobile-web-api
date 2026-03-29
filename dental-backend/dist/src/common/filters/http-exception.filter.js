@@ -5,6 +5,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var GlobalExceptionFilter_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GlobalExceptionFilter = void 0;
 const common_1 = require("@nestjs/common");
@@ -19,7 +20,8 @@ const HTTP_STATUS_CODES = {
     429: 'TOO_MANY_REQUESTS',
     500: 'INTERNAL_SERVER_ERROR',
 };
-let GlobalExceptionFilter = class GlobalExceptionFilter {
+let GlobalExceptionFilter = GlobalExceptionFilter_1 = class GlobalExceptionFilter {
+    logger = new common_1.Logger(GlobalExceptionFilter_1.name);
     catch(exception, host) {
         const ctx = host.switchToHttp();
         const response = ctx.getResponse();
@@ -55,6 +57,9 @@ let GlobalExceptionFilter = class GlobalExceptionFilter {
                         exception.message;
         }
         const code = HTTP_STATUS_CODES[status] || `HTTP_${status}`;
+        if (status >= 500) {
+            this.logger.error('Unhandled exception', exception instanceof Error ? exception.stack : String(exception));
+        }
         const body = {
             success: false,
             error: {
@@ -107,6 +112,7 @@ let GlobalExceptionFilter = class GlobalExceptionFilter {
                 };
             }
             default:
+                this.logger.error(`Unhandled Prisma error [${exception.code}]`, exception.message);
                 return {
                     status: common_1.HttpStatus.INTERNAL_SERVER_ERROR,
                     body: {
@@ -121,7 +127,7 @@ let GlobalExceptionFilter = class GlobalExceptionFilter {
     }
 };
 exports.GlobalExceptionFilter = GlobalExceptionFilter;
-exports.GlobalExceptionFilter = GlobalExceptionFilter = __decorate([
+exports.GlobalExceptionFilter = GlobalExceptionFilter = GlobalExceptionFilter_1 = __decorate([
     (0, common_1.Catch)()
 ], GlobalExceptionFilter);
 //# sourceMappingURL=http-exception.filter.js.map
