@@ -1,4 +1,5 @@
 import { IsString, IsOptional, MaxLength, IsNumber, IsLatitude, IsLongitude } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateBranchDto {
@@ -39,12 +40,14 @@ export class CreateBranchDto {
 
   @ApiPropertyOptional({ example: 12.9716, description: 'Branch latitude for Google Maps' })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @IsLatitude()
   latitude?: number;
 
   @ApiPropertyOptional({ example: 77.5946, description: 'Branch longitude for Google Maps' })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @IsLongitude()
   longitude?: number;
