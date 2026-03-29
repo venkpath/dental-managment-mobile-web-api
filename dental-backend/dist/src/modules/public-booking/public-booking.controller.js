@@ -155,7 +155,7 @@ let PublicBookingController = class PublicBookingController {
         const dentists = await this.prisma.user.findMany({
             where: {
                 clinic_id: clinicId,
-                role: 'dentist',
+                role: 'Dentist',
                 status: 'active',
                 OR: [{ branch_id: branchId }, { branch_id: null }],
             },
