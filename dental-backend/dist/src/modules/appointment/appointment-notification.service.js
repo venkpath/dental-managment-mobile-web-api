@@ -15,6 +15,7 @@ const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const communication_service_js_1 = require("../communication/communication.service.js");
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
+const booking_url_util_js_1 = require("../../common/utils/booking-url.util.js");
 const WHATSAPP_TEMPLATE_VARS = {
     dental_appointment_confirmation: ['patient_name', 'doctor_name', 'date', 'time', 'clinic_name', 'phone'],
     dental_appointment_reminder: ['patient_name', 'date', 'time', 'clinic_name', 'doctor_name', 'phone'],
@@ -37,11 +38,11 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
                 return;
             const templateName = 'dental_appointment_confirmation';
             const variables = this.buildVariables(templateName, appt);
-            const mapUrl = this.getBranchMapUrl(appt);
+            const bookingUrl = (0, booking_url_util_js_1.getBookingUrl)(clinicId, appt.branch_id, appt.branch.book_now_url);
             await this.sendWhatsAppTemplate(clinicId, appt.patient_id, templateName, variables, {
                 automation: 'appointment_confirmation',
                 appointment_id: appointmentId,
-                button_url_suffix: mapUrl,
+                button_url_suffix: bookingUrl,
             });
             this.logger.log(`Appointment confirmation sent for ${appointmentId}`);
         }
@@ -56,11 +57,9 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
                 return;
             const templateName = 'dental_appointment_cancel';
             const variables = this.buildVariables(templateName, appt);
-            const mapUrl = this.getBranchMapUrl(appt);
             await this.sendWhatsAppTemplate(clinicId, appt.patient_id, templateName, variables, {
                 automation: 'appointment_cancellation',
                 appointment_id: appointmentId,
-                button_url_suffix: mapUrl,
             });
             this.logger.log(`Appointment cancellation sent for ${appointmentId}`);
         }
@@ -75,11 +74,11 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
                 return;
             const templateName = 'dental_appointment_rescheduled';
             const variables = this.buildVariables(templateName, appt, { oldDate, oldTime });
-            const mapUrl = this.getBranchMapUrl(appt);
+            const bookingUrl = (0, booking_url_util_js_1.getBookingUrl)(clinicId, appt.branch_id, appt.branch.book_now_url);
             await this.sendWhatsAppTemplate(clinicId, appt.patient_id, templateName, variables, {
                 automation: 'appointment_rescheduled',
                 appointment_id: appointmentId,
-                button_url_suffix: mapUrl,
+                button_url_suffix: bookingUrl,
             });
             this.logger.log(`Appointment reschedule notification sent for ${appointmentId}`);
         }
@@ -87,24 +86,13 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
             this.logger.warn(`Failed to send appointment reschedule for ${appointmentId}: ${e.message}`);
         }
     }
-    getBranchMapUrl(appt) {
-        if (appt.branch.map_url)
-            return appt.branch.map_url;
-        if (appt.branch.latitude && appt.branch.longitude) {
-            return `https://www.google.com/maps/dir/?api=1&destination=${appt.branch.latitude},${appt.branch.longitude}`;
-        }
-        if (appt.branch.address) {
-            return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(appt.branch.address)}`;
-        }
-        return '';
-    }
     async loadAppointment(appointmentId) {
         const appt = await this.prisma.appointment.findUnique({
             where: { id: appointmentId },
             include: {
                 patient: true,
                 dentist: { select: { name: true } },
-                branch: { select: { name: true, address: true, map_url: true, latitude: true, longitude: true } },
+                branch: { select: { name: true, address: true, map_url: true, latitude: true, longitude: true, book_now_url: true } },
                 clinic: { select: { id: true, name: true, phone: true } },
             },
         });

@@ -57,4 +57,14 @@ export class CreateBranchDto {
   @IsString()
   @MaxLength(500)
   map_url?: string;
+
+  @ApiPropertyOptional({
+    example: 'https://www.smartdentaldesk.com/booking/smile',
+    description: 'Custom online booking URL for this branch. If not set, patients are directed to the SmartDentalDesk booking page.',
+    maxLength: 2000,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  book_now_url?: string;
 }

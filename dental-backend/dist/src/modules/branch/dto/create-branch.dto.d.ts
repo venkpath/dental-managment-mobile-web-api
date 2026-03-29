@@ -8,4 +8,5 @@ export declare class CreateBranchDto {
     latitude?: number;
     longitude?: number;
     map_url?: string;
+    book_now_url?: string;
 }

@@ -16,6 +16,7 @@ const client_1 = require("@prisma/client");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const communication_service_js_1 = require("../communication/communication.service.js");
 const template_service_js_1 = require("../communication/template.service.js");
+const booking_url_util_js_1 = require("../../common/utils/booking-url.util.js");
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
 let CampaignService = class CampaignService {
@@ -119,7 +120,10 @@ let CampaignService = class CampaignService {
                 channel: dto.channel,
                 template_id: dto.template_id,
                 segment_type: dto.segment_type,
-                segment_config: dto.segment_config ? JSON.parse(JSON.stringify(dto.segment_config)) : undefined,
+                segment_config: JSON.parse(JSON.stringify({
+                    ...(dto.segment_config || {}),
+                    ...(dto.button_url_suffix ? { _button_url_suffix: dto.button_url_suffix } : {}),
+                })),
                 status: dto.scheduled_at ? 'scheduled' : 'draft',
                 scheduled_at: dto.scheduled_at ? new Date(dto.scheduled_at) : null,
                 created_by: userId,
@@ -238,7 +242,22 @@ let CampaignService = class CampaignService {
                     actual_cost: 0,
                 };
             }
-            const stats = await this.dispatchMessages(clinicId, patients, channels, campaign.template_id, { campaign_id: campaign.id });
+            const segmentConfig = campaign.segment_config || {};
+            let buttonUrlSuffix = segmentConfig['_button_url_suffix'];
+            if (!buttonUrlSuffix) {
+                const firstBranch = await this.prisma.branch.findFirst({
+                    where: { clinic_id: clinicId },
+                    orderBy: { created_at: 'asc' },
+                    select: { id: true, book_now_url: true },
+                });
+                if (firstBranch) {
+                    buttonUrlSuffix = (0, booking_url_util_js_1.getBookingUrl)(clinicId, firstBranch.id, firstBranch.book_now_url);
+                }
+            }
+            const stats = await this.dispatchMessages(clinicId, patients, channels, campaign.template_id, {
+                campaign_id: campaign.id,
+                ...(buttonUrlSuffix ? { button_url_suffix: buttonUrlSuffix } : {}),
+            });
             const sentCount = stats.queued_count + stats.scheduled_count;
             const unsentCount = stats.failed_count + stats.skipped_count;
             const actualCost = this.calculateActualCost(stats.accepted_by_channel);

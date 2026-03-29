@@ -8,7 +8,6 @@ export declare class AppointmentNotificationService {
     sendConfirmation(clinicId: string, appointmentId: string): Promise<void>;
     sendCancellation(clinicId: string, appointmentId: string): Promise<void>;
     sendReschedule(clinicId: string, appointmentId: string, oldDate: string, oldTime: string): Promise<void>;
-    private getBranchMapUrl;
     private loadAppointment;
     private buildVariables;
     private sendWhatsAppTemplate;

@@ -24,8 +24,9 @@ class CreateBranchDto {
     latitude;
     longitude;
     map_url;
+    book_now_url;
     static _OPENAPI_METADATA_FACTORY() {
-        return { name: { required: true, type: () => String, maxLength: 255 }, phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, latitude: { required: false, type: () => Number }, longitude: { required: false, type: () => Number }, map_url: { required: false, type: () => String, maxLength: 500 } };
+        return { name: { required: true, type: () => String, maxLength: 255 }, phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, latitude: { required: false, type: () => Number }, longitude: { required: false, type: () => Number }, map_url: { required: false, type: () => String, maxLength: 500 }, book_now_url: { required: false, type: () => String, maxLength: 2000 } };
     }
 }
 exports.CreateBranchDto = CreateBranchDto;
@@ -93,4 +94,15 @@ __decorate([
     (0, class_validator_1.MaxLength)(500),
     __metadata("design:type", String)
 ], CreateBranchDto.prototype, "map_url", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: 'https://www.smartdentaldesk.com/booking/smile',
+        description: 'Custom online booking URL for this branch. If not set, patients are directed to the SmartDentalDesk booking page.',
+        maxLength: 2000,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(2000),
+    __metadata("design:type", String)
+], CreateBranchDto.prototype, "book_now_url", void 0);
 //# sourceMappingURL=create-branch.dto.js.map

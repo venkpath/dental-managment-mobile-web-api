@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsUUID, IsEnum, IsObject, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsEnum, IsObject, IsDateString, IsUrl, MaxLength } from 'class-validator';
 
 export class CreateCampaignDto {
   @ApiProperty({ example: 'Diwali Special Offer 2026' })
@@ -34,4 +34,14 @@ export class CreateCampaignDto {
   @IsOptional()
   @IsDateString()
   scheduled_at?: string;
+
+  @ApiPropertyOptional({
+    description: 'URL for WhatsApp template URL buttons (e.g. booking page). Required when using a template with a "Visit Website" button.',
+    example: 'https://www.smartdentaldesk.com/booking/smile',
+    maxLength: 2000,
+  })
+  @IsOptional()
+  @IsUrl()
+  @MaxLength(2000)
+  button_url_suffix?: string;
 }

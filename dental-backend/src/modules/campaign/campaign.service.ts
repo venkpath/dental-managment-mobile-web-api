@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { TemplateService } from '../communication/template.service.js';
+import { getBookingUrl } from '../../common/utils/booking-url.util.js';
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
 import { paginate } from '../../common/interfaces/paginated-result.interface.js';
 import type { CreateCampaignDto } from './dto/create-campaign.dto.js';
@@ -155,7 +156,10 @@ export class CampaignService {
         channel: dto.channel,
         template_id: dto.template_id,
         segment_type: dto.segment_type,
-        segment_config: dto.segment_config ? JSON.parse(JSON.stringify(dto.segment_config)) : undefined,
+        segment_config: JSON.parse(JSON.stringify({
+          ...(dto.segment_config || {}),
+          ...(dto.button_url_suffix ? { _button_url_suffix: dto.button_url_suffix } : {}),
+        })),
         status: dto.scheduled_at ? 'scheduled' : 'draft',
         scheduled_at: dto.scheduled_at ? new Date(dto.scheduled_at) : null,
         created_by: userId,
@@ -305,12 +309,29 @@ export class CampaignService {
         };
       }
 
+      const segmentConfig = (campaign.segment_config as Record<string, unknown>) || {};
+      // Resolve button URL: use explicitly set URL, else derive from clinic's first branch
+      let buttonUrlSuffix = segmentConfig['_button_url_suffix'] as string | undefined;
+      if (!buttonUrlSuffix) {
+        const firstBranch = await this.prisma.branch.findFirst({
+          where: { clinic_id: clinicId },
+          orderBy: { created_at: 'asc' },
+          select: { id: true, book_now_url: true },
+        });
+        if (firstBranch) {
+          buttonUrlSuffix = getBookingUrl(clinicId, firstBranch.id, firstBranch.book_now_url);
+        }
+      }
+
       const stats = await this.dispatchMessages(
         clinicId,
         patients,
         channels,
         campaign.template_id,
-        { campaign_id: campaign.id },
+        {
+          campaign_id: campaign.id,
+          ...(buttonUrlSuffix ? { button_url_suffix: buttonUrlSuffix } : {}),
+        },
       );
 
       const sentCount = stats.queued_count + stats.scheduled_count;

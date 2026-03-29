@@ -20,8 +20,9 @@ class CreateCampaignDto {
     segment_type;
     segment_config;
     scheduled_at;
+    button_url_suffix;
     static _OPENAPI_METADATA_FACTORY() {
-        return { name: { required: true, type: () => String }, channel: { required: true, type: () => String }, template_id: { required: false, type: () => String, format: "uuid" }, segment_type: { required: true, type: () => String }, segment_config: { required: false, type: () => Object }, scheduled_at: { required: false, type: () => String } };
+        return { name: { required: true, type: () => String }, channel: { required: true, type: () => String }, template_id: { required: false, type: () => String, format: "uuid" }, segment_type: { required: true, type: () => String }, segment_config: { required: false, type: () => Object }, scheduled_at: { required: false, type: () => String }, button_url_suffix: { required: false, type: () => String, maxLength: 2000, format: "uri" } };
     }
 }
 exports.CreateCampaignDto = CreateCampaignDto;
@@ -64,4 +65,15 @@ __decorate([
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)
 ], CreateCampaignDto.prototype, "scheduled_at", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'URL for WhatsApp template URL buttons (e.g. booking page). Required when using a template with a "Visit Website" button.',
+        example: 'https://www.smartdentaldesk.com/booking/smile',
+        maxLength: 2000,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUrl)(),
+    (0, class_validator_1.MaxLength)(2000),
+    __metadata("design:type", String)
+], CreateCampaignDto.prototype, "button_url_suffix", void 0);
 //# sourceMappingURL=create-campaign.dto.js.map

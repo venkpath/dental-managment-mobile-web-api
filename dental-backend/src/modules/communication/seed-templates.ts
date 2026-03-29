@@ -3,13 +3,18 @@ import { Logger } from '@nestjs/common';
 
 const logger = new Logger('TemplateSeed');
 
+interface WhatsAppButtonSeed {
+  type: 'url' | 'quick_reply';
+  index: number;
+}
+
 interface TemplateSeed {
   channel: string;
   category: string;
   template_name: string;
   subject?: string;
   body: string;
-  variables: string[];
+  variables: string[] | { body: string[]; buttons: WhatsAppButtonSeed[] };
   language: string;
 }
 
@@ -438,12 +443,75 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
     variables: ['otp_code'],
     language: 'hi',
   },
+
+  // ═══════════════════════════════════════════════════════════════
+  // ─── WhatsApp Meta Templates (channel: whatsapp) ───
+  // These match approved Meta template names exactly.
+  // variables.body = ordered body params ({{1}}, {{2}}, ...)
+  // variables.buttons = URL buttons that need a dynamic parameter
+  // ═══════════════════════════════════════════════════════════════
+  {
+    channel: 'whatsapp',
+    category: 'transactional',
+    template_name: 'dental_appointment_confirmation',
+    body: 'Hi {{patient_name}}, your appointment is confirmed with {{doctor_name}} on {{date}} at {{time}} at {{clinic_name}}. For queries call {{phone}}. Please arrive 10 minutes early. If you need to reschedule, call us at {{phone}}. Thank you!',
+    variables: {
+      body: ['patient_name', 'doctor_name', 'date', 'time', 'clinic_name', 'phone'],
+      buttons: [{ type: 'url', index: 0 }],
+    },
+    language: 'en',
+  },
+  {
+    channel: 'whatsapp',
+    category: 'transactional',
+    template_name: 'dental_appointment_reminder',
+    body: 'Hi {{patient_name}}, reminder: appointment on {{date}} at {{time}} at {{clinic_name}} with {{doctor_name}}. Call {{phone}} to reschedule.',
+    variables: {
+      body: ['patient_name', 'date', 'time', 'clinic_name', 'doctor_name', 'phone'],
+      buttons: [{ type: 'url', index: 0 }],
+    },
+    language: 'en',
+  },
+  {
+    channel: 'whatsapp',
+    category: 'transactional',
+    template_name: 'dental_appointment_cancel',
+    body: 'Hi {{patient_name}}, your appointment at {{clinic_name}} on {{date}} at {{time}} has been cancelled. Call {{phone}} to rebook.',
+    variables: {
+      body: ['patient_name', 'clinic_name', 'date', 'time', 'phone'],
+      buttons: [],
+    },
+    language: 'en',
+  },
+  {
+    channel: 'whatsapp',
+    category: 'transactional',
+    template_name: 'dental_appointment_rescheduled',
+    body: 'Hi {{patient_name}}, your appointment has been rescheduled from {{previous_time}} to {{new_time}} at {{clinic_name}}. Call {{phone}} for queries.',
+    variables: {
+      body: ['patient_name', 'previous_time', 'new_time', 'clinic_name', 'phone'],
+      buttons: [{ type: 'url', index: 0 }],
+    },
+    language: 'en',
+  },
+  {
+    channel: 'whatsapp',
+    category: 'campaign',
+    template_name: 'dental_clinic_offer',
+    body: 'Hi {{patient_name}}, We have an exciting offer for you from {{clinic_name}}! {{offer_details}} To avail this offer, book your appointment by calling us at {{phone}} during clinic hours. Hurry, this offer is for a limited time only!',
+    variables: {
+      body: ['patient_name', 'clinic_name', 'offer_details', 'phone'],
+      buttons: [{ type: 'url', index: 0 }],
+    },
+    language: 'en',
+  },
 ];
 
 export async function seedDefaultTemplates(prisma: PrismaService): Promise<void> {
   logger.log('Seeding default message templates...');
 
   let created = 0;
+  let updated = 0;
   for (const template of DEFAULT_TEMPLATES) {
     const existing = await prisma.messageTemplate.findFirst({
       where: {
@@ -462,14 +530,21 @@ export async function seedDefaultTemplates(prisma: PrismaService): Promise<void>
           template_name: template.template_name,
           subject: template.subject,
           body: template.body,
-          variables: template.variables,
+          variables: template.variables as object,
           language: template.language,
           is_active: true,
         },
       });
       created++;
+    } else if (template.channel === 'whatsapp') {
+      // Always sync variables for WhatsApp templates so button configs stay current
+      await prisma.messageTemplate.update({
+        where: { id: existing.id },
+        data: { variables: template.variables as object },
+      });
+      updated++;
     }
   }
 
-  logger.log(`Seeded ${created} new templates (${DEFAULT_TEMPLATES.length - created} already existed)`);
+  logger.log(`Seeded ${created} new templates, updated ${updated} WhatsApp templates (${DEFAULT_TEMPLATES.length - created - updated} unchanged)`);
 }

@@ -5,4 +5,5 @@ export declare class CreateCampaignDto {
     segment_type: string;
     segment_config?: Record<string, unknown>;
     scheduled_at?: string;
+    button_url_suffix?: string;
 }

@@ -68,6 +68,9 @@ model Branch {
   longitude  Float?
   map_url    String?  @db.VarChar(500) // Google Maps directions URL
 
+  // Online booking URL — custom URL set by clinic, or fallback to smartdentaldesk.com/booking/{clinicId}/{branchId}
+  book_now_url String? @db.VarChar(2000)
+
   // Configurable scheduling settings (admin-managed per branch)
   working_start_time    String?  @db.VarChar(5)  // HH:mm e.g. "09:00"
   working_end_time      String?  @db.VarChar(5)  // HH:mm e.g. "18:00"

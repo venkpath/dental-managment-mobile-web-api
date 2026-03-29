@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
+import { getBookingUrl } from '../../common/utils/booking-url.util.js';
 import type { Appointment, Patient, User, Branch } from '@prisma/client';
 
 /**
@@ -20,7 +21,7 @@ const WHATSAPP_TEMPLATE_VARS: Record<string, string[]> = {
 interface AppointmentWithRelations extends Appointment {
   patient: Patient;
   dentist: Pick<User, 'name'>;
-  branch: Pick<Branch, 'name' | 'address' | 'map_url' | 'latitude' | 'longitude'>;
+  branch: Pick<Branch, 'name' | 'address' | 'map_url' | 'latitude' | 'longitude' | 'book_now_url'>;
   clinic: { id: string; name: string; phone?: string | null };
 }
 
@@ -43,13 +44,12 @@ export class AppointmentNotificationService {
 
       const templateName = 'dental_appointment_confirmation';
       const variables = this.buildVariables(templateName, appt);
-
-      const mapUrl = this.getBranchMapUrl(appt);
+      const bookingUrl = getBookingUrl(clinicId, appt.branch_id, appt.branch.book_now_url);
 
       await this.sendWhatsAppTemplate(clinicId, appt.patient_id, templateName, variables, {
         automation: 'appointment_confirmation',
         appointment_id: appointmentId,
-        button_url_suffix: mapUrl,
+        button_url_suffix: bookingUrl,
       });
 
       this.logger.log(`Appointment confirmation sent for ${appointmentId}`);
@@ -68,12 +68,10 @@ export class AppointmentNotificationService {
 
       const templateName = 'dental_appointment_cancel';
       const variables = this.buildVariables(templateName, appt);
-      const mapUrl = this.getBranchMapUrl(appt);
 
       await this.sendWhatsAppTemplate(clinicId, appt.patient_id, templateName, variables, {
         automation: 'appointment_cancellation',
         appointment_id: appointmentId,
-        button_url_suffix: mapUrl,
       });
 
       this.logger.log(`Appointment cancellation sent for ${appointmentId}`);
@@ -97,34 +95,18 @@ export class AppointmentNotificationService {
 
       const templateName = 'dental_appointment_rescheduled';
       const variables = this.buildVariables(templateName, appt, { oldDate, oldTime });
-      const mapUrl = this.getBranchMapUrl(appt);
+      const bookingUrl = getBookingUrl(clinicId, appt.branch_id, appt.branch.book_now_url);
 
       await this.sendWhatsAppTemplate(clinicId, appt.patient_id, templateName, variables, {
         automation: 'appointment_rescheduled',
         appointment_id: appointmentId,
-        button_url_suffix: mapUrl,
+        button_url_suffix: bookingUrl,
       });
 
       this.logger.log(`Appointment reschedule notification sent for ${appointmentId}`);
     } catch (e) {
       this.logger.warn(`Failed to send appointment reschedule for ${appointmentId}: ${(e as Error).message}`);
     }
-  }
-
-  /**
-   * Build Google Maps directions URL from branch location data.
-   * Used as the dynamic parameter for "Get Directions" URL buttons in WhatsApp templates.
-   */
-  private getBranchMapUrl(appt: AppointmentWithRelations): string {
-    if (appt.branch.map_url) return appt.branch.map_url;
-    if (appt.branch.latitude && appt.branch.longitude) {
-      return `https://www.google.com/maps/dir/?api=1&destination=${appt.branch.latitude},${appt.branch.longitude}`;
-    }
-    // Fallback: use address for directions
-    if (appt.branch.address) {
-      return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(appt.branch.address)}`;
-    }
-    return '';
   }
 
   // ─── Private Helpers ───
@@ -135,7 +117,7 @@ export class AppointmentNotificationService {
       include: {
         patient: true,
         dentist: { select: { name: true } },
-        branch: { select: { name: true, address: true, map_url: true, latitude: true, longitude: true } },
+        branch: { select: { name: true, address: true, map_url: true, latitude: true, longitude: true, book_now_url: true } },
         clinic: { select: { id: true, name: true, phone: true } },
       },
     });
