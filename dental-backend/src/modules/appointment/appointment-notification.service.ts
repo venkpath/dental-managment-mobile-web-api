@@ -167,8 +167,10 @@ export class AppointmentNotificationService {
       treatment: '',
     };
 
-    // Build numbered variables: { "1": value, "2": value, ... }
-    const result: Record<string, string> = {};
+    // Build BOTH numbered keys (for Meta API) AND named keys (for body rendering in dashboard).
+    // communication.service uses numbered keys {"1": val} to build ordered Meta params,
+    // and named keys {patient_name: val} to render the stored template body for display.
+    const result: Record<string, string> = { ...valueMap };
     varOrder.forEach((varName, index) => {
       result[String(index + 1)] = valueMap[varName] || '';
     });

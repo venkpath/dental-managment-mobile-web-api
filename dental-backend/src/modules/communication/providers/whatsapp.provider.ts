@@ -102,7 +102,15 @@ export class WhatsAppProvider implements ChannelProvider {
 
     try {
       const { config } = ctx;
-      const destination = options.to.replace(/[^0-9]/g, '');
+      // Strip non-numeric chars, then ensure Indian country code (91) is prefixed.
+      // Patients are stored as 10-digit numbers (e.g. 9876543210) but Meta requires
+      // full international format without + (e.g. 919876543210).
+      let destination = options.to.replace(/[^0-9]/g, '');
+      if (destination.length === 10) {
+        destination = '91' + destination;
+      } else if (destination.startsWith('0') && destination.length === 11) {
+        destination = '91' + destination.slice(1);
+      }
 
       // Determine message type based on options
       const interactiveButtons = options.metadata?.['interactive_buttons'] as WhatsAppInteractiveButton[] | undefined;
