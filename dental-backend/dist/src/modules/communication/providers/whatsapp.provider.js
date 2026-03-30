@@ -60,7 +60,13 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
         }
         try {
             const { config } = ctx;
-            const destination = options.to.replace(/[^0-9]/g, '');
+            let destination = options.to.replace(/[^0-9]/g, '');
+            if (destination.length === 10) {
+                destination = '91' + destination;
+            }
+            else if (destination.startsWith('0') && destination.length === 11) {
+                destination = '91' + destination.slice(1);
+            }
             const interactiveButtons = options.metadata?.['interactive_buttons'];
             const mediaOptions = options.metadata?.['media'];
             let messagePayload;

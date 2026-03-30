@@ -127,7 +127,7 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
             new_time: newTime,
             treatment: '',
         };
-        const result = {};
+        const result = { ...valueMap };
         varOrder.forEach((varName, index) => {
             result[String(index + 1)] = valueMap[varName] || '';
         });
