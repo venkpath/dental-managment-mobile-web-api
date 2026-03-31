@@ -17,20 +17,27 @@ const communication_service_js_1 = require("../communication/communication.servi
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
 const client_1 = require("@prisma/client");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
+const invoice_pdf_service_js_1 = require("./invoice-pdf.service.js");
+const s3_service_js_1 = require("../../common/services/s3.service.js");
 const INVOICE_INCLUDE = {
-    items: { include: { treatment: true } },
+    items: { include: { treatment: { include: { dentist: true } } } },
     payments: { include: { installment_item: true }, orderBy: { paid_at: 'asc' } },
     patient: true,
     branch: true,
+    clinic: true,
     installment_plan: { include: { items: { orderBy: { installment_number: 'asc' } } } },
 };
 let InvoiceService = InvoiceService_1 = class InvoiceService {
     prisma;
     communicationService;
+    invoicePdfService;
+    s3Service;
     logger = new common_1.Logger(InvoiceService_1.name);
-    constructor(prisma, communicationService) {
+    constructor(prisma, communicationService, invoicePdfService, s3Service) {
         this.prisma = prisma;
         this.communicationService = communicationService;
+        this.invoicePdfService = invoicePdfService;
+        this.s3Service = s3Service;
     }
     async create(clinicId, dto) {
         const [branch, patient] = await Promise.all([
@@ -229,6 +236,80 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         await this.prisma.installmentPlan.delete({ where: { id: plan.id } });
         return { message: 'Installment plan deleted' };
     }
+    async getPdfUrl(clinicId, invoiceId) {
+        const invoice = await this.prisma.invoice.findUnique({
+            where: { id: invoiceId },
+            include: {
+                ...INVOICE_INCLUDE,
+                clinic: true,
+            },
+        });
+        if (!invoice || invoice.clinic_id !== clinicId) {
+            throw new common_1.NotFoundException(`Invoice with ID "${invoiceId}" not found`);
+        }
+        const s3Key = `invoices/${clinicId}/${invoice.invoice_number}.pdf`;
+        const pdfData = {
+            invoice_number: invoice.invoice_number,
+            created_at: invoice.created_at,
+            gst_number: invoice.gst_number,
+            total_amount: Number(invoice.total_amount),
+            discount_amount: Number(invoice.discount_amount),
+            tax_amount: Number(invoice.tax_amount),
+            net_amount: Number(invoice.net_amount),
+            clinic: {
+                name: invoice.clinic.name,
+                email: invoice.clinic.email,
+                phone: invoice.clinic.phone,
+                address: invoice.clinic.address,
+                city: invoice.clinic.city,
+                state: invoice.clinic.state,
+            },
+            branch: {
+                name: invoice.branch.name,
+                phone: invoice.branch.phone,
+                address: invoice.branch.address,
+                city: invoice.branch.city,
+                state: invoice.branch.state,
+            },
+            patient: {
+                first_name: invoice.patient.first_name,
+                last_name: invoice.patient.last_name,
+                phone: invoice.patient.phone,
+                email: invoice.patient.email,
+                date_of_birth: invoice.patient.date_of_birth,
+            },
+            dentist: (() => {
+                const firstDentist = invoice.items
+                    .map((i) => i.treatment?.dentist)
+                    .find((d) => d != null);
+                if (!firstDentist)
+                    return null;
+                return {
+                    name: firstDentist.name,
+                    specialization: firstDentist.role === 'dentist' ? 'General Dentistry' : firstDentist.role,
+                    license_number: null,
+                };
+            })(),
+            items: invoice.items.map((item) => ({
+                item_type: item.item_type,
+                description: item.description,
+                procedure: item.treatment?.procedure ?? null,
+                quantity: item.quantity,
+                unit_price: Number(item.unit_price),
+                total_price: Number(item.total_price),
+                tooth_number: item.treatment?.tooth_number ?? null,
+            })),
+            payments: invoice.payments.map((p) => ({
+                amount: Number(p.amount),
+                method: p.method,
+                paid_at: p.paid_at,
+            })),
+        };
+        const pdfBuffer = await this.invoicePdfService.generate(pdfData);
+        await this.s3Service.upload(s3Key, pdfBuffer, 'application/pdf');
+        const url = await this.s3Service.getSignedUrl(s3Key);
+        return { url };
+    }
     async generateInvoiceNumber(clinicId, tx = this.prisma) {
         const today = new Date();
         const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
@@ -278,6 +359,8 @@ exports.InvoiceService = InvoiceService;
 exports.InvoiceService = InvoiceService = InvoiceService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
-        communication_service_js_1.CommunicationService])
+        communication_service_js_1.CommunicationService,
+        invoice_pdf_service_js_1.InvoicePdfService,
+        s3_service_js_1.S3Service])
 ], InvoiceService);
 //# sourceMappingURL=invoice.service.js.map

@@ -8,20 +8,21 @@ export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   user: null,
   clinicId: null,
+  clinicName: null,
   branchId: null,
   isAuthenticated: false,
 
   setClinicId: (clinicId: string) => set({ clinicId }),
 
-  login: async (token: string, user: User, clinicId: string, branchId?: string) => {
-    const data = { token, user, clinicId, branchId: branchId || null };
+  login: async (token: string, user: User, clinicId: string, branchId?: string, clinicName?: string) => {
+    const data = { token, user, clinicId, branchId: branchId || null, clinicName: clinicName || null };
     await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(data));
-    set({ token, user, clinicId, branchId: branchId || null, isAuthenticated: true });
+    set({ token, user, clinicId, branchId: branchId || null, clinicName: clinicName || null, isAuthenticated: true });
   },
 
   logout: async () => {
     await AsyncStorage.removeItem(AUTH_KEY);
-    set({ token: null, user: null, clinicId: null, branchId: null, isAuthenticated: false });
+    set({ token: null, user: null, clinicId: null, clinicName: null, branchId: null, isAuthenticated: false });
   },
 }));
 
@@ -35,6 +36,7 @@ export const loadAuthFromStorage = async (): Promise<boolean> => {
       token: data.token,
       user: data.user,
       clinicId: data.clinicId,
+      clinicName: data.clinicName || null,
       branchId: data.branchId,
       isAuthenticated: true,
     });

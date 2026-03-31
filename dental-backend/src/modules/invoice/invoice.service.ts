@@ -5,12 +5,15 @@ import { MessageChannel, MessageCategory } from '../communication/dto/send-messa
 import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
 import { Invoice, Payment, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
+import { InvoicePdfService } from './invoice-pdf.service.js';
+import { S3Service } from '../../common/services/s3.service.js';
 
 const INVOICE_INCLUDE = {
-  items: { include: { treatment: true } },
+  items: { include: { treatment: { include: { dentist: true } } } },
   payments: { include: { installment_item: true }, orderBy: { paid_at: 'asc' as const } },
   patient: true,
   branch: true,
+  clinic: true,
   installment_plan: { include: { items: { orderBy: { installment_number: 'asc' as const } } } },
 } as const;
 
@@ -21,6 +24,8 @@ export class InvoiceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly communicationService: CommunicationService,
+    private readonly invoicePdfService: InvoicePdfService,
+    private readonly s3Service: S3Service,
   ) {}
 
   async create(clinicId: string, dto: CreateInvoiceDto): Promise<Invoice> {
@@ -271,6 +276,86 @@ export class InvoiceService {
 
     await this.prisma.installmentPlan.delete({ where: { id: plan.id } });
     return { message: 'Installment plan deleted' };
+  }
+
+  async getPdfUrl(clinicId: string, invoiceId: string): Promise<{ url: string }> {
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: {
+        ...INVOICE_INCLUDE,
+        clinic: true,
+      },
+    });
+
+    if (!invoice || invoice.clinic_id !== clinicId) {
+      throw new NotFoundException(`Invoice with ID "${invoiceId}" not found`);
+    }
+
+    const s3Key = `invoices/${clinicId}/${invoice.invoice_number}.pdf`;
+
+    // Generate fresh PDF every time (reflects latest payment status)
+    const pdfData = {
+      invoice_number: invoice.invoice_number,
+      created_at: invoice.created_at,
+      gst_number: invoice.gst_number,
+      total_amount: Number(invoice.total_amount),
+      discount_amount: Number(invoice.discount_amount),
+      tax_amount: Number(invoice.tax_amount),
+      net_amount: Number(invoice.net_amount),
+      clinic: {
+        name: (invoice as any).clinic.name,
+        email: (invoice as any).clinic.email,
+        phone: (invoice as any).clinic.phone,
+        address: (invoice as any).clinic.address,
+        city: (invoice as any).clinic.city,
+        state: (invoice as any).clinic.state,
+      },
+      branch: {
+        name: (invoice as any).branch.name,
+        phone: (invoice as any).branch.phone,
+        address: (invoice as any).branch.address,
+        city: (invoice as any).branch.city,
+        state: (invoice as any).branch.state,
+      },
+      patient: {
+        first_name: (invoice as any).patient.first_name,
+        last_name: (invoice as any).patient.last_name,
+        phone: (invoice as any).patient.phone,
+        email: (invoice as any).patient.email,
+        date_of_birth: (invoice as any).patient.date_of_birth,
+      },
+      dentist: (() => {
+        const firstDentist = (invoice as any).items
+          .map((i: any) => i.treatment?.dentist)
+          .find((d: any) => d != null);
+        if (!firstDentist) return null;
+        return {
+          name: firstDentist.name,
+          specialization: firstDentist.role === 'dentist' ? 'General Dentistry' : firstDentist.role,
+          license_number: null,
+        };
+      })(),
+      items: (invoice as any).items.map((item: any) => ({
+        item_type: item.item_type,
+        description: item.description,
+        procedure: item.treatment?.procedure ?? null,
+        quantity: item.quantity,
+        unit_price: Number(item.unit_price),
+        total_price: Number(item.total_price),
+        tooth_number: item.treatment?.tooth_number ?? null,
+      })),
+      payments: (invoice as any).payments.map((p: any) => ({
+        amount: Number(p.amount),
+        method: p.method,
+        paid_at: p.paid_at,
+      })),
+    };
+
+    const pdfBuffer = await this.invoicePdfService.generate(pdfData);
+    await this.s3Service.upload(s3Key, pdfBuffer, 'application/pdf');
+    const url = await this.s3Service.getSignedUrl(s3Key);
+
+    return { url };
   }
 
   private async generateInvoiceNumber(

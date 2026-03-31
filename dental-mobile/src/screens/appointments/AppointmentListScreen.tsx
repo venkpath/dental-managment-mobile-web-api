@@ -149,7 +149,19 @@ export default function AppointmentListScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
           onEndReached={onLoadMore}
           onEndReachedThreshold={0.3}
-          ListFooterComponent={loadingMore ? <ActivityIndicator style={{ padding: 16 }} color={colors.primary} /> : null}
+          ListFooterComponent={
+            loadingMore
+              ? <ActivityIndicator style={{ padding: 16 }} color={colors.primary} />
+              : hasMore
+              ? (
+                <TouchableOpacity style={styles.loadMoreBtn} onPress={onLoadMore}>
+                  <Text style={styles.loadMoreText}>Load More</Text>
+                </TouchableOpacity>
+              )
+              : appointments.length > 0
+              ? <Text style={styles.endText}>All appointments loaded</Text>
+              : null
+          }
           ListEmptyComponent={
             loadError ? (
               <EmptyState title="Failed to load" subtitle="Pull down to retry" icon="⚠️" />
@@ -217,4 +229,14 @@ const styles = StyleSheet.create({
   branch: { fontSize: typography.xs, color: colors.textSecondary },
   notes: { fontSize: typography.xs, color: colors.textMuted, marginTop: spacing.xs },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loadMoreBtn: {
+    margin: spacing.base,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    alignItems: 'center',
+  },
+  loadMoreText: { fontSize: typography.sm, fontWeight: '700', color: colors.primary },
+  endText: { textAlign: 'center', fontSize: typography.xs, color: colors.textMuted, padding: spacing.md },
 });

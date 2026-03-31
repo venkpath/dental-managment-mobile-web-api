@@ -145,7 +145,19 @@ export default function PatientListScreen() {
               />
             )
           }
-          ListFooterComponent={loadingMore ? <ActivityIndicator style={{ padding: 16 }} color={colors.primary} /> : null}
+          ListFooterComponent={
+            loadingMore
+              ? <ActivityIndicator style={{ padding: 16 }} color={colors.primary} />
+              : hasMore
+              ? (
+                <TouchableOpacity style={styles.loadMoreBtn} onPress={onLoadMore}>
+                  <Text style={styles.loadMoreText}>Load More</Text>
+                </TouchableOpacity>
+              )
+              : patients.length > 0
+              ? <Text style={styles.endText}>All patients loaded</Text>
+              : null
+          }
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -209,4 +221,14 @@ const styles = StyleSheet.create({
   genderBadge: { fontSize: 16 },
   chevron: { fontSize: 20, color: colors.textMuted, fontWeight: '300' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loadMoreBtn: {
+    margin: spacing.base,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    alignItems: 'center',
+  },
+  loadMoreText: { fontSize: typography.sm, fontWeight: '700', color: colors.primary },
+  endText: { textAlign: 'center', fontSize: typography.xs, color: colors.textMuted, padding: spacing.md },
 });

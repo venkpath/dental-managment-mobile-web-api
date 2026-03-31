@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  ActivityIndicator, Alert, TouchableOpacity, TextInput,
+  ActivityIndicator, Alert, TouchableOpacity, TextInput, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -46,6 +46,7 @@ export default function InvoiceDetailScreen() {
   const [numInstallments, setNumInstallments] = useState('3');
   const [planNotes, setPlanNotes] = useState('');
   const [creatingPlan, setCreatingPlan] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const bottomInset = useBottomInset();
 
   const load = useCallback(() => {
@@ -59,6 +60,18 @@ export default function InvoiceDetailScreen() {
   }, [invoiceId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const url = await invoiceService.getPdfUrl(invoiceId);
+      await Linking.openURL(url);
+    } catch (err: unknown) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to generate PDF');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   const openPayForm = (installmentId?: string, installmentAmount?: number) => {
     setSelectedInstallmentId(installmentId);
@@ -469,6 +482,17 @@ export default function InvoiceDetailScreen() {
             <Text style={styles.paidText}>✅ Invoice fully paid</Text>
           </View>
         )}
+
+        <TouchableOpacity
+          style={[styles.pdfBtn, downloadingPdf && styles.pdfBtnDisabled]}
+          onPress={handleDownloadPdf}
+          disabled={downloadingPdf}
+        >
+          {downloadingPdf
+            ? <ActivityIndicator size="small" color={colors.primary} />
+            : <Text style={styles.pdfBtnText}>📄 Download Invoice PDF</Text>
+          }
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -615,6 +639,20 @@ const styles = StyleSheet.create({
   },
   createPlanText: { fontSize: typography.base, fontWeight: '600', color: colors.primary },
   planHint: { fontSize: typography.sm, color: colors.textSecondary, marginBottom: spacing.md },
+  pdfBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  pdfBtnDisabled: { opacity: 0.6 },
+  pdfBtnText: { fontSize: typography.base, fontWeight: '700', color: colors.primary },
   planPreview: {
     backgroundColor: colors.primaryLight, borderRadius: radius.md,
     padding: spacing.sm, marginTop: spacing.xs, marginBottom: spacing.sm,

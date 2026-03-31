@@ -97,4 +97,15 @@ export class InvoiceController {
   ) {
     return this.invoiceService.deleteInstallmentPlan(clinicId, id);
   }
+
+  @Get('invoices/:id/pdf')
+  @ApiOperation({ summary: 'Generate invoice PDF, upload to S3, return signed URL (valid 1 hour)' })
+  @ApiOkResponse({ description: 'Signed S3 URL for the invoice PDF' })
+  @ApiNotFoundResponse({ description: 'Invoice not found' })
+  async getPdfUrl(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.invoiceService.getPdfUrl(clinicId, id);
+  }
 }

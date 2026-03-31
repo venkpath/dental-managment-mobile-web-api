@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -39,25 +40,37 @@ export default function InvoiceListScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<Filter>('All');
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const loadInvoices = useCallback(async (f: Filter = filter) => {
-    setLoading(true);
+  const loadInvoices = useCallback(async (f: Filter = filter, p = 1) => {
+    if (p === 1) setLoading(true);
+    else setLoadingMore(true);
     try {
-      const res = await invoiceService.list({ status: filterToStatus[f] });
-      setInvoices(res.data || []);
+      const res = await invoiceService.list({ status: filterToStatus[f], page: p });
+      const items = res.data || [];
+      setInvoices(p === 1 ? items : (prev) => [...prev, ...items]);
+      setHasMore(p < (res.meta?.totalPages ?? 1));
+      setPage(p);
     } catch {
-      Alert.alert('Error', 'Failed to load invoices. Please try again.');
+      if (p === 1) Alert.alert('Error', 'Failed to load invoices. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
   }, [filter]);
 
   useFocusEffect(
     useCallback(() => {
-      loadInvoices(filter);
+      loadInvoices(filter, 1);
     }, [filter])
   );
+
+  const onLoadMore = () => {
+    if (!loadingMore && hasMore) loadInvoices(filter, page + 1);
+  };
 
   const renderItem = ({ item }: { item: Invoice }) => (
     <TouchableOpacity
@@ -114,7 +127,22 @@ export default function InvoiceListScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={[styles.list, { paddingBottom: spacing['2xl'] + bottomInset }]}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadInvoices(filter); }} colors={[colors.primary]} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadInvoices(filter, 1); }} colors={[colors.primary]} />}
+          onEndReached={onLoadMore}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={
+            loadingMore
+              ? <ActivityIndicator style={{ padding: 16 }} color={colors.primary} />
+              : hasMore
+              ? (
+                <TouchableOpacity style={styles.loadMoreBtn} onPress={onLoadMore}>
+                  <Text style={styles.loadMoreText}>Load More</Text>
+                </TouchableOpacity>
+              )
+              : invoices.length > 0
+              ? <Text style={styles.endText}>All invoices loaded</Text>
+              : null
+          }
           ListEmptyComponent={<EmptyState title="No invoices" subtitle="Create your first invoice" icon="🧾" />}
           showsVerticalScrollIndicator={false}
         />
@@ -162,4 +190,14 @@ const styles = StyleSheet.create({
   right: { alignItems: 'flex-end', gap: spacing.xs },
   amount: { fontSize: typography.lg, fontWeight: '700', color: colors.text },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loadMoreBtn: {
+    margin: spacing.base,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    alignItems: 'center',
+  },
+  loadMoreText: { fontSize: typography.sm, fontWeight: '700', color: colors.primary },
+  endText: { textAlign: 'center', fontSize: typography.xs, color: colors.textMuted, padding: spacing.md },
 });

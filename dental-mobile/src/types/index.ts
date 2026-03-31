@@ -11,10 +11,11 @@ export interface AuthState {
   token: string | null;
   user: User | null;
   clinicId: string | null;
+  clinicName: string | null;
   branchId: string | null;
   isAuthenticated: boolean;
   setClinicId: (clinicId: string) => void;
-  login: (token: string, user: User, clinicId: string, branchId?: string) => void;
+  login: (token: string, user: User, clinicId: string, branchId?: string, clinicName?: string) => void;
   logout: () => void;
 }
 

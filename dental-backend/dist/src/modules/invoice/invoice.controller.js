@@ -44,6 +44,9 @@ let InvoiceController = class InvoiceController {
     async deleteInstallmentPlan(clinicId, id) {
         return this.invoiceService.deleteInstallmentPlan(clinicId, id);
     }
+    async getPdfUrl(clinicId, id) {
+        return this.invoiceService.getPdfUrl(clinicId, id);
+    }
 };
 exports.InvoiceController = InvoiceController;
 __decorate([
@@ -118,6 +121,18 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], InvoiceController.prototype, "deleteInstallmentPlan", null);
+__decorate([
+    (0, common_1.Get)('invoices/:id/pdf'),
+    (0, swagger_1.ApiOperation)({ summary: 'Generate invoice PDF, upload to S3, return signed URL (valid 1 hour)' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Signed S3 URL for the invoice PDF' }),
+    (0, swagger_1.ApiNotFoundResponse)({ description: 'Invoice not found' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], InvoiceController.prototype, "getPdfUrl", null);
 exports.InvoiceController = InvoiceController = __decorate([
     (0, swagger_1.ApiTags)('Invoices & Payments'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' }),

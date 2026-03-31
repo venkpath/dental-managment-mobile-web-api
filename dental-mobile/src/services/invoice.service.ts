@@ -2,7 +2,7 @@ import api from './api';
 import type { Invoice, PaginatedResponse } from '../types';
 
 export const invoiceService = {
-  list: async (params?: { page?: number; status?: string; patient_id?: string }): Promise<PaginatedResponse<Invoice>> => {
+  list: async (params?: { page?: number; limit?: number; status?: string; patient_id?: string }): Promise<PaginatedResponse<Invoice>> => {
     const { data } = await api.get('/invoices', {
       params: { page: 1, limit: 20, ...params },
     });
@@ -50,5 +50,10 @@ export const invoiceService = {
 
   deleteInstallmentPlan: async (invoiceId: string): Promise<void> => {
     await api.delete(`/invoices/${invoiceId}/installment-plan`);
+  },
+
+  getPdfUrl: async (invoiceId: string): Promise<string> => {
+    const { data } = await api.get<{ url: string }>(`/invoices/${invoiceId}/pdf`);
+    return data.url;
   },
 };

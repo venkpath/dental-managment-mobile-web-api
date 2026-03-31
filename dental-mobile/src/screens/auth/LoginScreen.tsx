@@ -39,6 +39,7 @@ export default function LoginScreen() {
 
   const [clinics, setClinics] = useState<ClinicOption[]>([]);
   const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null);
+  const [selectedClinicName, setSelectedClinicName] = useState<string>('');
   const [confirming, setConfirming] = useState(false);
 
   const validate = () => {
@@ -60,10 +61,11 @@ export default function LoginScreen() {
         return;
       }
       if (result.clinics.length === 1) {
-        await performLogin(result.clinics[0].clinic_id);
+        await performLogin(result.clinics[0].clinic_id, result.clinics[0].clinic_name);
       } else {
         setClinics(result.clinics);
         setSelectedClinicId(result.clinics[0].clinic_id);
+        setSelectedClinicName(result.clinics[0].clinic_name);
         setStep('clinic_select');
       }
     } catch (err: unknown) {
@@ -73,7 +75,7 @@ export default function LoginScreen() {
     }
   };
 
-  const performLogin = async (clinicId: string) => {
+  const performLogin = async (clinicId: string, clinicName?: string) => {
     setConfirming(true);
     try {
       setClinicId(clinicId);
@@ -82,7 +84,8 @@ export default function LoginScreen() {
         result.access_token,
         result.user as User,
         result.user.clinic_id || clinicId,
-        result.user.branch_id ?? undefined
+        result.user.branch_id ?? undefined,
+        clinicName
       );
     } catch (err: unknown) {
       Alert.alert('Login Failed', err instanceof Error ? err.message : 'Login failed.');
@@ -193,7 +196,7 @@ export default function LoginScreen() {
             return (
               <TouchableOpacity
                 activeOpacity={0.75}
-                onPress={() => setSelectedClinicId(item.clinic_id)}
+                onPress={() => { setSelectedClinicId(item.clinic_id); setSelectedClinicName(item.clinic_name); }}
                 style={[styles.clinicCard, isSelected && styles.clinicCardSelected]}
               >
                 <View style={[styles.clinicAvatar, isSelected && styles.clinicAvatarSelected]}>
@@ -224,7 +227,7 @@ export default function LoginScreen() {
           ListFooterComponent={
             <Button
               title="Continue →"
-              onPress={() => selectedClinicId && performLogin(selectedClinicId)}
+              onPress={() => selectedClinicId && performLogin(selectedClinicId, selectedClinicName)}
               loading={confirming}
               disabled={!selectedClinicId}
               size="lg"

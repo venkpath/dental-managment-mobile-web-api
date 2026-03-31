@@ -54,7 +54,7 @@ const STAT_CARDS = [
 ];
 
 export default function DashboardScreen() {
-  const { user } = useAuthStore();
+  const { user, clinicName } = useAuthStore();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const bottomInset = useBottomInset();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -108,11 +108,14 @@ export default function DashboardScreen() {
       >
         {/* ── Top header ── */}
         <View style={styles.topHeader}>
+          <View style={styles.logoMark}>
+            <Text style={styles.logoMarkText}>🦷</Text>
+          </View>
           <View style={styles.headerLeft}>
-            <Text style={styles.greeting}>{greeting()}</Text>
-            <Text style={styles.userName} numberOfLines={1}>
-              {user?.name || 'Doctor'}
-            </Text>
+            {clinicName ? (
+              <Text style={styles.clinicName} numberOfLines={1}>{clinicName}</Text>
+            ) : null}
+            <Text style={styles.greeting}>{greeting()}, <Text style={styles.greetingName}>{user?.name?.split(' ')[0] || 'Doctor'}</Text></Text>
           </View>
           <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.avatarBtn}>
             <Text style={styles.avatarText}>
@@ -219,18 +222,29 @@ const styles = StyleSheet.create({
   // Header
   topHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.sm,
     marginBottom: spacing.xs,
   },
-  headerLeft: { flex: 1 },
-  greeting: { fontSize: typography.sm, color: colors.textSecondary, fontWeight: '500' },
-  userName: {
-    fontSize: typography['2xl'],
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: -0.5,
+  logoMark: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  logoMarkText: { fontSize: 20 },
+  headerLeft: { flex: 1 },
+  clinicName: {
+    fontSize: typography.xs,
+    fontWeight: '700',
+    color: colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  greeting: { fontSize: typography.base, color: colors.text, fontWeight: '500' },
+  greetingName: { fontWeight: '800', color: colors.text },
   avatarBtn: {
     width: 42,
     height: 42,

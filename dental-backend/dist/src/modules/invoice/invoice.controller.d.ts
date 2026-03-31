@@ -83,4 +83,7 @@ export declare class InvoiceController {
     deleteInstallmentPlan(clinicId: string, id: string): Promise<{
         message: string;
     }>;
+    getPdfUrl(clinicId: string, id: string): Promise<{
+        url: string;
+    }>;
 }

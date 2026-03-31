@@ -3,11 +3,15 @@ import { CommunicationService } from '../communication/communication.service.js'
 import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
 import { Invoice, Payment, Prisma } from '@prisma/client';
 import { PaginatedResult } from '../../common/interfaces/paginated-result.interface.js';
+import { InvoicePdfService } from './invoice-pdf.service.js';
+import { S3Service } from '../../common/services/s3.service.js';
 export declare class InvoiceService {
     private readonly prisma;
     private readonly communicationService;
+    private readonly invoicePdfService;
+    private readonly s3Service;
     private readonly logger;
-    constructor(prisma: PrismaService, communicationService: CommunicationService);
+    constructor(prisma: PrismaService, communicationService: CommunicationService, invoicePdfService: InvoicePdfService, s3Service: S3Service);
     create(clinicId: string, dto: CreateInvoiceDto): Promise<Invoice>;
     findAll(clinicId: string, query: QueryInvoiceDto): Promise<PaginatedResult<Invoice>>;
     findOne(clinicId: string, id: string): Promise<Invoice>;
@@ -34,6 +38,9 @@ export declare class InvoiceService {
     }>;
     deleteInstallmentPlan(clinicId: string, invoiceId: string): Promise<{
         message: string;
+    }>;
+    getPdfUrl(clinicId: string, invoiceId: string): Promise<{
+        url: string;
     }>;
     private generateInvoiceNumber;
     private sendPaymentConfirmation;
