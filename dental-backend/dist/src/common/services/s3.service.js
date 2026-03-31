@@ -28,6 +28,7 @@ let S3Service = S3Service_1 = class S3Service {
                 accessKeyId: process.env.AWS_ACCESS_KEY_ID ?? '',
                 secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? '',
             },
+            followRegionRedirects: true,
         });
     }
     async upload(key, body, contentType) {
