@@ -329,7 +329,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         const netAmount = Number(invoice.net_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 });
         const clinicName = clinic?.name ?? 'your clinic';
         const clinicPhone = clinic?.phone ?? '';
-        const redirectUrl = `https://smartdentaldesk.com/invoice-redirect/${invoiceId}?clinic=${clinicId}`;
+        const redirectUrl = `https://smartdentaldesk.com/api/v1/public/invoice-redirect/${invoiceId}?clinic=${clinicId}`;
         await this.communicationService.sendMessage(clinicId, {
             patient_id: invoice.patient_id,
             channel: 'whatsapp',

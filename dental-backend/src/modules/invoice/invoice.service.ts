@@ -384,7 +384,7 @@ export class InvoiceService {
     // Matches approved WhatsApp template "dental_invoice_ready" — 6 variables:
     // {{1}} patient name  {{2}} clinic name  {{3}} invoice number
     // {{4}} amount        {{5}} clinic phone {{6}} invoice URL
-    const redirectUrl = `https://smartdentaldesk.com/invoice-redirect/${invoiceId}?clinic=${clinicId}`;
+    const redirectUrl = `https://smartdentaldesk.com/api/v1/public/invoice-redirect/${invoiceId}?clinic=${clinicId}`;
 
     await this.communicationService.sendMessage(clinicId, {
       patient_id: invoice.patient_id,

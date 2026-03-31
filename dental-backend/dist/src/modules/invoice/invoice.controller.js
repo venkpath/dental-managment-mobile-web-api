@@ -12,7 +12,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.InvoiceController = void 0;
+exports.InvoiceController = exports.InvoicePublicController = void 0;
 const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
@@ -20,6 +20,33 @@ const invoice_service_js_1 = require("./invoice.service.js");
 const index_js_1 = require("./dto/index.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
+let InvoicePublicController = class InvoicePublicController {
+    invoiceService;
+    constructor(invoiceService) {
+        this.invoiceService = invoiceService;
+    }
+    async invoiceRedirect(id, clinicId) {
+        const { url } = await this.invoiceService.getPdfUrl(clinicId, id);
+        return { url, statusCode: 302 };
+    }
+};
+exports.InvoicePublicController = InvoicePublicController;
+__decorate([
+    (0, common_1.Get)('public/invoice-redirect/:id'),
+    (0, common_1.Redirect)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Redirect WhatsApp link to a fresh S3 signed PDF URL' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Query)('clinic')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], InvoicePublicController.prototype, "invoiceRedirect", null);
+exports.InvoicePublicController = InvoicePublicController = __decorate([
+    (0, swagger_1.ApiTags)('Invoices & Payments'),
+    (0, common_1.Controller)(),
+    __metadata("design:paramtypes", [invoice_service_js_1.InvoiceService])
+], InvoicePublicController);
 let InvoiceController = class InvoiceController {
     invoiceService;
     constructor(invoiceService) {
@@ -46,10 +73,6 @@ let InvoiceController = class InvoiceController {
     }
     async getPdfUrl(clinicId, id) {
         return this.invoiceService.getPdfUrl(clinicId, id);
-    }
-    async invoiceRedirect(id, clinicId) {
-        const { url } = await this.invoiceService.getPdfUrl(clinicId, id);
-        return { url, statusCode: 302 };
     }
     async sendWhatsApp(clinicId, id) {
         return this.invoiceService.sendWhatsApp(clinicId, id);
@@ -140,17 +163,6 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], InvoiceController.prototype, "getPdfUrl", null);
-__decorate([
-    (0, common_1.Get)('public/invoice-redirect/:id'),
-    (0, common_1.Redirect)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Redirect WhatsApp button tap to a fresh S3 signed PDF URL' }),
-    openapi.ApiResponse({ status: 200 }),
-    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
-    __param(1, (0, common_1.Query)('clinic')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
-    __metadata("design:returntype", Promise)
-], InvoiceController.prototype, "invoiceRedirect", null);
 __decorate([
     (0, common_1.Post)('invoices/:id/send-whatsapp'),
     (0, swagger_1.ApiOperation)({ summary: 'Send invoice PDF link to patient via WhatsApp' }),

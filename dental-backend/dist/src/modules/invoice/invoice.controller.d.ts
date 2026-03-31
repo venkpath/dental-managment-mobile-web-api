@@ -1,5 +1,13 @@
 import { InvoiceService } from './invoice.service.js';
 import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
+export declare class InvoicePublicController {
+    private readonly invoiceService;
+    constructor(invoiceService: InvoiceService);
+    invoiceRedirect(id: string, clinicId: string): Promise<{
+        url: string;
+        statusCode: number;
+    }>;
+}
 export declare class InvoiceController {
     private readonly invoiceService;
     constructor(invoiceService: InvoiceService);
@@ -85,10 +93,6 @@ export declare class InvoiceController {
     }>;
     getPdfUrl(clinicId: string, id: string): Promise<{
         url: string;
-    }>;
-    invoiceRedirect(id: string, clinicId: string): Promise<{
-        url: string;
-        statusCode: number;
     }>;
     sendWhatsApp(clinicId: string, id: string): Promise<{
         message: string;

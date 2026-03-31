@@ -24,6 +24,32 @@ import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvo
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 
+/**
+ * Public controller — no auth guard.
+ * Handles the WhatsApp invoice redirect link which is opened in a browser.
+ */
+@ApiTags('Invoices & Payments')
+@Controller()
+export class InvoicePublicController {
+  constructor(private readonly invoiceService: InvoiceService) {}
+
+  /**
+   * Public redirect endpoint — used in WhatsApp template button URL.
+   * URL pattern: https://smartdentaldesk.com/api/v1/public/invoice-redirect/{{invoiceId}}?clinic={{clinicId}}
+   * No auth required — invoice ID alone is not sensitive; S3 URL is time-limited.
+   */
+  @Get('public/invoice-redirect/:id')
+  @Redirect()
+  @ApiOperation({ summary: 'Redirect WhatsApp link to a fresh S3 signed PDF URL' })
+  async invoiceRedirect(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('clinic') clinicId: string,
+  ) {
+    const { url } = await this.invoiceService.getPdfUrl(clinicId, id);
+    return { url, statusCode: 302 };
+  }
+}
+
 @ApiTags('Invoices & Payments')
 @ApiHeader({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' })
 @ApiBadRequestResponse({ description: 'Missing or invalid x-clinic-id header' })
@@ -108,22 +134,6 @@ export class InvoiceController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.invoiceService.getPdfUrl(clinicId, id);
-  }
-
-  /**
-   * Public redirect endpoint — used in WhatsApp template button URL.
-   * URL pattern registered with Meta: https://smartdentaldesk.com/invoice-redirect/{{1}}
-   * No auth required — invoice ID alone is not sensitive; S3 URL is time-limited.
-   */
-  @Get('public/invoice-redirect/:id')
-  @Redirect()
-  @ApiOperation({ summary: 'Redirect WhatsApp button tap to a fresh S3 signed PDF URL' })
-  async invoiceRedirect(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Query('clinic') clinicId: string,
-  ) {
-    const { url } = await this.invoiceService.getPdfUrl(clinicId, id);
-    return { url, statusCode: 302 };
   }
 
   @Post('invoices/:id/send-whatsapp')
