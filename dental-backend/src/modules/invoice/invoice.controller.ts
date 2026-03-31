@@ -8,6 +8,7 @@ import {
   Query,
   ParseUUIDPipe,
   UseGuards,
+  Redirect,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -107,5 +108,32 @@ export class InvoiceController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.invoiceService.getPdfUrl(clinicId, id);
+  }
+
+  /**
+   * Public redirect endpoint — used in WhatsApp template button URL.
+   * URL pattern registered with Meta: https://smartdentaldesk.com/invoice-redirect/{{1}}
+   * No auth required — invoice ID alone is not sensitive; S3 URL is time-limited.
+   */
+  @Get('public/invoice-redirect/:id')
+  @Redirect()
+  @ApiOperation({ summary: 'Redirect WhatsApp button tap to a fresh S3 signed PDF URL' })
+  async invoiceRedirect(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('clinic') clinicId: string,
+  ) {
+    const { url } = await this.invoiceService.getPdfUrl(clinicId, id);
+    return { url, statusCode: 302 };
+  }
+
+  @Post('invoices/:id/send-whatsapp')
+  @ApiOperation({ summary: 'Send invoice PDF link to patient via WhatsApp' })
+  @ApiOkResponse({ description: 'WhatsApp message sent' })
+  @ApiNotFoundResponse({ description: 'Invoice not found' })
+  async sendWhatsApp(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.invoiceService.sendWhatsApp(clinicId, id);
   }
 }

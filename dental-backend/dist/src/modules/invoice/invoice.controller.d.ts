@@ -86,4 +86,11 @@ export declare class InvoiceController {
     getPdfUrl(clinicId: string, id: string): Promise<{
         url: string;
     }>;
+    invoiceRedirect(id: string, clinicId: string): Promise<{
+        url: string;
+        statusCode: number;
+    }>;
+    sendWhatsApp(clinicId: string, id: string): Promise<{
+        message: string;
+    }>;
 }

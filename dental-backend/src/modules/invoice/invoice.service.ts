@@ -358,6 +358,53 @@ export class InvoiceService {
     return { url };
   }
 
+  async sendWhatsApp(clinicId: string, invoiceId: string): Promise<{ message: string }> {
+    const invoice = await this.findOne(clinicId, invoiceId);
+
+    // Generate / refresh PDF so it's current
+    await this.getPdfUrl(clinicId, invoiceId);
+
+    const [patient, clinic] = await Promise.all([
+      this.prisma.patient.findUnique({
+        where: { id: invoice.patient_id },
+        select: { first_name: true, last_name: true, phone: true },
+      }),
+      this.prisma.clinic.findUnique({
+        where: { id: clinicId },
+        select: { name: true, phone: true },
+      }),
+    ]);
+    if (!patient) throw new Error('Patient not found');
+
+    const patientName = `${patient.first_name} ${patient.last_name}`;
+    const netAmount = Number(invoice.net_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    const clinicName = clinic?.name ?? 'your clinic';
+    const clinicPhone = clinic?.phone ?? '';
+
+    // Matches approved WhatsApp template "dental_invoice_ready" — 6 variables:
+    // {{1}} patient name  {{2}} clinic name  {{3}} invoice number
+    // {{4}} amount        {{5}} clinic phone {{6}} invoice URL
+    const redirectUrl = `https://smartdentaldesk.com/invoice-redirect/${invoiceId}?clinic=${clinicId}`;
+
+    await this.communicationService.sendMessage(clinicId, {
+      patient_id: invoice.patient_id,
+      channel: 'whatsapp' as any,
+      category: 'transactional' as any,
+      body: `Hello ${patientName},\n\nYour payment receipt has been generated.\n\nClinic: ${clinicName}\nInvoice No: ${invoice.invoice_number}\nAmount: ₹ ${netAmount}\n\nView & Download Invoice:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
+      variables: {
+        '1': patientName,
+        '2': clinicName,
+        '3': invoice.invoice_number,
+        '4': netAmount,
+        '5': clinicPhone,
+        '6': redirectUrl,
+      },
+      metadata: { automation: 'invoice_pdf', invoice_id: invoiceId },
+    });
+
+    return { message: 'Invoice sent via WhatsApp' };
+  }
+
   private async generateInvoiceNumber(
     clinicId: string,
     tx: Prisma.TransactionClient = this.prisma,

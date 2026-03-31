@@ -56,4 +56,8 @@ export const invoiceService = {
     const { data } = await api.get<{ url: string }>(`/invoices/${invoiceId}/pdf`);
     return data.url;
   },
+
+  sendWhatsApp: async (invoiceId: string): Promise<void> => {
+    await api.post(`/invoices/${invoiceId}/send-whatsapp`);
+  },
 };

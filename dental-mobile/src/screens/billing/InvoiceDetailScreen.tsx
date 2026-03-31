@@ -12,6 +12,7 @@ import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import Button from '../../components/Button';
 import ScreenHeader from '../../components/ScreenHeader';
+import DatePickerInput from '../../components/DatePickerInput';
 import { colors, spacing, typography, radius, shadow } from '../../theme';
 import { useBottomInset } from '../../hooks/useBottomInset';
 import type { Invoice, BillingStackParamList } from '../../types';
@@ -46,6 +47,10 @@ export default function InvoiceDetailScreen() {
   const [numInstallments, setNumInstallments] = useState('3');
   const [planNotes, setPlanNotes] = useState('');
   const [creatingPlan, setCreatingPlan] = useState(false);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+
+  interface PlanRow { amount: string; due_date: string }
+  const [planRows, setPlanRows] = useState<PlanRow[]>([]);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const bottomInset = useBottomInset();
 
@@ -126,37 +131,81 @@ export default function InvoiceDetailScreen() {
     );
   }
 
-  const handleCreatePlan = async () => {
-    const n = parseInt(numInstallments, 10);
-    if (!n || n < 2 || n > 24) { Alert.alert('Invalid', 'Enter a number between 2 and 24'); return; }
-    const base = Math.floor((balanceDue / n) * 100) / 100;
-    const remainder = Math.round((balanceDue - base * n) * 100) / 100;
+  const generatePlanRows = (n: number, balance: number) => {
+    const base = Math.floor((balance / n) * 100) / 100;
+    const remainder = Math.round((balance - base * n) * 100) / 100;
     const today = new Date();
-    const items = Array.from({ length: n }, (_, i) => {
+    return Array.from({ length: n }, (_, i) => {
       const due = new Date(today);
-      due.setMonth(due.getMonth() + i + 1);
-      const amount = i === n - 1 ? Math.round((base + remainder) * 100) / 100 : base;
-      return {
-        installment_number: i + 1,
-        amount,
-        due_date: due.toISOString().split('T')[0],
-      };
+      due.setDate(due.getDate() + (i + 1) * 30);
+      const amount = i === n - 1 ? String(Math.round((base + remainder) * 100) / 100) : String(base);
+      return { amount, due_date: due.toISOString().split('T')[0] };
     });
+  };
+
+  const handleNumInstallmentsChange = (val: string) => {
+    setNumInstallments(val);
+    const n = parseInt(val, 10);
+    if (n >= 2 && n <= 24 && invoice) {
+      const balance = Number(invoice.net_amount) - (invoice.payments?.reduce((s, p) => s + Number(p.amount), 0) ?? 0);
+      setPlanRows(generatePlanRows(n, balance));
+    } else {
+      setPlanRows([]);
+    }
+  };
+
+  const updatePlanRow = (i: number, field: 'amount' | 'due_date', value: string) => {
+    setPlanRows((prev) => prev.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
+  };
+
+  const handleCreatePlan = async () => {
+    const n = planRows.length;
+    if (n < 2) { Alert.alert('Invalid', 'Enter a number between 2 and 24'); return; }
+    for (const r of planRows) {
+      if (!r.due_date) { Alert.alert('Invalid', 'Set a due date for every installment'); return; }
+      if (!parseFloat(r.amount) || parseFloat(r.amount) <= 0) {
+        Alert.alert('Invalid', 'Each installment must have a positive amount');
+        return;
+      }
+    }
+    const total = planRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+    const balance = Number(invoice!.net_amount) - (invoice!.payments?.reduce((s, p) => s + Number(p.amount), 0) ?? 0);
+    if (Math.abs(total - balance) > 0.02) {
+      Alert.alert('Amount Mismatch', `Installment total ₹${total.toFixed(2)} must equal balance ₹${balance.toFixed(2)}`);
+      return;
+    }
     setCreatingPlan(true);
     try {
       await invoiceService.createInstallmentPlan(invoiceId, {
         notes: planNotes.trim() || undefined,
-        items,
+        items: planRows.map((r, i) => ({
+          installment_number: i + 1,
+          amount: parseFloat(r.amount),
+          due_date: r.due_date,
+        })),
       });
       load();
       setShowPlanForm(false);
       setNumInstallments('3');
+      setPlanRows([]);
       setPlanNotes('');
-      Alert.alert('Plan Created', `Split into ${n} monthly installments`);
+      Alert.alert('Plan Created', `Split into ${n} installments`);
     } catch (err: unknown) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Failed to create plan');
     } finally {
       setCreatingPlan(false);
+    }
+  };
+
+  const handleSendWhatsApp = async () => {
+    setSendingWhatsApp(true);
+    try {
+      await invoiceService.sendWhatsApp(invoiceId);
+      Alert.alert('Sent', 'Invoice sent to patient via WhatsApp');
+    } catch (err: unknown) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to send WhatsApp');
+    } finally {
+      setSendingWhatsApp(false);
     }
   };
 
@@ -356,7 +405,7 @@ export default function InvoiceDetailScreen() {
           <Card>
             <Text style={styles.cardTitle}>Create Installment Plan</Text>
             <Text style={styles.planHint}>
-              Balance ₹{balanceDue.toLocaleString('en-IN')} will be split into equal monthly installments.
+              Balance ₹{balanceDue.toLocaleString('en-IN')} — set amount and due date for each installment.
             </Text>
 
             <Text style={styles.fieldLabel}>Number of Installments (2–24)</Text>
@@ -364,7 +413,7 @@ export default function InvoiceDetailScreen() {
               <TextInput
                 style={styles.amountInput}
                 value={numInstallments}
-                onChangeText={setNumInstallments}
+                onChangeText={handleNumInstallmentsChange}
                 keyboardType="number-pad"
                 maxLength={2}
                 placeholder="3"
@@ -372,19 +421,53 @@ export default function InvoiceDetailScreen() {
               />
             </View>
 
-            {/* Preview */}
-            {(() => {
-              const n = parseInt(numInstallments, 10);
-              if (!n || n < 2 || n > 24) return null;
-              const base = Math.floor((balanceDue / n) * 100) / 100;
-              return (
-                <View style={styles.planPreview}>
-                  <Text style={styles.planPreviewText}>
-                    {n} installments × ₹{base.toLocaleString('en-IN')} each (monthly)
+            {/* Per-installment rows */}
+            {planRows.map((row, i) => (
+              <View key={i} style={styles.planRow}>
+                <View style={styles.planRowHeader}>
+                  <Text style={styles.planRowNum}>Installment {i + 1}</Text>
+                  <Text style={styles.planRowTotal}>
+                    Total so far: ₹{planRows.slice(0, i + 1).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0).toFixed(2)}
                   </Text>
                 </View>
-              );
-            })()}
+                <View style={styles.planRowFields}>
+                  <View style={styles.planAmountWrap}>
+                    <Text style={styles.rupee}>₹</Text>
+                    <TextInput
+                      style={styles.planAmountInput}
+                      value={row.amount}
+                      onChangeText={(v) => updatePlanRow(i, 'amount', v)}
+                      keyboardType="decimal-pad"
+                      placeholder="0.00"
+                      placeholderTextColor={colors.textMuted}
+                    />
+                  </View>
+                  <View style={styles.planDateWrap}>
+                    <DatePickerInput
+                      value={row.due_date}
+                      onChange={(d) => updatePlanRow(i, 'due_date', d)}
+                      minDate={new Date()}
+                      maxDate={new Date(Date.now() + 1000 * 60 * 60 * 24 * 365 * 5)}
+                    />
+                  </View>
+                </View>
+              </View>
+            ))}
+
+            {planRows.length > 0 && (
+              <View style={styles.planTotalCheck}>
+                <Text style={styles.planTotalLabel}>Plan total:</Text>
+                <Text style={[
+                  styles.planTotalValue,
+                  Math.abs(planRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0) - balanceDue) < 0.02
+                    ? { color: colors.success }
+                    : { color: colors.danger }
+                ]}>
+                  ₹{planRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0).toFixed(2)}
+                  {' '}/ ₹{balanceDue.toFixed(2)}
+                </Text>
+              </View>
+            )}
 
             <Text style={styles.fieldLabel}>Notes (optional)</Text>
             <TextInput
@@ -396,7 +479,7 @@ export default function InvoiceDetailScreen() {
             />
 
             <View style={styles.formBtns}>
-              <Button title="Cancel" onPress={() => setShowPlanForm(false)} variant="outline" style={styles.flex} />
+              <Button title="Cancel" onPress={() => { setShowPlanForm(false); setPlanRows([]); }} variant="outline" style={styles.flex} />
               <Button title="Create Plan" onPress={handleCreatePlan} loading={creatingPlan} style={styles.flex} />
             </View>
           </Card>
@@ -483,16 +566,29 @@ export default function InvoiceDetailScreen() {
           </View>
         )}
 
-        <TouchableOpacity
-          style={[styles.pdfBtn, downloadingPdf && styles.pdfBtnDisabled]}
-          onPress={handleDownloadPdf}
-          disabled={downloadingPdf}
-        >
-          {downloadingPdf
-            ? <ActivityIndicator size="small" color={colors.primary} />
-            : <Text style={styles.pdfBtnText}>📄 Download Invoice PDF</Text>
-          }
-        </TouchableOpacity>
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.pdfBtn, downloadingPdf && styles.pdfBtnDisabled, styles.actionFlex]}
+            onPress={handleDownloadPdf}
+            disabled={downloadingPdf}
+          >
+            {downloadingPdf
+              ? <ActivityIndicator size="small" color={colors.primary} />
+              : <Text style={styles.pdfBtnText}>📄 PDF</Text>
+            }
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.whatsappBtn, sendingWhatsApp && styles.pdfBtnDisabled, styles.actionFlex]}
+            onPress={handleSendWhatsApp}
+            disabled={sendingWhatsApp}
+          >
+            {sendingWhatsApp
+              ? <ActivityIndicator size="small" color="#25D366" />
+              : <Text style={styles.whatsappBtnText}>📤 Send WhatsApp</Text>
+            }
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -653,9 +749,36 @@ const styles = StyleSheet.create({
   },
   pdfBtnDisabled: { opacity: 0.6 },
   pdfBtnText: { fontSize: typography.base, fontWeight: '700', color: colors.primary },
-  planPreview: {
-    backgroundColor: colors.primaryLight, borderRadius: radius.md,
-    padding: spacing.sm, marginTop: spacing.xs, marginBottom: spacing.sm,
+  planRow: {
+    backgroundColor: colors.background, borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.border,
+    padding: spacing.sm, marginBottom: spacing.sm,
   },
-  planPreviewText: { fontSize: typography.sm, color: colors.primaryDark, fontWeight: '600', textAlign: 'center' },
+  planRowHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs },
+  planRowNum: { fontSize: typography.sm, fontWeight: '700', color: colors.text },
+  planRowTotal: { fontSize: typography.xs, color: colors.textMuted },
+  planRowFields: { gap: spacing.xs },
+  planAmountWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.border,
+    borderRadius: radius.md, paddingHorizontal: spacing.sm, minHeight: 44,
+  },
+  planAmountInput: { flex: 1, fontSize: typography.base, color: colors.text, paddingVertical: spacing.xs },
+  planDateWrap: { marginBottom: 0 },
+  planTotalCheck: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    backgroundColor: colors.primaryLight, borderRadius: radius.md,
+    padding: spacing.sm, marginBottom: spacing.sm,
+  },
+  planTotalLabel: { fontSize: typography.sm, fontWeight: '600', color: colors.text },
+  planTotalValue: { fontSize: typography.sm, fontWeight: '700' },
+  actionRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  actionFlex: { flex: 1 },
+  whatsappBtn: {
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#e8fdf0',
+    borderRadius: radius.md, padding: spacing.md,
+    borderWidth: 1.5, borderColor: '#25D366',
+  },
+  whatsappBtnText: { fontSize: typography.base, fontWeight: '700', color: '#128C7E' },
 });

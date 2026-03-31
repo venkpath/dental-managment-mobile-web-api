@@ -16,15 +16,17 @@ export class S3Service {
   constructor() {
     this.bucket = process.env.S3_BUCKET_NAME ?? '';
     this.expiresIn = parseInt(process.env.S3_SIGNED_URL_EXPIRES ?? '3600', 10);
+    const region = process.env.AWS_REGION ?? 'eu-north-1';
     this.client = new S3Client({
-      region: process.env.AWS_REGION ?? 'eu-north-1',
+      region,
+      // Explicitly pin to the regional endpoint — avoids PermanentRedirect
+      // when bucket name contains dots (virtual-hosted-style SSL breaks on dotted names)
+      endpoint: `https://s3.${region}.amazonaws.com`,
+      forcePathStyle: true,
       credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID ?? '',
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? '',
       },
-      // Required when bucket name contains dots (e.g. "smartdentaldesk.com")
-      // Virtual-hosted-style URLs break SSL with dotted bucket names
-      forcePathStyle: true,
     });
   }
 

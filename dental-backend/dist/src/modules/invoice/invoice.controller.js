@@ -47,6 +47,13 @@ let InvoiceController = class InvoiceController {
     async getPdfUrl(clinicId, id) {
         return this.invoiceService.getPdfUrl(clinicId, id);
     }
+    async invoiceRedirect(id, clinicId) {
+        const { url } = await this.invoiceService.getPdfUrl(clinicId, id);
+        return { url, statusCode: 302 };
+    }
+    async sendWhatsApp(clinicId, id) {
+        return this.invoiceService.sendWhatsApp(clinicId, id);
+    }
 };
 exports.InvoiceController = InvoiceController;
 __decorate([
@@ -133,6 +140,29 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], InvoiceController.prototype, "getPdfUrl", null);
+__decorate([
+    (0, common_1.Get)('public/invoice-redirect/:id'),
+    (0, common_1.Redirect)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Redirect WhatsApp button tap to a fresh S3 signed PDF URL' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Query)('clinic')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], InvoiceController.prototype, "invoiceRedirect", null);
+__decorate([
+    (0, common_1.Post)('invoices/:id/send-whatsapp'),
+    (0, swagger_1.ApiOperation)({ summary: 'Send invoice PDF link to patient via WhatsApp' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'WhatsApp message sent' }),
+    (0, swagger_1.ApiNotFoundResponse)({ description: 'Invoice not found' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], InvoiceController.prototype, "sendWhatsApp", null);
 exports.InvoiceController = InvoiceController = __decorate([
     (0, swagger_1.ApiTags)('Invoices & Payments'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' }),
