@@ -56,7 +56,9 @@ async function bootstrap() {
     app.useGlobalInterceptors(new audit_log_interceptor_js_1.AuditLogInterceptor(auditLogService), new response_interceptor_js_1.ResponseInterceptor());
     (0, swagger_config_js_1.setupSwagger)(app);
     const port = process.env['PORT'] || 3000;
-    await app.listen(port);
+    const server = await app.listen(port);
+    server.keepAliveTimeout = 120000;
+    server.headersTimeout = 125000;
 }
 void bootstrap();
 //# sourceMappingURL=main.js.map
