@@ -17,12 +17,14 @@ export class S3Service {
     this.bucket = process.env.S3_BUCKET_NAME ?? '';
     this.expiresIn = parseInt(process.env.S3_SIGNED_URL_EXPIRES ?? '3600', 10);
     this.client = new S3Client({
-      region: process.env.AWS_REGION ?? 'ap-south-1',
+      region: process.env.AWS_REGION ?? 'eu-north-1',
       credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID ?? '',
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? '',
       },
-      followRegionRedirects: true,
+      // Required when bucket name contains dots (e.g. "smartdentaldesk.com")
+      // Virtual-hosted-style URLs break SSL with dotted bucket names
+      forcePathStyle: true,
     });
   }
 

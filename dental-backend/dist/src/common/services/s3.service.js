@@ -23,12 +23,12 @@ let S3Service = S3Service_1 = class S3Service {
         this.bucket = process.env.S3_BUCKET_NAME ?? '';
         this.expiresIn = parseInt(process.env.S3_SIGNED_URL_EXPIRES ?? '3600', 10);
         this.client = new client_s3_1.S3Client({
-            region: process.env.AWS_REGION ?? 'ap-south-1',
+            region: process.env.AWS_REGION ?? 'eu-north-1',
             credentials: {
                 accessKeyId: process.env.AWS_ACCESS_KEY_ID ?? '',
                 secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? '',
             },
-            followRegionRedirects: true,
+            forcePathStyle: true,
         });
     }
     async upload(key, body, contentType) {
