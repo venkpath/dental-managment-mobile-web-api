@@ -190,6 +190,22 @@ export class CommunicationService {
       }
     }
 
+    // Allow direct WhatsApp template sending without a DB template record.
+    // Caller sets metadata.whatsapp_template_name = 'my_template_name' and passes
+    // numbered variables {"1": val1, "2": val2, ...} in dto.variables.
+    if (dto.channel === 'whatsapp' && !whatsappTemplateName && dto.metadata?.['whatsapp_template_name']) {
+      whatsappTemplateName = dto.metadata['whatsapp_template_name'] as string;
+      whatsappLanguage = (dto.metadata['whatsapp_language'] as string) || 'en';
+      if (dto.variables) {
+        const numberedKeys = Object.keys(dto.variables).filter(k => /^\d+$/.test(k));
+        if (numberedKeys.length > 0) {
+          whatsappOrderedVars = numberedKeys
+            .sort((a, b) => Number(a) - Number(b))
+            .map(k => dto.variables![k]);
+        }
+      }
+    }
+
     // SMS DLT compliance: when no template is linked, auto-resolve from env default.
     // This finds the DB template matching the default DLT ID and uses its body,
     // ensuring the SMS body always matches the registered DLT pattern.

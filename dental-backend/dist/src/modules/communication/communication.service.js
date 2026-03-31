@@ -149,6 +149,18 @@ let CommunicationService = class CommunicationService {
                 this.logger.debug(`[WhatsApp] template="${whatsappTemplateName}" lang="${whatsappLanguage}" vars=${whatsappOrderedVars?.length ?? 0} (db_vars=${templateVarNames.length}, dto_vars=${dto.variables ? Object.keys(dto.variables).length : 0}, buttons=${templateButtons.length})`);
             }
         }
+        if (dto.channel === 'whatsapp' && !whatsappTemplateName && dto.metadata?.['whatsapp_template_name']) {
+            whatsappTemplateName = dto.metadata['whatsapp_template_name'];
+            whatsappLanguage = dto.metadata['whatsapp_language'] || 'en';
+            if (dto.variables) {
+                const numberedKeys = Object.keys(dto.variables).filter(k => /^\d+$/.test(k));
+                if (numberedKeys.length > 0) {
+                    whatsappOrderedVars = numberedKeys
+                        .sort((a, b) => Number(a) - Number(b))
+                        .map(k => dto.variables[k]);
+                }
+            }
+        }
         if (dto.channel === 'sms' && !dltTemplateId) {
             const defaultDltId = this.configService.get('app.sms.defaultDltTemplateId');
             if (defaultDltId) {

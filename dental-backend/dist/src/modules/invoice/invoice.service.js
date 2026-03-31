@@ -343,7 +343,11 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                 '5': clinicPhone,
                 '6': redirectUrl,
             },
-            metadata: { automation: 'invoice_pdf', invoice_id: invoiceId },
+            metadata: {
+                automation: 'invoice_pdf',
+                invoice_id: invoiceId,
+                whatsapp_template_name: 'dental_invoice_ready',
+            },
         });
         return { message: 'Invoice sent via WhatsApp' };
     }
