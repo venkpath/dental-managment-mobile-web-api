@@ -12,7 +12,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PrescriptionService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
+const communication_service_js_1 = require("../communication/communication.service.js");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
+const prescription_pdf_service_js_1 = require("./prescription-pdf.service.js");
+const s3_service_js_1 = require("../../common/services/s3.service.js");
 const PRESCRIPTION_INCLUDE = {
     items: true,
     patient: true,
@@ -21,8 +24,14 @@ const PRESCRIPTION_INCLUDE = {
 };
 let PrescriptionService = class PrescriptionService {
     prisma;
-    constructor(prisma) {
+    pdfService;
+    s3Service;
+    communicationService;
+    constructor(prisma, pdfService, s3Service, communicationService) {
         this.prisma = prisma;
+        this.pdfService = pdfService;
+        this.s3Service = s3Service;
+        this.communicationService = communicationService;
     }
     async create(clinicId, dto) {
         const [branch, patient, dentist] = await Promise.all([
@@ -116,6 +125,90 @@ let PrescriptionService = class PrescriptionService {
             });
         });
     }
+    async getPdfUrl(clinicId, id) {
+        const prescription = await this.findOne(clinicId, id);
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: { name: true, phone: true, email: true, address: true, city: true, state: true },
+        });
+        if (!clinic)
+            throw new common_1.NotFoundException('Clinic not found');
+        const branch = prescription.branch;
+        const patient = prescription.patient;
+        const dentist = prescription.dentist;
+        const pdfBuffer = await this.pdfService.generate({
+            id: prescription.id,
+            created_at: prescription.created_at,
+            diagnosis: prescription.diagnosis,
+            instructions: prescription.instructions,
+            clinic: {
+                name: clinic.name,
+                phone: clinic.phone,
+                email: clinic.email,
+                address: clinic.address,
+                city: clinic.city,
+                state: clinic.state,
+            },
+            branch: {
+                name: branch?.name ?? clinic.name,
+                phone: branch?.phone,
+                address: branch?.address,
+                city: branch?.city,
+                state: branch?.state,
+            },
+            patient: {
+                first_name: patient.first_name,
+                last_name: patient.last_name,
+                phone: patient.phone,
+                email: patient.email,
+                date_of_birth: patient.date_of_birth,
+                gender: patient.gender,
+                mr_number: patient.mr_number,
+            },
+            dentist: {
+                name: dentist?.name ?? 'Unknown',
+                specialization: dentist?.specialization,
+                qualification: dentist?.qualification,
+                license_number: dentist?.license_number,
+            },
+            items: prescription.items ?? [],
+        });
+        const key = `clinics/${clinicId}/prescriptions/${id}/prescription.pdf`;
+        await this.s3Service.upload(key, pdfBuffer, 'application/pdf');
+        const url = await this.s3Service.getSignedUrl(key);
+        return { url };
+    }
+    async sendWhatsApp(clinicId, id) {
+        const prescription = await this.findOne(clinicId, id);
+        await this.getPdfUrl(clinicId, id);
+        const patient = prescription.patient;
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: { name: true, phone: true },
+        });
+        const patientName = `${patient.first_name} ${patient.last_name}`;
+        const clinicName = clinic?.name ?? 'your clinic';
+        const clinicPhone = clinic?.phone ?? '';
+        const redirectUrl = `https://smartdentaldesk.com/api/v1/public/prescription-redirect/${id}?clinic=${clinicId}`;
+        await this.communicationService.sendMessage(clinicId, {
+            patient_id: prescription.patient_id,
+            channel: 'whatsapp',
+            category: 'transactional',
+            body: `Hello ${patientName},\n\nYour prescription has been generated.\n\nClinic: ${clinicName}\n\nView & Download Prescription:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
+            variables: {
+                '1': patientName,
+                '2': clinicName,
+                '3': redirectUrl,
+                '4': clinicPhone,
+            },
+            metadata: {
+                automation: 'prescription_pdf',
+                prescription_id: id,
+                whatsapp_template_name: 'dental_prescription_ready',
+            },
+        });
+        return { message: 'Prescription sent via WhatsApp' };
+    }
     async findByPatient(clinicId, patientId) {
         const patient = await this.prisma.patient.findUnique({ where: { id: patientId } });
         if (!patient || patient.clinic_id !== clinicId) {
@@ -131,6 +224,9 @@ let PrescriptionService = class PrescriptionService {
 exports.PrescriptionService = PrescriptionService;
 exports.PrescriptionService = PrescriptionService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
+        prescription_pdf_service_js_1.PrescriptionPdfService,
+        s3_service_js_1.S3Service,
+        communication_service_js_1.CommunicationService])
 ], PrescriptionService);
 //# sourceMappingURL=prescription.service.js.map

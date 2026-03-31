@@ -12,7 +12,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PrescriptionController = void 0;
+exports.PrescriptionController = exports.PrescriptionPublicController = void 0;
 const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
@@ -20,6 +20,33 @@ const prescription_service_js_1 = require("./prescription.service.js");
 const index_js_1 = require("./dto/index.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
+let PrescriptionPublicController = class PrescriptionPublicController {
+    prescriptionService;
+    constructor(prescriptionService) {
+        this.prescriptionService = prescriptionService;
+    }
+    async prescriptionRedirect(id, clinicId) {
+        const { url } = await this.prescriptionService.getPdfUrl(clinicId, id);
+        return { url, statusCode: 302 };
+    }
+};
+exports.PrescriptionPublicController = PrescriptionPublicController;
+__decorate([
+    (0, common_1.Get)('public/prescription-redirect/:id'),
+    (0, common_1.Redirect)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Redirect WhatsApp link to a fresh S3 signed prescription PDF URL' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Query)('clinic')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], PrescriptionPublicController.prototype, "prescriptionRedirect", null);
+exports.PrescriptionPublicController = PrescriptionPublicController = __decorate([
+    (0, swagger_1.ApiTags)('Prescriptions'),
+    (0, common_1.Controller)(),
+    __metadata("design:paramtypes", [prescription_service_js_1.PrescriptionService])
+], PrescriptionPublicController);
 let PrescriptionController = class PrescriptionController {
     prescriptionService;
     constructor(prescriptionService) {
@@ -36,6 +63,12 @@ let PrescriptionController = class PrescriptionController {
     }
     async update(clinicId, id, dto) {
         return this.prescriptionService.update(clinicId, id, dto);
+    }
+    async getPdfUrl(clinicId, id) {
+        return this.prescriptionService.getPdfUrl(clinicId, id);
+    }
+    async sendWhatsApp(clinicId, id) {
+        return this.prescriptionService.sendWhatsApp(clinicId, id);
     }
     async findByPatient(clinicId, patientId) {
         return this.prescriptionService.findByPatient(clinicId, patientId);
@@ -89,6 +122,28 @@ __decorate([
     __metadata("design:paramtypes", [String, String, index_js_1.UpdatePrescriptionDto]),
     __metadata("design:returntype", Promise)
 ], PrescriptionController.prototype, "update", null);
+__decorate([
+    (0, common_1.Get)('prescriptions/:id/pdf'),
+    (0, swagger_1.ApiOperation)({ summary: 'Generate prescription PDF and return a signed S3 URL' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Signed URL to prescription PDF' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], PrescriptionController.prototype, "getPdfUrl", null);
+__decorate([
+    (0, common_1.Post)('prescriptions/:id/send-whatsapp'),
+    (0, swagger_1.ApiOperation)({ summary: 'Send prescription PDF link to patient via WhatsApp' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'WhatsApp message sent' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], PrescriptionController.prototype, "sendWhatsApp", null);
 __decorate([
     (0, common_1.Get)('patients/:patientId/prescriptions'),
     (0, swagger_1.ApiOperation)({ summary: 'Get all prescriptions for a patient' }),

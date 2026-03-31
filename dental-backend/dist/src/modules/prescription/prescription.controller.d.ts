@@ -1,5 +1,13 @@
 import { PrescriptionService } from './prescription.service.js';
 import { CreatePrescriptionDto, UpdatePrescriptionDto, QueryPrescriptionDto } from './dto/index.js';
+export declare class PrescriptionPublicController {
+    private readonly prescriptionService;
+    constructor(prescriptionService: PrescriptionService);
+    prescriptionRedirect(id: string, clinicId: string): Promise<{
+        url: string;
+        statusCode: number;
+    }>;
+}
 export declare class PrescriptionController {
     private readonly prescriptionService;
     constructor(prescriptionService: PrescriptionService);
@@ -42,6 +50,12 @@ export declare class PrescriptionController {
         dentist_id: string;
         diagnosis: string;
         instructions: string | null;
+    }>;
+    getPdfUrl(clinicId: string, id: string): Promise<{
+        url: string;
+    }>;
+    sendWhatsApp(clinicId: string, id: string): Promise<{
+        message: string;
     }>;
     findByPatient(clinicId: string, patientId: string): Promise<{
         id: string;

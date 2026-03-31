@@ -8,6 +8,7 @@ import {
   Query,
   ParseUUIDPipe,
   UseGuards,
+  Redirect,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -22,6 +23,24 @@ import { PrescriptionService } from './prescription.service.js';
 import { CreatePrescriptionDto, UpdatePrescriptionDto, QueryPrescriptionDto } from './dto/index.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
+
+/** Public — no auth guard. Used for WhatsApp prescription link redirect. */
+@ApiTags('Prescriptions')
+@Controller()
+export class PrescriptionPublicController {
+  constructor(private readonly prescriptionService: PrescriptionService) {}
+
+  @Get('public/prescription-redirect/:id')
+  @Redirect()
+  @ApiOperation({ summary: 'Redirect WhatsApp link to a fresh S3 signed prescription PDF URL' })
+  async prescriptionRedirect(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('clinic') clinicId: string,
+  ) {
+    const { url } = await this.prescriptionService.getPdfUrl(clinicId, id);
+    return { url, statusCode: 302 };
+  }
+}
 
 @ApiTags('Prescriptions')
 @ApiHeader({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' })
@@ -72,6 +91,26 @@ export class PrescriptionController {
     @Body() dto: UpdatePrescriptionDto,
   ) {
     return this.prescriptionService.update(clinicId, id, dto);
+  }
+
+  @Get('prescriptions/:id/pdf')
+  @ApiOperation({ summary: 'Generate prescription PDF and return a signed S3 URL' })
+  @ApiOkResponse({ description: 'Signed URL to prescription PDF' })
+  async getPdfUrl(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.prescriptionService.getPdfUrl(clinicId, id);
+  }
+
+  @Post('prescriptions/:id/send-whatsapp')
+  @ApiOperation({ summary: 'Send prescription PDF link to patient via WhatsApp' })
+  @ApiOkResponse({ description: 'WhatsApp message sent' })
+  async sendWhatsApp(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.prescriptionService.sendWhatsApp(clinicId, id);
   }
 
   @Get('patients/:patientId/prescriptions')

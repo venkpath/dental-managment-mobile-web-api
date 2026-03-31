@@ -1,13 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList,
-  RefreshControl, ActivityIndicator,
+  RefreshControl, ActivityIndicator, TouchableOpacity, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { userService, type Prescription } from '../../services/user.service';
+import api from '../../services/api';
 import EmptyState from '../../components/EmptyState';
 import ScreenHeader from '../../components/ScreenHeader';
 import { colors, spacing, typography, radius, shadow } from '../../theme';
@@ -26,6 +27,7 @@ export default function PatientPrescriptionsScreen() {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [sendingId, setSendingId] = useState<string | null>(null);
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -41,6 +43,18 @@ export default function PatientPrescriptionsScreen() {
   }, [patientId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const handleSendWhatsApp = async (prescriptionId: string) => {
+    setSendingId(prescriptionId);
+    try {
+      await api.post(`/prescriptions/${prescriptionId}/send-whatsapp`);
+      Alert.alert('Sent', 'Prescription sent to patient via WhatsApp');
+    } catch {
+      Alert.alert('Error', 'Failed to send WhatsApp');
+    } finally {
+      setSendingId(null);
+    }
+  };
 
   const renderItem = ({ item }: { item: Prescription }) => (
     <View style={styles.card}>
@@ -86,6 +100,16 @@ export default function PatientPrescriptionsScreen() {
       {item.instructions && (
         <Text style={styles.notes}>📝 {item.instructions}</Text>
       )}
+
+      <TouchableOpacity
+        style={[styles.whatsappBtn, sendingId === item.id && styles.whatsappBtnDisabled]}
+        onPress={() => handleSendWhatsApp(item.id)}
+        disabled={sendingId === item.id}
+      >
+        <Text style={styles.whatsappBtnText}>
+          {sendingId === item.id ? 'Sending...' : '📤 Send WhatsApp'}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -165,4 +189,14 @@ const styles = StyleSheet.create({
   medicineDetails: { fontSize: typography.xs, color: colors.primary, marginTop: 1 },
   medicineInstructions: { fontSize: typography.xs, color: colors.textMuted, marginTop: 1 },
   notes: { fontSize: typography.xs, color: colors.textMuted, marginTop: spacing.sm },
+  whatsappBtn: {
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: '#25D366',
+    borderRadius: radius.sm,
+    paddingVertical: 6,
+    alignItems: 'center',
+  },
+  whatsappBtnDisabled: { borderColor: colors.border, opacity: 0.6 },
+  whatsappBtnText: { fontSize: typography.xs, fontWeight: '600', color: '#128C7E' },
 });
