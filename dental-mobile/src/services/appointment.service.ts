@@ -1,15 +1,16 @@
 import api from './api';
-import type { Appointment, PaginatedResponse } from '../types';
+import type { Appointment, AvailableSlot, PaginatedResponse } from '../types';
 
 export const appointmentService = {
   list: async (params?: {
     page?: number;
+    limit?: number;
     date?: string;
     dentist_id?: string;
     status?: string;
   }): Promise<PaginatedResponse<Appointment>> => {
     const { data } = await api.get('/appointments', {
-      params: { page: 1, limit: 30, ...params },
+      params: { page: 1, limit: 20, ...params },
     });
     return data;
   },
@@ -46,5 +47,18 @@ export const appointmentService = {
   }): Promise<Appointment> => {
     const { data } = await api.post<Appointment>('/appointments', payload);
     return data;
+  },
+
+  getAvailableSlots: async (params: {
+    branch_id: string;
+    dentist_id: string;
+    date: string;
+  }): Promise<AvailableSlot[]> => {
+    const { data } = await api.get<AvailableSlot[]>('/appointments/available-slots', { params });
+    return Array.isArray(data) ? data : [];
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/appointments/${id}`);
   },
 };

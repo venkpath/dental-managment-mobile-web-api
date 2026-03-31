@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Linking,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/native';
@@ -39,6 +40,7 @@ export default function PatientDetailScreen() {
   const { patientId } = route.params;
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
   const bottomInset = useBottomInset();
 
   useFocusEffect(
@@ -74,6 +76,30 @@ export default function PatientDetailScreen() {
 
   const fullName = `${patient.first_name} ${patient.last_name}`;
   const initials = `${patient.first_name[0] ?? ''}${patient.last_name[0] ?? ''}`.toUpperCase();
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Patient',
+      `Are you sure you want to delete ${fullName}? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await patientService.delete(patientId);
+              navigation.goBack();
+            } catch (err: unknown) {
+              Alert.alert('Error', err instanceof Error ? err.message : 'Failed to delete patient');
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -140,7 +166,7 @@ export default function PatientDetailScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={() => Linking.openURL(`https://wa.me/91${patient.phone}`)}
+            onPress={() => Linking.openURL(`https://wa.me/${patient.phone.startsWith('+') ? patient.phone.slice(1) : `91${patient.phone}`}`)}
           >
             <Text style={styles.actionIcon}>💬</Text>
             <Text style={styles.actionText}>WhatsApp</Text>
@@ -174,6 +200,14 @@ export default function PatientDetailScreen() {
             <Text style={styles.recordArrow}>›</Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          style={[styles.deleteBtn, deleting && styles.deleteBtnDisabled]}
+          onPress={handleDelete}
+          disabled={deleting}
+        >
+          <Text style={styles.deleteBtnText}>{deleting ? 'Deleting…' : '🗑 Delete Patient'}</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -247,4 +281,14 @@ const styles = StyleSheet.create({
   recordIcon: { fontSize: 22 },
   recordTitle: { flex: 1, fontSize: typography.base, fontWeight: '600', color: colors.text },
   recordArrow: { fontSize: 20, color: colors.textMuted },
+  deleteBtn: {
+    borderWidth: 1.5,
+    borderColor: colors.danger,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  deleteBtnDisabled: { opacity: 0.5 },
+  deleteBtnText: { fontSize: typography.base, fontWeight: '600', color: colors.danger },
 });

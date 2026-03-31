@@ -23,4 +23,8 @@ export const patientService = {
     const { data } = await api.patch<Patient>(`/patients/${id}`, payload);
     return data;
   },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/patients/${id}`);
+  },
 };

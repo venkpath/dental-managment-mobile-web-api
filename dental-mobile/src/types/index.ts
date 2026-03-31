@@ -24,9 +24,11 @@ export interface Patient {
   last_name: string;
   phone: string;
   email?: string;
-  gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  gender?: 'Male' | 'Female' | 'Other';
   date_of_birth?: string;
+  age?: number;
   blood_group?: string;
+  allergies?: string;
   medical_history?: Record<string, unknown>;
   notes?: string;
   created_at: string;
@@ -107,6 +109,12 @@ export interface Invoice {
   payments?: InvoicePayment[];
   installment_plan?: InstallmentPlan;
   created_at: string;
+}
+
+export interface AvailableSlot {
+  start_time: string;
+  end_time: string;
+  available: boolean;
 }
 
 export interface DashboardSummary {

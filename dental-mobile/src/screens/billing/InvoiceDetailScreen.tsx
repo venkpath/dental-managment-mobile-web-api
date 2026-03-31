@@ -35,19 +35,27 @@ export default function InvoiceDetailScreen() {
   const { invoiceId } = route.params;
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [method, setMethod] = useState<'cash' | 'card' | 'upi'>('cash');
   const [payAmount, setPayAmount] = useState('');
   const [payNotes, setPayNotes] = useState('');
   const [paying, setPaying] = useState(false);
   const [showPayForm, setShowPayForm] = useState(false);
   const [selectedInstallmentId, setSelectedInstallmentId] = useState<string | undefined>();
+  const [showPlanForm, setShowPlanForm] = useState(false);
+  const [numInstallments, setNumInstallments] = useState('3');
+  const [planNotes, setPlanNotes] = useState('');
+  const [creatingPlan, setCreatingPlan] = useState(false);
   const bottomInset = useBottomInset();
 
   const load = useCallback(() => {
     invoiceService.get(invoiceId).then((inv) => {
       setInvoice(inv);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch(() => {
+      setLoadError(true);
+      setLoading(false);
+    });
   }, [invoiceId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -96,10 +104,48 @@ export default function InvoiceDetailScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScreenHeader title="Invoice" onBack={() => navigation.goBack()} />
-        <View style={styles.center}><Text style={styles.errorText}>Invoice not found</Text></View>
+        <View style={styles.center}>
+          <Text style={styles.errorText}>
+            {loadError ? 'Failed to load invoice. Please go back and try again.' : 'Invoice not found'}
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }
+
+  const handleCreatePlan = async () => {
+    const n = parseInt(numInstallments, 10);
+    if (!n || n < 2 || n > 24) { Alert.alert('Invalid', 'Enter a number between 2 and 24'); return; }
+    const base = Math.floor((balanceDue / n) * 100) / 100;
+    const remainder = Math.round((balanceDue - base * n) * 100) / 100;
+    const today = new Date();
+    const items = Array.from({ length: n }, (_, i) => {
+      const due = new Date(today);
+      due.setMonth(due.getMonth() + i + 1);
+      const amount = i === n - 1 ? Math.round((base + remainder) * 100) / 100 : base;
+      return {
+        installment_number: i + 1,
+        amount,
+        due_date: due.toISOString().split('T')[0],
+      };
+    });
+    setCreatingPlan(true);
+    try {
+      await invoiceService.createInstallmentPlan(invoiceId, {
+        notes: planNotes.trim() || undefined,
+        items,
+      });
+      load();
+      setShowPlanForm(false);
+      setNumInstallments('3');
+      setPlanNotes('');
+      Alert.alert('Plan Created', `Split into ${n} monthly installments`);
+    } catch (err: unknown) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to create plan');
+    } finally {
+      setCreatingPlan(false);
+    }
+  };
 
   const paidAmount = invoice.payments?.reduce((s, p) => s + Number(p.amount), 0) ?? 0;
   const balanceDue = Number(invoice.net_amount) - paidAmount;
@@ -283,6 +329,63 @@ export default function InvoiceDetailScreen() {
                 <Text style={styles.paymentTotalValue}>₹{paidAmount.toLocaleString('en-IN')}</Text>
               </View>
             )}
+          </Card>
+        )}
+
+        {/* ── Create Installment Plan ── */}
+        {!isPaid && !invoice.installment_plan && !showPlanForm && (
+          <TouchableOpacity style={styles.createPlanBtn} onPress={() => setShowPlanForm(true)}>
+            <Text style={styles.createPlanText}>📅 Create Installment Plan</Text>
+          </TouchableOpacity>
+        )}
+
+        {!isPaid && !invoice.installment_plan && showPlanForm && (
+          <Card>
+            <Text style={styles.cardTitle}>Create Installment Plan</Text>
+            <Text style={styles.planHint}>
+              Balance ₹{balanceDue.toLocaleString('en-IN')} will be split into equal monthly installments.
+            </Text>
+
+            <Text style={styles.fieldLabel}>Number of Installments (2–24)</Text>
+            <View style={styles.amountInputWrap}>
+              <TextInput
+                style={styles.amountInput}
+                value={numInstallments}
+                onChangeText={setNumInstallments}
+                keyboardType="number-pad"
+                maxLength={2}
+                placeholder="3"
+                placeholderTextColor={colors.textMuted}
+              />
+            </View>
+
+            {/* Preview */}
+            {(() => {
+              const n = parseInt(numInstallments, 10);
+              if (!n || n < 2 || n > 24) return null;
+              const base = Math.floor((balanceDue / n) * 100) / 100;
+              return (
+                <View style={styles.planPreview}>
+                  <Text style={styles.planPreviewText}>
+                    {n} installments × ₹{base.toLocaleString('en-IN')} each (monthly)
+                  </Text>
+                </View>
+              );
+            })()}
+
+            <Text style={styles.fieldLabel}>Notes (optional)</Text>
+            <TextInput
+              style={styles.notesInput}
+              value={planNotes}
+              onChangeText={setPlanNotes}
+              placeholder="e.g. RCT treatment plan"
+              placeholderTextColor={colors.textMuted}
+            />
+
+            <View style={styles.formBtns}>
+              <Button title="Cancel" onPress={() => setShowPlanForm(false)} variant="outline" style={styles.flex} />
+              <Button title="Create Plan" onPress={handleCreatePlan} loading={creatingPlan} style={styles.flex} />
+            </View>
           </Card>
         )}
 
@@ -505,4 +608,16 @@ const styles = StyleSheet.create({
     padding: spacing.md, alignItems: 'center',
   },
   paidText: { fontSize: typography.base, fontWeight: '600', color: colors.success },
+
+  createPlanBtn: {
+    borderWidth: 1.5, borderColor: colors.primary, borderStyle: 'dashed',
+    borderRadius: radius.lg, padding: spacing.md, alignItems: 'center',
+  },
+  createPlanText: { fontSize: typography.base, fontWeight: '600', color: colors.primary },
+  planHint: { fontSize: typography.sm, color: colors.textSecondary, marginBottom: spacing.md },
+  planPreview: {
+    backgroundColor: colors.primaryLight, borderRadius: radius.md,
+    padding: spacing.sm, marginTop: spacing.xs, marginBottom: spacing.sm,
+  },
+  planPreviewText: { fontSize: typography.sm, color: colors.primaryDark, fontWeight: '600', textAlign: 'center' },
 });

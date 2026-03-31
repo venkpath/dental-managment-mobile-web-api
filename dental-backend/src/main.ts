@@ -77,6 +77,9 @@ async function bootstrap() {
   setupSwagger(app);
 
   const port = process.env['PORT'] || 3000;
-  await app.listen(port);
+  const server = await app.listen(port);
+  // Increase timeout to handle slow AI requests (image extraction can take 60s+)
+  server.keepAliveTimeout = 120000;
+  server.headersTimeout = 125000;
 }
 void bootstrap();

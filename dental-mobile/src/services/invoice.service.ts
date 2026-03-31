@@ -37,4 +37,18 @@ export const invoiceService = {
   ): Promise<void> => {
     await api.post(`/payments`, { invoice_id: invoiceId, ...payload });
   },
+
+  createInstallmentPlan: async (
+    invoiceId: string,
+    payload: {
+      notes?: string;
+      items: Array<{ installment_number: number; amount: number; due_date: string }>;
+    }
+  ): Promise<void> => {
+    await api.post(`/invoices/${invoiceId}/installment-plan`, payload);
+  },
+
+  deleteInstallmentPlan: async (invoiceId: string): Promise<void> => {
+    await api.delete(`/invoices/${invoiceId}/installment-plan`);
+  },
 };

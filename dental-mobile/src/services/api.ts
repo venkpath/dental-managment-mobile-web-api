@@ -1,5 +1,8 @@
 import axios from 'axios';
+import { Alert } from 'react-native';
 import { useAuthStore } from '../store/auth.store';
+
+let isShowingSessionExpiredAlert = false;
 
 const BASE_URL = 'https://api.smartdentaldesk.com/api/v1';
 
@@ -30,7 +33,20 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      useAuthStore.getState().logout();
+      if (!isShowingSessionExpiredAlert) {
+        isShowingSessionExpiredAlert = true;
+        Alert.alert(
+          'Session Expired',
+          'Your session has expired. Please log in again.',
+          [{
+            text: 'OK',
+            onPress: () => {
+              isShowingSessionExpiredAlert = false;
+              useAuthStore.getState().logout();
+            },
+          }]
+        );
+      }
     }
     const apiError = error.response?.data;
     if (apiError?.error) {

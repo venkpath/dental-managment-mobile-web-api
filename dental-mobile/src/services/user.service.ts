@@ -25,11 +25,15 @@ export interface Prescription {
 }
 
 export const userService = {
-  // Fetch all staff (used to pick dentists for booking)
+  // Fetch dentists + admins (used to pick dentists for booking)
   listStaff: async (): Promise<StaffUser[]> => {
-    const { data } = await api.get('/users', { params: { limit: 100 } });
-    const items: StaffUser[] = Array.isArray(data) ? data : (data as any)?.data ?? [];
-    return items.filter((u) => u.role === 'DENTIST' || u.role === 'ADMIN');
+    const [dentistsRes, adminsRes] = await Promise.all([
+      api.get('/users', { params: { role: 'Dentist' } }),
+      api.get('/users', { params: { role: 'Admin' } }),
+    ]);
+    const dentists: StaffUser[] = Array.isArray(dentistsRes.data) ? dentistsRes.data : (dentistsRes.data as any)?.data ?? [];
+    const admins: StaffUser[] = Array.isArray(adminsRes.data) ? adminsRes.data : (adminsRes.data as any)?.data ?? [];
+    return [...dentists, ...admins];
   },
 
   getMe: async (): Promise<StaffUser> => {

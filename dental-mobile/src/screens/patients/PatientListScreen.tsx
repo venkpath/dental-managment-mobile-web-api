@@ -31,18 +31,20 @@ export default function PatientListScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const loadPatients = useCallback(async (p = 1, q = '', refresh = false) => {
     if (p === 1) refresh ? setRefreshing(true) : setLoading(true);
     else setLoadingMore(true);
     try {
+      setLoadError(false);
       const res = await patientService.list(p, q);
       const items = res.data || [];
       setPatients(p === 1 ? items : (prev) => [...prev, ...items]);
       setHasMore(p < (res.meta?.totalPages ?? 1));
       setPage(p);
     } catch {
-      // ignore
+      if (p === 1) setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -86,7 +88,7 @@ export default function PatientListScreen() {
           </View>
           <View style={styles.meta}>
             {item.gender && (
-              <Text style={styles.genderBadge}>{item.gender === 'MALE' ? '♂' : item.gender === 'FEMALE' ? '♀' : '⚥'}</Text>
+              <Text style={styles.genderBadge}>{item.gender === 'Male' ? '♂' : item.gender === 'Female' ? '♀' : '⚥'}</Text>
             )}
             <Text style={styles.chevron}>›</Text>
           </View>
@@ -133,11 +135,15 @@ export default function PatientListScreen() {
           onEndReached={onLoadMore}
           onEndReachedThreshold={0.3}
           ListEmptyComponent={
-            <EmptyState
-              title="No patients found"
-              subtitle={search ? `No results for "${search}"` : 'Add your first patient to get started'}
-              icon="👤"
-            />
+            loadError ? (
+              <EmptyState title="Failed to load" subtitle="Pull down to retry" icon="⚠️" />
+            ) : (
+              <EmptyState
+                title="No patients found"
+                subtitle={search ? `No results for "${search}"` : 'Add your first patient to get started'}
+                icon="👤"
+              />
+            )
           }
           ListFooterComponent={loadingMore ? <ActivityIndicator style={{ padding: 16 }} color={colors.primary} /> : null}
           showsVerticalScrollIndicator={false}

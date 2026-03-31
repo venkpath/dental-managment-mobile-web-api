@@ -11,6 +11,7 @@ import { patientService } from '../../services/patient.service';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import ScreenHeader from '../../components/ScreenHeader';
+import DatePickerInput from '../../components/DatePickerInput';
 import { colors, spacing, typography, radius } from '../../theme';
 import { useBottomInset } from '../../hooks/useBottomInset';
 import type { PatientStackParamList } from '../../types';
@@ -18,8 +19,13 @@ import type { PatientStackParamList } from '../../types';
 type Route = RouteProp<PatientStackParamList, 'EditPatient'>;
 type Nav = NativeStackNavigationProp<PatientStackParamList>;
 
-const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
-type Gender = typeof GENDERS[number];
+const GENDERS = [
+  { value: 'Male', label: '♂ Male' },
+  { value: 'Female', label: '♀ Female' },
+  { value: 'Other', label: '⚥ Other' },
+] as const;
+
+type Gender = 'Male' | 'Female' | 'Other';
 
 export default function EditPatientScreen() {
   const route = useRoute<Route>();
@@ -31,7 +37,10 @@ export default function EditPatientScreen() {
   const [fetching, setFetching] = useState(true);
   const [form, setForm] = useState({
     first_name: '', last_name: '', phone: '', email: '',
-    gender: '' as Gender | '', date_of_birth: '', blood_group: '', notes: '',
+    gender: '' as Gender | '',
+    date_of_birth: '',
+    age: '',
+    blood_group: '', allergies: '', notes: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -44,7 +53,9 @@ export default function EditPatientScreen() {
         email: p.email ?? '',
         gender: (p.gender as Gender) ?? '',
         date_of_birth: p.date_of_birth ? p.date_of_birth.split('T')[0] : '',
+        age: p.age ? String(p.age) : '',
         blood_group: p.blood_group ?? '',
+        allergies: (p as any).allergies ?? '',
         notes: p.notes ?? '',
       });
     }).finally(() => setFetching(false));
@@ -61,6 +72,7 @@ export default function EditPatientScreen() {
     if (!form.last_name.trim()) e.last_name = 'Required';
     if (!form.phone.trim()) e.phone = 'Required';
     else if (!/^[6-9]\d{9}$/.test(form.phone.trim())) e.phone = 'Enter valid 10-digit number';
+    if (!form.gender) e.gender = 'Please select a gender';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -73,11 +85,13 @@ export default function EditPatientScreen() {
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         phone: form.phone.trim(),
+        gender: form.gender,
       };
       if (form.email.trim()) payload.email = form.email.trim();
-      if (form.gender) payload.gender = form.gender;
-      if (form.date_of_birth.trim()) payload.date_of_birth = form.date_of_birth.trim();
+      if (form.date_of_birth) payload.date_of_birth = form.date_of_birth;
+      if (form.age.trim() && !form.date_of_birth) payload.age = parseInt(form.age.trim(), 10);
       if (form.blood_group.trim()) payload.blood_group = form.blood_group.trim();
+      if (form.allergies.trim()) payload.allergies = form.allergies.trim();
       payload.notes = form.notes.trim();
 
       await patientService.update(patientId, payload as any);
@@ -122,28 +136,49 @@ export default function EditPatientScreen() {
           <Input label="Email" value={form.email} onChangeText={(v) => set('email', v)}
             keyboardType="email-address" autoCapitalize="none" />
 
-          <Text style={styles.sectionLabel}>Additional Details</Text>
+          <Text style={styles.sectionLabel}>Patient Details</Text>
+
+          {/* Gender */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Gender</Text>
-            <View style={styles.genderRow}>
+            <Text style={styles.fieldLabel}>Gender *</Text>
+            <View style={styles.pillRow}>
               {GENDERS.map((g) => (
-                <TouchableOpacity key={g} style={[styles.pill, form.gender === g && styles.pillActive]}
-                  onPress={() => set('gender', form.gender === g ? '' : g)}>
-                  <Text style={[styles.pillText, form.gender === g && styles.pillTextActive]}>
-                    {g === 'MALE' ? '♂ Male' : g === 'FEMALE' ? '♀ Female' : '⚥ Other'}
+                <TouchableOpacity key={g.value}
+                  style={[styles.pill, form.gender === g.value && styles.pillActive]}
+                  onPress={() => set('gender', form.gender === g.value ? '' : g.value)}
+                >
+                  <Text style={[styles.pillText, form.gender === g.value && styles.pillTextActive]}>
+                    {g.label}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
+            {errors.gender && <Text style={styles.errorText}>{errors.gender}</Text>}
           </View>
-          <Input label="Date of Birth (YYYY-MM-DD)" value={form.date_of_birth}
-            onChangeText={(v) => set('date_of_birth', v)} placeholder="1990-01-15" />
+
+          {/* Date of Birth with picker */}
+          <DatePickerInput
+            label="Date of Birth"
+            value={form.date_of_birth}
+            onChange={(v) => { set('date_of_birth', v); set('age', ''); }}
+          />
+
+          {/* Age — only if DOB not set */}
+          {!form.date_of_birth && (
+            <Input label="Age (if DOB unknown)" value={form.age} onChangeText={(v) => set('age', v)}
+              placeholder="e.g. 35" keyboardType="number-pad" maxLength={3} />
+          )}
+
           <Input label="Blood Group" value={form.blood_group}
-            onChangeText={(v) => set('blood_group', v.toUpperCase())} placeholder="A+, B-, O+..."
-            autoCapitalize="characters" maxLength={4} />
+            onChangeText={(v) => set('blood_group', v.toUpperCase())}
+            placeholder="A+, B-, O+..." autoCapitalize="characters" maxLength={4} />
+
+          <Input label="Allergies" value={form.allergies} onChangeText={(v) => set('allergies', v)}
+            placeholder="e.g. Penicillin, Latex" />
+
           <Input label="Notes" value={form.notes} onChangeText={(v) => set('notes', v)}
-            placeholder="Medical history, allergies..." multiline numberOfLines={3}
-            textAlignVertical="top" style={styles.textarea} />
+            placeholder="Medical history, special instructions..."
+            multiline numberOfLines={3} textAlignVertical="top" style={styles.textarea} />
 
           <Button title="Save Changes" onPress={handleSave} loading={loading} size="lg" />
         </ScrollView>
@@ -167,13 +202,14 @@ const styles = StyleSheet.create({
   half: { flex: 1 },
   fieldGroup: { marginBottom: spacing.md },
   fieldLabel: { fontSize: typography.sm, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
-  genderRow: { flexDirection: 'row', gap: spacing.sm },
+  pillRow: { flexDirection: 'row', gap: spacing.sm },
   pill: {
     flex: 1, paddingVertical: spacing.sm, borderRadius: radius.md,
     borderWidth: 1.5, borderColor: colors.border, alignItems: 'center',
   },
   pillActive: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
   pillText: { fontSize: typography.sm, color: colors.textSecondary, fontWeight: '500' },
-  pillTextActive: { color: colors.primary },
+  pillTextActive: { color: colors.primary, fontWeight: '700' },
+  errorText: { fontSize: typography.xs, color: colors.danger, marginTop: spacing.xs, fontWeight: '500' },
   textarea: { minHeight: 80, paddingTop: spacing.sm },
 });

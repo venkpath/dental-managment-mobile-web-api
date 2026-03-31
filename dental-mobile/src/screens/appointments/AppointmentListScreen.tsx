@@ -33,21 +33,31 @@ export default function AppointmentListScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<Filter>('Today');
+  const [loadError, setLoadError] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const loadAppointments = useCallback(async (f: Filter = filter) => {
-    setLoading(true);
+  const loadAppointments = useCallback(async (f: Filter = filter, p = 1) => {
+    if (p === 1) setLoading(true);
+    else setLoadingMore(true);
     try {
-      const params: Record<string, string> = {};
+      setLoadError(false);
+      const params: { page: number; limit: number; date?: string; status?: string } = { page: p, limit: 20 };
       if (f === 'Today') params.date = TODAY;
       if (f === 'Scheduled') params.status = 'scheduled';
       if (f === 'Completed') params.status = 'completed';
       const res = await appointmentService.list(params);
-      setAppointments(res.data || []);
+      const items = res.data || [];
+      setAppointments(p === 1 ? items : (prev) => [...prev, ...items]);
+      setHasMore(p < (res.meta?.totalPages ?? 1));
+      setPage(p);
     } catch {
-      // ignore
+      if (p === 1) setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
   }, [filter]);
 
@@ -59,7 +69,11 @@ export default function AppointmentListScreen() {
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadAppointments(filter);
+    loadAppointments(filter, 1);
+  };
+
+  const onLoadMore = () => {
+    if (!loadingMore && hasMore) loadAppointments(filter, page + 1);
   };
 
   const renderItem = ({ item }: { item: Appointment }) => (
@@ -133,12 +147,19 @@ export default function AppointmentListScreen() {
           renderItem={renderItem}
           contentContainerStyle={[styles.list, { paddingBottom: spacing['2xl'] + bottomInset }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+          onEndReached={onLoadMore}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={loadingMore ? <ActivityIndicator style={{ padding: 16 }} color={colors.primary} /> : null}
           ListEmptyComponent={
-            <EmptyState
-              title="No appointments"
-              subtitle={filter === 'Today' ? 'No appointments scheduled for today' : 'No appointments found'}
-              icon="📅"
-            />
+            loadError ? (
+              <EmptyState title="Failed to load" subtitle="Pull down to retry" icon="⚠️" />
+            ) : (
+              <EmptyState
+                title="No appointments"
+                subtitle={filter === 'Today' ? 'No appointments scheduled for today' : 'No appointments found'}
+                icon="📅"
+              />
+            )
           }
           showsVerticalScrollIndicator={false}
         />

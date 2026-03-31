@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Alert,
-  KeyboardAvoidingView, Platform, TouchableOpacity,
+  KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -9,11 +9,14 @@ import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { appointmentService } from '../../services/appointment.service';
 import { userService, type StaffUser } from '../../services/user.service';
+import { addMinutes } from '../../utils/time';
+import type { AvailableSlot } from '../../types';
 import { useAuthStore } from '../../store/auth.store';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import ScreenHeader from '../../components/ScreenHeader';
 import PatientSearchInput from '../../components/PatientSearchInput';
+import DatePickerInput from '../../components/DatePickerInput';
 import { colors, spacing, typography, radius } from '../../theme';
 import { useBottomInset } from '../../hooks/useBottomInset';
 import type { AppointmentStackParamList } from '../../types';
@@ -21,19 +24,6 @@ import type { AppointmentStackParamList } from '../../types';
 type Route = RouteProp<AppointmentStackParamList, 'BookAppointment'>;
 type Nav = NativeStackNavigationProp<AppointmentStackParamList>;
 
-// Quick time slots
-const TIME_SLOTS = [
-  '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-  '12:00', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00',
-];
-
-function addMinutes(time: string, mins: number): string {
-  const [h, m] = time.split(':').map(Number);
-  const total = h * 60 + m + mins;
-  const nh = Math.floor(total / 60) % 24;
-  const nm = total % 60;
-  return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
-}
 
 export default function BookAppointmentScreen() {
   const route = useRoute<Route>();
@@ -54,11 +44,20 @@ export default function BookAppointmentScreen() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [loadingDentists, setLoadingDentists] = useState(true);
+  const [dentistLoadError, setDentistLoadError] = useState(false);
   const [showDentists, setShowDentists] = useState(false);
   const [showSlots, setShowSlots] = useState(false);
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
 
   useFocusEffect(useCallback(() => {
-    userService.listStaff().then(setDentists).catch(() => {});
+    setLoadingDentists(true);
+    setDentistLoadError(false);
+    userService.listStaff()
+      .then(setDentists)
+      .catch(() => setDentistLoadError(true))
+      .finally(() => setLoadingDentists(false));
   }, []));
 
   const set = (field: string, value: string) => {
@@ -66,8 +65,26 @@ export default function BookAppointmentScreen() {
     setErrors((p) => ({ ...p, [field]: '' }));
   };
 
-  const pickTimeSlot = (slot: string) => {
-    setForm((p) => ({ ...p, start_time: slot, end_time: addMinutes(slot, 30) }));
+  const fetchSlots = useCallback(async (dentistId: string, date: string) => {
+    if (!branchId || !dentistId || !date) return;
+    setLoadingSlots(true);
+    setAvailableSlots([]);
+    try {
+      const slots = await appointmentService.getAvailableSlots({
+        branch_id: branchId,
+        dentist_id: dentistId,
+        date,
+      });
+      setAvailableSlots(slots);
+    } catch {
+      setAvailableSlots([]);
+    } finally {
+      setLoadingSlots(false);
+    }
+  }, [branchId]);
+
+  const pickTimeSlot = (slot: AvailableSlot) => {
+    setForm((p) => ({ ...p, start_time: slot.start_time, end_time: slot.end_time }));
     setErrors((p) => ({ ...p, start_time: '' }));
     setShowSlots(false);
   };
@@ -136,10 +153,27 @@ export default function BookAppointmentScreen() {
           {errors.dentist_id && <Text style={styles.errorText}>{errors.dentist_id}</Text>}
           {showDentists && (
             <View style={styles.dropdown}>
-              {dentists.map((d) => (
+              {loadingDentists ? (
+                <View style={styles.dropEmpty}>
+                  <Text style={styles.dropEmptyText}>Loading dentists...</Text>
+                </View>
+              ) : dentistLoadError ? (
+                <View style={styles.dropEmpty}>
+                  <Text style={styles.dropEmptyText}>Failed to load dentists. Close and try again.</Text>
+                </View>
+              ) : dentists.length === 0 ? (
+                <View style={styles.dropEmpty}>
+                  <Text style={styles.dropEmptyText}>No dentists found</Text>
+                </View>
+              ) : dentists.map((d) => (
                 <TouchableOpacity key={d.id}
                   style={[styles.dropItem, form.dentist_id === d.id && styles.dropItemActive]}
-                  onPress={() => { set('dentist_id', d.id); setShowDentists(false); }}>
+                  onPress={() => {
+                    set('dentist_id', d.id);
+                    setShowDentists(false);
+                    setForm((p) => ({ ...p, start_time: '', end_time: '' }));
+                    fetchSlots(d.id, form.appointment_date);
+                  }}>
                   <Text style={[styles.dropText, form.dentist_id === d.id && styles.dropTextActive]}>
                     Dr. {d.name}
                   </Text>
@@ -148,57 +182,63 @@ export default function BookAppointmentScreen() {
             </View>
           )}
 
-          <Input
+          <DatePickerInput
             label="Date *"
             value={form.appointment_date}
-            onChangeText={(v) => set('appointment_date', v)}
-            placeholder="YYYY-MM-DD"
-            keyboardType="numbers-and-punctuation"
+            onChange={(v) => {
+              set('appointment_date', v);
+              setForm((p) => ({ ...p, start_time: '', end_time: '' }));
+              if (form.dentist_id) fetchSlots(form.dentist_id, v);
+            }}
+            minDate={new Date()}
             error={errors.appointment_date}
           />
 
           {/* Time slot picker */}
           <Text style={styles.fieldLabel}>Time Slot *</Text>
-          <TouchableOpacity style={[styles.selector, errors.start_time && styles.selectorError]}
-            onPress={() => setShowSlots((p) => !p)}>
+          <TouchableOpacity
+            style={[styles.selector, errors.start_time && styles.selectorError]}
+            onPress={() => {
+              if (!form.dentist_id) { Alert.alert('Select Dentist', 'Please select a dentist first'); return; }
+              setShowSlots((p) => !p);
+            }}
+          >
             <Text style={[styles.selectorText, !form.start_time && styles.placeholder]}>
               {form.start_time ? `${form.start_time} – ${form.end_time}` : 'Select time slot'}
             </Text>
             <Text style={styles.chevron}>{showSlots ? '▲' : '▼'}</Text>
           </TouchableOpacity>
           {errors.start_time && <Text style={styles.errorText}>{errors.start_time}</Text>}
+
           {showSlots && (
             <View style={styles.slotsGrid}>
-              {TIME_SLOTS.map((slot) => (
-                <TouchableOpacity key={slot}
-                  style={[styles.slotBtn, form.start_time === slot && styles.slotBtnActive]}
-                  onPress={() => pickTimeSlot(slot)}>
-                  <Text style={[styles.slotText, form.start_time === slot && styles.slotTextActive]}>
-                    {slot}
+              {loadingSlots ? (
+                <ActivityIndicator color={colors.primary} style={{ padding: spacing.md, width: '100%' }} />
+              ) : availableSlots.length === 0 ? (
+                <Text style={styles.noSlotsText}>No slots available for this date</Text>
+              ) : availableSlots.map((slot) => (
+                <TouchableOpacity
+                  key={slot.start_time}
+                  style={[
+                    styles.slotBtn,
+                    form.start_time === slot.start_time && styles.slotBtnActive,
+                    !slot.available && styles.slotBtnUnavailable,
+                  ]}
+                  onPress={() => slot.available && pickTimeSlot(slot)}
+                  disabled={!slot.available}
+                >
+                  <Text style={[
+                    styles.slotText,
+                    form.start_time === slot.start_time && styles.slotTextActive,
+                    !slot.available && styles.slotTextUnavailable,
+                  ]}>
+                    {slot.start_time}
                   </Text>
+                  {!slot.available && <Text style={styles.slotBooked}>Booked</Text>}
                 </TouchableOpacity>
               ))}
             </View>
           )}
-
-          <Input
-            label="Custom Start Time (if not in list)"
-            value={form.start_time}
-            onChangeText={(v) => { set('start_time', v); if (v.length === 5) set('end_time', addMinutes(v, 30)); }}
-            placeholder="HH:MM"
-            keyboardType="numbers-and-punctuation"
-            maxLength={5}
-            containerStyle={{ marginTop: spacing.sm }}
-          />
-
-          <Input
-            label="End Time"
-            value={form.end_time}
-            onChangeText={(v) => set('end_time', v)}
-            placeholder="HH:MM (auto-filled +30 min)"
-            keyboardType="numbers-and-punctuation"
-            maxLength={5}
-          />
 
           <Input
             label="Notes"
@@ -242,6 +282,8 @@ const styles = StyleSheet.create({
   dropItemActive: { backgroundColor: colors.primaryLight },
   dropText: { fontSize: typography.base, color: colors.text },
   dropTextActive: { color: colors.primary, fontWeight: '600' },
+  dropEmpty: { paddingHorizontal: spacing.md, paddingVertical: spacing.md },
+  dropEmptyText: { fontSize: typography.sm, color: colors.textMuted, textAlign: 'center' },
   slotsGrid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm,
     marginBottom: spacing.md, marginTop: spacing.xs,
@@ -252,6 +294,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   slotBtnActive: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+  slotBtnUnavailable: { borderColor: colors.borderLight, backgroundColor: colors.background, opacity: 0.5 },
   slotText: { fontSize: typography.sm, color: colors.textSecondary, fontWeight: '500' },
   slotTextActive: { color: colors.primary, fontWeight: '700' },
+  slotTextUnavailable: { color: colors.textMuted },
+  slotBooked: { fontSize: 9, color: colors.danger, fontWeight: '600', marginTop: 1 },
+  noSlotsText: { fontSize: typography.sm, color: colors.textMuted, padding: spacing.md, width: '100%', textAlign: 'center' },
 });

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -26,9 +27,9 @@ type Filter = typeof FILTERS[number];
 
 const filterToStatus: Record<Filter, string | undefined> = {
   All: undefined,
-  Pending: 'PENDING',
-  Paid: 'PAID',
-  Partial: 'PARTIALLY_PAID',
+  Pending: 'pending',
+  Paid: 'paid',
+  Partial: 'partially_paid',
 };
 
 export default function InvoiceListScreen() {
@@ -45,7 +46,7 @@ export default function InvoiceListScreen() {
       const res = await invoiceService.list({ status: filterToStatus[f] });
       setInvoices(res.data || []);
     } catch {
-      //
+      Alert.alert('Error', 'Failed to load invoices. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);

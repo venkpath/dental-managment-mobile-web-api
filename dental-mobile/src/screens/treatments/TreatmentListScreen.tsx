@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, ActivityIndicator,
+  RefreshControl, ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -41,7 +41,7 @@ export default function TreatmentListScreen() {
       const data = await treatmentService.listByPatient(patientId);
       setTreatments(data);
     } catch {
-      // ignore
+      Alert.alert('Error', 'Failed to load treatments. Pull down to retry.');
     } finally {
       setLoading(false);
       setRefreshing(false);

@@ -8,6 +8,7 @@ import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/nativ
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { appointmentService } from '../../services/appointment.service';
+import { addMinutes } from '../../utils/time';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import Input from '../../components/Input';
@@ -25,13 +26,6 @@ const TIME_SLOTS = [
   '12:00', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00',
 ];
 
-function addMinutes(time: string, mins: number): string {
-  const [h, m] = time.split(':').map(Number);
-  const total = h * 60 + m + mins;
-  const nh = Math.floor(total / 60) % 24;
-  const nm = total % 60;
-  return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
-}
 
 const STATUS_ACTIONS: { label: string; status: Appointment['status']; color: string }[] = [
   { label: '✅ Mark Completed', status: 'completed', color: colors.success },
@@ -45,7 +39,9 @@ export default function AppointmentDetailScreen() {
   const { appointmentId } = route.params;
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [showReschedule, setShowReschedule] = useState(false);
   const [showSlots, setShowSlots] = useState(false);
   const [reschedule, setReschedule] = useState({ date: '', start_time: '', end_time: '' });
@@ -61,7 +57,10 @@ export default function AppointmentDetailScreen() {
           end_time: a.end_time,
         });
         setLoading(false);
-      }).catch(() => setLoading(false));
+      }).catch(() => {
+        setLoadError(true);
+        setLoading(false);
+      });
     }, [appointmentId])
   );
 
@@ -124,12 +123,40 @@ export default function AppointmentDetailScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScreenHeader title="Appointment" onBack={() => navigation.goBack()} />
-        <View style={styles.center}><Text style={styles.errorText}>Appointment not found</Text></View>
+        <View style={styles.center}>
+          <Text style={styles.errorText}>
+            {loadError ? 'Failed to load appointment. Please go back and try again.' : 'Appointment not found'}
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }
 
   const canUpdate = appointment.status === 'scheduled';
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Appointment',
+      'Are you sure you want to delete this appointment? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await appointmentService.delete(appointmentId);
+              navigation.goBack();
+            } catch (err: unknown) {
+              Alert.alert('Error', err instanceof Error ? err.message : 'Failed to delete appointment');
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -268,6 +295,14 @@ export default function AppointmentDetailScreen() {
             <Text style={styles.updatingText}>Updating...</Text>
           </View>
         )}
+
+        <TouchableOpacity
+          style={[styles.deleteBtn, deleting && styles.deleteBtnDisabled]}
+          onPress={handleDelete}
+          disabled={deleting}
+        >
+          <Text style={styles.deleteBtnText}>{deleting ? 'Deleting…' : '🗑 Delete Appointment'}</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -336,4 +371,14 @@ const styles = StyleSheet.create({
   actionLabel: { fontSize: typography.base, fontWeight: '600' },
   updatingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, justifyContent: 'center' },
   updatingText: { fontSize: typography.sm, color: colors.textSecondary },
+  deleteBtn: {
+    borderWidth: 1.5,
+    borderColor: colors.danger,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  deleteBtnDisabled: { opacity: 0.5 },
+  deleteBtnText: { fontSize: typography.base, fontWeight: '600', color: colors.danger },
 });

@@ -61,9 +61,11 @@ export default function DashboardScreen() {
   const [todayAppts, setTodayAppts] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
+      setLoadError(false);
       const [s, appts] = await Promise.all([
         dashboardService.getSummary(),
         appointmentService.list({ date: TODAY }),
@@ -71,7 +73,7 @@ export default function DashboardScreen() {
       setSummary(s);
       setTodayAppts(appts.data?.slice(0, 8) || []);
     } catch {
-      // fail silently
+      setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -124,6 +126,15 @@ export default function DashboardScreen() {
             weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
           })}
         </Text>
+
+        {loadError && !loading && (
+          <TouchableOpacity
+            onPress={() => { setLoading(true); loadData(); }}
+            style={styles.errorBanner}
+          >
+            <Text style={styles.errorBannerText}>⚠️ Couldn't load data. Tap to retry.</Text>
+          </TouchableOpacity>
+        )}
 
         {/* ── Stat cards ── */}
         <View style={styles.statsGrid}>
@@ -236,6 +247,16 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     fontWeight: '500',
   },
+
+  // Error banner
+  errorBanner: {
+    backgroundColor: colors.dangerLight,
+    borderRadius: radius.md,
+    padding: spacing.sm + 2,
+    marginBottom: spacing.md,
+    alignItems: 'center',
+  },
+  errorBannerText: { fontSize: typography.sm, color: '#b91c1c', fontWeight: '600' },
 
   // Stats
   statsGrid: {
