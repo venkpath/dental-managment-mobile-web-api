@@ -1718,17 +1718,11 @@ let CommunicationService = class CommunicationService {
         }
         else if (code) {
             this.logger.log(`Embedded Signup: exchanging auth code for clinic ${clinicId}`);
-            const tokenUrl = `${CommunicationService_1.META_GRAPH_API}/oauth/access_token`;
-            const tokenBody = new URLSearchParams({
-                client_id: appId,
-                client_secret: appSecret,
-                code,
-            });
-            const tokenRes = await fetch(tokenUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: tokenBody.toString(),
-            });
+            const tokenUrl = new URL(`${CommunicationService_1.META_GRAPH_API}/oauth/access_token`);
+            tokenUrl.searchParams.set('client_id', appId);
+            tokenUrl.searchParams.set('client_secret', appSecret);
+            tokenUrl.searchParams.set('code', code);
+            const tokenRes = await fetch(tokenUrl.toString());
             const tokenData = await tokenRes.json();
             if (!tokenRes.ok || !tokenData.access_token) {
                 this.logger.error(`Embedded Signup token exchange failed: ${JSON.stringify(tokenData)}`);
