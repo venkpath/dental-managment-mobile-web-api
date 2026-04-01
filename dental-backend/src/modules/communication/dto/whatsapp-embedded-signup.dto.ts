@@ -1,14 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 
 export class WhatsAppEmbeddedSignupDto {
-  @ApiProperty({ description: 'Authorization code from Meta Embedded Signup popup' })
+  @ApiProperty({ description: 'Authorization code from Meta Embedded Signup popup', required: false })
   @IsString()
-  @IsNotEmpty()
-  code!: string;
+  @IsOptional()
+  code?: string;
 
-  @ApiProperty({ description: 'Page URL where FB.login() was initiated (used as redirect_uri for token exchange)' })
+  @ApiProperty({ description: 'Access token returned directly from Meta Embedded Signup popup', required: false })
   @IsString()
-  @IsNotEmpty()
-  redirectUri!: string;
+  @IsOptional()
+  accessToken?: string;
 }

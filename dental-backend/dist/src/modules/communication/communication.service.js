@@ -1705,30 +1705,40 @@ let CommunicationService = class CommunicationService {
 </html>`;
     }
     static META_GRAPH_API = 'https://graph.facebook.com/v21.0';
-    async completeWhatsAppEmbeddedSignup(clinicId, code) {
+    async completeWhatsAppEmbeddedSignup(clinicId, code, accessToken) {
         const appId = this.configService.get('app.facebook.appId');
         const appSecret = this.configService.get('app.facebook.appSecret');
         if (!appId || !appSecret) {
             throw new common_1.InternalServerErrorException('Facebook App ID and App Secret must be configured. Set FACEBOOK_APP_ID and FACEBOOK_APP_SECRET environment variables.');
         }
-        this.logger.log(`Embedded Signup: exchanging auth code for clinic ${clinicId}, code length: ${code.length}, code prefix: ${code.substring(0, 20)}...`);
-        const tokenUrl = `${CommunicationService_1.META_GRAPH_API}/oauth/access_token`;
-        const tokenBody = new URLSearchParams({
-            client_id: appId,
-            client_secret: appSecret,
-            code,
-        });
-        const tokenRes = await fetch(tokenUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: tokenBody.toString(),
-        });
-        const tokenData = await tokenRes.json();
-        if (!tokenRes.ok || !tokenData.access_token) {
-            this.logger.error(`Embedded Signup token exchange failed: ${JSON.stringify(tokenData)}`);
-            throw new common_1.BadRequestException(tokenData.error?.message || 'Failed to exchange authorization code. Please try connecting again.');
+        let userToken;
+        if (accessToken) {
+            this.logger.log(`Embedded Signup: using direct access token for clinic ${clinicId}`);
+            userToken = accessToken;
         }
-        const userToken = tokenData.access_token;
+        else if (code) {
+            this.logger.log(`Embedded Signup: exchanging auth code for clinic ${clinicId}`);
+            const tokenUrl = `${CommunicationService_1.META_GRAPH_API}/oauth/access_token`;
+            const tokenBody = new URLSearchParams({
+                client_id: appId,
+                client_secret: appSecret,
+                code,
+            });
+            const tokenRes = await fetch(tokenUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: tokenBody.toString(),
+            });
+            const tokenData = await tokenRes.json();
+            if (!tokenRes.ok || !tokenData.access_token) {
+                this.logger.error(`Embedded Signup token exchange failed: ${JSON.stringify(tokenData)}`);
+                throw new common_1.BadRequestException(tokenData.error?.message || 'Failed to exchange authorization code. Please try connecting again.');
+            }
+            userToken = tokenData.access_token;
+        }
+        else {
+            throw new common_1.BadRequestException('Either code or accessToken must be provided');
+        }
         this.logger.log('Embedded Signup: debugging token to find shared WABAs');
         const debugUrl = new URL(`${CommunicationService_1.META_GRAPH_API}/debug_token`);
         debugUrl.searchParams.set('input_token', userToken);

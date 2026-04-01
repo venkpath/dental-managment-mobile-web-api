@@ -15,22 +15,22 @@ const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 class WhatsAppEmbeddedSignupDto {
     code;
-    redirectUri;
+    accessToken;
     static _OPENAPI_METADATA_FACTORY() {
-        return { code: { required: true, type: () => String }, redirectUri: { required: true, type: () => String } };
+        return { code: { required: false, type: () => String }, accessToken: { required: false, type: () => String } };
     }
 }
 exports.WhatsAppEmbeddedSignupDto = WhatsAppEmbeddedSignupDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'Authorization code from Meta Embedded Signup popup' }),
+    (0, swagger_1.ApiProperty)({ description: 'Authorization code from Meta Embedded Signup popup', required: false }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], WhatsAppEmbeddedSignupDto.prototype, "code", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'Page URL where FB.login() was initiated (used as redirect_uri for token exchange)' }),
+    (0, swagger_1.ApiProperty)({ description: 'Access token returned directly from Meta Embedded Signup popup', required: false }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
-], WhatsAppEmbeddedSignupDto.prototype, "redirectUri", void 0);
+], WhatsAppEmbeddedSignupDto.prototype, "accessToken", void 0);
 //# sourceMappingURL=whatsapp-embedded-signup.dto.js.map

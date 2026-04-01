@@ -224,7 +224,7 @@ let CommunicationController = class CommunicationController {
         return this.communicationService.getWhatsAppTemplateStatus(clinicId, templateName);
     }
     async completeEmbeddedSignup(clinicId, dto) {
-        return this.communicationService.completeWhatsAppEmbeddedSignup(clinicId, dto.code);
+        return this.communicationService.completeWhatsAppEmbeddedSignup(clinicId, dto.code, dto.accessToken);
     }
     async disconnectWhatsApp(clinicId) {
         return this.communicationService.disconnectWhatsApp(clinicId);

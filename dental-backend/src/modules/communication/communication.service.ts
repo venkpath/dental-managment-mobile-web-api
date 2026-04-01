@@ -2276,7 +2276,7 @@ export class CommunicationService {
    * 4. Subscribe WABA to app webhooks
    * 5. Save credentials to clinic settings
    */
-  async completeWhatsAppEmbeddedSignup(clinicId: string, code: string) {
+  async completeWhatsAppEmbeddedSignup(clinicId: string, code?: string, accessToken?: string) {
     const appId = this.configService.get<string>('app.facebook.appId');
     const appSecret = this.configService.get<string>('app.facebook.appSecret');
 
@@ -2286,30 +2286,40 @@ export class CommunicationService {
       );
     }
 
-    // Step 1: Exchange authorization code for user access token
-    this.logger.log(`Embedded Signup: exchanging auth code for clinic ${clinicId}, code length: ${code.length}, code prefix: ${code.substring(0, 20)}...`);
-    const tokenUrl = `${CommunicationService.META_GRAPH_API}/oauth/access_token`;
-    const tokenBody = new URLSearchParams({
-      client_id: appId,
-      client_secret: appSecret,
-      code,
-    });
+    let userToken: string;
 
-    const tokenRes = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: tokenBody.toString(),
-    });
-    const tokenData = await tokenRes.json() as { access_token?: string; error?: { message: string } };
+    if (accessToken) {
+      // Direct token flow — token returned directly from FB.login() popup
+      this.logger.log(`Embedded Signup: using direct access token for clinic ${clinicId}`);
+      userToken = accessToken;
+    } else if (code) {
+      // Code exchange flow — exchange authorization code for user access token
+      this.logger.log(`Embedded Signup: exchanging auth code for clinic ${clinicId}`);
+      const tokenUrl = `${CommunicationService.META_GRAPH_API}/oauth/access_token`;
+      const tokenBody = new URLSearchParams({
+        client_id: appId,
+        client_secret: appSecret,
+        code,
+      });
 
-    if (!tokenRes.ok || !tokenData.access_token) {
-      this.logger.error(`Embedded Signup token exchange failed: ${JSON.stringify(tokenData)}`);
-      throw new BadRequestException(
-        tokenData.error?.message || 'Failed to exchange authorization code. Please try connecting again.',
-      );
+      const tokenRes = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: tokenBody.toString(),
+      });
+      const tokenData = await tokenRes.json() as { access_token?: string; error?: { message: string } };
+
+      if (!tokenRes.ok || !tokenData.access_token) {
+        this.logger.error(`Embedded Signup token exchange failed: ${JSON.stringify(tokenData)}`);
+        throw new BadRequestException(
+          tokenData.error?.message || 'Failed to exchange authorization code. Please try connecting again.',
+        );
+      }
+
+      userToken = tokenData.access_token;
+    } else {
+      throw new BadRequestException('Either code or accessToken must be provided');
     }
-
-    const userToken = tokenData.access_token;
 
     // Step 2: Debug token to find shared WABA IDs
     this.logger.log('Embedded Signup: debugging token to find shared WABAs');
