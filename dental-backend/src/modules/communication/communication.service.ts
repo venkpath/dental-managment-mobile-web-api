@@ -2276,7 +2276,7 @@ export class CommunicationService {
    * 4. Subscribe WABA to app webhooks
    * 5. Save credentials to clinic settings
    */
-  async completeWhatsAppEmbeddedSignup(clinicId: string, code?: string, accessToken?: string, sessionPhoneNumberId?: string, sessionWabaId?: string) {
+  async completeWhatsAppEmbeddedSignup(clinicId: string, code?: string, accessToken?: string, sessionPhoneNumberId?: string, sessionWabaId?: string, redirectUri?: string) {
     const appId = this.configService.get<string>('app.facebook.appId');
     const appSecret = this.configService.get<string>('app.facebook.appSecret');
 
@@ -2300,6 +2300,11 @@ export class CommunicationService {
       tokenUrl.searchParams.set('client_id', appId);
       tokenUrl.searchParams.set('client_secret', appSecret);
       tokenUrl.searchParams.set('code', code);
+
+      // Include redirect_uri if provided — the JS SDK popup binds the code to the page URL
+      if (redirectUri) {
+        tokenUrl.searchParams.set('redirect_uri', redirectUri);
+      }
 
       const tokenRes = await fetch(tokenUrl.toString());
       const tokenData = await tokenRes.json() as { access_token?: string; error?: { message: string } };

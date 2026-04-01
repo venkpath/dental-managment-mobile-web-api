@@ -349,7 +349,7 @@ export class CommunicationController {
     @CurrentClinic() clinicId: string,
     @Body() dto: WhatsAppEmbeddedSignupDto,
   ) {
-    return this.communicationService.completeWhatsAppEmbeddedSignup(clinicId, dto.code, dto.accessToken, dto.phoneNumberId, dto.wabaId);
+    return this.communicationService.completeWhatsAppEmbeddedSignup(clinicId, dto.code, dto.accessToken, dto.phoneNumberId, dto.wabaId, dto.redirectUri);
   }
 
   @Post('whatsapp/disconnect')

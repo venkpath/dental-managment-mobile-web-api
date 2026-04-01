@@ -21,4 +21,9 @@ export class WhatsAppEmbeddedSignupDto {
   @IsString()
   @IsOptional()
   wabaId?: string;
+
+  @ApiProperty({ description: 'Redirect URI (page URL) used during FB.login popup — required for code exchange', required: false })
+  @IsString()
+  @IsOptional()
+  redirectUri?: string;
 }

@@ -504,7 +504,7 @@ export declare class CommunicationService {
         preheader?: string;
     }): string;
     private static readonly META_GRAPH_API;
-    completeWhatsAppEmbeddedSignup(clinicId: string, code?: string, accessToken?: string, sessionPhoneNumberId?: string, sessionWabaId?: string): Promise<{
+    completeWhatsAppEmbeddedSignup(clinicId: string, code?: string, accessToken?: string, sessionPhoneNumberId?: string, sessionWabaId?: string, redirectUri?: string): Promise<{
         success: boolean;
         waba_id: string;
         phone_number_id: string;
