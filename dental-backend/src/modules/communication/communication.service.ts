@@ -2276,7 +2276,7 @@ export class CommunicationService {
    * 4. Subscribe WABA to app webhooks
    * 5. Save credentials to clinic settings
    */
-  async completeWhatsAppEmbeddedSignup(clinicId: string, code: string, redirectUri: string) {
+  async completeWhatsAppEmbeddedSignup(clinicId: string, code: string) {
     const appId = this.configService.get<string>('app.facebook.appId');
     const appSecret = this.configService.get<string>('app.facebook.appSecret');
 
@@ -2287,12 +2287,11 @@ export class CommunicationService {
     }
 
     // Step 1: Exchange authorization code for user access token
-    this.logger.log(`Embedded Signup: exchanging auth code for clinic ${clinicId}`);
+    this.logger.log(`Embedded Signup: exchanging auth code for clinic ${clinicId}, code length: ${code.length}, code prefix: ${code.substring(0, 20)}...`);
     const tokenUrl = `${CommunicationService.META_GRAPH_API}/oauth/access_token`;
     const tokenBody = new URLSearchParams({
       client_id: appId,
       client_secret: appSecret,
-      redirect_uri: redirectUri,
       code,
     });
 

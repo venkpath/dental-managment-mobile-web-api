@@ -1705,18 +1705,17 @@ let CommunicationService = class CommunicationService {
 </html>`;
     }
     static META_GRAPH_API = 'https://graph.facebook.com/v21.0';
-    async completeWhatsAppEmbeddedSignup(clinicId, code, redirectUri) {
+    async completeWhatsAppEmbeddedSignup(clinicId, code) {
         const appId = this.configService.get('app.facebook.appId');
         const appSecret = this.configService.get('app.facebook.appSecret');
         if (!appId || !appSecret) {
             throw new common_1.InternalServerErrorException('Facebook App ID and App Secret must be configured. Set FACEBOOK_APP_ID and FACEBOOK_APP_SECRET environment variables.');
         }
-        this.logger.log(`Embedded Signup: exchanging auth code for clinic ${clinicId}`);
+        this.logger.log(`Embedded Signup: exchanging auth code for clinic ${clinicId}, code length: ${code.length}, code prefix: ${code.substring(0, 20)}...`);
         const tokenUrl = `${CommunicationService_1.META_GRAPH_API}/oauth/access_token`;
         const tokenBody = new URLSearchParams({
             client_id: appId,
             client_secret: appSecret,
-            redirect_uri: redirectUri,
             code,
         });
         const tokenRes = await fetch(tokenUrl, {
