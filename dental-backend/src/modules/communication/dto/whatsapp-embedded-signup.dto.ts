@@ -11,4 +11,9 @@ export class WhatsAppEmbeddedSignupDto {
   @IsString()
   @IsOptional()
   accessToken?: string;
+
+  @ApiProperty({ description: 'Page origin where FB.login() was called (used as redirect_uri for code exchange)', required: false })
+  @IsString()
+  @IsOptional()
+  redirectUri?: string;
 }
