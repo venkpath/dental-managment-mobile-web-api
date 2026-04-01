@@ -1715,7 +1715,10 @@ let CommunicationService = class CommunicationService {
         const tokenUrl = new URL(`${CommunicationService_1.META_GRAPH_API}/oauth/access_token`);
         tokenUrl.searchParams.set('client_id', appId);
         tokenUrl.searchParams.set('client_secret', appSecret);
-        tokenUrl.searchParams.set('redirect_uri', 'https://www.facebook.com/v21.0/dialog/oauth');
+        const frontendUrl = (process.env['CORS_ORIGIN'] || '').split(',')[0].trim();
+        if (frontendUrl) {
+            tokenUrl.searchParams.set('redirect_uri', frontendUrl);
+        }
         tokenUrl.searchParams.set('code', code);
         const tokenRes = await fetch(tokenUrl.toString());
         const tokenData = await tokenRes.json();
