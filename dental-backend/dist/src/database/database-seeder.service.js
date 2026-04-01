@@ -133,6 +133,7 @@ let DatabaseSeederService = DatabaseSeederService_1 = class DatabaseSeederServic
             { key: 'INVENTORY_MANAGEMENT', description: 'Dental inventory and supply tracking' },
             { key: 'CUSTOM_PROVIDER_CONFIG', description: 'Override default email/SMS provider config per clinic' },
             { key: 'PATIENT_IMPORT', description: 'Bulk patient import from CSV/Excel and AI image extraction' },
+            { key: 'WHATSAPP_INBOX', description: 'WhatsApp inbox — receive and reply to patient messages (requires own WABA)' },
         ];
         let created = 0;
         for (const f of features) {
@@ -171,6 +172,7 @@ let DatabaseSeederService = DatabaseSeederService_1 = class DatabaseSeederServic
             { plan_id: enterprise.id, feature_id: fm['CUSTOM_PROVIDER_CONFIG'] },
             { plan_id: professional.id, feature_id: fm['PATIENT_IMPORT'] },
             { plan_id: enterprise.id, feature_id: fm['PATIENT_IMPORT'] },
+            { plan_id: enterprise.id, feature_id: fm['WHATSAPP_INBOX'] },
         ];
         let created = 0;
         for (const m of mappings) {

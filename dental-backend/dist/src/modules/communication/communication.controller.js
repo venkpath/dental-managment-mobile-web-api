@@ -21,6 +21,7 @@ const swagger_1 = require("@nestjs/swagger");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
 const public_decorator_js_1 = require("../../common/decorators/public.decorator.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
+const require_feature_decorator_js_1 = require("../../common/decorators/require-feature.decorator.js");
 const communication_service_js_1 = require("./communication.service.js");
 const send_message_dto_js_1 = require("./dto/send-message.dto.js");
 const query_message_dto_js_1 = require("./dto/query-message.dto.js");
@@ -98,7 +99,21 @@ let WebhookController = WebhookController_1 = class WebhookController {
         this.logger.warn('WhatsApp webhook verification failed — token mismatch');
         return res.status(403).send('Verification failed');
     }
-    async whatsappWebhook(body) {
+    async whatsappWebhook(req, body) {
+        const signature = req.headers['x-hub-signature-256'];
+        const appSecret = this.configService.get('app.facebook.appSecret');
+        if (appSecret && signature) {
+            const { createHmac } = await import('crypto');
+            const rawBody = JSON.stringify(body);
+            const expected = 'sha256=' + createHmac('sha256', appSecret).update(rawBody).digest('hex');
+            if (signature !== expected) {
+                this.logger.warn('WhatsApp webhook signature mismatch — rejecting payload');
+                return { error: 'Invalid signature' };
+            }
+        }
+        else if (appSecret && !signature) {
+            this.logger.warn('WhatsApp webhook missing X-Hub-Signature-256 header');
+        }
         this.logger.debug(`WhatsApp webhook received: ${JSON.stringify(body).substring(0, 500)}`);
         return this.communicationService.handleWhatsAppWebhook(body);
     }
@@ -128,10 +143,11 @@ __decorate([
 __decorate([
     (0, common_1.Post)('whatsapp'),
     (0, swagger_1.ApiOperation)({ summary: 'Meta WhatsApp Cloud API webhook (status updates + incoming messages)' }),
-    openapi.ApiResponse({ status: 201 }),
-    __param(0, (0, common_1.Body)()),
+    openapi.ApiResponse({ status: 201, type: Object }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], WebhookController.prototype, "whatsappWebhook", null);
 exports.WebhookController = WebhookController = WebhookController_1 = __decorate([
@@ -212,6 +228,30 @@ let CommunicationController = class CommunicationController {
     }
     async disconnectWhatsApp(clinicId) {
         return this.communicationService.disconnectWhatsApp(clinicId);
+    }
+    async getInboxConversations(clinicId, page, limit) {
+        return this.communicationService.getInboxConversations(clinicId, page ? parseInt(page, 10) : 1, limit ? parseInt(limit, 10) : 30);
+    }
+    async getConversationMessages(clinicId, phone, page, limit) {
+        return this.communicationService.getConversationMessages(clinicId, phone, page ? parseInt(page, 10) : 1, limit ? parseInt(limit, 10) : 50);
+    }
+    async sendInboxReply(clinicId, phone, body) {
+        if (!body.message?.trim())
+            throw new common_1.BadRequestException('message is required');
+        return this.communicationService.sendInboxReply(clinicId, phone, body.message.trim());
+    }
+    async startConversation(clinicId, body) {
+        if (!body.patient_id)
+            throw new common_1.BadRequestException('patient_id is required');
+        if (!body.template_id)
+            throw new common_1.BadRequestException('template_id is required');
+        return this.communicationService.sendMessage(clinicId, {
+            patient_id: body.patient_id,
+            channel: send_message_dto_js_1.MessageChannel.WHATSAPP,
+            category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
+            template_id: body.template_id,
+            variables: body.variables,
+        });
     }
 };
 exports.CommunicationController = CommunicationController;
@@ -422,6 +462,54 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], CommunicationController.prototype, "disconnectWhatsApp", null);
+__decorate([
+    (0, common_1.Get)('whatsapp/inbox'),
+    (0, require_feature_decorator_js_1.RequireFeature)('WHATSAPP_INBOX'),
+    (0, swagger_1.ApiOperation)({ summary: 'List WhatsApp conversations (grouped by contact phone number)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Query)('page')),
+    __param(2, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], CommunicationController.prototype, "getInboxConversations", null);
+__decorate([
+    (0, common_1.Get)('whatsapp/inbox/:phone'),
+    (0, require_feature_decorator_js_1.RequireFeature)('WHATSAPP_INBOX'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get all messages in a WhatsApp conversation thread' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('phone')),
+    __param(2, (0, common_1.Query)('page')),
+    __param(3, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, String]),
+    __metadata("design:returntype", Promise)
+], CommunicationController.prototype, "getConversationMessages", null);
+__decorate([
+    (0, common_1.Post)('whatsapp/inbox/:phone/reply'),
+    (0, require_feature_decorator_js_1.RequireFeature)('WHATSAPP_INBOX'),
+    (0, swagger_1.ApiOperation)({ summary: 'Send a free-form reply within a 24hr session window' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('phone')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], CommunicationController.prototype, "sendInboxReply", null);
+__decorate([
+    (0, common_1.Post)('whatsapp/inbox/new-conversation'),
+    (0, require_feature_decorator_js_1.RequireFeature)('WHATSAPP_INBOX'),
+    (0, swagger_1.ApiOperation)({ summary: 'Start a new WhatsApp conversation by sending a template to a patient' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], CommunicationController.prototype, "startConversation", null);
 exports.CommunicationController = CommunicationController = __decorate([
     (0, swagger_1.ApiTags)('Communication'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true }),

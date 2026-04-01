@@ -16,6 +16,7 @@ const config_1 = require("@nestjs/config");
 const crypto_1 = require("crypto");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
+const encryption_util_js_1 = require("../../common/utils/encryption.util.js");
 const template_service_js_1 = require("./template.service.js");
 const template_renderer_js_1 = require("./template-renderer.js");
 const communication_producer_js_1 = require("./communication.producer.js");
@@ -941,8 +942,9 @@ let CommunicationService = class CommunicationService {
         }
         if (settings.enable_whatsapp && settings.whatsapp_config && settings.whatsapp_provider) {
             const raw = settings.whatsapp_config;
+            const rawToken = (raw.accessToken ?? raw.access_token);
             const waConfig = {
-                accessToken: (raw.accessToken ?? raw.access_token),
+                accessToken: (0, encryption_util_js_1.decrypt)(rawToken),
                 phoneNumberId: (raw.phoneNumberId ?? raw.phone_number_id),
                 wabaId: (raw.wabaId ?? raw.waba_id),
             };
@@ -1189,6 +1191,7 @@ let CommunicationService = class CommunicationService {
     async processMetaIncomingMessage(msg, value) {
         const from = msg['from'];
         const msgType = msg['type'];
+        const waMessageId = msg['id'];
         let text = '';
         if (msgType === 'text') {
             const textObj = msg['text'];
@@ -1196,18 +1199,283 @@ let CommunicationService = class CommunicationService {
         }
         else if (msgType === 'button') {
             const buttonObj = msg['button'];
-            text = buttonObj?.['text'] || '';
+            text = buttonObj?.['text'] || `[Button: ${buttonObj?.['payload'] || ''}]`;
         }
         else if (msgType === 'interactive') {
             const interactive = msg['interactive'];
             const buttonReply = interactive?.['button_reply'];
             text = buttonReply?.['title'] || '';
         }
+        else if (msgType === 'image') {
+            text = '[Image]';
+        }
+        else if (msgType === 'audio') {
+            text = '[Audio]';
+        }
+        else if (msgType === 'document') {
+            text = '[Document]';
+        }
+        else if (msgType === 'location') {
+            text = '[Location]';
+        }
+        else {
+            text = `[${msgType}]`;
+        }
         this.logger.log(`WhatsApp incoming message from ${from} (type: ${msgType}): ${text.substring(0, 50)}`);
         const metadata = value['metadata'];
         const phoneNumberId = metadata?.['phone_number_id'];
+        let clinicId = null;
         if (phoneNumberId) {
-            this.logger.debug(`Session window opened for ${from} on phone_number_id ${phoneNumberId}`);
+            try {
+                const settings = await this.prisma.clinicCommunicationSettings.findFirst({
+                    where: {
+                        whatsapp_config: {
+                            path: ['phoneNumberId'],
+                            equals: phoneNumberId,
+                        },
+                    },
+                    select: { clinic_id: true },
+                });
+                clinicId = settings?.clinic_id ?? null;
+            }
+            catch {
+                const allSettings = await this.prisma.clinicCommunicationSettings.findMany({
+                    where: { enable_whatsapp: true },
+                    select: { clinic_id: true, whatsapp_config: true },
+                });
+                for (const s of allSettings) {
+                    const cfg = s.whatsapp_config;
+                    if (cfg?.['phoneNumberId'] === phoneNumberId || cfg?.['phone_number_id'] === phoneNumberId) {
+                        clinicId = s.clinic_id;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!clinicId) {
+            this.logger.warn(`WhatsApp inbound: no clinic found for phone_number_id=${phoneNumberId}, from=${from}`);
+            return;
+        }
+        if (waMessageId) {
+            const existing = await this.prisma.communicationMessage.findFirst({
+                where: { wa_message_id: waMessageId },
+                select: { id: true },
+            });
+            if (existing)
+                return;
+        }
+        const cleanPhone = from.replace(/^91/, '').replace(/[^0-9]/g, '');
+        const patient = await this.prisma.patient.findFirst({
+            where: {
+                clinic_id: clinicId,
+                OR: [
+                    { phone: cleanPhone },
+                    { phone: `91${cleanPhone}` },
+                    { phone: `+91${cleanPhone}` },
+                    { phone: from },
+                ],
+            },
+            select: { id: true },
+        });
+        const mediaData = { type: msgType, phone_number_id: phoneNumberId };
+        if (['image', 'document', 'audio', 'video'].includes(msgType)) {
+            const mediaObj = msg[msgType];
+            if (mediaObj) {
+                mediaData['media_id'] = mediaObj['id'];
+                mediaData['mime_type'] = mediaObj['mime_type'];
+                if (mediaObj['caption'])
+                    mediaData['caption'] = mediaObj['caption'];
+                if (mediaObj['filename'])
+                    mediaData['filename'] = mediaObj['filename'];
+            }
+        }
+        await this.prisma.communicationMessage.create({
+            data: {
+                clinic_id: clinicId,
+                patient_id: patient?.id ?? null,
+                channel: 'whatsapp',
+                category: 'transactional',
+                body: text,
+                recipient: from,
+                status: 'delivered',
+                direction: 'inbound',
+                wa_message_id: waMessageId || null,
+                sent_at: new Date(),
+                metadata: mediaData,
+            },
+        });
+        this.whatsAppProvider.trackIncomingMessage(clinicId, from);
+        this.logger.log(`WhatsApp inbound stored: clinic=${clinicId}, from=${from}, patient=${patient?.id ?? 'unknown'}`);
+    }
+    async getInboxConversations(clinicId, page = 1, limit = 30) {
+        const offset = (page - 1) * limit;
+        const rows = await this.prisma.$queryRaw `
+      WITH ranked AS (
+        SELECT
+          m.recipient,
+          m.patient_id,
+          m.body,
+          m.direction,
+          m.status,
+          m.created_at,
+          ROW_NUMBER() OVER (PARTITION BY m.recipient ORDER BY m.created_at DESC) AS rn
+        FROM communication_messages m
+        WHERE m.clinic_id = ${clinicId} AND m.channel = 'whatsapp'
+      ),
+      conversations AS (
+        SELECT
+          r.recipient,
+          r.patient_id,
+          p.name AS patient_name,
+          r.body AS last_body,
+          r.created_at AS last_at,
+          r.direction AS last_direction,
+          (SELECT COUNT(*) FROM ranked u WHERE u.recipient = r.recipient AND u.direction = 'inbound' AND u.status != 'read') AS unread_count
+        FROM ranked r
+        LEFT JOIN patients p ON p.id = r.patient_id
+        WHERE r.rn = 1
+      )
+      SELECT
+        c.*,
+        COUNT(*) OVER () AS total
+      FROM conversations c
+      ORDER BY c.last_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+        const total = rows[0] ? Number(rows[0].total) : 0;
+        return {
+            data: rows.map((r) => ({
+                phone: r.recipient,
+                patient_id: r.patient_id,
+                patient_name: r.patient_name ?? r.recipient,
+                last_message: r.last_body,
+                last_at: r.last_at,
+                last_direction: r.last_direction,
+                unread_count: Number(r.unread_count),
+            })),
+            meta: { total, page, limit, total_pages: Math.ceil(total / limit) },
+        };
+    }
+    async getConversationMessages(clinicId, phone, page = 1, limit = 50) {
+        const offset = (page - 1) * limit;
+        const [messages, total] = await Promise.all([
+            this.prisma.communicationMessage.findMany({
+                where: { clinic_id: clinicId, channel: 'whatsapp', recipient: phone },
+                orderBy: { created_at: 'asc' },
+                skip: offset,
+                take: limit,
+                select: {
+                    id: true,
+                    body: true,
+                    direction: true,
+                    status: true,
+                    wa_message_id: true,
+                    created_at: true,
+                    sent_at: true,
+                    metadata: true,
+                    template: { select: { template_name: true } },
+                },
+            }),
+            this.prisma.communicationMessage.count({
+                where: { clinic_id: clinicId, channel: 'whatsapp', recipient: phone },
+            }),
+        ]);
+        const unreadInbound = await this.prisma.communicationMessage.findMany({
+            where: {
+                clinic_id: clinicId,
+                channel: 'whatsapp',
+                recipient: phone,
+                direction: 'inbound',
+                status: { not: 'read' },
+                wa_message_id: { not: null },
+            },
+            select: { id: true, wa_message_id: true },
+        });
+        if (unreadInbound.length > 0) {
+            await this.prisma.communicationMessage.updateMany({
+                where: {
+                    id: { in: unreadInbound.map((m) => m.id) },
+                },
+                data: { status: 'read' },
+            });
+            this.sendMetaReadReceipts(clinicId, unreadInbound.map((m) => m.wa_message_id)).catch((err) => this.logger.warn(`Failed to send read receipts: ${err instanceof Error ? err.message : err}`));
+        }
+        return {
+            data: messages,
+            meta: { total, page, limit, total_pages: Math.ceil(total / limit) },
+        };
+    }
+    async sendInboxReply(clinicId, phone, body) {
+        const cleanPhone = phone.replace(/^91/, '').replace(/[^0-9]/g, '');
+        const patient = await this.prisma.patient.findFirst({
+            where: {
+                clinic_id: clinicId,
+                OR: [
+                    { phone: cleanPhone },
+                    { phone: `91${cleanPhone}` },
+                    { phone: `+91${cleanPhone}` },
+                    { phone },
+                ],
+            },
+            select: { id: true },
+        });
+        const lastInbound = await this.prisma.communicationMessage.findFirst({
+            where: { clinic_id: clinicId, channel: 'whatsapp', recipient: phone, direction: 'inbound' },
+            orderBy: { created_at: 'desc' },
+            select: { created_at: true },
+        });
+        const withinWindow = lastInbound
+            ? (Date.now() - lastInbound.created_at.getTime()) < 24 * 60 * 60 * 1000
+            : false;
+        if (!withinWindow) {
+            throw new common_1.BadRequestException('Cannot send free-form message — no patient reply within last 24 hours. Use a template instead.');
+        }
+        await this.ensureProvidersConfigured(clinicId);
+        const result = await this.whatsAppProvider.sendFreeText(clinicId, phone, body);
+        const message = await this.prisma.communicationMessage.create({
+            data: {
+                clinic_id: clinicId,
+                patient_id: patient?.id ?? null,
+                channel: 'whatsapp',
+                category: 'transactional',
+                body,
+                recipient: phone,
+                status: result.success ? 'sent' : 'failed',
+                direction: 'outbound',
+                wa_message_id: result.messageId ?? null,
+                sent_at: new Date(),
+            },
+        });
+        return { success: result.success, message_id: message.id };
+    }
+    async sendMetaReadReceipts(clinicId, waMessageIds) {
+        await this.ensureProvidersConfigured(clinicId);
+        const settings = await this.prisma.clinicCommunicationSettings.findUnique({
+            where: { clinic_id: clinicId },
+            select: { whatsapp_config: true },
+        });
+        const cfg = settings?.whatsapp_config;
+        if (!cfg?.accessToken || !cfg?.phoneNumberId)
+            return;
+        const url = `https://graph.facebook.com/v21.0/${cfg.phoneNumberId}/messages`;
+        for (const messageId of waMessageIds) {
+            try {
+                await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${cfg.accessToken}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        messaging_product: 'whatsapp',
+                        status: 'read',
+                        message_id: messageId,
+                    }),
+                    signal: AbortSignal.timeout(5000),
+                });
+            }
+            catch {
+            }
         }
     }
     async checkNdncStatus(phone) {
@@ -1512,7 +1780,7 @@ let CommunicationService = class CommunicationService {
             enable_whatsapp: true,
             whatsapp_provider: 'meta',
             whatsapp_config: {
-                accessToken: finalToken,
+                accessToken: (0, encryption_util_js_1.encrypt)(finalToken),
                 phoneNumberId: phone.id,
                 wabaId,
                 displayPhone: phone.display_phone_number,

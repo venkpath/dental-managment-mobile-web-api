@@ -66,4 +66,9 @@ export declare class WhatsAppProvider implements ChannelProvider {
     private buildTemplatePayload;
     private buildInteractivePayload;
     private buildMediaPayload;
+    sendFreeText(clinicId: string, to: string, body: string): Promise<{
+        success: boolean;
+        messageId?: string;
+        error?: string;
+    }>;
 }

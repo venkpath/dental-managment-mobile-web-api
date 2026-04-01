@@ -48,8 +48,10 @@ export declare class WebhookController {
         status: string;
     }>;
     verifyWhatsAppWebhook(mode: string, verifyToken: string, challenge: string, res: Response): Response<any, Record<string, any>>;
-    whatsappWebhook(body: Record<string, unknown>): Promise<{
+    whatsappWebhook(req: Request, body: Record<string, unknown>): Promise<{
         processed: number;
+    } | {
+        error: string;
     }>;
 }
 export declare class CommunicationController {
@@ -69,7 +71,9 @@ export declare class CommunicationController {
         template_id: string | null;
         scheduled_at: Date | null;
         recipient: string;
+        direction: string;
         skip_reason: string | null;
+        wa_message_id: string | null;
         sent_at: Date | null;
     }>;
     findAllMessages(clinicId: string, query: QueryMessageDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
@@ -112,7 +116,9 @@ export declare class CommunicationController {
         template_id: string | null;
         scheduled_at: Date | null;
         recipient: string;
+        direction: string;
         skip_reason: string | null;
+        wa_message_id: string | null;
         sent_at: Date | null;
     }>>;
     getStats(clinicId: string, startDate?: string, endDate?: string): Promise<{
@@ -196,7 +202,9 @@ export declare class CommunicationController {
         template_id: string | null;
         scheduled_at: Date | null;
         recipient: string;
+        direction: string;
         skip_reason: string | null;
+        wa_message_id: string | null;
         sent_at: Date | null;
     }>;
     getCircuitBreakerStatus(clinicId: string): Promise<Record<string, {
@@ -253,7 +261,9 @@ export declare class CommunicationController {
             template_id: string | null;
             scheduled_at: Date | null;
             recipient: string;
+            direction: string;
             skip_reason: string | null;
+            wa_message_id: string | null;
             sent_at: Date | null;
         })[];
         meta: import("../../common/interfaces/paginated-result.interface.js").PaginationMeta;
@@ -394,5 +404,72 @@ export declare class CommunicationController {
     disconnectWhatsApp(clinicId: string): Promise<{
         success: boolean;
         message: string;
+    }>;
+    getInboxConversations(clinicId: string, page?: string, limit?: string): Promise<{
+        data: {
+            phone: string;
+            patient_id: string | null;
+            patient_name: string;
+            last_message: string;
+            last_at: Date;
+            last_direction: string;
+            unread_count: number;
+        }[];
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            total_pages: number;
+        };
+    }>;
+    getConversationMessages(clinicId: string, phone: string, page?: string, limit?: string): Promise<{
+        data: {
+            id: string;
+            status: string;
+            created_at: Date;
+            body: string;
+            metadata: import("@prisma/client/runtime/client").JsonValue;
+            template: {
+                template_name: string;
+            } | null;
+            direction: string;
+            wa_message_id: string | null;
+            sent_at: Date | null;
+        }[];
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            total_pages: number;
+        };
+    }>;
+    sendInboxReply(clinicId: string, phone: string, body: {
+        message: string;
+    }): Promise<{
+        success: boolean;
+        message_id: string;
+    }>;
+    startConversation(clinicId: string, body: {
+        patient_id: string;
+        template_id: string;
+        variables?: Record<string, string>;
+    }): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        clinic_id: string;
+        channel: string;
+        category: string;
+        subject: string | null;
+        body: string;
+        metadata: import("@prisma/client/runtime/client").JsonValue | null;
+        patient_id: string | null;
+        template_id: string | null;
+        scheduled_at: Date | null;
+        recipient: string;
+        direction: string;
+        skip_reason: string | null;
+        wa_message_id: string | null;
+        sent_at: Date | null;
     }>;
 }

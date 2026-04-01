@@ -19,8 +19,9 @@ import type { Request, Response } from 'express';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
+import { RequireFeature } from '../../common/decorators/require-feature.decorator.js';
 import { CommunicationService } from './communication.service.js';
-import { SendMessageDto } from './dto/send-message.dto.js';
+import { SendMessageDto, MessageChannel, MessageCategory } from './dto/send-message.dto.js';
 import { QueryMessageDto } from './dto/query-message.dto.js';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto.js';
 import { UpdateClinicSettingsDto } from './dto/update-clinic-settings.dto.js';
@@ -114,7 +115,22 @@ export class WebhookController {
    */
   @Post('whatsapp')
   @ApiOperation({ summary: 'Meta WhatsApp Cloud API webhook (status updates + incoming messages)' })
-  async whatsappWebhook(@Body() body: Record<string, unknown>) {
+  async whatsappWebhook(@Req() req: Request, @Body() body: Record<string, unknown>) {
+    // Validate X-Hub-Signature-256 from Meta to prevent spoofed webhooks
+    const signature = req.headers['x-hub-signature-256'] as string | undefined;
+    const appSecret = this.configService.get<string>('app.facebook.appSecret');
+    if (appSecret && signature) {
+      const { createHmac } = await import('crypto');
+      const rawBody = JSON.stringify(body);
+      const expected = 'sha256=' + createHmac('sha256', appSecret).update(rawBody).digest('hex');
+      if (signature !== expected) {
+        this.logger.warn('WhatsApp webhook signature mismatch — rejecting payload');
+        return { error: 'Invalid signature' };
+      }
+    } else if (appSecret && !signature) {
+      this.logger.warn('WhatsApp webhook missing X-Hub-Signature-256 header');
+    }
+
     this.logger.debug(`WhatsApp webhook received: ${JSON.stringify(body).substring(0, 500)}`);
     return this.communicationService.handleWhatsAppWebhook(body);
   }
@@ -341,5 +357,69 @@ export class CommunicationController {
   @ApiOkResponse({ description: 'WhatsApp disconnected' })
   async disconnectWhatsApp(@CurrentClinic() clinicId: string) {
     return this.communicationService.disconnectWhatsApp(clinicId);
+  }
+
+  // ─── WhatsApp Inbox (Enterprise — own WABA required) ───
+
+  @Get('whatsapp/inbox')
+  @RequireFeature('WHATSAPP_INBOX')
+  @ApiOperation({ summary: 'List WhatsApp conversations (grouped by contact phone number)' })
+  async getInboxConversations(
+    @CurrentClinic() clinicId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.communicationService.getInboxConversations(
+      clinicId,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 30,
+    );
+  }
+
+  @Get('whatsapp/inbox/:phone')
+  @RequireFeature('WHATSAPP_INBOX')
+  @ApiOperation({ summary: 'Get all messages in a WhatsApp conversation thread' })
+  async getConversationMessages(
+    @CurrentClinic() clinicId: string,
+    @Param('phone') phone: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.communicationService.getConversationMessages(
+      clinicId,
+      phone,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 50,
+    );
+  }
+
+  @Post('whatsapp/inbox/:phone/reply')
+  @RequireFeature('WHATSAPP_INBOX')
+  @ApiOperation({ summary: 'Send a free-form reply within a 24hr session window' })
+  async sendInboxReply(
+    @CurrentClinic() clinicId: string,
+    @Param('phone') phone: string,
+    @Body() body: { message: string },
+  ) {
+    if (!body.message?.trim()) throw new BadRequestException('message is required');
+    return this.communicationService.sendInboxReply(clinicId, phone, body.message.trim());
+  }
+
+  @Post('whatsapp/inbox/new-conversation')
+  @RequireFeature('WHATSAPP_INBOX')
+  @ApiOperation({ summary: 'Start a new WhatsApp conversation by sending a template to a patient' })
+  async startConversation(
+    @CurrentClinic() clinicId: string,
+    @Body() body: { patient_id: string; template_id: string; variables?: Record<string, string> },
+  ) {
+    if (!body.patient_id) throw new BadRequestException('patient_id is required');
+    if (!body.template_id) throw new BadRequestException('template_id is required');
+    return this.communicationService.sendMessage(clinicId, {
+      patient_id: body.patient_id,
+      channel: MessageChannel.WHATSAPP,
+      category: MessageCategory.TRANSACTIONAL,
+      template_id: body.template_id,
+      variables: body.variables,
+    });
   }
 }

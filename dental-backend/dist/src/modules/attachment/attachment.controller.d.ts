@@ -28,10 +28,10 @@ export declare class AttachmentController {
         branch_id: string;
         type: string;
         patient_id: string;
+        mime_type: string;
         file_url: string;
         file_name: string;
         original_name: string;
-        mime_type: string;
         ai_analysis: import("@prisma/client/runtime/client").JsonValue | null;
         uploaded_by: string;
     }>;
@@ -58,10 +58,10 @@ export declare class AttachmentController {
         branch_id: string;
         type: string;
         patient_id: string;
+        mime_type: string;
         file_url: string;
         file_name: string;
         original_name: string;
-        mime_type: string;
         ai_analysis: import("@prisma/client/runtime/client").JsonValue | null;
         uploaded_by: string;
     })[]>;

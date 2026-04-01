@@ -37,7 +37,9 @@ export declare class CommunicationService {
         template_id: string | null;
         scheduled_at: Date | null;
         recipient: string;
+        direction: string;
         skip_reason: string | null;
+        wa_message_id: string | null;
         sent_at: Date | null;
     }>;
     findAllMessages(clinicId: string, query: QueryMessageDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
@@ -80,7 +82,9 @@ export declare class CommunicationService {
         template_id: string | null;
         scheduled_at: Date | null;
         recipient: string;
+        direction: string;
         skip_reason: string | null;
+        wa_message_id: string | null;
         sent_at: Date | null;
     }>>;
     findOneMessage(clinicId: string, id: string): Promise<{
@@ -135,7 +139,9 @@ export declare class CommunicationService {
         template_id: string | null;
         scheduled_at: Date | null;
         recipient: string;
+        direction: string;
         skip_reason: string | null;
+        wa_message_id: string | null;
         sent_at: Date | null;
     }>;
     getPatientTimeline(clinicId: string, patientId: string, page?: number, limit?: number, channel?: string): Promise<{
@@ -173,7 +179,9 @@ export declare class CommunicationService {
             template_id: string | null;
             scheduled_at: Date | null;
             recipient: string;
+            direction: string;
             skip_reason: string | null;
+            wa_message_id: string | null;
             sent_at: Date | null;
         })[];
         meta: import("../../common/interfaces/paginated-result.interface.js").PaginationMeta;
@@ -220,7 +228,9 @@ export declare class CommunicationService {
         template_id: string | null;
         scheduled_at: Date | null;
         recipient: string;
+        direction: string;
         skip_reason: string | null;
+        wa_message_id: string | null;
         sent_at: Date | null;
     }>;
     getPatientPreferences(clinicId: string, patientId: string): Promise<{
@@ -403,6 +413,49 @@ export declare class CommunicationService {
     }>;
     private processMetaStatusUpdate;
     private processMetaIncomingMessage;
+    getInboxConversations(clinicId: string, page?: number, limit?: number): Promise<{
+        data: {
+            phone: string;
+            patient_id: string | null;
+            patient_name: string;
+            last_message: string;
+            last_at: Date;
+            last_direction: string;
+            unread_count: number;
+        }[];
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            total_pages: number;
+        };
+    }>;
+    getConversationMessages(clinicId: string, phone: string, page?: number, limit?: number): Promise<{
+        data: {
+            id: string;
+            status: string;
+            created_at: Date;
+            body: string;
+            metadata: Prisma.JsonValue;
+            template: {
+                template_name: string;
+            } | null;
+            direction: string;
+            wa_message_id: string | null;
+            sent_at: Date | null;
+        }[];
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            total_pages: number;
+        };
+    }>;
+    sendInboxReply(clinicId: string, phone: string, body: string): Promise<{
+        success: boolean;
+        message_id: string;
+    }>;
+    private sendMetaReadReceipts;
     checkNdncStatus(phone: string): Promise<{
         is_ndnc: boolean;
         checked: boolean;

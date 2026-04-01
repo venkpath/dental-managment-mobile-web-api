@@ -602,7 +602,9 @@ model CommunicationMessage {
   body         String    @db.Text
   recipient    String    @db.VarChar(255) // phone/email
   status       String    @default("queued") @db.VarChar(20) // queued | sent | delivered | read | failed | skipped
+  direction    String    @default("outbound") @db.VarChar(10) // outbound | inbound
   skip_reason  String?   @db.VarChar(255) // if skipped: preference_disabled, dnd_hours, dedup, etc.
+  wa_message_id String?  @db.VarChar(255) // Meta WhatsApp message ID (wamid.xxx)
   scheduled_at DateTime?
   sent_at      DateTime?
   metadata     Json?     // extra context: campaign_id, appointment_id, etc.
@@ -622,6 +624,8 @@ model CommunicationMessage {
   @@index([scheduled_at])
   @@index([created_at])
   @@index([patient_id, template_id, channel, created_at]) // deduplication query
+  @@index([clinic_id, channel, recipient, created_at]) // inbox conversation query
+  @@index([wa_message_id]) // webhook status update lookup
   @@map("communication_messages")
 }
 

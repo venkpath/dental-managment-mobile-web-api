@@ -145,6 +145,7 @@ export type TabParamList = {
   Dashboard: undefined;
   Patients: undefined;
   Appointments: undefined;
+  WhatsApp: undefined;
   Billing: undefined;
 };
 
@@ -169,4 +170,10 @@ export type BillingStackParamList = {
   InvoiceList: undefined;
   InvoiceDetail: { invoiceId: string };
   QuickInvoice: { patientId?: string };
+};
+
+export type WhatsAppStackParamList = {
+  ConversationList: undefined;
+  ChatThread: { phone: string; name: string; patientId: string | null };
+  NewConversation: undefined;
 };

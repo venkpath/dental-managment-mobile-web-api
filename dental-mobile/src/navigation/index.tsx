@@ -25,6 +25,9 @@ import BookAppointmentScreen from '../screens/appointments/BookAppointmentScreen
 import InvoiceListScreen from '../screens/billing/InvoiceListScreen';
 import InvoiceDetailScreen from '../screens/billing/InvoiceDetailScreen';
 import QuickInvoiceScreen from '../screens/billing/QuickInvoiceScreen';
+import ConversationListScreen from '../screens/whatsapp/ConversationListScreen';
+import ChatThreadScreen from '../screens/whatsapp/ChatThreadScreen';
+import NewConversationScreen from '../screens/whatsapp/NewConversationScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 
 import type {
@@ -33,6 +36,7 @@ import type {
   PatientStackParamList,
   AppointmentStackParamList,
   BillingStackParamList,
+  WhatsAppStackParamList,
 } from '../types';
 
 const Root = createNativeStackNavigator<RootStackParamList>();
@@ -40,6 +44,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
 const PatientStack = createNativeStackNavigator<PatientStackParamList>();
 const ApptStack = createNativeStackNavigator<AppointmentStackParamList>();
 const BillingStack = createNativeStackNavigator<BillingStackParamList>();
+const WAStack = createNativeStackNavigator<WhatsAppStackParamList>();
 
 interface TabIconProps {
   icon: string;
@@ -91,6 +96,16 @@ function BillingNavigator() {
   );
 }
 
+function WhatsAppNavigator() {
+  return (
+    <WAStack.Navigator screenOptions={{ headerShown: false }}>
+      <WAStack.Screen name="ConversationList" component={ConversationListScreen} />
+      <WAStack.Screen name="ChatThread" component={ChatThreadScreen} />
+      <WAStack.Screen name="NewConversation" component={NewConversationScreen} />
+    </WAStack.Navigator>
+  );
+}
+
 function AppTabs() {
   const { bottom } = useSafeAreaInsets();
   const tabBarHeight = 58 + bottom;
@@ -129,6 +144,13 @@ function AppTabs() {
         component={AppointmentsNavigator}
         options={{
           tabBarIcon: ({ focused }) => <TabIcon icon="📅" label="Schedule" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="WhatsApp"
+        component={WhatsAppNavigator}
+        options={{
+          tabBarIcon: ({ focused }) => <TabIcon icon="💬" label="Chat" focused={focused} />,
         }}
       />
       <Tab.Screen

@@ -481,4 +481,51 @@ export class WhatsAppProvider implements ChannelProvider {
         return { ...base, type: 'text', text: { body: caption || '' } };
     }
   }
+
+  /** Send a free-form text message (only valid within 24hr customer-initiated session window) */
+  async sendFreeText(clinicId: string, to: string, body: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    const ctx = this.clinicConfigs.get(clinicId);
+    if (!ctx) {
+      return { success: false, error: 'WhatsApp not configured for this clinic' };
+    }
+
+    let destination = to.replace(/[^0-9]/g, '');
+    if (destination.length === 10) destination = '91' + destination;
+
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: destination,
+      type: 'text',
+      text: { body, preview_url: false },
+    };
+
+    try {
+      const response = await fetch(
+        `${META_GRAPH_API}/${ctx.config.phoneNumberId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${ctx.config.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(15000),
+        },
+      );
+
+      const json = await response.json() as Record<string, unknown>;
+      if (!response.ok) {
+        const error = (json['error'] as Record<string, unknown> | undefined)?.['message'] as string || 'Send failed';
+        return { success: false, error };
+      }
+
+      const messages = json['messages'] as Array<Record<string, unknown>> | undefined;
+      const messageId = messages?.[0]?.['id'] as string | undefined;
+      return { success: true, messageId };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      return { success: false, error: msg };
+    }
+  }
 }

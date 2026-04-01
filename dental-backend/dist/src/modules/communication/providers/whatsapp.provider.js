@@ -347,6 +347,45 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
                 return { ...base, type: 'text', text: { body: caption || '' } };
         }
     }
+    async sendFreeText(clinicId, to, body) {
+        const ctx = this.clinicConfigs.get(clinicId);
+        if (!ctx) {
+            return { success: false, error: 'WhatsApp not configured for this clinic' };
+        }
+        let destination = to.replace(/[^0-9]/g, '');
+        if (destination.length === 10)
+            destination = '91' + destination;
+        const payload = {
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: destination,
+            type: 'text',
+            text: { body, preview_url: false },
+        };
+        try {
+            const response = await fetch(`${META_GRAPH_API}/${ctx.config.phoneNumberId}/messages`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${ctx.config.accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+                signal: AbortSignal.timeout(15000),
+            });
+            const json = await response.json();
+            if (!response.ok) {
+                const error = json['error']?.['message'] || 'Send failed';
+                return { success: false, error };
+            }
+            const messages = json['messages'];
+            const messageId = messages?.[0]?.['id'];
+            return { success: true, messageId };
+        }
+        catch (err) {
+            const msg = err instanceof Error ? err.message : 'Unknown error';
+            return { success: false, error: msg };
+        }
+    }
 };
 exports.WhatsAppProvider = WhatsAppProvider;
 exports.WhatsAppProvider = WhatsAppProvider = WhatsAppProvider_1 = __decorate([
