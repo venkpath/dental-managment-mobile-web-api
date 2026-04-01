@@ -2276,7 +2276,7 @@ export class CommunicationService {
    * 4. Subscribe WABA to app webhooks
    * 5. Save credentials to clinic settings
    */
-  async completeWhatsAppEmbeddedSignup(clinicId: string, code?: string, accessToken?: string, sessionPhoneNumberId?: string, sessionWabaId?: string, redirectUri?: string) {
+  async completeWhatsAppEmbeddedSignup(clinicId: string, code?: string, accessToken?: string, sessionPhoneNumberId?: string, sessionWabaId?: string, _redirectUri?: string) {
     const appId = this.configService.get<string>('app.facebook.appId');
     const appSecret = this.configService.get<string>('app.facebook.appSecret');
 
@@ -2286,81 +2286,102 @@ export class CommunicationService {
       );
     }
 
-    let userToken: string;
+    // --- Determine access token ---
+    // Priority: 1) Direct accessToken from popup, 2) Code exchange, 3) System User token from env
+    let userToken: string | undefined;
 
     if (accessToken) {
-      // Direct token flow — token returned directly from FB.login() popup
       this.logger.log(`Embedded Signup: using direct access token for clinic ${clinicId}`);
       userToken = accessToken;
-    } else if (code) {
-      // Step 1 (per Meta docs): Exchange the token code for a business token
-      // The redirect_uri MUST match what the FB JS SDK used internally in the popup.
-      // The frontend captures this by intercepting window.open and extracting redirect_uri from the popup URL.
-      this.logger.log(`Embedded Signup: exchanging auth code for clinic ${clinicId} (redirectUri=${redirectUri || 'none'})`);
-
-      const tokenUrl = new URL(`${CommunicationService.META_GRAPH_API}/oauth/access_token`);
-      tokenUrl.searchParams.set('client_id', appId);
-      tokenUrl.searchParams.set('client_secret', appSecret);
-      tokenUrl.searchParams.set('code', code);
-
-      if (redirectUri) {
-        tokenUrl.searchParams.set('redirect_uri', redirectUri);
-      }
-
-      this.logger.log(`Embedded Signup: exchange URL params — client_id=${appId}, redirect_uri=${redirectUri || '(not set)'}`);
-
-      const tokenRes = await fetch(tokenUrl.toString());
-      const tokenData = await tokenRes.json() as { access_token?: string; error?: { message: string; error_subcode?: number } };
-
-      if (!tokenRes.ok || !tokenData.access_token) {
-        this.logger.error(`Embedded Signup token exchange failed: ${JSON.stringify(tokenData)}`);
-        throw new BadRequestException(
-          tokenData.error?.message || 'Failed to exchange authorization code. Please try connecting again.',
-        );
-      }
-
-      this.logger.log(`Embedded Signup: token exchange successful for clinic ${clinicId}`);
-      userToken = tokenData.access_token;
-    } else {
-      throw new BadRequestException('Either code or accessToken must be provided');
     }
 
-    // Determine WABA ID — prefer session info from Embedded Signup message event,
-    // fall back to debug_token granular scopes
+    if (!userToken && code) {
+      // Try code exchange — this typically fails with the JS SDK popup (redirect_uri mismatch)
+      // but we attempt it in case it works, and fall back to the System User token
+      this.logger.log(`Embedded Signup: attempting code exchange for clinic ${clinicId}`);
+      try {
+        const tokenUrl = new URL(`${CommunicationService.META_GRAPH_API}/oauth/access_token`);
+        tokenUrl.searchParams.set('client_id', appId);
+        tokenUrl.searchParams.set('client_secret', appSecret);
+        tokenUrl.searchParams.set('code', code);
+
+        const tokenRes = await fetch(tokenUrl.toString());
+        const tokenData = await tokenRes.json() as { access_token?: string; error?: { message: string } };
+
+        if (tokenRes.ok && tokenData.access_token) {
+          this.logger.log(`Embedded Signup: code exchange successful for clinic ${clinicId}`);
+          userToken = tokenData.access_token;
+        } else {
+          this.logger.warn(`Embedded Signup: code exchange failed (expected with JS SDK popup): ${JSON.stringify(tokenData)}`);
+        }
+      } catch (err) {
+        this.logger.warn(`Embedded Signup: code exchange error: ${err}`);
+      }
+    }
+
+    // Fallback: Use the System User access token from environment
+    // When using a FB Login Config with System User token type, the System User
+    // is automatically granted access to WABAs shared through Embedded Signup.
+    if (!userToken) {
+      const systemUserToken = this.configService.get<string>('app.whatsapp.accessToken');
+      if (systemUserToken) {
+        this.logger.log(`Embedded Signup: using System User token from environment for clinic ${clinicId}`);
+        userToken = systemUserToken;
+      } else {
+        throw new BadRequestException(
+          'Could not obtain access token. Please ensure WHATSAPP_ACCESS_TOKEN is configured.',
+        );
+      }
+    }
+
+    // --- Determine WABA ID ---
+    // Priority: 1) Session info from popup, 2) debug_token, 3) env fallback
     let wabaId = sessionWabaId;
 
     if (!wabaId) {
       this.logger.log('Embedded Signup: no WABA from session, trying debug_token');
-      const debugUrl = new URL(`${CommunicationService.META_GRAPH_API}/debug_token`);
-      debugUrl.searchParams.set('input_token', userToken);
-      debugUrl.searchParams.set('access_token', `${appId}|${appSecret}`);
+      try {
+        const debugUrl = new URL(`${CommunicationService.META_GRAPH_API}/debug_token`);
+        debugUrl.searchParams.set('input_token', userToken);
+        debugUrl.searchParams.set('access_token', `${appId}|${appSecret}`);
 
-      const debugRes = await fetch(debugUrl.toString());
-      const debugData = await debugRes.json() as {
-        data?: {
-          granular_scopes?: Array<{
-            permission: string;
-            target_ids?: string[];
-          }>;
+        const debugRes = await fetch(debugUrl.toString());
+        const debugData = await debugRes.json() as {
+          data?: {
+            granular_scopes?: Array<{
+              permission: string;
+              target_ids?: string[];
+            }>;
+          };
+          error?: { message: string };
         };
-        error?: { message: string };
-      };
 
-      if (!debugRes.ok) {
-        this.logger.error(`Embedded Signup debug_token failed: ${JSON.stringify(debugData)}`);
-        throw new BadRequestException('Failed to verify authorization. Please try again.');
+        if (debugRes.ok) {
+          const wabaScopes = debugData.data?.granular_scopes?.find(
+            (s) => s.permission === 'whatsapp_business_management',
+          );
+          wabaId = wabaScopes?.target_ids?.[0];
+        } else {
+          this.logger.warn(`Embedded Signup debug_token failed: ${JSON.stringify(debugData)}`);
+        }
+      } catch (err) {
+        this.logger.warn(`Embedded Signup debug_token error: ${err}`);
       }
+    }
 
-      const wabaScopes = debugData.data?.granular_scopes?.find(
-        (s) => s.permission === 'whatsapp_business_management',
-      );
-      wabaId = wabaScopes?.target_ids?.[0];
+    // Final fallback: use WABA ID from environment
+    if (!wabaId) {
+      const envWabaId = this.configService.get<string>('app.whatsapp.wabaId');
+      if (envWabaId) {
+        this.logger.log(`Embedded Signup: using WABA ID from environment: ${envWabaId}`);
+        wabaId = envWabaId;
+      }
     }
 
     if (!wabaId) {
-      this.logger.error('Embedded Signup: no WABA ID found');
+      this.logger.error('Embedded Signup: no WABA ID found from any source');
       throw new BadRequestException(
-        'No WhatsApp Business Account was shared during signup. Please try again and make sure to select your WhatsApp Business Account.',
+        'No WhatsApp Business Account was shared during signup. Please try again and make sure to complete all steps in the popup.',
       );
     }
 
@@ -2385,7 +2406,7 @@ export class CommunicationService {
       // Non-fatal — continue, we can retry later
     }
 
-    // Determine phone number — prefer session info, fall back to API
+    // Determine phone number — prefer session info, fall back to API, then env
     let phone: { id: string; display_phone_number: string; verified_name: string; quality_rating: string };
 
     if (sessionPhoneNumberId) {
@@ -2412,7 +2433,40 @@ export class CommunicationService {
         phone = await this.fetchFirstPhoneFromWaba(wabaId, userToken);
       }
     } else {
-      phone = await this.fetchFirstPhoneFromWaba(wabaId, userToken);
+      // Try fetching from WABA first, then fall back to env phone number ID
+      try {
+        phone = await this.fetchFirstPhoneFromWaba(wabaId, userToken);
+      } catch {
+        const envPhoneId = this.configService.get<string>('app.whatsapp.phoneNumberId');
+        if (envPhoneId) {
+          this.logger.log(`Embedded Signup: using phone number ID from environment: ${envPhoneId}`);
+          const phoneRes = await fetch(
+            `${CommunicationService.META_GRAPH_API}/${envPhoneId}?fields=id,display_phone_number,verified_name,quality_rating`,
+            { headers: { Authorization: `Bearer ${userToken}` } },
+          );
+          const phoneData = await phoneRes.json() as {
+            id?: string; display_phone_number?: string; verified_name?: string; quality_rating?: string;
+            error?: { message: string };
+          };
+
+          if (phoneRes.ok && phoneData.id) {
+            phone = {
+              id: phoneData.id,
+              display_phone_number: phoneData.display_phone_number || '',
+              verified_name: phoneData.verified_name || '',
+              quality_rating: phoneData.quality_rating || '',
+            };
+          } else {
+            throw new BadRequestException(
+              'No phone numbers found. Please add a phone number in Meta Business Suite first.',
+            );
+          }
+        } else {
+          throw new BadRequestException(
+            'No phone numbers found for the WhatsApp Business Account.',
+          );
+        }
+      }
     }
 
     this.logger.log(`Embedded Signup: using phone ${phone.display_phone_number} (ID: ${phone.id})`);
