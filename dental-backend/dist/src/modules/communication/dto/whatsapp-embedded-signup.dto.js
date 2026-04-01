@@ -16,9 +16,10 @@ const class_validator_1 = require("class-validator");
 class WhatsAppEmbeddedSignupDto {
     code;
     accessToken;
-    redirectUri;
+    phoneNumberId;
+    wabaId;
     static _OPENAPI_METADATA_FACTORY() {
-        return { code: { required: false, type: () => String }, accessToken: { required: false, type: () => String }, redirectUri: { required: false, type: () => String } };
+        return { code: { required: false, type: () => String }, accessToken: { required: false, type: () => String }, phoneNumberId: { required: false, type: () => String }, wabaId: { required: false, type: () => String } };
     }
 }
 exports.WhatsAppEmbeddedSignupDto = WhatsAppEmbeddedSignupDto;
@@ -35,9 +36,15 @@ __decorate([
     __metadata("design:type", String)
 ], WhatsAppEmbeddedSignupDto.prototype, "accessToken", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'Page origin where FB.login() was called (used as redirect_uri for code exchange)', required: false }),
+    (0, swagger_1.ApiProperty)({ description: 'Phone Number ID from session logging message event', required: false }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
-], WhatsAppEmbeddedSignupDto.prototype, "redirectUri", void 0);
+], WhatsAppEmbeddedSignupDto.prototype, "phoneNumberId", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'WABA ID from session logging message event', required: false }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], WhatsAppEmbeddedSignupDto.prototype, "wabaId", void 0);
 //# sourceMappingURL=whatsapp-embedded-signup.dto.js.map

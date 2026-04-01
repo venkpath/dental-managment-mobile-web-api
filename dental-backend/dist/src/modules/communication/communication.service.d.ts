@@ -504,7 +504,7 @@ export declare class CommunicationService {
         preheader?: string;
     }): string;
     private static readonly META_GRAPH_API;
-    completeWhatsAppEmbeddedSignup(clinicId: string, code?: string, accessToken?: string, redirectUri?: string): Promise<{
+    completeWhatsAppEmbeddedSignup(clinicId: string, code?: string, accessToken?: string, sessionPhoneNumberId?: string, sessionWabaId?: string): Promise<{
         success: boolean;
         waba_id: string;
         phone_number_id: string;
@@ -512,6 +512,7 @@ export declare class CommunicationService {
         verified_name: string;
         quality_rating: string;
     }>;
+    private fetchFirstPhoneFromWaba;
     disconnectWhatsApp(clinicId: string): Promise<{
         success: boolean;
         message: string;

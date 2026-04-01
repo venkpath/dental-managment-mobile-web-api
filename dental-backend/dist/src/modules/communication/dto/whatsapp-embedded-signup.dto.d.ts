@@ -1,5 +1,6 @@
 export declare class WhatsAppEmbeddedSignupDto {
     code?: string;
     accessToken?: string;
-    redirectUri?: string;
+    phoneNumberId?: string;
+    wabaId?: string;
 }

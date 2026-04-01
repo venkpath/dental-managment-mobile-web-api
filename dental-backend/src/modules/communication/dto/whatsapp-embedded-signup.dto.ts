@@ -12,8 +12,13 @@ export class WhatsAppEmbeddedSignupDto {
   @IsOptional()
   accessToken?: string;
 
-  @ApiProperty({ description: 'Page origin where FB.login() was called (used as redirect_uri for code exchange)', required: false })
+  @ApiProperty({ description: 'Phone Number ID from session logging message event', required: false })
   @IsString()
   @IsOptional()
-  redirectUri?: string;
+  phoneNumberId?: string;
+
+  @ApiProperty({ description: 'WABA ID from session logging message event', required: false })
+  @IsString()
+  @IsOptional()
+  wabaId?: string;
 }
