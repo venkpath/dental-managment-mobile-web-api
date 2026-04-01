@@ -2294,20 +2294,34 @@ export class CommunicationService {
       userToken = accessToken;
     } else if (code) {
       // Step 1 (per Meta docs): Exchange the token code for a business token
-      // GET /oauth/access_token with client_id, client_secret, code — NO redirect_uri
-      this.logger.log(`Embedded Signup: exchanging auth code for clinic ${clinicId}`);
-      const tokenUrl = new URL(`${CommunicationService.META_GRAPH_API}/oauth/access_token`);
-      tokenUrl.searchParams.set('client_id', appId);
-      tokenUrl.searchParams.set('client_secret', appSecret);
-      tokenUrl.searchParams.set('code', code);
+      // Meta's Embedded Signup docs show: GET /oauth/access_token with client_id, client_secret, code
+      // However, the JS SDK may bind the code to a redirect_uri internally, so we retry with origin if needed
+      this.logger.log(`Embedded Signup: exchanging auth code for clinic ${clinicId} (redirectUri=${redirectUri || 'none'})`);
 
-      // Include redirect_uri if provided — the JS SDK popup binds the code to the page URL
-      if (redirectUri) {
-        tokenUrl.searchParams.set('redirect_uri', redirectUri);
+      const buildTokenUrl = (withRedirectUri?: string) => {
+        const url = new URL(`${CommunicationService.META_GRAPH_API}/oauth/access_token`);
+        url.searchParams.set('client_id', appId);
+        url.searchParams.set('client_secret', appSecret);
+        url.searchParams.set('code', code);
+        if (withRedirectUri) {
+          url.searchParams.set('redirect_uri', withRedirectUri);
+        }
+        return url;
+      };
+
+      // Attempt 1: Without redirect_uri (as per Meta's Embedded Signup Tech Provider docs)
+      let tokenUrl = buildTokenUrl();
+      this.logger.log(`Embedded Signup: attempt 1 — exchange without redirect_uri`);
+      let tokenRes = await fetch(tokenUrl.toString());
+      let tokenData = await tokenRes.json() as { access_token?: string; error?: { message: string; error_subcode?: number } };
+
+      // If redirect_uri mismatch (subcode 36008) and we have a redirectUri, retry with it
+      if (!tokenRes.ok && tokenData.error?.error_subcode === 36008 && redirectUri) {
+        this.logger.warn(`Embedded Signup: attempt 1 failed with redirect_uri mismatch, retrying with origin: ${redirectUri}`);
+        tokenUrl = buildTokenUrl(redirectUri);
+        tokenRes = await fetch(tokenUrl.toString());
+        tokenData = await tokenRes.json() as { access_token?: string; error?: { message: string; error_subcode?: number } };
       }
-
-      const tokenRes = await fetch(tokenUrl.toString());
-      const tokenData = await tokenRes.json() as { access_token?: string; error?: { message: string } };
 
       if (!tokenRes.ok || !tokenData.access_token) {
         this.logger.error(`Embedded Signup token exchange failed: ${JSON.stringify(tokenData)}`);
@@ -2316,6 +2330,7 @@ export class CommunicationService {
         );
       }
 
+      this.logger.log(`Embedded Signup: token exchange successful for clinic ${clinicId}`);
       userToken = tokenData.access_token;
     } else {
       throw new BadRequestException('Either code or accessToken must be provided');
