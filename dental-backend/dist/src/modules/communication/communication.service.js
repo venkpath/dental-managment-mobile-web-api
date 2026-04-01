@@ -1705,7 +1705,7 @@ let CommunicationService = class CommunicationService {
 </html>`;
     }
     static META_GRAPH_API = 'https://graph.facebook.com/v21.0';
-    async completeWhatsAppEmbeddedSignup(clinicId, code) {
+    async completeWhatsAppEmbeddedSignup(clinicId, code, redirectUri) {
         const appId = this.configService.get('app.facebook.appId');
         const appSecret = this.configService.get('app.facebook.appSecret');
         if (!appId || !appSecret) {
@@ -1716,6 +1716,7 @@ let CommunicationService = class CommunicationService {
         const tokenBody = new URLSearchParams({
             client_id: appId,
             client_secret: appSecret,
+            redirect_uri: redirectUri,
             code,
         });
         const tokenRes = await fetch(tokenUrl, {

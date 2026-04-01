@@ -6,4 +6,9 @@ export class WhatsAppEmbeddedSignupDto {
   @IsString()
   @IsNotEmpty()
   code!: string;
+
+  @ApiProperty({ description: 'Page URL where FB.login() was initiated (used as redirect_uri for token exchange)' })
+  @IsString()
+  @IsNotEmpty()
+  redirectUri!: string;
 }

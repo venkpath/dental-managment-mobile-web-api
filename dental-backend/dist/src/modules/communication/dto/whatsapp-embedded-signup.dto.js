@@ -15,8 +15,9 @@ const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 class WhatsAppEmbeddedSignupDto {
     code;
+    redirectUri;
     static _OPENAPI_METADATA_FACTORY() {
-        return { code: { required: true, type: () => String } };
+        return { code: { required: true, type: () => String }, redirectUri: { required: true, type: () => String } };
     }
 }
 exports.WhatsAppEmbeddedSignupDto = WhatsAppEmbeddedSignupDto;
@@ -26,4 +27,10 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], WhatsAppEmbeddedSignupDto.prototype, "code", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Page URL where FB.login() was initiated (used as redirect_uri for token exchange)' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], WhatsAppEmbeddedSignupDto.prototype, "redirectUri", void 0);
 //# sourceMappingURL=whatsapp-embedded-signup.dto.js.map
