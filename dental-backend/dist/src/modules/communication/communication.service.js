@@ -1712,15 +1712,17 @@ let CommunicationService = class CommunicationService {
             throw new common_1.InternalServerErrorException('Facebook App ID and App Secret must be configured. Set FACEBOOK_APP_ID and FACEBOOK_APP_SECRET environment variables.');
         }
         this.logger.log(`Embedded Signup: exchanging auth code for clinic ${clinicId}`);
-        const tokenUrl = new URL(`${CommunicationService_1.META_GRAPH_API}/oauth/access_token`);
-        tokenUrl.searchParams.set('client_id', appId);
-        tokenUrl.searchParams.set('client_secret', appSecret);
-        const frontendUrl = (process.env['CORS_ORIGIN'] || '').split(',')[0].trim();
-        if (frontendUrl) {
-            tokenUrl.searchParams.set('redirect_uri', frontendUrl);
-        }
-        tokenUrl.searchParams.set('code', code);
-        const tokenRes = await fetch(tokenUrl.toString());
+        const tokenUrl = `${CommunicationService_1.META_GRAPH_API}/oauth/access_token`;
+        const tokenBody = new URLSearchParams({
+            client_id: appId,
+            client_secret: appSecret,
+            code,
+        });
+        const tokenRes = await fetch(tokenUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: tokenBody.toString(),
+        });
         const tokenData = await tokenRes.json();
         if (!tokenRes.ok || !tokenData.access_token) {
             this.logger.error(`Embedded Signup token exchange failed: ${JSON.stringify(tokenData)}`);
