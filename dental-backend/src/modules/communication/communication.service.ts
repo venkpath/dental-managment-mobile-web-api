@@ -1064,9 +1064,14 @@ export class CommunicationService {
   ): string | null {
     switch (channel) {
       case 'email': return patient.email;
-      case 'sms':
-      case 'whatsapp': return patient.phone;
-      case 'in_app': return patient.phone; // use phone as identifier
+      case 'whatsapp': {
+        // Normalize to 91XXXXXXXXXX for consistent grouping with inbound messages
+        const digits = patient.phone.replace(/[^0-9]/g, '');
+        const last10 = digits.slice(-10);
+        return `91${last10}`;
+      }
+      case 'sms': return patient.phone;
+      case 'in_app': return patient.phone;
       default: return null;
     }
   }
@@ -1745,6 +1750,7 @@ export class CommunicationService {
     const offset = (page - 1) * limit;
 
     // Get latest message per unique phone number using window functions for performance
+    // Normalize phone numbers: strip leading '+' and ensure '91' prefix for consistent grouping
     const rows = await this.prisma.$queryRaw<Array<{
       recipient: string;
       patient_id: string | null;
@@ -1758,24 +1764,37 @@ export class CommunicationService {
       WITH ranked AS (
         SELECT
           m.recipient,
+          CASE
+            WHEN LENGTH(REGEXP_REPLACE(m.recipient, '[^0-9]', '', 'g')) = 10
+            THEN '91' || REGEXP_REPLACE(m.recipient, '[^0-9]', '', 'g')
+            ELSE REGEXP_REPLACE(m.recipient, '[^0-9]', '', 'g')
+          END AS normalized_phone,
           m.patient_id,
           m.body,
           m.direction,
           m.status,
           m.created_at,
-          ROW_NUMBER() OVER (PARTITION BY m.recipient ORDER BY m.created_at DESC) AS rn
+          ROW_NUMBER() OVER (
+            PARTITION BY
+              CASE
+                WHEN LENGTH(REGEXP_REPLACE(m.recipient, '[^0-9]', '', 'g')) = 10
+                THEN '91' || REGEXP_REPLACE(m.recipient, '[^0-9]', '', 'g')
+                ELSE REGEXP_REPLACE(m.recipient, '[^0-9]', '', 'g')
+              END
+            ORDER BY m.created_at DESC
+          ) AS rn
         FROM communication_messages m
         WHERE m.clinic_id = ${clinicId} AND m.channel = 'whatsapp'
       ),
       conversations AS (
         SELECT
-          r.recipient,
+          r.normalized_phone AS recipient,
           r.patient_id,
-          p.name AS patient_name,
+          CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
           r.body AS last_body,
           r.created_at AS last_at,
           r.direction AS last_direction,
-          (SELECT COUNT(*) FROM ranked u WHERE u.recipient = r.recipient AND u.direction = 'inbound' AND u.status != 'read') AS unread_count
+          (SELECT COUNT(*) FROM ranked u WHERE u.normalized_phone = r.normalized_phone AND u.direction = 'inbound' AND u.status != 'read') AS unread_count
         FROM ranked r
         LEFT JOIN patients p ON p.id = r.patient_id
         WHERE r.rn = 1
@@ -1807,9 +1826,16 @@ export class CommunicationService {
   async getConversationMessages(clinicId: string, phone: string, page = 1, limit = 50) {
     const offset = (page - 1) * limit;
 
+    // Normalize phone: build list of possible formats to match across stored variations
+    const digitsOnly = phone.replace(/[^0-9]/g, '');
+    const last10 = digitsOnly.slice(-10);
+    const phoneVariants = [...new Set([phone, digitsOnly, last10, `91${last10}`, `+91${last10}`])];
+
+    const whereClause = { clinic_id: clinicId, channel: 'whatsapp' as const, recipient: { in: phoneVariants } };
+
     const [messages, total] = await Promise.all([
       this.prisma.communicationMessage.findMany({
-        where: { clinic_id: clinicId, channel: 'whatsapp', recipient: phone },
+        where: whereClause,
         orderBy: { created_at: 'asc' },
         skip: offset,
         take: limit,
@@ -1826,7 +1852,7 @@ export class CommunicationService {
         },
       }),
       this.prisma.communicationMessage.count({
-        where: { clinic_id: clinicId, channel: 'whatsapp', recipient: phone },
+        where: whereClause,
       }),
     ]);
 
@@ -1835,7 +1861,7 @@ export class CommunicationService {
       where: {
         clinic_id: clinicId,
         channel: 'whatsapp',
-        recipient: phone,
+        recipient: { in: phoneVariants },
         direction: 'inbound',
         status: { not: 'read' },
         wa_message_id: { not: null },
@@ -1864,24 +1890,24 @@ export class CommunicationService {
   }
 
   async sendInboxReply(clinicId: string, phone: string, body: string) {
+    // Normalize phone to 91XXXXXXXXXX format for consistent storage
+    const digitsOnly = phone.replace(/[^0-9]/g, '');
+    const last10 = digitsOnly.slice(-10);
+    const normalizedPhone = `91${last10}`;
+    const phoneVariants = [...new Set([normalizedPhone, last10, `+91${last10}`, phone])];
+
     // Find patient by phone
-    const cleanPhone = phone.replace(/^91/, '').replace(/[^0-9]/g, '');
     const patient = await this.prisma.patient.findFirst({
       where: {
         clinic_id: clinicId,
-        OR: [
-          { phone: cleanPhone },
-          { phone: `91${cleanPhone}` },
-          { phone: `+91${cleanPhone}` },
-          { phone },
-        ],
+        OR: phoneVariants.map((p) => ({ phone: p })),
       },
       select: { id: true },
     });
 
     // Check if within 24hr session window (last inbound message within 24hrs)
     const lastInbound = await this.prisma.communicationMessage.findFirst({
-      where: { clinic_id: clinicId, channel: 'whatsapp', recipient: phone, direction: 'inbound' },
+      where: { clinic_id: clinicId, channel: 'whatsapp', recipient: { in: phoneVariants }, direction: 'inbound' },
       orderBy: { created_at: 'desc' },
       select: { created_at: true },
     });
@@ -1898,9 +1924,9 @@ export class CommunicationService {
 
     // Send via WhatsApp provider directly
     await this.ensureProvidersConfigured(clinicId);
-    const result = await this.whatsAppProvider.sendFreeText(clinicId, phone, body);
+    const result = await this.whatsAppProvider.sendFreeText(clinicId, normalizedPhone, body);
 
-    // Store outbound
+    // Store outbound with normalized phone
     const message = await this.prisma.communicationMessage.create({
       data: {
         clinic_id: clinicId,
@@ -1908,7 +1934,7 @@ export class CommunicationService {
         channel: 'whatsapp',
         category: 'transactional',
         body,
-        recipient: phone,
+        recipient: normalizedPhone,
         status: result.success ? 'sent' : 'failed',
         direction: 'outbound',
         wa_message_id: result.messageId ?? null,
