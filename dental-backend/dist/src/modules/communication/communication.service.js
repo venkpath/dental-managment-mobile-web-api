@@ -1718,26 +1718,16 @@ let CommunicationService = class CommunicationService {
         }
         else if (code) {
             this.logger.log(`Embedded Signup: exchanging auth code for clinic ${clinicId} (redirectUri=${redirectUri || 'none'})`);
-            const buildTokenUrl = (withRedirectUri) => {
-                const url = new URL(`${CommunicationService_1.META_GRAPH_API}/oauth/access_token`);
-                url.searchParams.set('client_id', appId);
-                url.searchParams.set('client_secret', appSecret);
-                url.searchParams.set('code', code);
-                if (withRedirectUri) {
-                    url.searchParams.set('redirect_uri', withRedirectUri);
-                }
-                return url;
-            };
-            let tokenUrl = buildTokenUrl();
-            this.logger.log(`Embedded Signup: attempt 1 — exchange without redirect_uri`);
-            let tokenRes = await fetch(tokenUrl.toString());
-            let tokenData = await tokenRes.json();
-            if (!tokenRes.ok && tokenData.error?.error_subcode === 36008 && redirectUri) {
-                this.logger.warn(`Embedded Signup: attempt 1 failed with redirect_uri mismatch, retrying with origin: ${redirectUri}`);
-                tokenUrl = buildTokenUrl(redirectUri);
-                tokenRes = await fetch(tokenUrl.toString());
-                tokenData = await tokenRes.json();
+            const tokenUrl = new URL(`${CommunicationService_1.META_GRAPH_API}/oauth/access_token`);
+            tokenUrl.searchParams.set('client_id', appId);
+            tokenUrl.searchParams.set('client_secret', appSecret);
+            tokenUrl.searchParams.set('code', code);
+            if (redirectUri) {
+                tokenUrl.searchParams.set('redirect_uri', redirectUri);
             }
+            this.logger.log(`Embedded Signup: exchange URL params — client_id=${appId}, redirect_uri=${redirectUri || '(not set)'}`);
+            const tokenRes = await fetch(tokenUrl.toString());
+            const tokenData = await tokenRes.json();
             if (!tokenRes.ok || !tokenData.access_token) {
                 this.logger.error(`Embedded Signup token exchange failed: ${JSON.stringify(tokenData)}`);
                 throw new common_1.BadRequestException(tokenData.error?.message || 'Failed to exchange authorization code. Please try connecting again.');
