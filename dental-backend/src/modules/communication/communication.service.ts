@@ -2291,6 +2291,7 @@ export class CommunicationService {
     const tokenUrl = new URL(`${CommunicationService.META_GRAPH_API}/oauth/access_token`);
     tokenUrl.searchParams.set('client_id', appId);
     tokenUrl.searchParams.set('client_secret', appSecret);
+    tokenUrl.searchParams.set('redirect_uri', 'https://www.facebook.com/v21.0/dialog/oauth');
     tokenUrl.searchParams.set('code', code);
 
     const tokenRes = await fetch(tokenUrl.toString());
