@@ -36,6 +36,7 @@ export declare class CampaignService {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         segment_type: string;
         segment_config: Prisma.JsonValue | null;
         started_at: Date | null;
@@ -47,7 +48,6 @@ export declare class CampaignService {
         read_count: number;
         estimated_cost: Prisma.Decimal | null;
         actual_cost: Prisma.Decimal | null;
-        created_by: string;
     }>;
     findAll(clinicId: string, query: QueryCampaignDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         template: {
@@ -64,6 +64,7 @@ export declare class CampaignService {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         segment_type: string;
         segment_config: Prisma.JsonValue | null;
         started_at: Date | null;
@@ -75,7 +76,6 @@ export declare class CampaignService {
         read_count: number;
         estimated_cost: Prisma.Decimal | null;
         actual_cost: Prisma.Decimal | null;
-        created_by: string;
     }>>;
     findOne(clinicId: string, id: string): Promise<{
         template: {
@@ -104,6 +104,7 @@ export declare class CampaignService {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         segment_type: string;
         segment_config: Prisma.JsonValue | null;
         started_at: Date | null;
@@ -115,7 +116,6 @@ export declare class CampaignService {
         read_count: number;
         estimated_cost: Prisma.Decimal | null;
         actual_cost: Prisma.Decimal | null;
-        created_by: string;
     }>;
     update(clinicId: string, id: string, dto: UpdateCampaignDto): Promise<{
         template: {
@@ -132,6 +132,7 @@ export declare class CampaignService {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         segment_type: string;
         segment_config: Prisma.JsonValue | null;
         started_at: Date | null;
@@ -143,7 +144,6 @@ export declare class CampaignService {
         read_count: number;
         estimated_cost: Prisma.Decimal | null;
         actual_cost: Prisma.Decimal | null;
-        created_by: string;
     }>;
     delete(clinicId: string, id: string): Promise<{
         id: string;
@@ -155,6 +155,7 @@ export declare class CampaignService {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         segment_type: string;
         segment_config: Prisma.JsonValue | null;
         started_at: Date | null;
@@ -166,7 +167,6 @@ export declare class CampaignService {
         read_count: number;
         estimated_cost: Prisma.Decimal | null;
         actual_cost: Prisma.Decimal | null;
-        created_by: string;
     }>;
     getAudiencePreview(clinicId: string, segmentType: string, segmentConfig?: Record<string, unknown>): Promise<{
         total_count: number;
@@ -308,6 +308,7 @@ export declare class CampaignService {
             channel: string;
             template_id: string | null;
             scheduled_at: Date | null;
+            created_by: string;
             segment_type: string;
             segment_config: Prisma.JsonValue | null;
             started_at: Date | null;
@@ -319,7 +320,6 @@ export declare class CampaignService {
             read_count: number;
             estimated_cost: Prisma.Decimal | null;
             actual_cost: Prisma.Decimal | null;
-            created_by: string;
         };
         event_name: string;
         offer_details: Record<string, unknown> | null;

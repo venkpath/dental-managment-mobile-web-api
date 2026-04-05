@@ -14,6 +14,9 @@ export interface DashboardSummary {
   today_revenue: number;
   pending_invoices: number;
   low_inventory_count: number;
+  this_month_expenses: number;
+  this_month_revenue: number;
+  net_profit: number;
 }
 
 export interface AppointmentAnalytics {
@@ -77,7 +80,11 @@ export class ReportsService {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const [todayAppointments, todayRevenue, pendingInvoices, lowInventoryItems] =
+    // First day of current month
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const [todayAppointments, todayRevenue, pendingInvoices, lowInventoryItems, monthExpenses, monthRevenue] =
       await Promise.all([
         this.prisma.appointment.count({
           where: {
@@ -107,13 +114,35 @@ export class ReportsService {
           WHERE clinic_id = ${clinicId}::uuid
             AND quantity <= reorder_level
         `,
+
+        this.prisma.expense.aggregate({
+          _sum: { amount: true },
+          where: {
+            clinic_id: clinicId,
+            date: { gte: monthStart, lte: monthEnd },
+          },
+        }),
+
+        this.prisma.payment.aggregate({
+          _sum: { amount: true },
+          where: {
+            invoice: { clinic_id: clinicId },
+            paid_at: { gte: monthStart, lte: monthEnd },
+          },
+        }),
       ]);
+
+    const thisMonthExpenses = Number(monthExpenses._sum.amount ?? 0);
+    const thisMonthRevenue = Number(monthRevenue._sum.amount ?? 0);
 
     return {
       today_appointments: todayAppointments,
       today_revenue: Number(todayRevenue._sum.amount ?? 0),
       pending_invoices: pendingInvoices,
       low_inventory_count: Number(lowInventoryItems[0]?.count ?? 0),
+      this_month_expenses: thisMonthExpenses,
+      this_month_revenue: thisMonthRevenue,
+      net_profit: thisMonthRevenue - thisMonthExpenses,
     };
   }
 
@@ -396,5 +425,149 @@ export class ReportsService {
     `;
 
     return items;
+  }
+
+  async getProfitLoss(clinicId: string, query: RevenueQueryDto) {
+    const startDate = new Date(query.start_date);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(query.end_date);
+    endDate.setHours(23, 59, 59, 999);
+
+    const branchFilter: Prisma.ExpenseWhereInput = query.branch_id
+      ? { branch_id: query.branch_id }
+      : {};
+
+    const [revenueAgg, expenseAgg, expenseByCategory] = await Promise.all([
+      this.prisma.payment.aggregate({
+        _sum: { amount: true },
+        where: {
+          invoice: {
+            clinic_id: clinicId,
+            ...(query.branch_id && { branch_id: query.branch_id }),
+          },
+          paid_at: { gte: startDate, lte: endDate },
+        },
+      }),
+
+      this.prisma.expense.aggregate({
+        _sum: { amount: true },
+        _count: true,
+        where: {
+          clinic_id: clinicId,
+          date: { gte: startDate, lte: endDate },
+          ...branchFilter,
+        },
+      }),
+
+      this.prisma.expense.groupBy({
+        by: ['category_id'],
+        where: {
+          clinic_id: clinicId,
+          date: { gte: startDate, lte: endDate },
+          ...branchFilter,
+        },
+        _sum: { amount: true },
+        orderBy: { _sum: { amount: 'desc' } },
+      }),
+    ]);
+
+    const categoryIds = expenseByCategory.map((c) => c.category_id);
+    const categories = await this.prisma.expenseCategory.findMany({
+      where: { id: { in: categoryIds } },
+      select: { id: true, name: true, icon: true },
+    });
+    const categoryMap = new Map(categories.map((c) => [c.id, c]));
+
+    const totalRevenue = Number(revenueAgg._sum.amount ?? 0);
+    const totalExpenses = Number(expenseAgg._sum.amount ?? 0);
+
+    return {
+      total_revenue: totalRevenue,
+      total_expenses: totalExpenses,
+      net_profit: totalRevenue - totalExpenses,
+      profit_margin: totalRevenue > 0
+        ? Math.round(((totalRevenue - totalExpenses) / totalRevenue) * 10000) / 100
+        : 0,
+      expense_count: expenseAgg._count,
+      expense_breakdown: expenseByCategory.map((c) => ({
+        category_id: c.category_id,
+        category_name: categoryMap.get(c.category_id)?.name ?? 'Unknown',
+        category_icon: categoryMap.get(c.category_id)?.icon ?? null,
+        total: Number(c._sum.amount ?? 0),
+      })),
+    };
+  }
+
+  async getProfitLossMonthly(clinicId: string, query: RevenueQueryDto) {
+    const startDate = new Date(query.start_date);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(query.end_date);
+    endDate.setHours(23, 59, 59, 999);
+
+    const branchFilter = query.branch_id || null;
+
+    // Fetch all payments and expenses in the range, then group by month in JS
+    const [payments, expenses] = await Promise.all([
+      this.prisma.payment.findMany({
+        where: {
+          invoice: {
+            clinic_id: clinicId,
+            ...(branchFilter && { branch_id: branchFilter }),
+          },
+          paid_at: { gte: startDate, lte: endDate },
+        },
+        select: { amount: true, paid_at: true },
+      }),
+      this.prisma.expense.findMany({
+        where: {
+          clinic_id: clinicId,
+          date: { gte: startDate, lte: endDate },
+          ...(branchFilter && { branch_id: branchFilter }),
+        },
+        select: { amount: true, date: true, category_id: true },
+      }),
+    ]);
+
+    // Group by month
+    const revenueByMonth = new Map<string, number>();
+    for (const p of payments) {
+      const d = new Date(p.paid_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      revenueByMonth.set(key, (revenueByMonth.get(key) ?? 0) + Number(p.amount));
+    }
+
+    const expenseByMonth = new Map<string, number>();
+    for (const e of expenses) {
+      const d = new Date(e.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      expenseByMonth.set(key, (expenseByMonth.get(key) ?? 0) + Number(e.amount));
+    }
+
+    // Build full month range
+    const result: {
+      month: string;
+      revenue: number;
+      expenses: number;
+      net_profit: number;
+      profit_margin: number;
+    }[] = [];
+
+    const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    while (cursor <= endDate) {
+      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
+      const rev = revenueByMonth.get(key) ?? 0;
+      const exp = expenseByMonth.get(key) ?? 0;
+      const net = rev - exp;
+      result.push({
+        month: key,
+        revenue: rev,
+        expenses: exp,
+        net_profit: net,
+        profit_margin: rev > 0 ? Math.round((net / rev) * 10000) / 100 : 0,
+      });
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+
+    return result;
   }
 }

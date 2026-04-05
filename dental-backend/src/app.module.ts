@@ -50,6 +50,7 @@ import { DataExportModule } from './modules/data-export/data-export.module.js';
 import { PaymentModule } from './modules/payment/payment.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
 import { PublicBookingModule } from './modules/public-booking/public-booking.module.js';
+import { ExpenseModule } from './modules/expense/expense.module.js';
 import { LoggerModule } from 'nestjs-pino';
 import razorpayConfig from './config/razorpay.config.js';
 
@@ -114,6 +115,7 @@ import razorpayConfig from './config/razorpay.config.js';
     PaymentModule,
     AiModule,
     PublicBookingModule,
+    ExpenseModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

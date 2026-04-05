@@ -21,6 +21,7 @@ export declare class CampaignController {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
         started_at: Date | null;
@@ -32,7 +33,6 @@ export declare class CampaignController {
         read_count: number;
         estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
         actual_cost: import("@prisma/client-runtime-utils").Decimal | null;
-        created_by: string;
     }>;
     findAll(clinicId: string, query: QueryCampaignDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         template: {
@@ -49,6 +49,7 @@ export declare class CampaignController {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
         started_at: Date | null;
@@ -60,7 +61,6 @@ export declare class CampaignController {
         read_count: number;
         estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
         actual_cost: import("@prisma/client-runtime-utils").Decimal | null;
-        created_by: string;
     }>>;
     findOne(clinicId: string, id: string): Promise<{
         template: {
@@ -89,6 +89,7 @@ export declare class CampaignController {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
         started_at: Date | null;
@@ -100,7 +101,6 @@ export declare class CampaignController {
         read_count: number;
         estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
         actual_cost: import("@prisma/client-runtime-utils").Decimal | null;
-        created_by: string;
     }>;
     update(clinicId: string, id: string, dto: UpdateCampaignDto): Promise<{
         template: {
@@ -117,6 +117,7 @@ export declare class CampaignController {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
         started_at: Date | null;
@@ -128,7 +129,6 @@ export declare class CampaignController {
         read_count: number;
         estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
         actual_cost: import("@prisma/client-runtime-utils").Decimal | null;
-        created_by: string;
     }>;
     remove(clinicId: string, id: string): Promise<{
         id: string;
@@ -140,6 +140,7 @@ export declare class CampaignController {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
         started_at: Date | null;
@@ -151,7 +152,6 @@ export declare class CampaignController {
         read_count: number;
         estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
         actual_cost: import("@prisma/client-runtime-utils").Decimal | null;
-        created_by: string;
     }>;
     execute(clinicId: string, id: string): Promise<{
         total_recipients: number;
@@ -296,6 +296,7 @@ export declare class CampaignController {
             channel: string;
             template_id: string | null;
             scheduled_at: Date | null;
+            created_by: string;
             segment_type: string;
             segment_config: import("@prisma/client/runtime/client").JsonValue | null;
             started_at: Date | null;
@@ -307,7 +308,6 @@ export declare class CampaignController {
             read_count: number;
             estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
             actual_cost: import("@prisma/client-runtime-utils").Decimal | null;
-            created_by: string;
         };
         event_name: string;
         offer_details: Record<string, unknown> | null;

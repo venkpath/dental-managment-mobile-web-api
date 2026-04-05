@@ -91,4 +91,24 @@ export class ReportsController {
   ) {
     return this.reportsService.getInventoryAlerts(clinicId, branchId);
   }
+
+  @Get('profit-loss')
+  @ApiOperation({ summary: 'Get profit & loss report (revenue vs expenses)' })
+  @ApiOkResponse({ description: 'Profit & loss with expense breakdown by category' })
+  async getProfitLoss(
+    @CurrentClinic() clinicId: string,
+    @Query() query: RevenueQueryDto,
+  ) {
+    return this.reportsService.getProfitLoss(clinicId, query);
+  }
+
+  @Get('profit-loss-monthly')
+  @ApiOperation({ summary: 'Get monthly P&L breakdown for a date range' })
+  @ApiOkResponse({ description: 'Array of monthly P&L entries with revenue, expenses, net profit' })
+  async getProfitLossMonthly(
+    @CurrentClinic() clinicId: string,
+    @Query() query: RevenueQueryDto,
+  ) {
+    return this.reportsService.getProfitLossMonthly(clinicId, query);
+  }
 }

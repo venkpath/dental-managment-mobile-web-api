@@ -5,6 +5,9 @@ export interface DashboardSummary {
     today_revenue: number;
     pending_invoices: number;
     low_inventory_count: number;
+    this_month_expenses: number;
+    this_month_revenue: number;
+    net_profit: number;
 }
 export interface AppointmentAnalytics {
     total_appointments: number;
@@ -60,4 +63,24 @@ export declare class ReportsService {
     getPatientAnalytics(clinicId: string, query: PatientAnalyticsQueryDto): Promise<PatientAnalytics>;
     getTreatmentAnalytics(clinicId: string, query: TreatmentAnalyticsQueryDto): Promise<TreatmentAnalytics>;
     getInventoryAlerts(clinicId: string, branchId?: string): Promise<InventoryAlertItem[]>;
+    getProfitLoss(clinicId: string, query: RevenueQueryDto): Promise<{
+        total_revenue: number;
+        total_expenses: number;
+        net_profit: number;
+        profit_margin: number;
+        expense_count: number;
+        expense_breakdown: {
+            category_id: string;
+            category_name: string;
+            category_icon: string | null;
+            total: number;
+        }[];
+    }>;
+    getProfitLossMonthly(clinicId: string, query: RevenueQueryDto): Promise<{
+        month: string;
+        revenue: number;
+        expenses: number;
+        net_profit: number;
+        profit_margin: number;
+    }[]>;
 }

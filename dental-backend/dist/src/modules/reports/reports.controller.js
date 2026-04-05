@@ -46,6 +46,12 @@ let ReportsController = class ReportsController {
     async getInventoryAlerts(clinicId, branchId) {
         return this.reportsService.getInventoryAlerts(clinicId, branchId);
     }
+    async getProfitLoss(clinicId, query) {
+        return this.reportsService.getProfitLoss(clinicId, query);
+    }
+    async getProfitLossMonthly(clinicId, query) {
+        return this.reportsService.getProfitLossMonthly(clinicId, query);
+    }
 };
 exports.ReportsController = ReportsController;
 __decorate([
@@ -124,6 +130,28 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], ReportsController.prototype, "getInventoryAlerts", null);
+__decorate([
+    (0, common_1.Get)('profit-loss'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get profit & loss report (revenue vs expenses)' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Profit & loss with expense breakdown by category' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, index_js_1.RevenueQueryDto]),
+    __metadata("design:returntype", Promise)
+], ReportsController.prototype, "getProfitLoss", null);
+__decorate([
+    (0, common_1.Get)('profit-loss-monthly'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get monthly P&L breakdown for a date range' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Array of monthly P&L entries with revenue, expenses, net profit' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, index_js_1.RevenueQueryDto]),
+    __metadata("design:returntype", Promise)
+], ReportsController.prototype, "getProfitLossMonthly", null);
 exports.ReportsController = ReportsController = __decorate([
     (0, swagger_1.ApiTags)('Reports'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' }),
