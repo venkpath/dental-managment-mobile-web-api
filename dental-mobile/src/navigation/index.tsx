@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useAuthStore, loadAuthFromStorage } from '../store/auth.store';
 import LoadingScreen from '../components/LoadingScreen';
-import { colors, typography, spacing, radius } from '../theme';
+import { colors, typography, spacing, radius, shadow } from '../theme';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import DashboardScreen from '../screens/dashboard/DashboardScreen';
@@ -46,16 +47,23 @@ const ApptStack = createNativeStackNavigator<AppointmentStackParamList>();
 const BillingStack = createNativeStackNavigator<BillingStackParamList>();
 const WAStack = createNativeStackNavigator<WhatsAppStackParamList>();
 
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+
 interface TabIconProps {
-  icon: string;
+  icon: IoniconsName;
+  iconOutline: IoniconsName;
   label: string;
   focused: boolean;
 }
 
-function TabIcon({ icon, label, focused }: TabIconProps) {
+function TabIcon({ icon, iconOutline, label, focused }: TabIconProps) {
   return (
     <View style={[styles.tabIconWrap, focused && styles.tabIconWrapActive]}>
-      <Text style={[styles.tabEmoji, focused && styles.tabEmojiActive]}>{icon}</Text>
+      <Ionicons
+        name={focused ? icon : iconOutline}
+        size={22}
+        color={focused ? colors.primary : colors.textMuted}
+      />
       <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>{label}</Text>
     </View>
   );
@@ -108,7 +116,7 @@ function WhatsAppNavigator() {
 
 function AppTabs() {
   const { bottom } = useSafeAreaInsets();
-  const tabBarHeight = 58 + bottom;
+  const tabBarHeight = 64 + bottom;
 
   return (
     <Tab.Navigator
@@ -117,11 +125,11 @@ function AppTabs() {
         tabBarShowLabel: false,
         tabBarStyle: {
           backgroundColor: colors.surface,
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
+          borderTopWidth: 0,
           height: tabBarHeight,
           paddingBottom: bottom,
-          paddingTop: 6,
+          paddingTop: 8,
+          ...shadow.lg,
         },
       }}
     >
@@ -129,35 +137,45 @@ function AppTabs() {
         name="Dashboard"
         component={DashboardScreen}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon icon="🏠" label="Home" focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon icon="home" iconOutline="home-outline" label="Home" focused={focused} />
+          ),
         }}
       />
       <Tab.Screen
         name="Patients"
         component={PatientsNavigator}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon icon="👥" label="Patients" focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon icon="people" iconOutline="people-outline" label="Patients" focused={focused} />
+          ),
         }}
       />
       <Tab.Screen
         name="Appointments"
         component={AppointmentsNavigator}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon icon="📅" label="Schedule" focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon icon="calendar" iconOutline="calendar-outline" label="Schedule" focused={focused} />
+          ),
         }}
       />
       <Tab.Screen
         name="WhatsApp"
         component={WhatsAppNavigator}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon icon="💬" label="Chat" focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon icon="chatbubbles" iconOutline="chatbubbles-outline" label="Chat" focused={focused} />
+          ),
         }}
       />
       <Tab.Screen
         name="Billing"
         component={BillingNavigator}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon icon="💳" label="Billing" focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon icon="card" iconOutline="card-outline" label="Billing" focused={focused} />
+          ),
         }}
       />
     </Tab.Navigator>
@@ -196,27 +214,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    borderRadius: radius.md,
-    minWidth: 64,
-    gap: 2,
+    borderRadius: radius.lg,
+    minWidth: 60,
+    gap: 3,
   },
   tabIconWrapActive: {
     backgroundColor: colors.primaryLight,
-  },
-  tabEmoji: {
-    fontSize: 20,
-    opacity: 0.5,
-  },
-  tabEmojiActive: {
-    opacity: 1,
   },
   tabLabel: {
     fontSize: 10,
     fontWeight: '600',
     color: colors.textMuted,
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
   },
   tabLabelActive: {
     color: colors.primary,
+    fontWeight: '700',
   },
 });

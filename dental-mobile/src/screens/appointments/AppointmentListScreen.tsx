@@ -9,13 +9,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { appointmentService } from '../../services/appointment.service';
-import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import EmptyState from '../../components/EmptyState';
-import { colors, spacing, typography, radius } from '../../theme';
+import { colors, spacing, typography, radius, shadow } from '../../theme';
 import { useBottomInset } from '../../hooks/useBottomInset';
 import type { Appointment, AppointmentStackParamList } from '../../types';
 
@@ -80,46 +80,66 @@ export default function AppointmentListScreen() {
     <TouchableOpacity
       activeOpacity={0.7}
       onPress={() => navigation.navigate('AppointmentDetail', { appointmentId: item.id })}
+      style={styles.card}
     >
-      <Card style={styles.card} padding={spacing.md}>
-        <View style={styles.cardTop}>
-          <View style={styles.timeBlock}>
-            <Text style={styles.time}>{item.start_time}</Text>
-            <Text style={styles.timeSep}>–</Text>
-            <Text style={styles.timeEnd}>{item.end_time}</Text>
-          </View>
-          <View style={styles.cardInfo}>
-            <Text style={styles.patientName}>
-              {item.patient.first_name} {item.patient.last_name}
-            </Text>
+      <View style={styles.cardTop}>
+        <View style={styles.timeBlock}>
+          <Text style={styles.time}>{item.start_time}</Text>
+          <View style={styles.timeDivider} />
+          <Text style={styles.timeEnd}>{item.end_time}</Text>
+        </View>
+        <View style={styles.cardInfo}>
+          <Text style={styles.patientName}>
+            {item.patient.first_name} {item.patient.last_name}
+          </Text>
+          <View style={styles.detailRow}>
+            <Ionicons name="call-outline" size={12} color={colors.textMuted} />
             <Text style={styles.phone}>{item.patient.phone}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="person-outline" size={12} color={colors.primary} />
             <Text style={styles.dentist}>Dr. {item.dentist.name}</Text>
           </View>
-          <Badge label={item.status} variant={item.status} />
         </View>
-        <View style={styles.dateRow}>
+        <Badge label={item.status} variant={item.status} showDot={false} size="sm" />
+      </View>
+      <View style={styles.cardBottom}>
+        <View style={styles.detailRow}>
+          <Ionicons name="calendar-outline" size={12} color={colors.textMuted} />
           <Text style={styles.date}>
-            📅 {new Date(item.appointment_date).toLocaleDateString('en-IN', {
+            {new Date(item.appointment_date).toLocaleDateString('en-IN', {
               weekday: 'short', day: 'numeric', month: 'short',
             })}
           </Text>
-          {item.branch && <Text style={styles.branch}>🏥 {item.branch.name}</Text>}
         </View>
-        {item.notes && <Text style={styles.notes} numberOfLines={1}>📝 {item.notes}</Text>}
-      </Card>
+        {item.branch && (
+          <View style={styles.detailRow}>
+            <Ionicons name="business-outline" size={12} color={colors.textMuted} />
+            <Text style={styles.branch}>{item.branch.name}</Text>
+          </View>
+        )}
+      </View>
+      {item.notes && (
+        <View style={[styles.detailRow, { marginTop: spacing.xs }]}>
+          <Ionicons name="document-text-outline" size={12} color={colors.textMuted} />
+          <Text style={styles.notes} numberOfLines={1}>{item.notes}</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header with Book button */}
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Appointments</Text>
         <TouchableOpacity
           style={styles.bookBtn}
           onPress={() => navigation.navigate('BookAppointment', {})}
+          activeOpacity={0.7}
         >
-          <Text style={styles.bookBtnText}>+ Book</Text>
+          <Ionicons name="add" size={18} color={colors.white} />
+          <Text style={styles.bookBtnText}>Book</Text>
         </TouchableOpacity>
       </View>
 
@@ -130,6 +150,7 @@ export default function AppointmentListScreen() {
             key={f}
             style={[styles.filterTab, filter === f && styles.filterTabActive]}
             onPress={() => setFilter(f)}
+            activeOpacity={0.7}
           >
             <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
           </TouchableOpacity>
@@ -156,6 +177,7 @@ export default function AppointmentListScreen() {
               ? (
                 <TouchableOpacity style={styles.loadMoreBtn} onPress={onLoadMore}>
                   <Text style={styles.loadMoreText}>Load More</Text>
+                  <Ionicons name="chevron-down" size={16} color={colors.primary} />
                 </TouchableOpacity>
               )
               : appointments.length > 0
@@ -164,12 +186,12 @@ export default function AppointmentListScreen() {
           }
           ListEmptyComponent={
             loadError ? (
-              <EmptyState title="Failed to load" subtitle="Pull down to retry" icon="⚠️" />
+              <EmptyState title="Failed to load" subtitle="Pull down to retry" icon="alert-circle" />
             ) : (
               <EmptyState
                 title="No appointments"
                 subtitle={filter === 'Today' ? 'No appointments scheduled for today' : 'No appointments found'}
-                icon="📅"
+                icon="calendar-outline"
               />
             )
           }
@@ -184,21 +206,23 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.base, paddingVertical: spacing.md,
-    backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+    backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.divider,
   },
   headerTitle: { fontSize: typography.lg, fontWeight: '700', color: colors.text },
   bookBtn: {
     backgroundColor: colors.primary, borderRadius: radius.md,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
+    ...shadow.colored(colors.primary),
   },
-  bookBtnText: { fontSize: typography.sm, fontWeight: '700', color: colors.white },
+  bookBtnText: { fontSize: typography.sm, fontWeight: '600', color: colors.white },
   filters: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingHorizontal: spacing.base,
+    borderBottomColor: colors.divider,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
@@ -212,31 +236,43 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   filterText: { fontSize: typography.sm, color: colors.textSecondary, fontWeight: '500' },
-  filterTextActive: { color: colors.white, fontWeight: '700' },
-  list: { padding: spacing.base, gap: spacing.sm, paddingBottom: spacing['2xl'] },
-  card: {},
+  filterTextActive: { color: colors.white, fontWeight: '600' },
+  list: { padding: spacing.lg, gap: spacing.sm },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.base,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadow.sm,
+  },
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, marginBottom: spacing.sm },
-  timeBlock: { alignItems: 'center', minWidth: 52 },
+  timeBlock: { alignItems: 'center', minWidth: 50 },
   time: { fontSize: typography.sm, fontWeight: '700', color: colors.primary },
-  timeSep: { fontSize: typography.xs, color: colors.textMuted },
+  timeDivider: { width: 12, height: 1, backgroundColor: colors.border, marginVertical: 3 },
   timeEnd: { fontSize: typography.xs, color: colors.textMuted },
-  cardInfo: { flex: 1 },
+  cardInfo: { flex: 1, gap: 3 },
   patientName: { fontSize: typography.base, fontWeight: '600', color: colors.text },
-  phone: { fontSize: typography.xs, color: colors.textSecondary, marginTop: 1 },
-  dentist: { fontSize: typography.xs, color: colors.primary, marginTop: 1 },
-  dateRow: { flexDirection: 'row', gap: spacing.base },
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  phone: { fontSize: typography.xs, color: colors.textSecondary },
+  dentist: { fontSize: typography.xs, color: colors.primary, fontWeight: '500' },
+  cardBottom: { flexDirection: 'row', gap: spacing.base, borderTopWidth: 1, borderTopColor: colors.divider, paddingTop: spacing.sm },
   date: { fontSize: typography.xs, color: colors.textSecondary },
   branch: { fontSize: typography.xs, color: colors.textSecondary },
-  notes: { fontSize: typography.xs, color: colors.textMuted, marginTop: spacing.xs },
+  notes: { fontSize: typography.xs, color: colors.textMuted, flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadMoreBtn: {
     margin: spacing.base,
     paddingVertical: spacing.sm + 2,
     borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
   },
-  loadMoreText: { fontSize: typography.sm, fontWeight: '700', color: colors.primary },
+  loadMoreText: { fontSize: typography.sm, fontWeight: '600', color: colors.primary },
   endText: { textAlign: 'center', fontSize: typography.xs, color: colors.textMuted, padding: spacing.md },
 });

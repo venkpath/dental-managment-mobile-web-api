@@ -10,12 +10,12 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { patientService } from '../../services/patient.service';
-import Card from '../../components/Card';
 import EmptyState from '../../components/EmptyState';
-import { colors, spacing, typography, radius } from '../../theme';
+import { colors, spacing, typography, radius, shadow } from '../../theme';
 import { useBottomInset } from '../../hooks/useBottomInset';
 import type { Patient, PatientStackParamList } from '../../types';
 
@@ -75,25 +75,40 @@ export default function PatientListScreen() {
     <TouchableOpacity
       onPress={() => navigation.navigate('PatientDetail', { patientId: item.id })}
       activeOpacity={0.7}
+      style={styles.patientCard}
     >
-      <Card style={styles.patientCard} padding={spacing.md}>
-        <View style={styles.row}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials(item)}</Text>
-          </View>
-          <View style={styles.info}>
-            <Text style={styles.name}>{item.first_name} {item.last_name}</Text>
-            <Text style={styles.phone}>{item.phone}</Text>
-            {item.email && <Text style={styles.email}>{item.email}</Text>}
-          </View>
-          <View style={styles.meta}>
-            {item.gender && (
-              <Text style={styles.genderBadge}>{item.gender === 'Male' ? '♂' : item.gender === 'Female' ? '♀' : '⚥'}</Text>
-            )}
-            <Text style={styles.chevron}>›</Text>
-          </View>
+      <View style={styles.row}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{initials(item)}</Text>
         </View>
-      </Card>
+        <View style={styles.info}>
+          <Text style={styles.name}>{item.first_name} {item.last_name}</Text>
+          <View style={styles.contactRow}>
+            <Ionicons name="call-outline" size={12} color={colors.textMuted} />
+            <Text style={styles.phone}>{item.phone}</Text>
+          </View>
+          {item.email && (
+            <View style={styles.contactRow}>
+              <Ionicons name="mail-outline" size={12} color={colors.textMuted} />
+              <Text style={styles.email}>{item.email}</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.meta}>
+          {item.gender && (
+            <View style={[styles.genderBadge, {
+              backgroundColor: item.gender === 'Male' ? '#dbeafe' : item.gender === 'Female' ? '#fce7f3' : '#f1f5f9',
+            }]}>
+              <Ionicons
+                name={item.gender === 'Male' ? 'male' : item.gender === 'Female' ? 'female' : 'male-female'}
+                size={14}
+                color={item.gender === 'Male' ? '#2563eb' : item.gender === 'Female' ? '#db2777' : '#64748b'}
+              />
+            </View>
+          )}
+          <Ionicons name="chevron-forward" size={18} color={colors.textLight} />
+        </View>
+      </View>
     </TouchableOpacity>
   );
 
@@ -102,7 +117,7 @@ export default function PatientListScreen() {
       {/* Search bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBox}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Ionicons name="search" size={18} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search by name or phone..."
@@ -116,8 +131,9 @@ export default function PatientListScreen() {
         <TouchableOpacity
           style={styles.addBtn}
           onPress={() => navigation.navigate('AddPatient')}
+          activeOpacity={0.7}
         >
-          <Text style={styles.addBtnText}>+ Add</Text>
+          <Ionicons name="add" size={22} color={colors.white} />
         </TouchableOpacity>
       </View>
 
@@ -136,12 +152,12 @@ export default function PatientListScreen() {
           onEndReachedThreshold={0.3}
           ListEmptyComponent={
             loadError ? (
-              <EmptyState title="Failed to load" subtitle="Pull down to retry" icon="⚠️" />
+              <EmptyState title="Failed to load" subtitle="Pull down to retry" icon="alert-circle" />
             ) : (
               <EmptyState
                 title="No patients found"
                 subtitle={search ? `No results for "${search}"` : 'Add your first patient to get started'}
-                icon="👤"
+                icon="people-outline"
               />
             )
           }
@@ -150,8 +166,9 @@ export default function PatientListScreen() {
               ? <ActivityIndicator style={{ padding: 16 }} color={colors.primary} />
               : hasMore
               ? (
-                <TouchableOpacity style={styles.loadMoreBtn} onPress={onLoadMore}>
+                <TouchableOpacity style={styles.loadMoreBtn} onPress={onLoadMore} activeOpacity={0.7}>
                   <Text style={styles.loadMoreText}>Load More</Text>
+                  <Ionicons name="chevron-down" size={16} color={colors.primary} />
                 </TouchableOpacity>
               )
               : patients.length > 0
@@ -171,9 +188,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     padding: spacing.base,
+    paddingHorizontal: spacing.lg,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.divider,
   },
   searchBox: {
     flex: 1,
@@ -181,54 +199,74 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.background,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.sm,
-    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+    minHeight: 44,
   },
-  searchIcon: { fontSize: 16 },
   searchInput: {
     flex: 1,
-    paddingVertical: spacing.sm + 2,
     fontSize: typography.base,
     color: colors.text,
+    paddingVertical: spacing.sm,
   },
   addBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addBtnText: { color: colors.white, fontWeight: '700', fontSize: typography.sm },
-  list: { padding: spacing.base, gap: spacing.sm, paddingBottom: spacing['2xl'] },
-  patientCard: {},
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  avatar: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadow.colored(colors.primary),
+  },
+  list: { padding: spacing.lg, gap: spacing.sm },
+  patientCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.base,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadow.sm,
+  },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  avatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontSize: typography.base, fontWeight: '700', color: colors.primary },
-  info: { flex: 1 },
+  avatarText: { fontSize: typography.sm, fontWeight: '700', color: colors.primary },
+  info: { flex: 1, gap: 2 },
   name: { fontSize: typography.base, fontWeight: '600', color: colors.text },
-  phone: { fontSize: typography.sm, color: colors.textSecondary, marginTop: 1 },
-  email: { fontSize: typography.xs, color: colors.textMuted, marginTop: 1 },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  genderBadge: { fontSize: 16 },
-  chevron: { fontSize: 20, color: colors.textMuted, fontWeight: '300' },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  phone: { fontSize: typography.sm, color: colors.textSecondary },
+  email: { fontSize: typography.xs, color: colors.textMuted },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  genderBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadMoreBtn: {
     margin: spacing.base,
     paddingVertical: spacing.sm + 2,
     borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
+    backgroundColor: colors.surface,
   },
-  loadMoreText: { fontSize: typography.sm, fontWeight: '700', color: colors.primary },
+  loadMoreText: { fontSize: typography.sm, fontWeight: '600', color: colors.primary },
   endText: { textAlign: 'center', fontSize: typography.xs, color: colors.textMuted, padding: spacing.md },
 });

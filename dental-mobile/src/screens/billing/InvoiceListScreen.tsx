@@ -9,15 +9,14 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { invoiceService } from '../../services/invoice.service';
-import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import EmptyState from '../../components/EmptyState';
-import { colors, spacing, typography, radius } from '../../theme';
+import { colors, spacing, typography, radius, shadow } from '../../theme';
 import { useBottomInset } from '../../hooks/useBottomInset';
 import type { Invoice, BillingStackParamList } from '../../types';
 
@@ -76,47 +75,69 @@ export default function InvoiceListScreen() {
     <TouchableOpacity
       activeOpacity={0.7}
       onPress={() => navigation.navigate('InvoiceDetail', { invoiceId: item.id })}
+      style={styles.card}
     >
-      <Card style={styles.card} padding={spacing.md}>
-        <View style={styles.row}>
-          <View style={styles.info}>
-            <Text style={styles.invoiceNum}>{item.invoice_number}</Text>
-            <Text style={styles.patientName}>
-              {item.patient.first_name} {item.patient.last_name}
-            </Text>
+      <View style={styles.row}>
+        <View style={styles.iconCol}>
+          <View style={[styles.invoiceIcon, {
+            backgroundColor: item.status === 'paid' ? colors.successLight : item.status === 'pending' ? colors.warningLight : colors.primaryLight,
+          }]}>
+            <Ionicons
+              name="receipt-outline"
+              size={18}
+              color={item.status === 'paid' ? colors.success : item.status === 'pending' ? colors.warning : colors.primary}
+            />
+          </View>
+        </View>
+        <View style={styles.info}>
+          <Text style={styles.invoiceNum}>{item.invoice_number}</Text>
+          <Text style={styles.patientName}>
+            {item.patient.first_name} {item.patient.last_name}
+          </Text>
+          <View style={styles.dateRow}>
+            <Ionicons name="calendar-outline" size={11} color={colors.textMuted} />
             <Text style={styles.date}>
               {new Date(item.created_at).toLocaleDateString('en-IN', {
                 day: 'numeric', month: 'short', year: 'numeric',
               })}
             </Text>
           </View>
-          <View style={styles.right}>
-            <Text style={styles.amount}>₹{Number(item.net_amount).toLocaleString('en-IN')}</Text>
-            <Badge label={item.status} variant={item.status} />
-          </View>
         </View>
-      </Card>
+        <View style={styles.right}>
+          <Text style={styles.amount}>₹{Number(item.net_amount).toLocaleString('en-IN')}</Text>
+          <Badge label={item.status} variant={item.status} showDot={false} size="sm" />
+        </View>
+      </View>
     </TouchableOpacity>
   );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Filters + New Invoice button */}
-      <View style={styles.topBar}>
-        <View style={styles.filters}>
-          {FILTERS.map((f) => (
-            <TouchableOpacity
-              key={f}
-              style={[styles.filterTab, filter === f && styles.filterTabActive]}
-              onPress={() => setFilter(f)}
-            >
-              <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate('QuickInvoice', {})}>
-          <Text style={styles.newBtnText}>+ New</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Invoices</Text>
+        <TouchableOpacity
+          style={styles.newBtn}
+          onPress={() => navigation.navigate('QuickInvoice', {})}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="add" size={18} color={colors.white} />
+          <Text style={styles.newBtnText}>New</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Filters */}
+      <View style={styles.filters}>
+        {FILTERS.map((f) => (
+          <TouchableOpacity
+            key={f}
+            style={[styles.filterTab, filter === f && styles.filterTabActive]}
+            onPress={() => setFilter(f)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {loading ? (
@@ -137,13 +158,14 @@ export default function InvoiceListScreen() {
               ? (
                 <TouchableOpacity style={styles.loadMoreBtn} onPress={onLoadMore}>
                   <Text style={styles.loadMoreText}>Load More</Text>
+                  <Ionicons name="chevron-down" size={16} color={colors.primary} />
                 </TouchableOpacity>
               )
               : invoices.length > 0
               ? <Text style={styles.endText}>All invoices loaded</Text>
               : null
           }
-          ListEmptyComponent={<EmptyState title="No invoices" subtitle="Create your first invoice" icon="🧾" />}
+          ListEmptyComponent={<EmptyState title="No invoices" subtitle="Create your first invoice" icon="receipt-outline" />}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -153,51 +175,75 @@ export default function InvoiceListScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  topBar: {
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
+    backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.divider,
+  },
+  headerTitle: { fontSize: typography.lg, fontWeight: '700', color: colors.text },
+  newBtn: {
+    backgroundColor: colors.primary, borderRadius: radius.md,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
+    ...shadow.colored(colors.primary),
+  },
+  newBtnText: { color: colors.white, fontWeight: '600', fontSize: typography.sm },
+  filters: {
     flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingHorizontal: spacing.base,
+    borderBottomColor: colors.divider,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
-  filters: { flexDirection: 'row', flex: 1, gap: spacing.xs },
   filterTab: {
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs + 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
     borderRadius: radius.full,
     backgroundColor: colors.background,
   },
   filterTabActive: { backgroundColor: colors.primary },
-  filterText: { fontSize: typography.xs, color: colors.textSecondary, fontWeight: '500' },
-  filterTextActive: { color: colors.white, fontWeight: '700' },
-  newBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
+  filterText: { fontSize: typography.sm, color: colors.textSecondary, fontWeight: '500' },
+  filterTextActive: { color: colors.white, fontWeight: '600' },
+  list: { padding: spacing.lg, gap: spacing.sm },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.base,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadow.sm,
   },
-  newBtnText: { color: colors.white, fontWeight: '700', fontSize: typography.sm },
-  list: { padding: spacing.base, gap: spacing.sm, paddingBottom: spacing['2xl'] },
-  card: {},
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  info: { flex: 1 },
-  invoiceNum: { fontSize: typography.sm, fontWeight: '700', color: colors.primary },
-  patientName: { fontSize: typography.base, fontWeight: '600', color: colors.text, marginTop: 2 },
-  date: { fontSize: typography.xs, color: colors.textMuted, marginTop: 2 },
-  right: { alignItems: 'flex-end', gap: spacing.xs },
+  iconCol: {},
+  invoiceIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  info: { flex: 1, gap: 2 },
+  invoiceNum: { fontSize: typography.xs, fontWeight: '700', color: colors.primary, letterSpacing: 0.3 },
+  patientName: { fontSize: typography.base, fontWeight: '600', color: colors.text },
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  date: { fontSize: typography.xs, color: colors.textMuted },
+  right: { alignItems: 'flex-end', gap: spacing.sm },
   amount: { fontSize: typography.lg, fontWeight: '700', color: colors.text },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadMoreBtn: {
     margin: spacing.base,
     paddingVertical: spacing.sm + 2,
     borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
   },
-  loadMoreText: { fontSize: typography.sm, fontWeight: '700', color: colors.primary },
+  loadMoreText: { fontSize: typography.sm, fontWeight: '600', color: colors.primary },
   endText: { textAlign: 'center', fontSize: typography.xs, color: colors.textMuted, padding: spacing.md },
 });
