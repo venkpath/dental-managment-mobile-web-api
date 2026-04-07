@@ -3,7 +3,7 @@ import { RevenueQueryDto, AppointmentAnalyticsQueryDto, DentistPerformanceQueryD
 export declare class ReportsController {
     private readonly reportsService;
     constructor(reportsService: ReportsService);
-    getDashboardSummary(clinicId: string): Promise<import("./reports.service.js").DashboardSummary>;
+    getDashboardSummary(clinicId: string, branchId?: string): Promise<import("./reports.service.js").DashboardSummary>;
     getRevenueReport(clinicId: string, query: RevenueQueryDto): Promise<import("./reports.service.js").RevenueReport>;
     getAppointmentAnalytics(clinicId: string, query: AppointmentAnalyticsQueryDto): Promise<import("./reports.service.js").AppointmentAnalytics>;
     getDentistPerformance(clinicId: string, query: DentistPerformanceQueryDto): Promise<import("./reports.service.js").DentistPerformanceItem[]>;

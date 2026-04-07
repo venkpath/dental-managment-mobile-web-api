@@ -28,8 +28,11 @@ export class ReportsController {
   @Get('dashboard-summary')
   @ApiOperation({ summary: 'Get dashboard summary metrics for the clinic' })
   @ApiOkResponse({ description: 'Dashboard summary with today\'s metrics' })
-  async getDashboardSummary(@CurrentClinic() clinicId: string) {
-    return this.reportsService.getDashboardSummary(clinicId);
+  async getDashboardSummary(
+    @CurrentClinic() clinicId: string,
+    @Query('branch_id') branchId?: string,
+  ) {
+    return this.reportsService.getDashboardSummary(clinicId, branchId);
   }
 
   @Get('revenue')

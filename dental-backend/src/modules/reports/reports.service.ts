@@ -74,7 +74,7 @@ export interface RevenueReport {
 export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getDashboardSummary(clinicId: string): Promise<DashboardSummary> {
+  async getDashboardSummary(clinicId: string, branchId?: string): Promise<DashboardSummary> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -84,19 +84,25 @@ export class ReportsService {
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
     const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
 
+    const branchFilter = branchId || null;
+
     const [todayAppointments, todayRevenue, pendingInvoices, lowInventoryItems, monthExpenses, monthRevenue] =
       await Promise.all([
         this.prisma.appointment.count({
           where: {
             clinic_id: clinicId,
             appointment_date: { gte: today, lt: tomorrow },
+            ...(branchFilter && { branch_id: branchFilter }),
           },
         }),
 
         this.prisma.payment.aggregate({
           _sum: { amount: true },
           where: {
-            invoice: { clinic_id: clinicId },
+            invoice: {
+              clinic_id: clinicId,
+              ...(branchFilter && { branch_id: branchFilter }),
+            },
             paid_at: { gte: today, lt: tomorrow },
           },
         }),
@@ -105,6 +111,7 @@ export class ReportsService {
           where: {
             clinic_id: clinicId,
             status: { in: ['pending', 'partially_paid'] },
+            ...(branchFilter && { branch_id: branchFilter }),
           },
         }),
 
@@ -113,6 +120,7 @@ export class ReportsService {
           FROM inventory_items
           WHERE clinic_id = ${clinicId}::uuid
             AND quantity <= reorder_level
+            ${branchFilter ? Prisma.sql`AND branch_id = ${branchFilter}::uuid` : Prisma.empty}
         `,
 
         this.prisma.expense.aggregate({
@@ -120,13 +128,17 @@ export class ReportsService {
           where: {
             clinic_id: clinicId,
             date: { gte: monthStart, lte: monthEnd },
+            ...(branchFilter && { branch_id: branchFilter }),
           },
         }),
 
         this.prisma.payment.aggregate({
           _sum: { amount: true },
           where: {
-            invoice: { clinic_id: clinicId },
+            invoice: {
+              clinic_id: clinicId,
+              ...(branchFilter && { branch_id: branchFilter }),
+            },
             paid_at: { gte: monthStart, lte: monthEnd },
           },
         }),

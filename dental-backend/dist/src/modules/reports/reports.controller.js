@@ -25,8 +25,8 @@ let ReportsController = class ReportsController {
     constructor(reportsService) {
         this.reportsService = reportsService;
     }
-    async getDashboardSummary(clinicId) {
-        return this.reportsService.getDashboardSummary(clinicId);
+    async getDashboardSummary(clinicId, branchId) {
+        return this.reportsService.getDashboardSummary(clinicId, branchId);
     }
     async getRevenueReport(clinicId, query) {
         return this.reportsService.getRevenueReport(clinicId, query);
@@ -60,8 +60,9 @@ __decorate([
     (0, swagger_1.ApiOkResponse)({ description: 'Dashboard summary with today\'s metrics' }),
     openapi.ApiResponse({ status: 200, type: Object }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Query)('branch_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], ReportsController.prototype, "getDashboardSummary", null);
 __decorate([
