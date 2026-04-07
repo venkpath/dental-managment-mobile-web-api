@@ -3,6 +3,7 @@ declare const _default: (() => {
     nodeEnv: string;
     jwtSecret: string;
     jwtExpiresIn: string;
+    frontendUrl: string;
     sentryDsn: string;
     smtp: {
         host: string;
@@ -35,6 +36,7 @@ declare const _default: (() => {
     nodeEnv: string;
     jwtSecret: string;
     jwtExpiresIn: string;
+    frontendUrl: string;
     sentryDsn: string;
     smtp: {
         host: string;
