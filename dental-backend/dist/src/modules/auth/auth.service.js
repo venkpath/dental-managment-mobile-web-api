@@ -243,6 +243,7 @@ let AuthService = AuthService_1 = class AuthService {
                 const patient = await this.prisma.patient.findFirst({
                     where: { clinic_id: clinicId, email: user.email },
                 });
+                const clinicName = (await this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true } }))?.name || 'Smart Dental Desk';
                 if (patient) {
                     await this.communicationService.sendMessage(clinicId, {
                         patient_id: patient.id,
@@ -252,13 +253,25 @@ let AuthService = AuthService_1 = class AuthService {
                         variables: {
                             user_name: user.name,
                             verification_link: verificationLink,
-                            clinic_name: (await this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true } }))?.name || 'Smart Dental Desk',
+                            clinic_name: clinicName,
                         },
                     });
+                }
+                else {
+                    await this.sendEmailDirect(clinicId, user.email, user.name, clinicName, verificationLink);
                 }
             }
             catch (err) {
                 this.logger.warn(`Failed to send verification email via CommunicationService: ${err}`);
+            }
+        }
+        else {
+            try {
+                const clinicName = (await this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true } }))?.name || 'Smart Dental Desk';
+                await this.sendEmailDirect(clinicId, user.email, user.name, clinicName, verificationLink);
+            }
+            catch (err) {
+                this.logger.warn(`Failed to send verification email directly: ${err}`);
             }
         }
         this.logger.log(`Verification email triggered for user ${userId}`);
@@ -289,6 +302,29 @@ let AuthService = AuthService_1 = class AuthService {
             });
         }
         return result;
+    }
+    async sendEmailDirect(clinicId, to, name, clinicName, verificationLink) {
+        if (!this.emailProvider.isConfigured(clinicId)) {
+            const host = this.configService.get('app.smtp.host');
+            const user = this.configService.get('app.smtp.user');
+            if (host && user) {
+                this.emailProvider.configure(clinicId, {
+                    host,
+                    port: this.configService.get('app.smtp.port') || 587,
+                    user,
+                    pass: this.configService.get('app.smtp.pass') || '',
+                    from: this.configService.get('app.smtp.from') || user,
+                    secure: this.configService.get('app.smtp.secure') || false,
+                }, 'smtp-env');
+            }
+        }
+        await this.emailProvider.send({
+            to,
+            subject: 'Verify your email address',
+            body: `Hi ${name},\n\nPlease verify your email by clicking the link below:\n\n${verificationLink}\n\nThis link expires in 24 hours.\n\n— ${clinicName}`,
+            html: `<p>Hi ${name},</p><p>Please verify your email address by clicking the link below:</p><p><a href="${verificationLink}" style="background:#0d9488;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;">Verify Email</a></p><p>This link expires in 24 hours.</p><p>— ${clinicName}</p>`,
+            clinicId,
+        });
     }
     async requestPasswordReset(email, clinicId) {
         const user = await this.userService.findByEmail(email, clinicId);

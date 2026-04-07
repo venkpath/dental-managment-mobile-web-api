@@ -82,6 +82,7 @@ export declare class AuthService {
         valid: boolean;
         message: string;
     }>;
+    private sendEmailDirect;
     requestPasswordReset(email: string, clinicId: string): Promise<{
         message: string;
     }>;
