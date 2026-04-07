@@ -315,7 +315,7 @@ export class ReportsService {
       WHERE u.clinic_id = ${clinicId}::uuid
         AND u.role = 'Dentist'
         AND u.status = 'active'
-        ${branchFilter ? Prisma.sql`AND u.branch_id = ${branchFilter}::uuid` : Prisma.empty}
+        ${branchFilter ? Prisma.sql`AND (u.branch_id = ${branchFilter}::uuid OR u.branch_id IS NULL)` : Prisma.empty}
       ORDER BY revenue_generated DESC
     `;
 

@@ -215,7 +215,7 @@ let ReportsService = class ReportsService {
       WHERE u.clinic_id = ${clinicId}::uuid
         AND u.role = 'Dentist'
         AND u.status = 'active'
-        ${branchFilter ? client_1.Prisma.sql `AND u.branch_id = ${branchFilter}::uuid` : client_1.Prisma.empty}
+        ${branchFilter ? client_1.Prisma.sql `AND (u.branch_id = ${branchFilter}::uuid OR u.branch_id IS NULL)` : client_1.Prisma.empty}
       ORDER BY revenue_generated DESC
     `;
         return results.map((r) => ({
