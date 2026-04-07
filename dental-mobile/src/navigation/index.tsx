@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useAuthStore, loadAuthFromStorage } from '../store/auth.store';
 import LoadingScreen from '../components/LoadingScreen';
-import { colors, typography, spacing, radius, shadow } from '../theme';
+import { shadow } from '../theme';
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import DashboardScreen from '../screens/dashboard/DashboardScreen';
@@ -56,16 +56,13 @@ interface TabIconProps {
   focused: boolean;
 }
 
-function TabIcon({ icon, iconOutline, label, focused }: TabIconProps) {
+function TabBarIcon({ icon, iconOutline, focused }: { icon: IoniconsName; iconOutline: IoniconsName; focused: boolean }) {
   return (
-    <View style={[styles.tabIconWrap, focused && styles.tabIconWrapActive]}>
-      <Ionicons
-        name={focused ? icon : iconOutline}
-        size={22}
-        color={focused ? colors.primary : colors.textMuted}
-      />
-      <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>{label}</Text>
-    </View>
+    <Ionicons
+      name={focused ? icon : iconOutline}
+      size={22}
+      color={focused ? '#0891b2' : '#94a3b8'}
+    />
   );
 }
 
@@ -122,14 +119,25 @@ function AppTabs() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarShowLabel: false,
+        tabBarShowLabel: true,
+        tabBarActiveTintColor: '#0891b2',
+        tabBarInactiveTintColor: '#94a3b8',
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+          marginTop: -2,
+        },
+        tabBarIconStyle: {
+          marginBottom: -2,
+        },
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopWidth: 0,
+          backgroundColor: '#ffffff',
+          borderTopWidth: 1,
+          borderTopColor: '#f1f5f9',
           height: tabBarHeight,
           paddingBottom: bottom,
-          paddingTop: 8,
-          ...shadow.lg,
+          paddingTop: 6,
+          ...shadow.md,
         },
       }}
     >
@@ -137,8 +145,9 @@ function AppTabs() {
         name="Dashboard"
         component={DashboardScreen}
         options={{
+          tabBarLabel: 'Home',
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="home" iconOutline="home-outline" label="Home" focused={focused} />
+            <TabBarIcon icon="home" iconOutline="home-outline" focused={focused} />
           ),
         }}
       />
@@ -146,8 +155,9 @@ function AppTabs() {
         name="Patients"
         component={PatientsNavigator}
         options={{
+          tabBarLabel: 'Patients',
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="people" iconOutline="people-outline" label="Patients" focused={focused} />
+            <TabBarIcon icon="people" iconOutline="people-outline" focused={focused} />
           ),
         }}
       />
@@ -155,8 +165,9 @@ function AppTabs() {
         name="Appointments"
         component={AppointmentsNavigator}
         options={{
+          tabBarLabel: 'Schedule',
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="calendar" iconOutline="calendar-outline" label="Schedule" focused={focused} />
+            <TabBarIcon icon="calendar" iconOutline="calendar-outline" focused={focused} />
           ),
         }}
       />
@@ -164,8 +175,9 @@ function AppTabs() {
         name="WhatsApp"
         component={WhatsAppNavigator}
         options={{
+          tabBarLabel: 'Chat',
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="chatbubbles" iconOutline="chatbubbles-outline" label="Chat" focused={focused} />
+            <TabBarIcon icon="chatbubbles" iconOutline="chatbubbles-outline" focused={focused} />
           ),
         }}
       />
@@ -173,8 +185,9 @@ function AppTabs() {
         name="Billing"
         component={BillingNavigator}
         options={{
+          tabBarLabel: 'Billing',
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="card" iconOutline="card-outline" label="Billing" focused={focused} />
+            <TabBarIcon icon="card" iconOutline="card-outline" focused={focused} />
           ),
         }}
       />
@@ -208,27 +221,4 @@ export default function AppNavigator() {
   );
 }
 
-const styles = StyleSheet.create({
-  tabIconWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.lg,
-    minWidth: 60,
-    gap: 3,
-  },
-  tabIconWrapActive: {
-    backgroundColor: colors.primaryLight,
-  },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.textMuted,
-    letterSpacing: 0.3,
-  },
-  tabLabelActive: {
-    color: colors.primary,
-    fontWeight: '700',
-  },
-});
+const styles = StyleSheet.create({});

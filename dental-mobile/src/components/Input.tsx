@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TextInputProps, ViewStyle } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TextInputProps, ViewStyle, Platform } from 'react-native';
 import { colors, radius, spacing, typography } from '../theme';
 
 interface Props extends TextInputProps {
@@ -30,7 +30,7 @@ export default function Input({ label, error, hint, containerStyle, style, prefi
           onBlur={() => setFocused(false)}
           {...props}
         />
-        {rightElement}
+        {rightElement && <View style={styles.rightEl}>{rightElement}</View>}
       </View>
       {error ? (
         <Text style={styles.error}>{error}</Text>
@@ -42,38 +42,30 @@ export default function Input({ label, error, hint, containerStyle, style, prefi
 }
 
 const styles = StyleSheet.create({
-  container: { marginBottom: spacing.md },
+  container: { marginBottom: spacing.base },
   label: {
     fontSize: typography.sm,
     fontWeight: '600',
     color: colors.textSecondary,
     marginBottom: spacing.sm,
-    letterSpacing: 0.2,
   },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
     borderRadius: radius.md,
     paddingHorizontal: spacing.base,
-    minHeight: 50,
+    height: 52,
   },
   inputWrapFocused: {
     borderColor: colors.primary,
-    backgroundColor: colors.white,
-    ...{
-      shadowColor: colors.primary,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.12,
-      shadowRadius: 8,
-      elevation: 2,
-    },
+    backgroundColor: '#ffffff',
   },
   inputWrapError: {
     borderColor: colors.danger,
-    backgroundColor: colors.dangerLight,
+    backgroundColor: '#fef2f2',
   },
   prefix: {
     fontSize: typography.base,
@@ -83,10 +75,17 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    paddingVertical: spacing.sm,
     fontSize: typography.base,
     color: colors.text,
-    fontWeight: '400',
+    height: '100%',
+    paddingVertical: 0,
+    textAlignVertical: 'center',
+    ...Platform.select({
+      android: { paddingTop: 0, paddingBottom: 0 },
+    }),
+  },
+  rightEl: {
+    marginLeft: spacing.sm,
   },
   error: {
     fontSize: typography.xs,
