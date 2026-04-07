@@ -94,6 +94,12 @@ export class UserService {
     return user;
   }
 
+  async remove(clinicId: string, id: string): Promise<{ message: string }> {
+    await this.findOne(clinicId, id); // validates existence + clinic ownership
+    await this.prisma.user.delete({ where: { id } });
+    return { message: 'User deleted successfully' };
+  }
+
   async update(clinicId: string, id: string, dto: UpdateUserDto): Promise<Omit<User, 'password_hash'>> {
     const user = await this.findOne(clinicId, id);
     if (dto.branch_id) {

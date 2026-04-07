@@ -95,6 +95,11 @@ let UserService = class UserService {
         }
         return user;
     }
+    async remove(clinicId, id) {
+        await this.findOne(clinicId, id);
+        await this.prisma.user.delete({ where: { id } });
+        return { message: 'User deleted successfully' };
+    }
     async update(clinicId, id, dto) {
         const user = await this.findOne(clinicId, id);
         if (dto.branch_id) {

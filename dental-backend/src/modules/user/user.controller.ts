@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -8,6 +8,7 @@ import {
   ApiConflictResponse,
   ApiHeader,
   ApiBadRequestResponse,
+  ApiNoContentResponse,
 } from '@nestjs/swagger';
 import { UserService } from './user.service.js';
 import { CreateUserDto, UpdateUserDto } from './dto/index.js';
@@ -67,5 +68,16 @@ export class UserController {
     @Body() dto: UpdateUserDto,
   ) {
     return this.userService.update(clinicId, id, dto);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a user from the clinic' })
+  @ApiNoContentResponse({ description: 'User deleted successfully' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  async remove(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.userService.remove(clinicId, id);
   }
 }

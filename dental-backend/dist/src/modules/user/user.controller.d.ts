@@ -63,4 +63,7 @@ export declare class UserController {
         phone_verified: boolean;
         branch_id: string | null;
     }, "password_hash">>;
+    remove(clinicId: string, id: string): Promise<{
+        message: string;
+    }>;
 }

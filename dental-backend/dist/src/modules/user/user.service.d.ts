@@ -10,5 +10,8 @@ export declare class UserService {
     findByEmail(email: string, clinicId: string): Promise<User | null>;
     findAll(clinicId: string, role?: string, search?: string, branchId?: string): Promise<Omit<User, 'password_hash'>[]>;
     findOne(clinicId: string, id: string): Promise<Omit<User, 'password_hash'>>;
+    remove(clinicId: string, id: string): Promise<{
+        message: string;
+    }>;
     update(clinicId: string, id: string, dto: UpdateUserDto): Promise<Omit<User, 'password_hash'>>;
 }

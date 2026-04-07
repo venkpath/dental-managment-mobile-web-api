@@ -37,6 +37,9 @@ let UserController = class UserController {
     async update(clinicId, id, dto) {
         return this.userService.update(clinicId, id, dto);
     }
+    async remove(clinicId, id) {
+        return this.userService.remove(clinicId, id);
+    }
 };
 exports.UserController = UserController;
 __decorate([
@@ -90,6 +93,18 @@ __decorate([
     __metadata("design:paramtypes", [String, String, index_js_1.UpdateUserDto]),
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "update", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete a user from the clinic' }),
+    (0, swagger_1.ApiNoContentResponse)({ description: 'User deleted successfully' }),
+    (0, swagger_1.ApiNotFoundResponse)({ description: 'User not found' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "remove", null);
 exports.UserController = UserController = __decorate([
     (0, swagger_1.ApiTags)('Users'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' }),
