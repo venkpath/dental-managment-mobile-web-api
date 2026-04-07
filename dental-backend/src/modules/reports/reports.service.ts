@@ -313,7 +313,7 @@ export class ReportsService {
         ) AS revenue_generated
       FROM users u
       WHERE u.clinic_id = ${clinicId}::uuid
-        AND u.role = 'dentist'
+        AND u.role = 'Dentist'
         AND u.status = 'active'
         ${branchFilter ? Prisma.sql`AND u.branch_id = ${branchFilter}::uuid` : Prisma.empty}
       ORDER BY revenue_generated DESC
