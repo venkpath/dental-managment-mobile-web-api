@@ -59,6 +59,12 @@ let AuthController = class AuthController {
     async resetPassword(body) {
         return this.authService.resetPassword(body.token, body.new_password);
     }
+    async sendPhoneOtp(user, body) {
+        return this.authService.sendOtp(body.phone, user.clinic_id, 'sms');
+    }
+    async verifyPhone(user, body) {
+        return this.authService.verifyPhone(user.sub, user.clinic_id, body.phone, body.code);
+    }
     async sendOtp(body) {
         return this.authService.sendOtp(body.identifier, body.clinic_id, body.channel);
     }
@@ -176,6 +182,33 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "resetPassword", null);
+__decorate([
+    (0, common_1.Post)('send-phone-otp'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, throttler_1.Throttle)({ default: { ttl: 60000, limit: 5 } }),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Send OTP to phone number for user verification' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'OTP sent to phone' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
+    __param(0, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "sendPhoneOtp", null);
+__decorate([
+    (0, common_1.Post)('verify-phone'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Verify phone number using OTP code' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Phone verification result' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
+    __param(0, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "verifyPhone", null);
 __decorate([
     (0, public_decorator_js_1.Public)(),
     (0, throttler_1.Throttle)({ default: { ttl: 60000, limit: 5 } }),

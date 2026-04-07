@@ -6,6 +6,8 @@ import { PasswordService } from '../../common/services/password.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { AuditLogService } from '../audit-log/audit-log.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
+import { SmsProvider } from '../communication/providers/sms.provider.js';
+import { EmailProvider } from '../communication/providers/email.provider.js';
 import { LoginDto, LookupDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
 export interface LoginResponse {
     access_token: string;
@@ -15,8 +17,12 @@ export interface LoginResponse {
         branch_id: string | null;
         name: string;
         email: string;
+        phone: string | null;
         role: string;
         status: string;
+        email_verified: boolean;
+        phone_verified: boolean;
+        requires_verification: boolean;
     };
 }
 export declare class AuthService {
@@ -27,9 +33,11 @@ export declare class AuthService {
     private readonly prisma;
     private readonly auditLogService;
     private readonly communicationService;
+    private readonly smsProvider;
+    private readonly emailProvider;
     private readonly logger;
     private readonly otpStore;
-    constructor(userService: UserService, passwordService: PasswordService, jwtService: JwtService, configService: ConfigService, prisma: PrismaService, auditLogService: AuditLogService, communicationService: CommunicationService);
+    constructor(userService: UserService, passwordService: PasswordService, jwtService: JwtService, configService: ConfigService, prisma: PrismaService, auditLogService: AuditLogService, communicationService: CommunicationService, smsProvider: SmsProvider, emailProvider: EmailProvider);
     lookup(dto: LookupDto): Promise<{
         clinics: {
             clinic_id: string;
@@ -68,6 +76,10 @@ export declare class AuthService {
         message: string;
     }>;
     verifyEmail(token: string): Promise<{
+        message: string;
+    }>;
+    verifyPhone(userId: string, clinicId: string, phone: string, code: string): Promise<{
+        valid: boolean;
         message: string;
     }>;
     requestPasswordReset(email: string, clinicId: string): Promise<{

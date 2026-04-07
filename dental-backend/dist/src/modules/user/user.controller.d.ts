@@ -11,8 +11,11 @@ export declare class UserController {
         status: string;
         created_at: Date;
         updated_at: Date;
+        phone: string | null;
         clinic_id: string;
         role: string;
+        email_verified: boolean;
+        phone_verified: boolean;
         branch_id: string | null;
     }, "password_hash">>;
     findAll(clinicId: string, role?: string, search?: string, branchId?: string): Promise<Omit<{
@@ -23,8 +26,11 @@ export declare class UserController {
         status: string;
         created_at: Date;
         updated_at: Date;
+        phone: string | null;
         clinic_id: string;
         role: string;
+        email_verified: boolean;
+        phone_verified: boolean;
         branch_id: string | null;
     }, "password_hash">[]>;
     findOne(clinicId: string, id: string): Promise<Omit<{
@@ -35,8 +41,11 @@ export declare class UserController {
         status: string;
         created_at: Date;
         updated_at: Date;
+        phone: string | null;
         clinic_id: string;
         role: string;
+        email_verified: boolean;
+        phone_verified: boolean;
         branch_id: string | null;
     }, "password_hash">>;
     update(clinicId: string, id: string, dto: UpdateUserDto): Promise<Omit<{
@@ -47,8 +56,11 @@ export declare class UserController {
         status: string;
         created_at: Date;
         updated_at: Date;
+        phone: string | null;
         clinic_id: string;
         role: string;
+        email_verified: boolean;
+        phone_verified: boolean;
         branch_id: string | null;
     }, "password_hash">>;
 }

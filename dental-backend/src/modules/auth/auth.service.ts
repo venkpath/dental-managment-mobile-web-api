@@ -8,6 +8,8 @@ import { PasswordService } from '../../common/services/password.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { AuditLogService } from '../audit-log/audit-log.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
+import { SmsProvider } from '../communication/providers/sms.provider.js';
+import { EmailProvider } from '../communication/providers/email.provider.js';
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
 import { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 import { LoginDto, LookupDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
@@ -20,8 +22,12 @@ export interface LoginResponse {
     branch_id: string | null;
     name: string;
     email: string;
+    phone: string | null;
     role: string;
     status: string;
+    email_verified: boolean;
+    phone_verified: boolean;
+    requires_verification: boolean;
   };
 }
 
@@ -39,6 +45,8 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
     private readonly communicationService: CommunicationService,
+    private readonly smsProvider: SmsProvider,
+    private readonly emailProvider: EmailProvider,
   ) {}
 
   async lookup(dto: LookupDto) {
@@ -102,6 +110,8 @@ export class AuthService {
       branch_id: user.branch_id,
     };
 
+    const requiresVerification = !user.email_verified && !user.phone_verified;
+
     const result = {
       access_token: await this.jwtService.signAsync(payload),
       user: {
@@ -110,8 +120,12 @@ export class AuthService {
         branch_id: user.branch_id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         role: user.role,
         status: user.status,
+        email_verified: user.email_verified,
+        phone_verified: user.phone_verified,
+        requires_verification: requiresVerification,
       },
     };
 
@@ -313,16 +327,27 @@ export class AuthService {
         throw new BadRequestException('Invalid verification token');
       }
 
-      // Mark user email as verified (add verified_at field if needed)
+      // Mark user email as verified
       await this.prisma.user.update({
         where: { id: payload.sub },
-        data: { status: 'active' },
+        data: { status: 'active', email_verified: true },
       });
 
       return { message: 'Email verified successfully' };
     } catch {
       throw new BadRequestException('Invalid or expired verification token');
     }
+  }
+
+  async verifyPhone(userId: string, clinicId: string, phone: string, code: string): Promise<{ valid: boolean; message: string }> {
+    const result = await this.verifyOtp(phone, clinicId, code);
+    if (result.valid) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { phone_verified: true, phone },
+      });
+    }
+    return result;
   }
 
   // ─── Password Reset (13.2) ───
@@ -457,6 +482,26 @@ export class AuthService {
         });
       } catch (err) {
         this.logger.warn(`Failed to send OTP via CommunicationService: ${err}`);
+      }
+    } else {
+      // Direct send for user verification (no patient record)
+      try {
+        if (channel === 'sms') {
+          await this.smsProvider.send({
+            to: identifier,
+            body: `Your verification code is: ${otp}. Valid for 10 minutes.`,
+            clinicId,
+          });
+        } else {
+          await this.emailProvider.send({
+            to: identifier,
+            subject: 'Your Verification Code',
+            body: `Your verification code is: ${otp}. Valid for 10 minutes.`,
+            clinicId,
+          });
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to send OTP directly: ${err}`);
       }
     }
 

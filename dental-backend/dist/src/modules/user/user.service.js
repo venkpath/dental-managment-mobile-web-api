@@ -19,8 +19,11 @@ const userSelect = {
     branch_id: true,
     name: true,
     email: true,
+    phone: true,
     role: true,
     status: true,
+    email_verified: true,
+    phone_verified: true,
     created_at: true,
     updated_at: true,
 };

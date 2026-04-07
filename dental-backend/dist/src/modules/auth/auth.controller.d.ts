@@ -59,6 +59,18 @@ export declare class AuthController {
     }): Promise<{
         message: string;
     }>;
+    sendPhoneOtp(user: JwtPayload, body: {
+        phone: string;
+    }): Promise<{
+        message: string;
+    }>;
+    verifyPhone(user: JwtPayload, body: {
+        phone: string;
+        code: string;
+    }): Promise<{
+        valid: boolean;
+        message: string;
+    }>;
     sendOtp(body: {
         identifier: string;
         clinic_id: string;

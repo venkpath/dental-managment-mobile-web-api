@@ -113,6 +113,27 @@ export class AuthController {
     return this.authService.resetPassword(body.token, body.new_password);
   }
 
+  // ─── Phone Verification ───
+
+  @Post('send-phone-otp')
+  @ApiBearerAuth()
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Send OTP to phone number for user verification' })
+  @ApiResponse({ status: 200, description: 'OTP sent to phone' })
+  async sendPhoneOtp(@CurrentUser() user: JwtPayload, @Body() body: { phone: string }) {
+    return this.authService.sendOtp(body.phone, user.clinic_id, 'sms');
+  }
+
+  @Post('verify-phone')
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify phone number using OTP code' })
+  @ApiResponse({ status: 200, description: 'Phone verification result' })
+  async verifyPhone(@CurrentUser() user: JwtPayload, @Body() body: { phone: string; code: string }) {
+    return this.authService.verifyPhone(user.sub, user.clinic_id, body.phone, body.code);
+  }
+
   // ─── OTP (13.3) ───
 
   @Public()

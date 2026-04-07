@@ -20,6 +20,8 @@ const password_service_js_1 = require("../../common/services/password.service.js
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const audit_log_service_js_1 = require("../audit-log/audit-log.service.js");
 const communication_service_js_1 = require("../communication/communication.service.js");
+const sms_provider_js_1 = require("../communication/providers/sms.provider.js");
+const email_provider_js_1 = require("../communication/providers/email.provider.js");
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
 let AuthService = AuthService_1 = class AuthService {
     userService;
@@ -29,9 +31,11 @@ let AuthService = AuthService_1 = class AuthService {
     prisma;
     auditLogService;
     communicationService;
+    smsProvider;
+    emailProvider;
     logger = new common_1.Logger(AuthService_1.name);
     otpStore = new Map();
-    constructor(userService, passwordService, jwtService, configService, prisma, auditLogService, communicationService) {
+    constructor(userService, passwordService, jwtService, configService, prisma, auditLogService, communicationService, smsProvider, emailProvider) {
         this.userService = userService;
         this.passwordService = passwordService;
         this.jwtService = jwtService;
@@ -39,6 +43,8 @@ let AuthService = AuthService_1 = class AuthService {
         this.prisma = prisma;
         this.auditLogService = auditLogService;
         this.communicationService = communicationService;
+        this.smsProvider = smsProvider;
+        this.emailProvider = emailProvider;
     }
     async lookup(dto) {
         const users = await this.prisma.user.findMany({
@@ -87,6 +93,7 @@ let AuthService = AuthService_1 = class AuthService {
             role: user.role,
             branch_id: user.branch_id,
         };
+        const requiresVerification = !user.email_verified && !user.phone_verified;
         const result = {
             access_token: await this.jwtService.signAsync(payload),
             user: {
@@ -95,8 +102,12 @@ let AuthService = AuthService_1 = class AuthService {
                 branch_id: user.branch_id,
                 name: user.name,
                 email: user.email,
+                phone: user.phone,
                 role: user.role,
                 status: user.status,
+                email_verified: user.email_verified,
+                phone_verified: user.phone_verified,
+                requires_verification: requiresVerification,
             },
         };
         const ip = req?.ip || req?.headers?.['x-forwarded-for'] || undefined;
@@ -261,13 +272,23 @@ let AuthService = AuthService_1 = class AuthService {
             }
             await this.prisma.user.update({
                 where: { id: payload.sub },
-                data: { status: 'active' },
+                data: { status: 'active', email_verified: true },
             });
             return { message: 'Email verified successfully' };
         }
         catch {
             throw new common_1.BadRequestException('Invalid or expired verification token');
         }
+    }
+    async verifyPhone(userId, clinicId, phone, code) {
+        const result = await this.verifyOtp(phone, clinicId, code);
+        if (result.valid) {
+            await this.prisma.user.update({
+                where: { id: userId },
+                data: { phone_verified: true, phone },
+            });
+        }
+        return result;
     }
     async requestPasswordReset(email, clinicId) {
         const user = await this.userService.findByEmail(email, clinicId);
@@ -373,6 +394,28 @@ let AuthService = AuthService_1 = class AuthService {
                 this.logger.warn(`Failed to send OTP via CommunicationService: ${err}`);
             }
         }
+        else {
+            try {
+                if (channel === 'sms') {
+                    await this.smsProvider.send({
+                        to: identifier,
+                        body: `Your verification code is: ${otp}. Valid for 10 minutes.`,
+                        clinicId,
+                    });
+                }
+                else {
+                    await this.emailProvider.send({
+                        to: identifier,
+                        subject: 'Your Verification Code',
+                        body: `Your verification code is: ${otp}. Valid for 10 minutes.`,
+                        clinicId,
+                    });
+                }
+            }
+            catch (err) {
+                this.logger.warn(`Failed to send OTP directly: ${err}`);
+            }
+        }
         this.logger.log(`OTP generated for ${identifier} on ${channel}`);
         return { message: `OTP sent to ${channel === 'sms' ? 'phone' : 'email'}. Valid for 10 minutes.` };
     }
@@ -425,6 +468,8 @@ exports.AuthService = AuthService = AuthService_1 = __decorate([
         config_1.ConfigService,
         prisma_service_js_1.PrismaService,
         audit_log_service_js_1.AuditLogService,
-        communication_service_js_1.CommunicationService])
+        communication_service_js_1.CommunicationService,
+        sms_provider_js_1.SmsProvider,
+        email_provider_js_1.EmailProvider])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

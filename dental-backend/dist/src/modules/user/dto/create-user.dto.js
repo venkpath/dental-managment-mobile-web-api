@@ -24,9 +24,10 @@ class CreateUserDto {
     name;
     email;
     password;
+    phone;
     role;
     static _OPENAPI_METADATA_FACTORY() {
-        return { branch_id: { required: false, type: () => String, format: "uuid" }, name: { required: true, type: () => String, maxLength: 255 }, email: { required: true, type: () => String, maxLength: 255, format: "email" }, password: { required: false, type: () => String, minLength: 8 }, role: { required: true, enum: require("./create-user.dto").UserRole } };
+        return { branch_id: { required: false, type: () => String, format: "uuid" }, name: { required: true, type: () => String, maxLength: 255 }, email: { required: true, type: () => String, maxLength: 255, format: "email" }, password: { required: false, type: () => String, minLength: 8 }, phone: { required: false, type: () => String, maxLength: 20 }, role: { required: true, enum: require("./create-user.dto").UserRole } };
     }
 }
 exports.CreateUserDto = CreateUserDto;
@@ -55,6 +56,13 @@ __decorate([
     (0, class_validator_1.MinLength)(8),
     __metadata("design:type", String)
 ], CreateUserDto.prototype, "password", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: '+919876543210', maxLength: 20 }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(20),
+    __metadata("design:type", String)
+], CreateUserDto.prototype, "phone", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ enum: UserRole, example: UserRole.DENTIST }),
     (0, class_validator_1.IsEnum)(UserRole),

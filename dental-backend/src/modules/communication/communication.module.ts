@@ -42,7 +42,7 @@ import { seedDefaultTemplates } from './seed-templates.js';
     SmsWorker,
     WhatsAppWorker,
   ],
-  exports: [CommunicationService, TemplateService, CommunicationProducer, TemplateRenderer],
+  exports: [CommunicationService, TemplateService, CommunicationProducer, TemplateRenderer, SmsProvider, EmailProvider],
 })
 export class CommunicationModule implements OnModuleInit {
   private readonly logger = new Logger(CommunicationModule.name);

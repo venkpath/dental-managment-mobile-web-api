@@ -29,6 +29,12 @@ export class CreateUserDto {
   @MinLength(8)
   password?: string;
 
+  @ApiPropertyOptional({ example: '+919876543210', maxLength: 20 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  phone?: string;
+
   @ApiProperty({ enum: UserRole, example: UserRole.DENTIST })
   @IsEnum(UserRole)
   role!: UserRole;
