@@ -6,4 +6,6 @@ export declare class CreateClinicDto {
     city?: string;
     state?: string;
     country?: string;
+    pincode?: string;
+    logo_url?: string;
 }

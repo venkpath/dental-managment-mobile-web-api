@@ -1,3 +1,4 @@
+import type { Response } from 'express';
 interface RequestUser {
     userId: string;
     clinicId: string;
@@ -21,9 +22,11 @@ export declare class ClinicController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
     }>;
@@ -39,9 +42,11 @@ export declare class ClinicController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
     }>;
@@ -57,9 +62,11 @@ export declare class ClinicController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
     }>;
@@ -75,9 +82,11 @@ export declare class ClinicController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
     }[]>;
@@ -93,9 +102,11 @@ export declare class ClinicController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
     }>;
@@ -111,9 +122,11 @@ export declare class ClinicController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
     }>;
@@ -129,11 +142,34 @@ export declare class ClinicController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
     }>;
+    uploadLogo(user: RequestUser, file: Express.Multer.File): Promise<{
+        id: string;
+        email: string;
+        name: string;
+        created_at: Date;
+        updated_at: Date;
+        plan_id: string | null;
+        phone: string | null;
+        address: string | null;
+        city: string | null;
+        state: string | null;
+        country: string | null;
+        pincode: string | null;
+        subscription_status: string;
+        subscription_id: string | null;
+        trial_ends_at: Date | null;
+        logo_url: string | null;
+        ai_usage_count: number;
+        ai_quota_override: number | null;
+    }>;
+    serveLogo(clinicId: string, filename: string, res: Response): Promise<void>;
 }
 export {};

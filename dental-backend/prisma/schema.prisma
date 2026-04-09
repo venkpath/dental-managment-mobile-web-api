@@ -16,10 +16,12 @@ model Clinic {
   city                String?   @db.VarChar(100)
   state               String?   @db.VarChar(100)
   country             String?   @db.VarChar(100)
+  pincode             String?   @db.VarChar(10)
   plan_id             String?   @db.Uuid
   subscription_status String    @default("trial") @db.VarChar(20)
   subscription_id     String?   @db.VarChar(100)
   trial_ends_at       DateTime?
+  logo_url            String?   @db.Text
   ai_usage_count      Int       @default(0)
   ai_quota_override   Int?      // per-clinic AI quota override (null = use global/plan default)
   created_at          DateTime  @default(now())
@@ -64,6 +66,7 @@ model Branch {
   city       String?  @db.VarChar(100)
   state      String?  @db.VarChar(100)
   country    String?  @db.VarChar(100)
+  pincode    String?  @db.VarChar(10)
 
   // Location (for Google Maps directions / WhatsApp "Get Directions" button)
   latitude   Float?
@@ -433,17 +436,46 @@ model InstallmentItem {
 }
 
 model InventoryItem {
-  id            String   @id @default(uuid()) @db.Uuid
-  clinic_id     String   @db.Uuid
-  branch_id     String   @db.Uuid
-  name          String   @db.VarChar(255)
-  category      String?  @db.VarChar(100)
-  quantity      Int      @default(0)
-  unit          String   @db.VarChar(50)
-  reorder_level Int      @default(0)
-  supplier      String?  @db.VarChar(255)
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  id              String    @id @default(uuid()) @db.Uuid
+  clinic_id       String    @db.Uuid
+  branch_id       String    @db.Uuid
+  name            String    @db.VarChar(255)
+  category        String?   @db.VarChar(100)
+  quantity        Int       @default(0)
+  unit            String    @db.VarChar(50)
+  reorder_level   Int       @default(0)
+  supplier        String?   @db.VarChar(255)
+
+  // === Packaging / UOM ===
+  // How you purchase (outermost unit)
+  purchase_unit       String?   @db.VarChar(50)   // "box", "bottle", "pack", "carton"
+  purchase_price      Decimal?  @db.Decimal(10,2) // price for 1 purchase_unit
+
+  // Intermediate packaging (optional, e.g. strips inside box)
+  pack_unit           String?   @db.VarChar(50)   // "strip", "sachet", "blister"
+  packs_per_purchase  Int?                          // e.g. 10 strips per box
+
+  // Dispensing unit = existing `unit` field (tablet, ml, capsule, etc.)
+  units_per_pack      Int?                          // e.g. 10 tablets per strip
+                                                    // for 2-level: tablets per bottle
+
+  // Derived / stored
+  units_in_purchase   Int?                          // total dispensing units per purchase (auto)
+  cost_price          Decimal?  @db.Decimal(10,2)  // cost per dispensing unit (auto = purchase_price / units_in_purchase)
+  selling_price       Decimal?  @db.Decimal(10,2)  // selling price per dispensing unit
+  markup_percent      Decimal?  @db.Decimal(5,2)   // optional markup % (auto-fills selling_price)
+
+  // Legacy (kept for backwards compat)
+  price_per_unit  Decimal?  @db.Decimal(10, 2)
+  price_per_box   Decimal?  @db.Decimal(10, 2)
+  units_per_box   Int?
+
+  expiry_date     DateTime?
+  batch_number    String?   @db.VarChar(100)
+  location        String?   @db.VarChar(100)
+  notes           String?   @db.Text
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
 
   clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   branch Branch @relation(fields: [branch_id], references: [id], onDelete: Cascade)

@@ -66,9 +66,11 @@ export declare class SuperAdminController {
             city: string | null;
             state: string | null;
             country: string | null;
+            pincode: string | null;
             subscription_status: string;
             subscription_id: string | null;
             trial_ends_at: Date | null;
+            logo_url: string | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
         })[];
@@ -97,9 +99,11 @@ export declare class SuperAdminController {
             city: string | null;
             state: string | null;
             country: string | null;
+            pincode: string | null;
             subscription_status: string;
             subscription_id: string | null;
             trial_ends_at: Date | null;
+            logo_url: string | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
         })[];
@@ -159,6 +163,7 @@ export declare class SuperAdminController {
             city: string | null;
             state: string | null;
             country: string | null;
+            pincode: string | null;
             latitude: number | null;
             longitude: number | null;
             map_url: string | null;
@@ -186,9 +191,11 @@ export declare class SuperAdminController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
     }>;
@@ -204,9 +211,11 @@ export declare class SuperAdminController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
     }>;
@@ -223,9 +232,11 @@ export declare class SuperAdminController {
             city: string | null;
             state: string | null;
             country: string | null;
+            pincode: string | null;
             subscription_status: string;
             subscription_id: string | null;
             trial_ends_at: Date | null;
+            logo_url: string | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
         };
@@ -239,6 +250,7 @@ export declare class SuperAdminController {
             city: string | null;
             state: string | null;
             country: string | null;
+            pincode: string | null;
             latitude: number | null;
             longitude: number | null;
             map_url: string | null;
@@ -393,6 +405,7 @@ export declare class SuperAdminController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         latitude: number | null;
         longitude: number | null;
         map_url: string | null;
@@ -418,6 +431,7 @@ export declare class SuperAdminController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         latitude: number | null;
         longitude: number | null;
         map_url: string | null;
@@ -443,6 +457,7 @@ export declare class SuperAdminController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         latitude: number | null;
         longitude: number | null;
         map_url: string | null;
@@ -479,6 +494,7 @@ export declare class SuperAdminController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         latitude: number | null;
         longitude: number | null;
         map_url: string | null;

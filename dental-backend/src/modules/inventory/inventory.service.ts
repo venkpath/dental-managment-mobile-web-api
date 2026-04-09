@@ -88,4 +88,35 @@ export class InventoryService {
       include: { branch: true },
     });
   }
+
+  async bulkCreate(clinicId: string, items: CreateInventoryItemDto[]): Promise<{ created: number; errors: string[] }> {
+    const errors: string[] = [];
+    let created = 0;
+
+    // Validate all branch IDs belong to clinic
+    const branchIds = [...new Set(items.map((i) => i.branch_id))];
+    const branches = await this.prisma.branch.findMany({
+      where: { id: { in: branchIds }, clinic_id: clinicId },
+      select: { id: true },
+    });
+    const validBranchIds = new Set(branches.map((b) => b.id));
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!validBranchIds.has(item.branch_id)) {
+        errors.push(`Row ${i + 2}: Branch ID "${item.branch_id}" not found`);
+        continue;
+      }
+      try {
+        await this.prisma.inventoryItem.create({
+          data: { ...item, clinic_id: clinicId },
+        });
+        created++;
+      } catch (e: unknown) {
+        errors.push(`Row ${i + 2}: ${e instanceof Error ? e.message : 'Unknown error'}`);
+      }
+    }
+
+    return { created, errors };
+  }
 }

@@ -9,4 +9,8 @@ export declare class InventoryService {
     findAll(clinicId: string, query: QueryInventoryItemDto): Promise<PaginatedResult<InventoryItem>>;
     findOne(clinicId: string, id: string): Promise<InventoryItem>;
     update(clinicId: string, id: string, dto: UpdateInventoryItemDto): Promise<InventoryItem>;
+    bulkCreate(clinicId: string, items: CreateInventoryItemDto[]): Promise<{
+        created: number;
+        errors: string[];
+    }>;
 }

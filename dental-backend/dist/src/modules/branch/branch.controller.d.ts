@@ -13,6 +13,7 @@ export declare class BranchController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         latitude: number | null;
         longitude: number | null;
         map_url: string | null;
@@ -38,6 +39,7 @@ export declare class BranchController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         latitude: number | null;
         longitude: number | null;
         map_url: string | null;
@@ -63,6 +65,7 @@ export declare class BranchController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         latitude: number | null;
         longitude: number | null;
         map_url: string | null;
@@ -88,6 +91,7 @@ export declare class BranchController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         latitude: number | null;
         longitude: number | null;
         map_url: string | null;
@@ -124,6 +128,7 @@ export declare class BranchController {
         city: string | null;
         state: string | null;
         country: string | null;
+        pincode: string | null;
         latitude: number | null;
         longitude: number | null;
         map_url: string | null;

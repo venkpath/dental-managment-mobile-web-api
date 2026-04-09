@@ -21,8 +21,10 @@ class CreateClinicDto {
     city;
     state;
     country;
+    pincode;
+    logo_url;
     static _OPENAPI_METADATA_FACTORY() {
-        return { name: { required: true, type: () => String, maxLength: 255 }, email: { required: true, type: () => String, maxLength: 255, format: "email" }, phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 } };
+        return { name: { required: true, type: () => String, maxLength: 255 }, email: { required: true, type: () => String, maxLength: 255, format: "email" }, phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, pincode: { required: false, type: () => String, maxLength: 10 }, logo_url: { required: false, type: () => String } };
     }
 }
 exports.CreateClinicDto = CreateClinicDto;
@@ -73,4 +75,17 @@ __decorate([
     (0, class_validator_1.MaxLength)(100),
     __metadata("design:type", String)
 ], CreateClinicDto.prototype, "country", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: '560001', maxLength: 10 }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(10),
+    __metadata("design:type", String)
+], CreateClinicDto.prototype, "pincode", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Logo URL (file path or external URL)' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateClinicDto.prototype, "logo_url", void 0);
 //# sourceMappingURL=create-clinic.dto.js.map

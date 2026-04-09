@@ -21,12 +21,13 @@ class CreateBranchDto {
     city;
     state;
     country;
+    pincode;
     latitude;
     longitude;
     map_url;
     book_now_url;
     static _OPENAPI_METADATA_FACTORY() {
-        return { name: { required: true, type: () => String, maxLength: 255 }, phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, latitude: { required: false, type: () => Number }, longitude: { required: false, type: () => Number }, map_url: { required: false, type: () => String, maxLength: 500 }, book_now_url: { required: false, type: () => String, maxLength: 2000 } };
+        return { name: { required: true, type: () => String, maxLength: 255 }, phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, pincode: { required: false, type: () => String, maxLength: 10 }, latitude: { required: false, type: () => Number }, longitude: { required: false, type: () => Number }, map_url: { required: false, type: () => String, maxLength: 500 }, book_now_url: { required: false, type: () => String, maxLength: 2000 } };
     }
 }
 exports.CreateBranchDto = CreateBranchDto;
@@ -71,6 +72,13 @@ __decorate([
     (0, class_validator_1.MaxLength)(100),
     __metadata("design:type", String)
 ], CreateBranchDto.prototype, "country", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: '560001', maxLength: 10 }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(10),
+    __metadata("design:type", String)
+], CreateBranchDto.prototype, "pincode", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 12.9716, description: 'Branch latitude for Google Maps' }),
     (0, class_validator_1.IsOptional)(),

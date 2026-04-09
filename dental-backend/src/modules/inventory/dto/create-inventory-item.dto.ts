@@ -5,6 +5,7 @@ import {
   IsString,
   IsUUID,
   IsInt,
+  IsNumber,
   Min,
   MaxLength,
 } from 'class-validator';
@@ -52,4 +53,88 @@ export class CreateInventoryItemDto {
   @IsString()
   @MaxLength(255)
   supplier?: string;
+
+  // === Packaging / UOM ===
+  @ApiPropertyOptional({ description: 'Purchase unit (box, bottle, pack)', maxLength: 50 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  purchase_unit?: string;
+
+  @ApiPropertyOptional({ description: 'Purchase price per purchase_unit (₹)' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  purchase_price?: number;
+
+  @ApiPropertyOptional({ description: 'Intermediate pack unit (strip, sachet)', maxLength: 50 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  pack_unit?: string;
+
+  @ApiPropertyOptional({ description: 'Number of pack_units per purchase_unit' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  packs_per_purchase?: number;
+
+  @ApiPropertyOptional({ description: 'Dispensing units per pack_unit (or per purchase if no pack_unit)' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  units_per_pack?: number;
+
+  @ApiPropertyOptional({ description: 'Total dispensing units in one purchase (auto-calculated)' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  units_in_purchase?: number;
+
+  @ApiPropertyOptional({ description: 'Cost per dispensing unit (auto = purchase_price / units_in_purchase)' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  cost_price?: number;
+
+  @ApiPropertyOptional({ description: 'Selling price per dispensing unit (₹)' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  selling_price?: number;
+
+  @ApiPropertyOptional({ description: 'Markup percentage over cost price' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  markup_percent?: number;
+
+  @ApiPropertyOptional({ description: 'Expiry date' })
+  @IsOptional()
+  @Type(() => Date)
+  expiry_date?: Date;
+
+  @ApiPropertyOptional({ description: 'Batch / lot number', maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  batch_number?: string;
+
+  @ApiPropertyOptional({ description: 'Storage location (shelf/cabinet)', maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  location?: string;
+
+  @ApiPropertyOptional({ description: 'Additional notes' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }

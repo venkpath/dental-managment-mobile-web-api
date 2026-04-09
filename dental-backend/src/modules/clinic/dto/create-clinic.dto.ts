@@ -41,4 +41,15 @@ export class CreateClinicDto {
   @IsString()
   @MaxLength(100)
   country?: string;
+
+  @ApiPropertyOptional({ example: '560001', maxLength: 10 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  pincode?: string;
+
+  @ApiPropertyOptional({ description: 'Logo URL (file path or external URL)' })
+  @IsOptional()
+  @IsString()
+  logo_url?: string;
 }

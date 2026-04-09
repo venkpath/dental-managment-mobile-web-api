@@ -73,4 +73,14 @@ export class InventoryController {
   ) {
     return this.inventoryService.update(clinicId, id, dto);
   }
+
+  @Post('bulk-import')
+  @ApiOperation({ summary: 'Bulk import inventory items from parsed data' })
+  @ApiCreatedResponse({ description: 'Bulk import result' })
+  async bulkImport(
+    @CurrentClinic() clinicId: string,
+    @Body() body: { items: CreateInventoryItemDto[] },
+  ) {
+    return this.inventoryService.bulkCreate(clinicId, body.items);
+  }
 }

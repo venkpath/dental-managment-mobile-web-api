@@ -45,6 +45,19 @@ let GlobalExceptionFilter = GlobalExceptionFilter_1 = class GlobalExceptionFilte
             response.status(status).json(body);
             return;
         }
+        if (exception instanceof client_1.Prisma.PrismaClientValidationError) {
+            this.logger.error('Prisma validation error', exception.message);
+            const body = {
+                success: false,
+                error: {
+                    code: 'VALIDATION_ERROR',
+                    message: 'Invalid data sent to database',
+                    details: [exception.message.split('\n').pop() || exception.message],
+                },
+            };
+            response.status(common_1.HttpStatus.BAD_REQUEST).json(body);
+            return;
+        }
         let status = common_1.HttpStatus.INTERNAL_SERVER_ERROR;
         let message = 'Internal server error';
         if (exception instanceof common_1.HttpException) {

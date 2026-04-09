@@ -38,6 +38,12 @@ export class CreateBranchDto {
   @MaxLength(100)
   country?: string;
 
+  @ApiPropertyOptional({ example: '560001', maxLength: 10 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  pincode?: string;
+
   @ApiPropertyOptional({ example: 12.9716, description: 'Branch latitude for Google Maps' })
   @IsOptional()
   @Type(() => Number)

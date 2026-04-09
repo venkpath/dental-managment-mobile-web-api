@@ -37,6 +37,9 @@ let InventoryController = class InventoryController {
     async update(clinicId, id, dto) {
         return this.inventoryService.update(clinicId, id, dto);
     }
+    async bulkImport(clinicId, body) {
+        return this.inventoryService.bulkCreate(clinicId, body.items);
+    }
 };
 exports.InventoryController = InventoryController;
 __decorate([
@@ -86,6 +89,17 @@ __decorate([
     __metadata("design:paramtypes", [String, String, index_js_1.UpdateInventoryItemDto]),
     __metadata("design:returntype", Promise)
 ], InventoryController.prototype, "update", null);
+__decorate([
+    (0, common_1.Post)('bulk-import'),
+    (0, swagger_1.ApiOperation)({ summary: 'Bulk import inventory items from parsed data' }),
+    (0, swagger_1.ApiCreatedResponse)({ description: 'Bulk import result' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "bulkImport", null);
 exports.InventoryController = InventoryController = __decorate([
     (0, swagger_1.ApiTags)('Inventory'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' }),

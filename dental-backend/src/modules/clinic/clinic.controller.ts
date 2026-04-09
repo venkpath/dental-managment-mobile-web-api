@@ -1,4 +1,7 @@
-import { Controller, Get, Post, Patch, Param, Body, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller, Get, Post, Patch, Param, Body, ParseUUIDPipe,
+  UseInterceptors, UploadedFile, BadRequestException, Res,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -6,7 +9,15 @@ import {
   ApiOkResponse,
   ApiNotFoundResponse,
   ApiBearerAuth,
+  ApiConsumes,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
+import { resolve } from 'path';
+import { existsSync } from 'fs';
+import { writeFile, mkdir } from 'fs/promises';
+import { randomUUID } from 'crypto';
+import { extname } from 'path';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { SuperAdmin } from '../../common/decorators/super-admin.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
@@ -88,5 +99,51 @@ export class ClinicController {
     @Body() dto: UpdateSubscriptionDto,
   ) {
     return this.clinicService.updateSubscription(id, dto);
+  }
+
+  @Post('me/logo')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Upload clinic logo' })
+  @ApiConsumes('multipart/form-data')
+  @ApiOkResponse({ description: 'Logo uploaded and clinic updated' })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  async uploadLogo(
+    @CurrentUser() user: RequestUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+    if (!allowed.includes(file.mimetype)) {
+      throw new BadRequestException('Only JPEG, PNG, WebP, or SVG images allowed');
+    }
+    const ext = extname(file.originalname) || '.jpg';
+    const fileName = `${randomUUID()}${ext}`;
+    // Store per-clinic: uploads/logos/{clinicId}/filename
+    const dir = `uploads/logos/${user.clinicId}`;
+    await mkdir(resolve(process.cwd(), dir), { recursive: true });
+    const filePath = `${dir}/${fileName}`;
+    await writeFile(resolve(process.cwd(), filePath), file.buffer);
+    return this.clinicService.update(user.clinicId, { logo_url: filePath });
+  }
+
+  @Get('logo/:clinicId/:filename')
+  @Public()
+  @ApiOperation({ summary: 'Serve clinic logo (public)' })
+  async serveLogo(
+    @Param('clinicId') clinicId: string,
+    @Param('filename') filename: string,
+    @Res() res: Response,
+  ) {
+    // Prevent path traversal
+    if (clinicId.includes('..') || filename.includes('..') || filename.includes('/')) {
+      throw new BadRequestException('Invalid path');
+    }
+    const uploadsBase = resolve(process.cwd(), 'uploads/logos');
+    const filePath = resolve(process.cwd(), 'uploads/logos', clinicId, filename);
+    if (!filePath.startsWith(uploadsBase)) throw new BadRequestException('Invalid path');
+    if (!existsSync(filePath)) throw new BadRequestException('Logo not found');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.sendFile(filePath);
   }
 }
