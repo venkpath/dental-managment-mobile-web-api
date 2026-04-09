@@ -394,6 +394,8 @@ export declare class CommunicationService {
     private escapeHtml;
     private static readonly CIRCUIT_BREAKER_WINDOW;
     private static readonly CIRCUIT_BREAKER_THRESHOLD;
+    private static readonly CIRCUIT_BREAKER_MIN_SAMPLE;
+    private static readonly CIRCUIT_BREAKER_LOOKBACK_MS;
     getCircuitBreakerStatus(clinicId: string): Promise<Record<string, {
         is_open: boolean;
         failure_rate: number;

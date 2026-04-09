@@ -1000,16 +1000,20 @@ let CommunicationService = class CommunicationService {
             .replace(/"/g, '&quot;');
     }
     static CIRCUIT_BREAKER_WINDOW = 100;
-    static CIRCUIT_BREAKER_THRESHOLD = 0.2;
+    static CIRCUIT_BREAKER_THRESHOLD = 0.5;
+    static CIRCUIT_BREAKER_MIN_SAMPLE = 20;
+    static CIRCUIT_BREAKER_LOOKBACK_MS = 60 * 60 * 1000;
     async getCircuitBreakerStatus(clinicId) {
         const channels = ['email', 'sms', 'whatsapp'];
         const result = {};
+        const since = new Date(Date.now() - CommunicationService_1.CIRCUIT_BREAKER_LOOKBACK_MS);
         for (const channel of channels) {
             const recentMessages = await this.prisma.communicationMessage.findMany({
                 where: {
                     clinic_id: clinicId,
                     channel,
                     status: { in: ['sent', 'delivered', 'failed'] },
+                    created_at: { gte: since },
                 },
                 orderBy: { created_at: 'desc' },
                 take: CommunicationService_1.CIRCUIT_BREAKER_WINDOW,
@@ -1018,7 +1022,7 @@ let CommunicationService = class CommunicationService {
             const failedCount = recentMessages.filter((m) => m.status === 'failed').length;
             const failureRate = recentMessages.length > 0 ? failedCount / recentMessages.length : 0;
             result[channel] = {
-                is_open: recentMessages.length >= 10 && failureRate >= CommunicationService_1.CIRCUIT_BREAKER_THRESHOLD,
+                is_open: recentMessages.length >= CommunicationService_1.CIRCUIT_BREAKER_MIN_SAMPLE && failureRate >= CommunicationService_1.CIRCUIT_BREAKER_THRESHOLD,
                 failure_rate: Math.round(failureRate * 1000) / 10,
                 sample_size: recentMessages.length,
             };
@@ -1026,17 +1030,19 @@ let CommunicationService = class CommunicationService {
         return result;
     }
     async isCircuitOpen(clinicId, channel) {
+        const since = new Date(Date.now() - CommunicationService_1.CIRCUIT_BREAKER_LOOKBACK_MS);
         const recentMessages = await this.prisma.communicationMessage.findMany({
             where: {
                 clinic_id: clinicId,
                 channel,
                 status: { in: ['sent', 'delivered', 'failed'] },
+                created_at: { gte: since },
             },
             orderBy: { created_at: 'desc' },
             take: CommunicationService_1.CIRCUIT_BREAKER_WINDOW,
             select: { status: true },
         });
-        if (recentMessages.length < 10)
+        if (recentMessages.length < CommunicationService_1.CIRCUIT_BREAKER_MIN_SAMPLE)
             return false;
         const failedCount = recentMessages.filter((m) => m.status === 'failed').length;
         const failureRate = failedCount / recentMessages.length;

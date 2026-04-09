@@ -1342,12 +1342,15 @@ export class CommunicationService {
   // ─── Circuit Breaker ───
 
   private static readonly CIRCUIT_BREAKER_WINDOW = 100; // last N messages to check
-  private static readonly CIRCUIT_BREAKER_THRESHOLD = 0.2; // 20% failure rate
+  private static readonly CIRCUIT_BREAKER_THRESHOLD = 0.5; // 50% failure rate
+  private static readonly CIRCUIT_BREAKER_MIN_SAMPLE = 20; // minimum messages before tripping
+  private static readonly CIRCUIT_BREAKER_LOOKBACK_MS = 60 * 60 * 1000; // only look at last 1 hour
 
   /** Get circuit breaker status for all channels in a clinic */
   async getCircuitBreakerStatus(clinicId: string) {
     const channels = ['email', 'sms', 'whatsapp'];
     const result: Record<string, { is_open: boolean; failure_rate: number; sample_size: number }> = {};
+    const since = new Date(Date.now() - CommunicationService.CIRCUIT_BREAKER_LOOKBACK_MS);
 
     for (const channel of channels) {
       const recentMessages = await this.prisma.communicationMessage.findMany({
@@ -1355,6 +1358,7 @@ export class CommunicationService {
           clinic_id: clinicId,
           channel,
           status: { in: ['sent', 'delivered', 'failed'] },
+          created_at: { gte: since },
         },
         orderBy: { created_at: 'desc' },
         take: CommunicationService.CIRCUIT_BREAKER_WINDOW,
@@ -1365,8 +1369,8 @@ export class CommunicationService {
       const failureRate = recentMessages.length > 0 ? failedCount / recentMessages.length : 0;
 
       result[channel] = {
-        is_open: recentMessages.length >= 10 && failureRate >= CommunicationService.CIRCUIT_BREAKER_THRESHOLD,
-        failure_rate: Math.round(failureRate * 1000) / 10, // percentage with 1 decimal
+        is_open: recentMessages.length >= CommunicationService.CIRCUIT_BREAKER_MIN_SAMPLE && failureRate >= CommunicationService.CIRCUIT_BREAKER_THRESHOLD,
+        failure_rate: Math.round(failureRate * 1000) / 10,
         sample_size: recentMessages.length,
       };
     }
@@ -1376,14 +1380,17 @@ export class CommunicationService {
 
   /**
    * Check if the circuit breaker is open for a clinic + channel.
-   * Looks at the last 100 messages — if >20% failed, the channel is paused.
+   * Looks at the last 100 messages in the past hour — if >50% failed and
+   * there are at least 20 samples, the channel is paused.
    */
   private async isCircuitOpen(clinicId: string, channel: string): Promise<boolean> {
+    const since = new Date(Date.now() - CommunicationService.CIRCUIT_BREAKER_LOOKBACK_MS);
     const recentMessages = await this.prisma.communicationMessage.findMany({
       where: {
         clinic_id: clinicId,
         channel,
         status: { in: ['sent', 'delivered', 'failed'] },
+        created_at: { gte: since },
       },
       orderBy: { created_at: 'desc' },
       take: CommunicationService.CIRCUIT_BREAKER_WINDOW,
@@ -1391,7 +1398,7 @@ export class CommunicationService {
     });
 
     // Not enough data to trip the breaker
-    if (recentMessages.length < 10) return false;
+    if (recentMessages.length < CommunicationService.CIRCUIT_BREAKER_MIN_SAMPLE) return false;
 
     const failedCount = recentMessages.filter((m) => m.status === 'failed').length;
     const failureRate = failedCount / recentMessages.length;
