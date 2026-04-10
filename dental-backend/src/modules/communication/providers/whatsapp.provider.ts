@@ -106,10 +106,21 @@ export class WhatsAppProvider implements ChannelProvider {
       // Patients are stored as 10-digit numbers (e.g. 9876543210) but Meta requires
       // full international format without + (e.g. 919876543210).
       let destination = options.to.replace(/[^0-9]/g, '');
+
+      // Handle edge cases for Indian phone normalization
+      // Case 1: 10-digit number (e.g. 9876543210)
       if (destination.length === 10) {
         destination = '91' + destination;
-      } else if (destination.startsWith('0') && destination.length === 11) {
+      }
+      // Case 2: 11-digit starting with 0 (e.g. 09876543210 → strip leading 0)
+      else if (destination.length === 11 && destination.startsWith('0')) {
         destination = '91' + destination.slice(1);
+      }
+      // Case 3: Already has 91 prefix but 12 digits total (91 + 10 digits)
+      // No change needed
+      // Case 4: Missing prefix entirely, assume 10 digits if not already prefixed
+      else if (destination.length === 10 && !destination.startsWith('91')) {
+        destination = '91' + destination;
       }
 
       // Determine message type based on options
@@ -490,7 +501,11 @@ export class WhatsAppProvider implements ChannelProvider {
     }
 
     let destination = to.replace(/[^0-9]/g, '');
-    if (destination.length === 10) destination = '91' + destination;
+    if (destination.length === 10) {
+      destination = '91' + destination;
+    } else if (destination.length === 11 && destination.startsWith('0')) {
+      destination = '91' + destination.slice(1);
+    }
 
     const payload = {
       messaging_product: 'whatsapp',

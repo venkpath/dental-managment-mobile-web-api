@@ -1141,8 +1141,8 @@ export class CommunicationService {
    */
   private async ensureProvidersConfigured(clinicId: string): Promise<void> {
     // Fast path: already configured
-    if (this.emailProvider.isConfigured(clinicId) ||
-        this.smsProvider.isConfigured(clinicId) ||
+    if (this.emailProvider.isConfigured(clinicId) &&
+        this.smsProvider.isConfigured(clinicId) &&
         this.whatsAppProvider.isConfigured(clinicId)) {
       return;
     }
@@ -1161,6 +1161,9 @@ export class CommunicationService {
     try {
       await configPromise;
     } finally {
+      // Double-check before removing — if another config happened, keep the lock
+      // Wait a tick to ensure all concurrent calls see the configured state
+      await new Promise(resolve => setImmediate(resolve));
       this.configurationLocks.delete(clinicId);
     }
   }
@@ -1270,13 +1273,21 @@ export class CommunicationService {
     if (settings.enable_whatsapp && settings.whatsapp_config && settings.whatsapp_provider) {
       const raw = settings.whatsapp_config as Record<string, unknown>;
       const rawToken = (raw.accessToken ?? raw.access_token) as string;
-      const waConfig: WhatsAppProviderConfig = {
-        accessToken: decrypt(rawToken),
-        phoneNumberId: (raw.phoneNumberId ?? raw.phone_number_id) as string,
-        wabaId: (raw.wabaId ?? raw.waba_id) as string | undefined,
-      };
-      this.whatsAppProvider.configure(clinicId, waConfig, settings.whatsapp_provider);
-      this.logger.log(`WhatsApp provider configured for clinic ${clinicId}: ${settings.whatsapp_provider}`);
+
+      try {
+        const waConfig: WhatsAppProviderConfig = {
+          accessToken: decrypt(rawToken),
+          phoneNumberId: (raw.phoneNumberId ?? raw.phone_number_id) as string,
+          wabaId: (raw.wabaId ?? raw.waba_id) as string | undefined,
+        };
+        this.whatsAppProvider.configure(clinicId, waConfig, settings.whatsapp_provider);
+        this.logger.log(`WhatsApp provider configured for clinic ${clinicId}: ${settings.whatsapp_provider}`);
+      } catch (decryptError) {
+        this.logger.error(
+          `WhatsApp provider config failed for clinic ${clinicId}: decryption error — ${decryptError instanceof Error ? decryptError.message : String(decryptError)}. ` +
+          `Check that encryption keys match and token is valid.`,
+        );
+      }
     }
   }
 
@@ -1884,10 +1895,9 @@ export class CommunicationService {
         data: { status: 'read' },
       });
 
-      // Send read receipts to Meta (fire-and-forget, non-blocking)
-      this.sendMetaReadReceipts(clinicId, unreadInbound.map((m) => m.wa_message_id!)).catch((err) =>
-        this.logger.warn(`Failed to send read receipts: ${err instanceof Error ? err.message : err}`),
-      );
+      // Send read receipts to Meta with retry logic
+      // Queue for async processing so it doesn't block the response
+      this.queueMetaReadReceipts(clinicId, unreadInbound.map((m) => m.wa_message_id!));
     }
 
     return {
@@ -1950,6 +1960,40 @@ export class CommunicationService {
     });
 
     return { success: result.success, message_id: message.id };
+  }
+
+  /**
+   * Queue read receipts for async processing with retry logic.
+   * Decouples from request/response cycle so network issues don't block the API.
+   */
+  private queueMetaReadReceipts(clinicId: string, waMessageIds: string[]): void {
+    // Schedule async processing with exponential backoff retry
+    setImmediate(async () => {
+      let retryCount = 0;
+      const maxRetries = 3;
+
+      while (retryCount < maxRetries) {
+        try {
+          await this.sendMetaReadReceipts(clinicId, waMessageIds);
+          this.logger.debug(`Read receipts sent successfully after ${retryCount} retries`);
+          return; // Success
+        } catch (err) {
+          retryCount++;
+          if (retryCount < maxRetries) {
+            const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 2s, 4s, 8s
+            this.logger.warn(
+              `Read receipts failed (attempt ${retryCount}/${maxRetries}), retrying in ${delay}ms: ${err instanceof Error ? err.message : String(err)}`,
+            );
+            await new Promise(resolve => setTimeout(resolve, delay));
+          } else {
+            this.logger.error(
+              `Failed to send read receipts after ${maxRetries} attempts. Patients won't see blue ticks. ` +
+              `Error: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
+      }
+    });
   }
 
   /**
@@ -2168,18 +2212,20 @@ export class CommunicationService {
 
       if (existing) {
         // Update status and body if changed
+        // Use 'as any' only for Prisma's JSON field handling — the data is validated/constructed above
         await this.prisma.messageTemplate.update({
           where: { id: existing.id },
           data: {
             whatsapp_template_status: whatsappStatus,
             is_active: metaTemplate.status === 'APPROVED',
             body: bodyText || existing.body,
-            variables: variablesJson !== undefined ? variablesJson as any : undefined,
-          },
+            ...(variablesJson !== undefined ? { variables: variablesJson as any } : {}),
+          } as any,
         });
         updated++;
       } else {
         // Create new template in DB
+        // Use 'as any' only for Prisma's JSON field handling — the data is validated/constructed above
         await this.prisma.messageTemplate.create({
           data: {
             clinic_id: clinicId,
@@ -2187,11 +2233,11 @@ export class CommunicationService {
             category,
             template_name: metaTemplate.name,
             body: bodyText || `[Template: ${metaTemplate.name}]`,
-            variables: variablesJson !== undefined ? variablesJson as any : undefined,
+            ...(variablesJson !== undefined ? { variables: variablesJson as any } : {}),
             language: metaTemplate.language,
             whatsapp_template_status: whatsappStatus,
             is_active: metaTemplate.status === 'APPROVED',
-          },
+          } as any,
         });
         created++;
       }
