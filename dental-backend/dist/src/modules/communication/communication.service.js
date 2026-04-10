@@ -849,8 +849,8 @@ let CommunicationService = class CommunicationService {
         return h * 60 + m;
     }
     async ensureProvidersConfigured(clinicId) {
-        if (this.emailProvider.isConfigured(clinicId) ||
-            this.smsProvider.isConfigured(clinicId) ||
+        if (this.emailProvider.isConfigured(clinicId) &&
+            this.smsProvider.isConfigured(clinicId) &&
             this.whatsAppProvider.isConfigured(clinicId)) {
             return;
         }
@@ -865,6 +865,7 @@ let CommunicationService = class CommunicationService {
             await configPromise;
         }
         finally {
+            await new Promise(resolve => setImmediate(resolve));
             this.configurationLocks.delete(clinicId);
         }
     }
@@ -947,13 +948,19 @@ let CommunicationService = class CommunicationService {
         if (settings.enable_whatsapp && settings.whatsapp_config && settings.whatsapp_provider) {
             const raw = settings.whatsapp_config;
             const rawToken = (raw.accessToken ?? raw.access_token);
-            const waConfig = {
-                accessToken: (0, encryption_util_js_1.decrypt)(rawToken),
-                phoneNumberId: (raw.phoneNumberId ?? raw.phone_number_id),
-                wabaId: (raw.wabaId ?? raw.waba_id),
-            };
-            this.whatsAppProvider.configure(clinicId, waConfig, settings.whatsapp_provider);
-            this.logger.log(`WhatsApp provider configured for clinic ${clinicId}: ${settings.whatsapp_provider}`);
+            try {
+                const waConfig = {
+                    accessToken: (0, encryption_util_js_1.decrypt)(rawToken),
+                    phoneNumberId: (raw.phoneNumberId ?? raw.phone_number_id),
+                    wabaId: (raw.wabaId ?? raw.waba_id),
+                };
+                this.whatsAppProvider.configure(clinicId, waConfig, settings.whatsapp_provider);
+                this.logger.log(`WhatsApp provider configured for clinic ${clinicId}: ${settings.whatsapp_provider}`);
+            }
+            catch (decryptError) {
+                this.logger.error(`WhatsApp provider config failed for clinic ${clinicId}: decryption error — ${decryptError instanceof Error ? decryptError.message : String(decryptError)}. ` +
+                    `Check that encryption keys match and token is valid.`);
+            }
         }
     }
     sanitizeTextBody(body) {
@@ -1425,7 +1432,7 @@ let CommunicationService = class CommunicationService {
                 },
                 data: { status: 'read' },
             });
-            this.sendMetaReadReceipts(clinicId, unreadInbound.map((m) => m.wa_message_id)).catch((err) => this.logger.warn(`Failed to send read receipts: ${err instanceof Error ? err.message : err}`));
+            this.queueMetaReadReceipts(clinicId, unreadInbound.map((m) => m.wa_message_id));
         }
         return {
             data: messages,
@@ -1472,6 +1479,31 @@ let CommunicationService = class CommunicationService {
             },
         });
         return { success: result.success, message_id: message.id };
+    }
+    queueMetaReadReceipts(clinicId, waMessageIds) {
+        setImmediate(async () => {
+            let retryCount = 0;
+            const maxRetries = 3;
+            while (retryCount < maxRetries) {
+                try {
+                    await this.sendMetaReadReceipts(clinicId, waMessageIds);
+                    this.logger.debug(`Read receipts sent successfully after ${retryCount} retries`);
+                    return;
+                }
+                catch (err) {
+                    retryCount++;
+                    if (retryCount < maxRetries) {
+                        const delay = Math.pow(2, retryCount) * 1000;
+                        this.logger.warn(`Read receipts failed (attempt ${retryCount}/${maxRetries}), retrying in ${delay}ms: ${err instanceof Error ? err.message : String(err)}`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                    else {
+                        this.logger.error(`Failed to send read receipts after ${maxRetries} attempts. Patients won't see blue ticks. ` +
+                            `Error: ${err instanceof Error ? err.message : String(err)}`);
+                    }
+                }
+            }
+        });
     }
     async sendMetaReadReceipts(clinicId, waMessageIds) {
         await this.ensureProvidersConfigured(clinicId);
@@ -1628,7 +1660,7 @@ let CommunicationService = class CommunicationService {
                         whatsapp_template_status: whatsappStatus,
                         is_active: metaTemplate.status === 'APPROVED',
                         body: bodyText || existing.body,
-                        variables: variablesJson !== undefined ? variablesJson : undefined,
+                        ...(variablesJson !== undefined ? { variables: variablesJson } : {}),
                     },
                 });
                 updated++;
@@ -1641,7 +1673,7 @@ let CommunicationService = class CommunicationService {
                         category,
                         template_name: metaTemplate.name,
                         body: bodyText || `[Template: ${metaTemplate.name}]`,
-                        variables: variablesJson !== undefined ? variablesJson : undefined,
+                        ...(variablesJson !== undefined ? { variables: variablesJson } : {}),
                         language: metaTemplate.language,
                         whatsapp_template_status: whatsappStatus,
                         is_active: metaTemplate.status === 'APPROVED',

@@ -64,8 +64,11 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             if (destination.length === 10) {
                 destination = '91' + destination;
             }
-            else if (destination.startsWith('0') && destination.length === 11) {
+            else if (destination.length === 11 && destination.startsWith('0')) {
                 destination = '91' + destination.slice(1);
+            }
+            else if (destination.length === 10 && !destination.startsWith('91')) {
+                destination = '91' + destination;
             }
             const interactiveButtons = options.metadata?.['interactive_buttons'];
             const mediaOptions = options.metadata?.['media'];
@@ -353,8 +356,12 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             return { success: false, error: 'WhatsApp not configured for this clinic' };
         }
         let destination = to.replace(/[^0-9]/g, '');
-        if (destination.length === 10)
+        if (destination.length === 10) {
             destination = '91' + destination;
+        }
+        else if (destination.length === 11 && destination.startsWith('0')) {
+            destination = '91' + destination.slice(1);
+        }
         const payload = {
             messaging_product: 'whatsapp',
             recipient_type: 'individual',

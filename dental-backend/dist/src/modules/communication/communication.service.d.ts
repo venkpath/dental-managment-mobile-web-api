@@ -457,6 +457,7 @@ export declare class CommunicationService {
         success: boolean;
         message_id: string;
     }>;
+    private queueMetaReadReceipts;
     private sendMetaReadReceipts;
     checkNdncStatus(phone: string): Promise<{
         is_ndnc: boolean;
