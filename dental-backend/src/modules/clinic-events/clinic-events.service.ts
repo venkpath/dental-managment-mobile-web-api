@@ -279,49 +279,91 @@ const SYSTEM_FESTIVALS = [
 export class ClinicEventsService {
   private readonly logger = new Logger(ClinicEventsService.name);
   private seeded = false;
+  /** Promise lock — prevents concurrent seed runs from duplicating records. */
+  private seedingPromise: Promise<void> | null = null;
 
   constructor(private readonly prisma: PrismaService) {}
 
   /** Seed default Indian festivals as system events (clinic_id = null).
-   *  Re-seeds automatically when SYSTEM_FESTIVALS list changes (count mismatch). */
+   *  Safe to call concurrently — uses a promise lock and name-based upsert (no delete). */
   async seedSystemEvents(): Promise<void> {
+    if (this.seeded) return;
+    // All concurrent callers share the same in-flight promise
+    if (!this.seedingPromise) {
+      this.seedingPromise = this._doSeed().finally(() => {
+        this.seedingPromise = null;
+      });
+    }
+    return this.seedingPromise;
+  }
+
+  private async _doSeed(): Promise<void> {
     if (this.seeded) return;
 
     const currentYear = new Date().getFullYear();
-    const existingCount = await this.prisma.clinicEvent.count({
-      where: { clinic_id: null },
-    });
 
-    if (existingCount === SYSTEM_FESTIVALS.length) {
-      this.seeded = true;
-      return;
+    // Remove duplicates first (keep oldest record per event_name)
+    await this._deduplicateSystemEvents();
+
+    // Fetch existing system events keyed by name
+    const existing = await this.prisma.clinicEvent.findMany({
+      where: { clinic_id: null },
+      select: { id: true, event_name: true },
+    });
+    const existingByName = new Map(existing.map((e) => [e.event_name, e.id]));
+
+    let created = 0;
+    let skipped = 0;
+
+    for (const f of SYSTEM_FESTIVALS) {
+      if (existingByName.has(f.event_name)) {
+        skipped++;
+        continue;
+      }
+      const { month, day } = getFestivalDate(f.event_name, f.month, f.day, currentYear);
+      await this.prisma.clinicEvent.create({
+        data: {
+          clinic_id: null,
+          event_name: f.event_name,
+          event_date: new Date(currentYear, month - 1, day),
+          is_recurring: true,
+          is_enabled: true,
+          send_offer: false,
+        },
+      });
+      created++;
     }
 
-    this.logger.log(
-      existingCount === 0
-        ? 'Seeding system festival events...'
-        : `Re-seeding system festival events (found ${existingCount}, expected ${SYSTEM_FESTIVALS.length})...`,
-    );
+    if (created > 0 || skipped > 0) {
+      this.logger.log(`Festival seed: ${created} created, ${skipped} already existed (${currentYear}).`);
+    }
 
-    // Delete old system events and recreate with corrected dates.
-    // Clinic-level overrides (clinic_id != null) are separate records — unaffected.
-    await this.prisma.clinicEvent.deleteMany({ where: { clinic_id: null } });
+    this.seeded = true;
+  }
 
-    const data = SYSTEM_FESTIVALS.map((f) => {
-      const { month, day } = getFestivalDate(f.event_name, f.month, f.day, currentYear);
-      return {
-        clinic_id: null as string | null,
-        event_name: f.event_name,
-        event_date: new Date(currentYear, month - 1, day),
-        is_recurring: true,
-        is_enabled: true,
-        send_offer: false,
-      };
+  /** Remove duplicate system events, keeping the oldest record per event_name. */
+  private async _deduplicateSystemEvents(): Promise<void> {
+    const all = await this.prisma.clinicEvent.findMany({
+      where: { clinic_id: null },
+      orderBy: { created_at: 'asc' },
+      select: { id: true, event_name: true },
     });
 
-    await this.prisma.clinicEvent.createMany({ data });
-    this.seeded = true;
-    this.logger.log(`Seeded ${data.length} system festival events for ${currentYear}.`);
+    const seen = new Set<string>();
+    const duplicateIds: string[] = [];
+
+    for (const event of all) {
+      if (seen.has(event.event_name)) {
+        duplicateIds.push(event.id);
+      } else {
+        seen.add(event.event_name);
+      }
+    }
+
+    if (duplicateIds.length > 0) {
+      await this.prisma.clinicEvent.deleteMany({ where: { id: { in: duplicateIds } } });
+      this.logger.log(`Removed ${duplicateIds.length} duplicate system festival events.`);
+    }
   }
 
   /**

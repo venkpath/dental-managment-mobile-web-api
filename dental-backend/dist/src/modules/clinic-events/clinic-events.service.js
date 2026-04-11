@@ -248,38 +248,75 @@ let ClinicEventsService = ClinicEventsService_1 = class ClinicEventsService {
     prisma;
     logger = new common_1.Logger(ClinicEventsService_1.name);
     seeded = false;
+    seedingPromise = null;
     constructor(prisma) {
         this.prisma = prisma;
     }
     async seedSystemEvents() {
         if (this.seeded)
             return;
-        const currentYear = new Date().getFullYear();
-        const existingCount = await this.prisma.clinicEvent.count({
-            where: { clinic_id: null },
-        });
-        if (existingCount === SYSTEM_FESTIVALS.length) {
-            this.seeded = true;
-            return;
+        if (!this.seedingPromise) {
+            this.seedingPromise = this._doSeed().finally(() => {
+                this.seedingPromise = null;
+            });
         }
-        this.logger.log(existingCount === 0
-            ? 'Seeding system festival events...'
-            : `Re-seeding system festival events (found ${existingCount}, expected ${SYSTEM_FESTIVALS.length})...`);
-        await this.prisma.clinicEvent.deleteMany({ where: { clinic_id: null } });
-        const data = SYSTEM_FESTIVALS.map((f) => {
-            const { month, day } = getFestivalDate(f.event_name, f.month, f.day, currentYear);
-            return {
-                clinic_id: null,
-                event_name: f.event_name,
-                event_date: new Date(currentYear, month - 1, day),
-                is_recurring: true,
-                is_enabled: true,
-                send_offer: false,
-            };
+        return this.seedingPromise;
+    }
+    async _doSeed() {
+        if (this.seeded)
+            return;
+        const currentYear = new Date().getFullYear();
+        await this._deduplicateSystemEvents();
+        const existing = await this.prisma.clinicEvent.findMany({
+            where: { clinic_id: null },
+            select: { id: true, event_name: true },
         });
-        await this.prisma.clinicEvent.createMany({ data });
+        const existingByName = new Map(existing.map((e) => [e.event_name, e.id]));
+        let created = 0;
+        let skipped = 0;
+        for (const f of SYSTEM_FESTIVALS) {
+            if (existingByName.has(f.event_name)) {
+                skipped++;
+                continue;
+            }
+            const { month, day } = getFestivalDate(f.event_name, f.month, f.day, currentYear);
+            await this.prisma.clinicEvent.create({
+                data: {
+                    clinic_id: null,
+                    event_name: f.event_name,
+                    event_date: new Date(currentYear, month - 1, day),
+                    is_recurring: true,
+                    is_enabled: true,
+                    send_offer: false,
+                },
+            });
+            created++;
+        }
+        if (created > 0 || skipped > 0) {
+            this.logger.log(`Festival seed: ${created} created, ${skipped} already existed (${currentYear}).`);
+        }
         this.seeded = true;
-        this.logger.log(`Seeded ${data.length} system festival events for ${currentYear}.`);
+    }
+    async _deduplicateSystemEvents() {
+        const all = await this.prisma.clinicEvent.findMany({
+            where: { clinic_id: null },
+            orderBy: { created_at: 'asc' },
+            select: { id: true, event_name: true },
+        });
+        const seen = new Set();
+        const duplicateIds = [];
+        for (const event of all) {
+            if (seen.has(event.event_name)) {
+                duplicateIds.push(event.id);
+            }
+            else {
+                seen.add(event.event_name);
+            }
+        }
+        if (duplicateIds.length > 0) {
+            await this.prisma.clinicEvent.deleteMany({ where: { id: { in: duplicateIds } } });
+            this.logger.log(`Removed ${duplicateIds.length} duplicate system festival events.`);
+        }
     }
     async refreshSystemFestivalDatesForYear(year) {
         this.logger.log(`Refreshing system festival dates for ${year}...`);

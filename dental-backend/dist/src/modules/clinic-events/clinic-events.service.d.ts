@@ -4,8 +4,11 @@ export declare class ClinicEventsService {
     private readonly prisma;
     private readonly logger;
     private seeded;
+    private seedingPromise;
     constructor(prisma: PrismaService);
     seedSystemEvents(): Promise<void>;
+    private _doSeed;
+    private _deduplicateSystemEvents;
     refreshSystemFestivalDatesForYear(year: number): Promise<void>;
     findAll(clinicId: string): Promise<({
         template: {
