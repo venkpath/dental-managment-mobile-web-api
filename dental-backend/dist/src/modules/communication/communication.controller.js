@@ -218,7 +218,7 @@ let CommunicationController = class CommunicationController {
         if (!body.elementName || !body.body) {
             throw new common_1.BadRequestException('elementName and body are required');
         }
-        return this.communicationService.submitWhatsAppTemplate(clinicId, body);
+        return this.communicationService.submitWhatsAppTemplate(clinicId, { ...body, templateType: body.templateType || 'TEXT' });
     }
     async getWhatsAppTemplateStatus(clinicId, templateName) {
         return this.communicationService.getWhatsAppTemplateStatus(clinicId, templateName);

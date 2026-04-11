@@ -201,12 +201,24 @@ export class WhatsAppProvider implements ChannelProvider {
     }
 
     try {
+      // Meta requires numbered variables {{1}}, {{2}} — convert named vars like {{patient_name}} → {{1}}
+      const varOrder: string[] = [];
+      const toNumbered = (text: string) =>
+        text.replace(/\{\{(\w+)\}\}/g, (_, name) => {
+          let idx = varOrder.indexOf(name);
+          if (idx === -1) { varOrder.push(name); idx = varOrder.length - 1; }
+          return `{{${idx + 1}}}`;
+        });
+
+      const metaBody = toNumbered(templateData.body);
+      const metaHeader = templateData.header ? toNumbered(templateData.header) : undefined;
+
       const components: Array<Record<string, unknown>> = [];
 
-      if (templateData.header) {
-        components.push({ type: 'HEADER', format: 'TEXT', text: templateData.header });
+      if (metaHeader) {
+        components.push({ type: 'HEADER', format: 'TEXT', text: metaHeader });
       }
-      components.push({ type: 'BODY', text: templateData.body });
+      components.push({ type: 'BODY', text: metaBody });
       if (templateData.footer) {
         components.push({ type: 'FOOTER', text: templateData.footer });
       }
@@ -393,12 +405,21 @@ export class WhatsAppProvider implements ChannelProvider {
     const { config } = ctx;
 
     try {
+      // Meta requires numbered variables — convert named vars
+      const varOrder: string[] = [];
+      const toNumbered = (text: string) =>
+        text.replace(/\{\{(\w+)\}\}/g, (_, name) => {
+          let idx = varOrder.indexOf(name);
+          if (idx === -1) { varOrder.push(name); idx = varOrder.length - 1; }
+          return `{{${idx + 1}}}`;
+        });
+
       const components: Array<Record<string, unknown>> = [];
 
       if (templateData.header) {
-        components.push({ type: 'HEADER', format: 'TEXT', text: templateData.header });
+        components.push({ type: 'HEADER', format: 'TEXT', text: toNumbered(templateData.header) });
       }
-      components.push({ type: 'BODY', text: templateData.body });
+      components.push({ type: 'BODY', text: toNumbered(templateData.body) });
       if (templateData.footer) {
         components.push({ type: 'FOOTER', text: templateData.footer });
       }

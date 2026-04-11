@@ -131,11 +131,22 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             return { success: false, error: 'WABA ID is required for template management. Set it in your WhatsApp config.' };
         }
         try {
+            const varOrder = [];
+            const toNumbered = (text) => text.replace(/\{\{(\w+)\}\}/g, (_, name) => {
+                let idx = varOrder.indexOf(name);
+                if (idx === -1) {
+                    varOrder.push(name);
+                    idx = varOrder.length - 1;
+                }
+                return `{{${idx + 1}}}`;
+            });
+            const metaBody = toNumbered(templateData.body);
+            const metaHeader = templateData.header ? toNumbered(templateData.header) : undefined;
             const components = [];
-            if (templateData.header) {
-                components.push({ type: 'HEADER', format: 'TEXT', text: templateData.header });
+            if (metaHeader) {
+                components.push({ type: 'HEADER', format: 'TEXT', text: metaHeader });
             }
-            components.push({ type: 'BODY', text: templateData.body });
+            components.push({ type: 'BODY', text: metaBody });
             if (templateData.footer) {
                 components.push({ type: 'FOOTER', text: templateData.footer });
             }
@@ -258,11 +269,20 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             return { success: false, error: 'WhatsApp not configured for this clinic' };
         const { config } = ctx;
         try {
+            const varOrder = [];
+            const toNumbered = (text) => text.replace(/\{\{(\w+)\}\}/g, (_, name) => {
+                let idx = varOrder.indexOf(name);
+                if (idx === -1) {
+                    varOrder.push(name);
+                    idx = varOrder.length - 1;
+                }
+                return `{{${idx + 1}}}`;
+            });
             const components = [];
             if (templateData.header) {
-                components.push({ type: 'HEADER', format: 'TEXT', text: templateData.header });
+                components.push({ type: 'HEADER', format: 'TEXT', text: toNumbered(templateData.header) });
             }
-            components.push({ type: 'BODY', text: templateData.body });
+            components.push({ type: 'BODY', text: toNumbered(templateData.body) });
             if (templateData.footer) {
                 components.push({ type: 'FOOTER', text: templateData.footer });
             }

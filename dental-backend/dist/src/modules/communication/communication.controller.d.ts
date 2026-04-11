@@ -380,7 +380,7 @@ export declare class CommunicationController {
         elementName: string;
         languageCode: string;
         category: string;
-        templateType: string;
+        templateType?: string;
         body: string;
         header?: string;
         footer?: string;

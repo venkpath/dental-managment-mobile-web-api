@@ -318,7 +318,7 @@ export class CommunicationController {
       elementName: string;
       languageCode: string;
       category: string;
-      templateType: string;
+      templateType?: string; // not used by Meta Cloud API — optional for backwards compat
       body: string;
       header?: string;
       footer?: string;
@@ -327,7 +327,7 @@ export class CommunicationController {
     if (!body.elementName || !body.body) {
       throw new BadRequestException('elementName and body are required');
     }
-    return this.communicationService.submitWhatsAppTemplate(clinicId, body);
+    return this.communicationService.submitWhatsAppTemplate(clinicId, { ...body, templateType: body.templateType || 'TEXT' });
   }
 
   @Get('whatsapp/templates/:templateName/status')
