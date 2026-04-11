@@ -85,4 +85,5 @@ export declare class AutomationService {
         rule_type: string;
     }) | null>;
     private seedDefaults;
+    private getDefaultRuleTypes;
 }

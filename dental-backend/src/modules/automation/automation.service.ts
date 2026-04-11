@@ -8,7 +8,7 @@ export class AutomationService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Get all automation rules for a clinic (creates defaults if none exist) */
+  /** Get all automation rules for a clinic (creates defaults for any missing rule types) */
   async getAllRules(clinicId: string) {
     const existing = await this.prisma.automationRule.findMany({
       where: { clinic_id: clinicId },
@@ -16,17 +16,22 @@ export class AutomationService {
       orderBy: { rule_type: 'asc' },
     });
 
-    // If no rules exist, create defaults
-    if (existing.length === 0) {
-      await this.seedDefaults(clinicId);
-      return this.prisma.automationRule.findMany({
-        where: { clinic_id: clinicId },
-        include: { template: { select: { id: true, template_name: true, channel: true } } },
-        orderBy: { rule_type: 'asc' },
-      });
+    // Seed any missing rule types (handles both new clinics and newly added rule types)
+    await this.seedDefaults(clinicId);
+
+    // Re-fetch if new rules were potentially added
+    const existingTypes = new Set(existing.map((r) => r.rule_type));
+    const hasAllTypes = this.getDefaultRuleTypes().every((t) => existingTypes.has(t));
+
+    if (hasAllTypes) {
+      return existing;
     }
 
-    return existing;
+    return this.prisma.automationRule.findMany({
+      where: { clinic_id: clinicId },
+      include: { template: { select: { id: true, template_name: true, channel: true } } },
+      orderBy: { rule_type: 'asc' },
+    });
   }
 
   /** Get a single rule */
@@ -174,6 +179,16 @@ export class AutomationService {
       skipDuplicates: true,
     });
 
-    this.logger.log(`Seeded ${defaults.length} default automation rules for clinic ${clinicId}`);
+    this.logger.log(`Seeded default automation rules for clinic ${clinicId} (skipDuplicates=true)`);
+  }
+
+  /** Returns list of all default rule types for completeness checks */
+  private getDefaultRuleTypes(): string[] {
+    return [
+      'birthday_greeting', 'festival_greeting', 'post_treatment_care',
+      'no_show_followup', 'dormant_reactivation', 'treatment_plan_reminder',
+      'payment_reminder', 'feedback_collection', 'appointment_reminder_patient',
+      'appointment_confirmation', 'appointment_cancellation', 'appointment_rescheduled',
+    ];
   }
 }

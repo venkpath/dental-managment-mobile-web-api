@@ -25,15 +25,17 @@ let AutomationService = AutomationService_1 = class AutomationService {
             include: { template: { select: { id: true, template_name: true, channel: true } } },
             orderBy: { rule_type: 'asc' },
         });
-        if (existing.length === 0) {
-            await this.seedDefaults(clinicId);
-            return this.prisma.automationRule.findMany({
-                where: { clinic_id: clinicId },
-                include: { template: { select: { id: true, template_name: true, channel: true } } },
-                orderBy: { rule_type: 'asc' },
-            });
+        await this.seedDefaults(clinicId);
+        const existingTypes = new Set(existing.map((r) => r.rule_type));
+        const hasAllTypes = this.getDefaultRuleTypes().every((t) => existingTypes.has(t));
+        if (hasAllTypes) {
+            return existing;
         }
-        return existing;
+        return this.prisma.automationRule.findMany({
+            where: { clinic_id: clinicId },
+            include: { template: { select: { id: true, template_name: true, channel: true } } },
+            orderBy: { rule_type: 'asc' },
+        });
     }
     async getRule(clinicId, ruleType) {
         const rule = await this.prisma.automationRule.findUnique({
@@ -164,7 +166,15 @@ let AutomationService = AutomationService_1 = class AutomationService {
             })),
             skipDuplicates: true,
         });
-        this.logger.log(`Seeded ${defaults.length} default automation rules for clinic ${clinicId}`);
+        this.logger.log(`Seeded default automation rules for clinic ${clinicId} (skipDuplicates=true)`);
+    }
+    getDefaultRuleTypes() {
+        return [
+            'birthday_greeting', 'festival_greeting', 'post_treatment_care',
+            'no_show_followup', 'dormant_reactivation', 'treatment_plan_reminder',
+            'payment_reminder', 'feedback_collection', 'appointment_reminder_patient',
+            'appointment_confirmation', 'appointment_cancellation', 'appointment_rescheduled',
+        ];
     }
 };
 exports.AutomationService = AutomationService;
