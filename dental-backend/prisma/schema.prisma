@@ -607,7 +607,8 @@ model MessageTemplate {
   channel                  String   @db.VarChar(20) // email | sms | whatsapp | all
   category                 String   @db.VarChar(30) // reminder | greeting | campaign | transactional | follow_up | referral
   template_name            String   @db.VarChar(255)
-  subject                  String?  @db.VarChar(500) // for email
+  subject                  String?  @db.VarChar(500) // header for WhatsApp / subject for email
+  footer                   String?  @db.VarChar(60)  // WhatsApp footer text
   body                     String   @db.Text
   variables                Json?    // list of supported variables
   language                 String   @default("en") @db.VarChar(5)

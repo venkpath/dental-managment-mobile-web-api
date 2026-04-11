@@ -2150,6 +2150,9 @@ export class CommunicationService {
         await this.prisma.messageTemplate.update({
           where: { id: existing.id },
           data: {
+            body: templateData.body,
+            subject: templateData.header ?? null,
+            footer: templateData.footer ?? null,
             whatsapp_template_status: 'submitted',
             ...(result.templateId ? { meta_template_id: result.templateId } : {}),
           } as any,
@@ -2161,6 +2164,8 @@ export class CommunicationService {
             channel: 'whatsapp',
             category: templateData.category === 'MARKETING' ? 'campaign' : 'transactional',
             template_name: templateData.elementName,
+            subject: templateData.header ?? null,
+            footer: templateData.footer ?? null,
             body: templateData.body,
             language: templateData.languageCode,
             whatsapp_template_status: 'submitted',
