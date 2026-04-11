@@ -14,8 +14,8 @@ exports.AppointmentNotificationService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const communication_service_js_1 = require("../communication/communication.service.js");
+const automation_service_js_1 = require("../automation/automation.service.js");
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
-const booking_url_util_js_1 = require("../../common/utils/booking-url.util.js");
 const WHATSAPP_TEMPLATE_VARS = {
     dental_appointment_confirmation: ['patient_name', 'doctor_name', 'date', 'time', 'clinic_name', 'phone'],
     dental_appointment_reminder: ['patient_name', 'date', 'time', 'clinic_name', 'doctor_name', 'phone'],
@@ -23,28 +23,24 @@ const WHATSAPP_TEMPLATE_VARS = {
     dental_appointment_rescheduled: ['patient_name', 'previous_time', 'new_time', 'clinic_name', 'phone'],
     dental_treatment_followup: ['patient_name', 'treatment', 'clinic_name', 'phone'],
 };
+const RULE_TO_DEFAULT_TEMPLATE = {
+    appointment_confirmation: 'dental_appointment_confirmation',
+    appointment_cancellation: 'dental_appointment_cancel',
+    appointment_rescheduled: 'dental_appointment_rescheduled',
+};
 let AppointmentNotificationService = AppointmentNotificationService_1 = class AppointmentNotificationService {
     prisma;
     communicationService;
+    automationService;
     logger = new common_1.Logger(AppointmentNotificationService_1.name);
-    constructor(prisma, communicationService) {
+    constructor(prisma, communicationService, automationService) {
         this.prisma = prisma;
         this.communicationService = communicationService;
+        this.automationService = automationService;
     }
     async sendConfirmation(clinicId, appointmentId) {
         try {
-            const appt = await this.loadAppointment(appointmentId);
-            if (!appt)
-                return;
-            const templateName = 'dental_appointment_confirmation';
-            const variables = this.buildVariables(templateName, appt);
-            const bookingUrl = (0, booking_url_util_js_1.getBookingUrl)(clinicId, appt.branch_id, appt.branch.book_now_url);
-            await this.sendWhatsAppTemplate(clinicId, appt.patient_id, templateName, variables, {
-                automation: 'appointment_confirmation',
-                appointment_id: appointmentId,
-                button_url_suffix: bookingUrl,
-            });
-            this.logger.log(`Appointment confirmation sent for ${appointmentId}`);
+            await this.sendNotification(clinicId, appointmentId, 'appointment_confirmation');
         }
         catch (e) {
             this.logger.warn(`Failed to send appointment confirmation for ${appointmentId}: ${e.message}`);
@@ -52,16 +48,7 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
     }
     async sendCancellation(clinicId, appointmentId) {
         try {
-            const appt = await this.loadAppointment(appointmentId);
-            if (!appt)
-                return;
-            const templateName = 'dental_appointment_cancel';
-            const variables = this.buildVariables(templateName, appt);
-            await this.sendWhatsAppTemplate(clinicId, appt.patient_id, templateName, variables, {
-                automation: 'appointment_cancellation',
-                appointment_id: appointmentId,
-            });
-            this.logger.log(`Appointment cancellation sent for ${appointmentId}`);
+            await this.sendNotification(clinicId, appointmentId, 'appointment_cancellation');
         }
         catch (e) {
             this.logger.warn(`Failed to send appointment cancellation for ${appointmentId}: ${e.message}`);
@@ -69,21 +56,54 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
     }
     async sendReschedule(clinicId, appointmentId, oldDate, oldTime) {
         try {
-            const appt = await this.loadAppointment(appointmentId);
-            if (!appt)
-                return;
-            const templateName = 'dental_appointment_rescheduled';
-            const variables = this.buildVariables(templateName, appt, { oldDate, oldTime });
-            const bookingUrl = (0, booking_url_util_js_1.getBookingUrl)(clinicId, appt.branch_id, appt.branch.book_now_url);
-            await this.sendWhatsAppTemplate(clinicId, appt.patient_id, templateName, variables, {
-                automation: 'appointment_rescheduled',
-                appointment_id: appointmentId,
-                button_url_suffix: bookingUrl,
-            });
-            this.logger.log(`Appointment reschedule notification sent for ${appointmentId}`);
+            await this.sendNotification(clinicId, appointmentId, 'appointment_rescheduled', { oldDate, oldTime });
         }
         catch (e) {
             this.logger.warn(`Failed to send appointment reschedule for ${appointmentId}: ${e.message}`);
+        }
+    }
+    async sendNotification(clinicId, appointmentId, ruleType, extra) {
+        const { skip, templateId } = await this.resolveTemplate(clinicId, ruleType);
+        if (skip) {
+            this.logger.log(`${ruleType} disabled for clinic ${clinicId} — skipping`);
+            return;
+        }
+        const appt = await this.loadAppointment(appointmentId);
+        if (!appt)
+            return;
+        const defaultTemplateName = RULE_TO_DEFAULT_TEMPLATE[ruleType];
+        const variables = this.buildVariables(defaultTemplateName, appt, extra);
+        if (templateId) {
+            await this.communicationService.sendMessage(clinicId, {
+                patient_id: appt.patient_id,
+                channel: send_message_dto_js_1.MessageChannel.WHATSAPP,
+                category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
+                template_id: templateId,
+                variables,
+                metadata: { automation: ruleType, appointment_id: appointmentId },
+            });
+        }
+        else {
+            await this.sendWhatsAppTemplate(clinicId, appt.patient_id, defaultTemplateName, variables, {
+                automation: ruleType,
+                appointment_id: appointmentId,
+            });
+        }
+        this.logger.log(`${ruleType} notification sent for ${appointmentId}`);
+    }
+    async resolveTemplate(clinicId, ruleType) {
+        try {
+            const rule = await this.automationService.getRuleConfig(clinicId, ruleType);
+            if (!rule) {
+                return { skip: false, templateId: null };
+            }
+            if (!rule.is_enabled) {
+                return { skip: true, templateId: null };
+            }
+            return { skip: false, templateId: rule.template_id };
+        }
+        catch {
+            return { skip: false, templateId: null };
         }
     }
     async loadAppointment(appointmentId) {
@@ -175,6 +195,7 @@ exports.AppointmentNotificationService = AppointmentNotificationService;
 exports.AppointmentNotificationService = AppointmentNotificationService = AppointmentNotificationService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
-        communication_service_js_1.CommunicationService])
+        communication_service_js_1.CommunicationService,
+        automation_service_js_1.AutomationService])
 ], AppointmentNotificationService);
 //# sourceMappingURL=appointment-notification.service.js.map

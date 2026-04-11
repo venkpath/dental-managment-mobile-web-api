@@ -62,5 +62,8 @@ exports.AUTOMATION_RULE_TYPES = [
     'appointment_reminder_patient',
     'anniversary_greeting',
     'prescription_refill',
+    'appointment_confirmation',
+    'appointment_cancellation',
+    'appointment_rescheduled',
 ];
 //# sourceMappingURL=upsert-automation-rule.dto.js.map

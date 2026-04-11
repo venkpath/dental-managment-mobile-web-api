@@ -38,6 +38,9 @@ export const AUTOMATION_RULE_TYPES = [
   'appointment_reminder_patient',
   'anniversary_greeting',
   'prescription_refill',
+  'appointment_confirmation',
+  'appointment_cancellation',
+  'appointment_rescheduled',
 ] as const;
 
 export type AutomationRuleType = typeof AUTOMATION_RULE_TYPES[number];

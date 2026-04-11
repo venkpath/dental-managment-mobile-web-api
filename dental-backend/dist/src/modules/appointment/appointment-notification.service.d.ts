@@ -1,13 +1,17 @@
 import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
+import { AutomationService } from '../automation/automation.service.js';
 export declare class AppointmentNotificationService {
     private readonly prisma;
     private readonly communicationService;
+    private readonly automationService;
     private readonly logger;
-    constructor(prisma: PrismaService, communicationService: CommunicationService);
+    constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService);
     sendConfirmation(clinicId: string, appointmentId: string): Promise<void>;
     sendCancellation(clinicId: string, appointmentId: string): Promise<void>;
     sendReschedule(clinicId: string, appointmentId: string, oldDate: string, oldTime: string): Promise<void>;
+    private sendNotification;
+    private resolveTemplate;
     private loadAppointment;
     private buildVariables;
     private sendWhatsAppTemplate;
