@@ -21,6 +21,9 @@ export declare class AutomationCronService {
     patientAnniversaryGreeting(): Promise<void>;
     prescriptionRefillReminder(): Promise<void>;
     private getActiveClinics;
+    private formatDate;
+    private formatTime;
+    private formatAmount;
     private resolveChannel;
     private toMessageChannel;
     private parseDurationToDays;

@@ -21,7 +21,6 @@ const WHATSAPP_TEMPLATE_VARS = {
     dental_appointment_reminder: ['patient_name', 'date', 'time', 'clinic_name', 'doctor_name', 'phone'],
     dental_appointment_cancel: ['patient_name', 'clinic_name', 'date', 'time', 'phone'],
     dental_appointment_rescheduled: ['patient_name', 'previous_time', 'new_time', 'clinic_name', 'phone'],
-    dental_treatment_followup: ['patient_name', 'treatment', 'clinic_name', 'phone'],
 };
 const RULE_TO_DEFAULT_TEMPLATE = {
     appointment_confirmation: 'dental_appointment_confirmation',
@@ -145,6 +144,7 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
             phone,
             previous_time: previousTime,
             new_time: newTime,
+            new_date: date,
             treatment: '',
         };
         const result = { ...valueMap };

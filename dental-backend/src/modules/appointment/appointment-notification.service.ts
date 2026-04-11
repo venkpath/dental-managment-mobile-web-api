@@ -12,11 +12,14 @@ import type { Appointment, Patient, User, Branch } from '@prisma/client';
  * what each {{1}}, {{2}}, ... slot expects.
  */
 const WHATSAPP_TEMPLATE_VARS: Record<string, string[]> = {
+  // {{1}} patient_name  {{2}} doctor_name  {{3}} date  {{4}} time  {{5}} clinic_name  {{6}} phone
   dental_appointment_confirmation: ['patient_name', 'doctor_name', 'date', 'time', 'clinic_name', 'phone'],
+  // {{1}} patient_name  {{2}} date  {{3}} time  {{4}} clinic_name  {{5}} doctor_name  {{6}} phone
   dental_appointment_reminder:     ['patient_name', 'date', 'time', 'clinic_name', 'doctor_name', 'phone'],
+  // {{1}} patient_name  {{2}} clinic_name  {{3}} date  {{4}} time  {{5}} phone
   dental_appointment_cancel:       ['patient_name', 'clinic_name', 'date', 'time', 'phone'],
+  // {{1}} patient_name  {{2}} previous_time  {{3}} new_time  {{4}} clinic_name  {{5}} phone
   dental_appointment_rescheduled:  ['patient_name', 'previous_time', 'new_time', 'clinic_name', 'phone'],
-  dental_treatment_followup:       ['patient_name', 'treatment', 'clinic_name', 'phone'],
 };
 
 /** Maps automation rule types to their default (fallback) template names */
@@ -198,7 +201,8 @@ export class AppointmentNotificationService {
       clinic_name: clinicName,
       phone,
       previous_time: previousTime,
-      new_time: newTime,
+      new_time: newTime,  // "15 Jan 2026 10:30 AM"
+      new_date: date,     // just the date part for rescheduled
       treatment: '',
     };
 

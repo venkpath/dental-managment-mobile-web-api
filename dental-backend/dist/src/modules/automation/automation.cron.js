@@ -55,11 +55,13 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                                 channel,
                                 category: send_message_dto_js_1.MessageCategory.PROMOTIONAL,
                                 template_id: rule.template_id ?? undefined,
-                                body: rule.template_id ? undefined : `Happy Birthday, ${patient.first_name}! 🎂 Wishing you a wonderful day from our clinic.`,
+                                body: rule.template_id ? undefined : `Happy Birthday, ${patient.first_name}! Wishing you a wonderful day from ${clinic.name}.`,
                                 variables: {
                                     patient_name: `${patient.first_name} ${patient.last_name}`,
                                     patient_first_name: patient.first_name,
                                     clinic_name: clinic.name,
+                                    '1': patient.first_name,
+                                    '2': clinic.name,
                                 },
                                 metadata: { automation: 'birthday_greeting' },
                             });
@@ -117,7 +119,7 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                         });
                         const clinic = await this.prisma.clinic.findUnique({
                             where: { id: clinicId },
-                            select: { name: true },
+                            select: { name: true, phone: true },
                         });
                         for (const patient of patients) {
                             try {
@@ -135,6 +137,10 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                                         patient_first_name: patient.first_name,
                                         clinic_name: clinic?.name || '',
                                         festival_name: event.event_name,
+                                        phone: clinic?.phone || '',
+                                        '1': patient.first_name,
+                                        '2': event.event_name,
+                                        '3': clinic?.name || '',
                                     },
                                     metadata: { automation: 'festival_greeting', event_id: event.id },
                                 });
@@ -175,7 +181,7 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                 include: {
                     patient: true,
                     dentist: { select: { name: true } },
-                    clinic: { select: { id: true, name: true } },
+                    clinic: { select: { id: true, name: true, phone: true } },
                     branch: { select: { name: true, address: true } },
                 },
             });
@@ -187,6 +193,9 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                         skipped++;
                         continue;
                     }
+                    const fmtDate = this.formatDate(appt.appointment_date);
+                    const fmtTime = this.formatTime(appt.start_time);
+                    const clinicPhone = appt.clinic.phone || '';
                     const channel = await this.resolveChannel(appt.clinic_id, appt.patient_id, rule.channel);
                     await this.communicationService.sendMessage(appt.clinic_id, {
                         patient_id: appt.patient_id,
@@ -195,16 +204,22 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                         template_id: rule.template_id ?? undefined,
                         body: rule.template_id
                             ? undefined
-                            : `Reminder: You have an appointment tomorrow at ${appt.start_time} with Dr. ${appt.dentist.name} at ${appt.clinic.name}.`,
+                            : `Reminder: You have an appointment tomorrow at ${fmtTime} with Dr. ${appt.dentist.name} at ${appt.clinic.name}.`,
                         variables: {
                             patient_name: `${appt.patient.first_name} ${appt.patient.last_name}`,
                             patient_first_name: appt.patient.first_name,
-                            appointment_date: appt.appointment_date.toISOString().split('T')[0],
-                            appointment_time: appt.start_time,
+                            date: fmtDate,
+                            time: fmtTime,
                             dentist_name: appt.dentist.name,
+                            doctor_name: appt.dentist.name,
                             clinic_name: appt.clinic.name,
-                            branch_name: appt.branch.name,
-                            branch_address: appt.branch.address || '',
+                            phone: clinicPhone,
+                            '1': appt.patient.first_name,
+                            '2': fmtDate,
+                            '3': fmtTime,
+                            '4': appt.clinic.name,
+                            '5': appt.dentist.name,
+                            '6': clinicPhone,
                         },
                         metadata: { automation: 'appointment_reminder_patient', appointment_id: appt.id },
                     });
@@ -242,7 +257,7 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                             invoice: {
                                 include: {
                                     patient: true,
-                                    clinic: { select: { id: true, name: true } },
+                                    clinic: { select: { id: true, name: true, phone: true } },
                                 },
                             },
                         },
@@ -256,6 +271,9 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                     const rule = await this.automationService.getRuleConfig(invoice.clinic_id, 'payment_reminder');
                     if (!rule?.is_enabled)
                         continue;
+                    const fmtAmount = this.formatAmount(item.amount);
+                    const fmtDueDate = this.formatDate(item.due_date);
+                    const clinicPhone = invoice.clinic.phone || '';
                     const channel = await this.resolveChannel(invoice.clinic_id, invoice.patient_id, rule.channel);
                     await this.communicationService.sendMessage(invoice.clinic_id, {
                         patient_id: invoice.patient_id,
@@ -264,13 +282,20 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                         template_id: rule.template_id ?? undefined,
                         body: rule.template_id
                             ? undefined
-                            : `Reminder: Your installment of ₹${item.amount} is due on ${item.due_date.toISOString().split('T')[0]}. Please visit ${invoice.clinic.name} or contact us.`,
+                            : `Reminder: Your installment of ${fmtAmount} is due on ${fmtDueDate}. Please visit ${invoice.clinic.name} or contact us.`,
                         variables: {
                             patient_name: `${invoice.patient.first_name} ${invoice.patient.last_name}`,
-                            amount: item.amount.toString(),
-                            due_date: item.due_date.toISOString().split('T')[0],
+                            patient_first_name: invoice.patient.first_name,
+                            amount: fmtAmount,
+                            due_date: fmtDueDate,
                             clinic_name: invoice.clinic.name,
                             invoice_number: invoice.invoice_number,
+                            phone: clinicPhone,
+                            '1': invoice.patient.first_name,
+                            '2': fmtAmount,
+                            '3': fmtDueDate,
+                            '4': invoice.clinic.name,
+                            '5': clinicPhone,
                         },
                         metadata: { automation: 'payment_reminder', installment_id: item.id, invoice_id: invoice.id },
                     });
@@ -323,6 +348,10 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                                     patient_name: `${patient.first_name} ${patient.last_name}`,
                                     patient_first_name: patient.first_name,
                                     clinic_name: clinic.name,
+                                    phone: clinic.phone || '',
+                                    '1': patient.first_name,
+                                    '2': clinic.name,
+                                    '3': clinic.phone || '',
                                 },
                                 metadata: { automation: 'dormant_reactivation' },
                             });
@@ -386,6 +415,8 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                                     patient_name: `${patient.first_name} ${patient.last_name}`,
                                     patient_first_name: patient.first_name,
                                     clinic_name: clinic.name,
+                                    '1': patient.first_name,
+                                    '2': clinic.name,
                                 },
                                 metadata: { automation: 'treatment_plan_reminder' },
                             });
@@ -441,13 +472,15 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                                 template_id: rule.template_id ?? undefined,
                                 body: rule.template_id
                                     ? undefined
-                                    : `Hi ${appt.patient.first_name}, we missed you at your appointment yesterday with Dr. ${appt.dentist.name}. We hope everything is okay — please call us to reschedule at your convenience.`,
+                                    : `Hi ${appt.patient.first_name}, we missed you at your appointment yesterday at ${clinic.name}. Please call us to reschedule at your convenience.`,
                                 variables: {
                                     patient_name: `${appt.patient.first_name} ${appt.patient.last_name}`,
                                     patient_first_name: appt.patient.first_name,
-                                    dentist_name: appt.dentist.name,
                                     clinic_name: clinic.name,
-                                    appointment_date: appt.appointment_date.toISOString().split('T')[0],
+                                    phone: clinic.phone || '',
+                                    '1': appt.patient.first_name,
+                                    '2': clinic.name,
+                                    '3': clinic.phone || '',
                                 },
                                 metadata: { automation: 'no_show_followup', appointment_id: appt.id },
                             });
@@ -508,7 +541,14 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                                     patient_first_name: treatment.patient.first_name,
                                     procedure: treatment.procedure,
                                     dentist_name: treatment.dentist.name,
+                                    doctor_name: treatment.dentist.name,
                                     clinic_name: clinic.name,
+                                    phone: clinic.phone || '',
+                                    '1': treatment.patient.first_name,
+                                    '2': treatment.procedure,
+                                    '3': clinic.name,
+                                    '4': treatment.dentist.name,
+                                    '5': clinic.phone || '',
                                 },
                                 metadata: { automation: 'post_treatment_care', treatment_id: treatment.id },
                             });
@@ -570,6 +610,8 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                                     patient_name: `${appt.patient.first_name} ${appt.patient.last_name}`,
                                     patient_first_name: appt.patient.first_name,
                                     clinic_name: clinic.name,
+                                    '1': appt.patient.first_name,
+                                    '2': clinic.name,
                                 },
                                 metadata: { automation: 'feedback_collection', appointment_id: appt.id },
                             });
@@ -606,7 +648,7 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                             invoice: {
                                 include: {
                                     patient: true,
-                                    clinic: { select: { id: true, name: true, subscription_status: true } },
+                                    clinic: { select: { id: true, name: true, phone: true, subscription_status: true } },
                                 },
                             },
                         },
@@ -621,6 +663,9 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                     const rule = await this.automationService.getRuleConfig(invoice.clinic_id, 'payment_overdue');
                     if (!rule?.is_enabled)
                         continue;
+                    const fmtAmountOverdue = this.formatAmount(item.amount);
+                    const fmtDueDateOverdue = this.formatDate(item.due_date);
+                    const overdueClinicPhone = invoice.clinic.phone || '';
                     const channel = await this.resolveChannel(invoice.clinic_id, invoice.patient_id, rule.channel);
                     await this.communicationService.sendMessage(invoice.clinic_id, {
                         patient_id: invoice.patient_id,
@@ -629,14 +674,20 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                         template_id: rule.template_id ?? undefined,
                         body: rule.template_id
                             ? undefined
-                            : `Hi ${invoice.patient.first_name}, your payment of ₹${item.amount} for invoice ${invoice.invoice_number} was due on ${item.due_date.toISOString().split('T')[0]}. Please make the payment at your earliest convenience. Contact ${invoice.clinic.name} for any queries.`,
+                            : `Hi ${invoice.patient.first_name}, your payment of ${fmtAmountOverdue} for invoice ${invoice.invoice_number} was due on ${fmtDueDateOverdue}. Please make the payment at your earliest convenience. Contact ${invoice.clinic.name} at ${overdueClinicPhone} for any queries.`,
                         variables: {
                             patient_name: `${invoice.patient.first_name} ${invoice.patient.last_name}`,
                             patient_first_name: invoice.patient.first_name,
-                            amount: item.amount.toString(),
-                            due_date: item.due_date.toISOString().split('T')[0],
+                            amount: fmtAmountOverdue,
+                            due_date: fmtDueDateOverdue,
                             clinic_name: invoice.clinic.name,
                             invoice_number: invoice.invoice_number,
+                            phone: overdueClinicPhone,
+                            '1': invoice.patient.first_name,
+                            '2': fmtAmountOverdue,
+                            '3': fmtDueDateOverdue,
+                            '4': invoice.clinic.name,
+                            '5': overdueClinicPhone,
                         },
                         metadata: { automation: 'payment_overdue', installment_id: item.id, invoice_id: invoice.id },
                     });
@@ -858,8 +909,26 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
     async getActiveClinics() {
         return this.prisma.clinic.findMany({
             where: { subscription_status: { in: ['active', 'trial'] } },
-            select: { id: true, name: true },
+            select: { id: true, name: true, phone: true },
         });
+    }
+    formatDate(date) {
+        return date.toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            timeZone: 'Asia/Kolkata',
+        });
+    }
+    formatTime(time) {
+        const [hours, minutes] = time.split(':').map(Number);
+        const period = hours >= 12 ? 'PM' : 'AM';
+        const h = hours % 12 || 12;
+        return `${h}:${String(minutes).padStart(2, '0')} ${period}`;
+    }
+    formatAmount(amount) {
+        const num = typeof amount === 'number' ? amount : Number(amount);
+        return `Rs.${num.toLocaleString('en-IN')}`;
     }
     async resolveChannel(clinicId, patientId, ruleChannel) {
         if (ruleChannel !== 'preferred') {
