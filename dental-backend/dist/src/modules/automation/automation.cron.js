@@ -17,15 +17,29 @@ const prisma_service_js_1 = require("../../database/prisma.service.js");
 const communication_service_js_1 = require("../communication/communication.service.js");
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
 const automation_service_js_1 = require("./automation.service.js");
+const clinic_events_service_js_1 = require("../clinic-events/clinic-events.service.js");
 let AutomationCronService = AutomationCronService_1 = class AutomationCronService {
     prisma;
     communicationService;
     automationService;
+    clinicEventsService;
     logger = new common_1.Logger(AutomationCronService_1.name);
-    constructor(prisma, communicationService, automationService) {
+    constructor(prisma, communicationService, automationService, clinicEventsService) {
         this.prisma = prisma;
         this.communicationService = communicationService;
         this.automationService = automationService;
+        this.clinicEventsService = clinicEventsService;
+    }
+    async refreshFestivalCalendar() {
+        const year = new Date().getFullYear();
+        this.logger.log(`[New Year] Refreshing system festival dates for ${year}...`);
+        try {
+            await this.clinicEventsService.refreshSystemFestivalDatesForYear(year);
+            this.logger.log(`[New Year] Festival calendar updated for ${year}.`);
+        }
+        catch (e) {
+            this.logger.error(`[New Year] Festival calendar refresh failed: ${e.message}`, e.stack);
+        }
     }
     async birthdayGreetings() {
         this.logger.log('Running birthday greeting automation...');
@@ -93,10 +107,22 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
             today.setHours(0, 0, 0, 0);
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
+            const month = today.getMonth() + 1;
+            const day = today.getDate();
+            const recurringIds = await this.prisma.$queryRaw `
+        SELECT id FROM clinic_events
+        WHERE is_enabled = true
+          AND is_recurring = true
+          AND EXTRACT(MONTH FROM event_date) = ${month}
+          AND EXTRACT(DAY FROM event_date) = ${day}
+      `;
             const events = await this.prisma.clinicEvent.findMany({
                 where: {
                     is_enabled: true,
-                    event_date: { gte: today, lt: tomorrow },
+                    OR: [
+                        { is_recurring: false, event_date: { gte: today, lt: tomorrow } },
+                        { id: { in: recurringIds.map((r) => r.id) } },
+                    ],
                 },
                 include: { template: true },
             });
@@ -983,6 +1009,12 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
 };
 exports.AutomationCronService = AutomationCronService;
 __decorate([
+    (0, schedule_1.Cron)('0 0 1 1 1 *'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AutomationCronService.prototype, "refreshFestivalCalendar", null);
+__decorate([
     (0, schedule_1.Cron)('0 30 8 * * *'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
@@ -1064,6 +1096,7 @@ exports.AutomationCronService = AutomationCronService = AutomationCronService_1 
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         communication_service_js_1.CommunicationService,
-        automation_service_js_1.AutomationService])
+        automation_service_js_1.AutomationService,
+        clinic_events_service_js_1.ClinicEventsService])
 ], AutomationCronService);
 //# sourceMappingURL=automation.cron.js.map

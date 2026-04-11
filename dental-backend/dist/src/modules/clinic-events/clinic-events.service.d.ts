@@ -6,6 +6,7 @@ export declare class ClinicEventsService {
     private seeded;
     constructor(prisma: PrismaService);
     seedSystemEvents(): Promise<void>;
+    refreshSystemFestivalDatesForYear(year: number): Promise<void>;
     findAll(clinicId: string): Promise<({
         template: {
             id: string;

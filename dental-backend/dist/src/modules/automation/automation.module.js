@@ -11,11 +11,13 @@ const common_1 = require("@nestjs/common");
 const automation_controller_js_1 = require("./automation.controller.js");
 const automation_service_js_1 = require("./automation.service.js");
 const automation_cron_js_1 = require("./automation.cron.js");
+const clinic_events_module_js_1 = require("../clinic-events/clinic-events.module.js");
 let AutomationModule = class AutomationModule {
 };
 exports.AutomationModule = AutomationModule;
 exports.AutomationModule = AutomationModule = __decorate([
     (0, common_1.Module)({
+        imports: [clinic_events_module_js_1.ClinicEventsModule],
         controllers: [automation_controller_js_1.AutomationController],
         providers: [automation_service_js_1.AutomationService, automation_cron_js_1.AutomationCronService],
         exports: [automation_service_js_1.AutomationService],

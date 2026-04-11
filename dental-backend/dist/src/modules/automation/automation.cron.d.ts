@@ -1,12 +1,15 @@
 import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { AutomationService } from './automation.service.js';
+import { ClinicEventsService } from '../clinic-events/clinic-events.service.js';
 export declare class AutomationCronService {
     private readonly prisma;
     private readonly communicationService;
     private readonly automationService;
+    private readonly clinicEventsService;
     private readonly logger;
-    constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService);
+    constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService, clinicEventsService: ClinicEventsService);
+    refreshFestivalCalendar(): Promise<void>;
     birthdayGreetings(): Promise<void>;
     festivalGreetings(): Promise<void>;
     appointmentRemindersToPatients(): Promise<void>;

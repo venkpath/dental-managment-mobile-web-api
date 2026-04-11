@@ -4,6 +4,7 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
 import { AutomationService } from './automation.service.js';
+import { ClinicEventsService } from '../clinic-events/clinic-events.service.js';
 
 @Injectable()
 export class AutomationCronService {
@@ -13,7 +14,22 @@ export class AutomationCronService {
     private readonly prisma: PrismaService,
     private readonly communicationService: CommunicationService,
     private readonly automationService: AutomationService,
+    private readonly clinicEventsService: ClinicEventsService,
   ) {}
+
+  // ─── New Year Festival Calendar Refresh — Jan 1 at 1 AM ───
+
+  @Cron('0 0 1 1 1 *') // 01:00:00 on January 1st every year
+  async refreshFestivalCalendar(): Promise<void> {
+    const year = new Date().getFullYear();
+    this.logger.log(`[New Year] Refreshing system festival dates for ${year}...`);
+    try {
+      await this.clinicEventsService.refreshSystemFestivalDatesForYear(year);
+      this.logger.log(`[New Year] Festival calendar updated for ${year}.`);
+    } catch (e) {
+      this.logger.error(`[New Year] Festival calendar refresh failed: ${(e as Error).message}`, (e as Error).stack);
+    }
+  }
 
   // ─── Birthday Greetings — Daily at 8:30 AM ───
 
@@ -96,12 +112,26 @@ export class AutomationCronService {
       today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
+      const month = today.getMonth() + 1;
+      const day = today.getDate();
 
-      // Find events happening today
+      // Recurring events: match by month+day (year-independent)
+      const recurringIds = await this.prisma.$queryRaw<{ id: string }[]>`
+        SELECT id FROM clinic_events
+        WHERE is_enabled = true
+          AND is_recurring = true
+          AND EXTRACT(MONTH FROM event_date) = ${month}
+          AND EXTRACT(DAY FROM event_date) = ${day}
+      `;
+
+      // Find events happening today — recurring by month+day, non-recurring by exact date
       const events = await this.prisma.clinicEvent.findMany({
         where: {
           is_enabled: true,
-          event_date: { gte: today, lt: tomorrow },
+          OR: [
+            { is_recurring: false, event_date: { gte: today, lt: tomorrow } },
+            { id: { in: recurringIds.map((r) => r.id) } },
+          ],
         },
         include: { template: true },
       });
