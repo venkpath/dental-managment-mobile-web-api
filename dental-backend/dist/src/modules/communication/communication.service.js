@@ -1650,81 +1650,87 @@ let CommunicationService = class CommunicationService {
         let updated = 0;
         let skipped = 0;
         for (const metaTemplate of result.templates) {
-            const bodyComponent = metaTemplate.components.find((c) => c.type?.toUpperCase() === 'BODY');
-            const bodyText = bodyComponent?.text || '';
-            const varMatches = bodyText.match(/\{\{(\d+)\}\}/g) || [];
-            const variables = varMatches.map((m) => m.replace(/[{}]/g, ''));
-            const buttonsComponent = metaTemplate.components.find((c) => c.type?.toUpperCase() === 'BUTTONS');
-            const urlButtons = [];
-            if (buttonsComponent) {
-                const buttons = (buttonsComponent.buttons || []);
-                buttons.forEach((btn, idx) => {
-                    if (btn.type?.toUpperCase() === 'URL' && btn.url) {
-                        const btnUrl = btn.url;
-                        if (/\{\{\d+\}\}/.test(btnUrl)) {
-                            urlButtons.push({ index: idx, url: btnUrl });
+            try {
+                const bodyComponent = metaTemplate.components.find((c) => c.type?.toUpperCase() === 'BODY');
+                const bodyText = bodyComponent?.text || '';
+                const varMatches = bodyText.match(/\{\{(\d+)\}\}/g) || [];
+                const variables = varMatches.map((m) => m.replace(/[{}]/g, ''));
+                const buttonsComponent = metaTemplate.components.find((c) => c.type?.toUpperCase() === 'BUTTONS');
+                const urlButtons = [];
+                if (buttonsComponent) {
+                    const buttons = (buttonsComponent.buttons || []);
+                    buttons.forEach((btn, idx) => {
+                        if (btn.type?.toUpperCase() === 'URL' && btn.url) {
+                            const btnUrl = btn.url;
+                            if (/\{\{\d+\}\}/.test(btnUrl)) {
+                                urlButtons.push({ index: idx, url: btnUrl });
+                            }
                         }
-                    }
-                });
-            }
-            const categoryMap = {
-                MARKETING: 'campaign',
-                UTILITY: 'transactional',
-                AUTHENTICATION: 'transactional',
-            };
-            const category = categoryMap[metaTemplate.category] || 'transactional';
-            const statusMap = {
-                APPROVED: 'approved',
-                REJECTED: 'rejected',
-                PENDING: 'submitted',
-                IN_APPEAL: 'submitted',
-                PENDING_DELETION: 'rejected',
-                DELETED: 'rejected',
-                DISABLED: 'rejected',
-                PAUSED: 'submitted',
-                LIMIT_EXCEEDED: 'rejected',
-            };
-            const whatsappStatus = statusMap[metaTemplate.status] || 'submitted';
-            const existing = await this.prisma.messageTemplate.findFirst({
-                where: {
-                    clinic_id: clinicId,
-                    template_name: metaTemplate.name,
-                    channel: 'whatsapp',
-                    language: metaTemplate.language,
-                },
-            });
-            const variablesJson = urlButtons.length > 0
-                ? { body: variables, buttons: urlButtons.map(b => ({ type: 'url', index: b.index })) }
-                : (variables.length > 0 ? variables : undefined);
-            if (existing) {
-                await this.prisma.messageTemplate.update({
-                    where: { id: existing.id },
-                    data: {
-                        whatsapp_template_status: whatsappStatus,
-                        is_active: metaTemplate.status === 'APPROVED',
-                        body: bodyText || existing.body,
-                        meta_template_id: metaTemplate.id,
-                        ...(variablesJson !== undefined ? { variables: variablesJson } : {}),
-                    },
-                });
-                updated++;
-            }
-            else {
-                await this.prisma.messageTemplate.create({
-                    data: {
+                    });
+                }
+                const categoryMap = {
+                    MARKETING: 'campaign',
+                    UTILITY: 'transactional',
+                    AUTHENTICATION: 'transactional',
+                };
+                const category = categoryMap[metaTemplate.category] || 'transactional';
+                const statusMap = {
+                    APPROVED: 'approved',
+                    REJECTED: 'rejected',
+                    PENDING: 'submitted',
+                    IN_APPEAL: 'submitted',
+                    PENDING_DELETION: 'rejected',
+                    DELETED: 'rejected',
+                    DISABLED: 'rejected',
+                    PAUSED: 'submitted',
+                    LIMIT_EXCEEDED: 'rejected',
+                };
+                const whatsappStatus = statusMap[metaTemplate.status] || 'submitted';
+                const existing = await this.prisma.messageTemplate.findFirst({
+                    where: {
                         clinic_id: clinicId,
-                        channel: 'whatsapp',
-                        category,
                         template_name: metaTemplate.name,
-                        body: bodyText || `[Template: ${metaTemplate.name}]`,
-                        ...(variablesJson !== undefined ? { variables: variablesJson } : {}),
+                        channel: 'whatsapp',
                         language: metaTemplate.language,
-                        whatsapp_template_status: whatsappStatus,
-                        is_active: metaTemplate.status === 'APPROVED',
-                        meta_template_id: metaTemplate.id,
                     },
                 });
-                created++;
+                const variablesJson = urlButtons.length > 0
+                    ? { body: variables, buttons: urlButtons.map(b => ({ type: 'url', index: b.index })) }
+                    : (variables.length > 0 ? variables : undefined);
+                if (existing) {
+                    await this.prisma.messageTemplate.update({
+                        where: { id: existing.id },
+                        data: {
+                            whatsapp_template_status: whatsappStatus,
+                            is_active: metaTemplate.status === 'APPROVED',
+                            body: bodyText || existing.body,
+                            meta_template_id: metaTemplate.id,
+                            ...(variablesJson !== undefined ? { variables: variablesJson } : {}),
+                        },
+                    });
+                    updated++;
+                }
+                else {
+                    await this.prisma.messageTemplate.create({
+                        data: {
+                            clinic_id: clinicId,
+                            channel: 'whatsapp',
+                            category,
+                            template_name: metaTemplate.name,
+                            body: bodyText || `[Template: ${metaTemplate.name}]`,
+                            ...(variablesJson !== undefined ? { variables: variablesJson } : {}),
+                            language: metaTemplate.language,
+                            whatsapp_template_status: whatsappStatus,
+                            is_active: metaTemplate.status === 'APPROVED',
+                            meta_template_id: metaTemplate.id,
+                        },
+                    });
+                    created++;
+                }
+            }
+            catch (e) {
+                this.logger.error(`Sync failed for template "${metaTemplate.name}": ${e.message}`);
+                skipped++;
             }
         }
         this.logger.log(`WhatsApp template sync for clinic ${clinicId}: ${created} created, ${updated} updated, ${skipped} skipped (${result.templates.length} total from Meta)`);

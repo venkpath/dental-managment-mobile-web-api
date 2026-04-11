@@ -212,7 +212,7 @@ export class InvoiceService {
     });
 
     // Send payment confirmation to patient (fire-and-forget)
-    this.sendPaymentConfirmation(clinicId, invoice.patient_id, invoice.invoice_number, dto.amount).catch((e) =>
+    this.sendPaymentConfirmation(clinicId, invoice.patient_id, invoice.invoice_number, dto.amount, dto.invoice_id).catch((e) =>
       this.logger.warn(`Payment confirmation failed: ${(e as Error).message}`),
     );
 
@@ -443,10 +443,11 @@ export class InvoiceService {
     patientId: string,
     invoiceNumber: string,
     amount: number,
+    invoiceId: string,
   ): Promise<void> {
     const [patient, clinic, rule] = await Promise.all([
       this.prisma.patient.findUnique({ where: { id: patientId }, select: { first_name: true, last_name: true } }),
-      this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true } }),
+      this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true, phone: true } }),
       this.automationService.getRuleConfig(clinicId, 'payment_confirmation'),
     ]);
     if (!patient) return;
@@ -468,6 +469,14 @@ export class InvoiceService {
     }
     if (!channel) return;
 
+    // Generate PDF so S3 link is fresh
+    try { await this.getPdfUrl(clinicId, invoiceId); } catch { /* non-fatal */ }
+
+    const receiptUrl = `https://smartdentaldesk.com/api/v1/public/invoice-redirect/${invoiceId}?clinic=${clinicId}`;
+    const formattedAmount = `Rs.${amount.toLocaleString('en-IN')}`;
+    const clinicName = clinic?.name || 'Your Dental Clinic';
+    const clinicPhone = clinic?.phone || '';
+
     await this.communicationService.sendMessage(clinicId, {
       patient_id: patientId,
       channel,
@@ -475,15 +484,16 @@ export class InvoiceService {
       template_id: rule?.template_id ?? undefined,
       body: rule?.template_id
         ? undefined
-        : `Hi ${patient.first_name}, your payment of ₹${amount} for invoice ${invoiceNumber} has been received. Thank you! — ${clinic?.name || 'Your Dental Clinic'}`,
+        : `Hi ${patient.first_name},\n\nWe have received your payment of ${formattedAmount} for invoice ${invoiceNumber} at ${clinicName}.\n\nYour receipt is ready. View & download:\n${receiptUrl}\n\nPlease call us ${clinicPhone} for any queries.`,
       variables: {
-        '1': `${patient.first_name} ${patient.last_name}`,
-        '2': patient.first_name,
-        '3': amount.toString(),
-        '4': invoiceNumber,
-        '5': clinic?.name || '',
+        '1': patient.first_name,
+        '2': formattedAmount,
+        '3': invoiceNumber,
+        '4': clinicName,
+        '5': receiptUrl,
+        '6': clinicPhone,
       },
-      metadata: { automation: 'payment_confirmation', invoice_id: invoiceNumber },
+      metadata: { automation: 'payment_confirmation', invoice_id: invoiceId },
     });
   }
 }

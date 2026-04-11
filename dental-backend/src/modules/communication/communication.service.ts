@@ -2196,6 +2196,7 @@ export class CommunicationService {
     let skipped = 0;
 
     for (const metaTemplate of result.templates) {
+      try {
       // Extract body text and variables from Meta components
       const bodyComponent = metaTemplate.components.find(
         (c) => (c.type as string)?.toUpperCase() === 'BODY',
@@ -2294,6 +2295,10 @@ export class CommunicationService {
           } as any,
         });
         created++;
+      }
+      } catch (e) {
+        this.logger.error(`Sync failed for template "${metaTemplate.name}": ${(e as Error).message}`);
+        skipped++;
       }
     }
 
