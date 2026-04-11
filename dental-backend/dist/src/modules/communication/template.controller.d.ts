@@ -14,12 +14,14 @@ export declare class TemplateController {
         category: string;
         template_name: string;
         subject: string | null;
+        footer: string | null;
         body: string;
         variables: import("@prisma/client/runtime/client").JsonValue | null;
         language: string;
         is_active: boolean;
         dlt_template_id: string | null;
         whatsapp_template_status: string | null;
+        meta_template_id: string | null;
     }[]>;
     cloneBaseTemplate(clinicId: string, id: string): Promise<{
         cloned: boolean;
@@ -32,12 +34,14 @@ export declare class TemplateController {
             category: string;
             template_name: string;
             subject: string | null;
+            footer: string | null;
             body: string;
             variables: import("@prisma/client/runtime/client").JsonValue | null;
             language: string;
             is_active: boolean;
             dlt_template_id: string | null;
             whatsapp_template_status: string | null;
+            meta_template_id: string | null;
         };
         message: string;
         submit_hint?: undefined;
@@ -52,12 +56,14 @@ export declare class TemplateController {
             category: string;
             template_name: string;
             subject: string | null;
+            footer: string | null;
             body: string;
             variables: import("@prisma/client/runtime/client").JsonValue | null;
             language: string;
             is_active: boolean;
             dlt_template_id: string | null;
             whatsapp_template_status: string | null;
+            meta_template_id: string | null;
         };
         submit_hint: string;
         message?: undefined;
@@ -71,12 +77,14 @@ export declare class TemplateController {
         category: string;
         template_name: string;
         subject: string | null;
+        footer: string | null;
         body: string;
         variables: import("@prisma/client/runtime/client").JsonValue | null;
         language: string;
         is_active: boolean;
         dlt_template_id: string | null;
         whatsapp_template_status: string | null;
+        meta_template_id: string | null;
     }>;
     findAll(clinicId: string, query: QueryTemplateDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         id: string;
@@ -87,12 +95,14 @@ export declare class TemplateController {
         category: string;
         template_name: string;
         subject: string | null;
+        footer: string | null;
         body: string;
         variables: import("@prisma/client/runtime/client").JsonValue | null;
         language: string;
         is_active: boolean;
         dlt_template_id: string | null;
         whatsapp_template_status: string | null;
+        meta_template_id: string | null;
     }>>;
     findOne(clinicId: string, id: string): Promise<{
         id: string;
@@ -103,12 +113,14 @@ export declare class TemplateController {
         category: string;
         template_name: string;
         subject: string | null;
+        footer: string | null;
         body: string;
         variables: import("@prisma/client/runtime/client").JsonValue | null;
         language: string;
         is_active: boolean;
         dlt_template_id: string | null;
         whatsapp_template_status: string | null;
+        meta_template_id: string | null;
     }>;
     update(clinicId: string, id: string, dto: UpdateTemplateDto): Promise<{
         id: string;
@@ -119,12 +131,14 @@ export declare class TemplateController {
         category: string;
         template_name: string;
         subject: string | null;
+        footer: string | null;
         body: string;
         variables: import("@prisma/client/runtime/client").JsonValue | null;
         language: string;
         is_active: boolean;
         dlt_template_id: string | null;
         whatsapp_template_status: string | null;
+        meta_template_id: string | null;
     }>;
     remove(clinicId: string, id: string): Promise<{
         deleted: boolean;

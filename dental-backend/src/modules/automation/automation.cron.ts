@@ -164,26 +164,59 @@ export class AutomationCronService {
             for (const patient of patients) {
               try {
                 const channel = await this.resolveChannel(clinicId, patient.id, rule.channel);
+                const effectiveTemplateId = event.template_id ?? rule.template_id ?? undefined;
+                // Determine template type from the per-event template name
+                const tmplName = event.template?.template_name ?? '';
+                const occasionLabel = event.occasion_message ?? '';
+                const clinicName = clinic?.name || '';
+                const patientFirst = patient.first_name;
+
+                let variables: Record<string, string>;
+                let fallbackBody: string;
+
+                if (occasionLabel && tmplName === 'dental_health_awareness') {
+                  // dental_health_awareness — {{1}} patient {{2}} health_day {{3}} clinic
+                  variables = {
+                    patient_first_name: patientFirst,
+                    health_day: occasionLabel,
+                    clinic_name: clinicName,
+                    '1': patientFirst,
+                    '2': occasionLabel,
+                    '3': clinicName,
+                  };
+                  fallbackBody = `Hi ${patientFirst}, on this ${occasionLabel}, ${clinicName} reminds you that your oral health is our priority. Book your dental checkup today!`;
+                } else if (occasionLabel && tmplName === 'dental_national_day_greeting') {
+                  // dental_national_day_greeting — {{1}} patient {{2}} clinic {{3}} occasion
+                  variables = {
+                    patient_first_name: patientFirst,
+                    clinic_name: clinicName,
+                    occasion: occasionLabel,
+                    '1': patientFirst,
+                    '2': clinicName,
+                    '3': occasionLabel,
+                  };
+                  fallbackBody = `Hi ${patientFirst}, the team at ${clinicName} wishes you a very Happy ${occasionLabel}! May this special occasion bring joy and good health to you and your loved ones.`;
+                } else {
+                  // dental_festival_greeting (default) — {{1}} patient {{2}} festival {{3}} clinic
+                  variables = {
+                    patient_first_name: patientFirst,
+                    clinic_name: clinicName,
+                    festival_name: event.event_name,
+                    phone: clinic?.phone || '',
+                    '1': patientFirst,
+                    '2': event.event_name,
+                    '3': clinicName,
+                  };
+                  fallbackBody = `Wishing you a Happy ${event.event_name}! From ${clinicName}.`;
+                }
+
                 await this.communicationService.sendMessage(clinicId, {
                   patient_id: patient.id,
                   channel,
                   category: MessageCategory.PROMOTIONAL,
-                  template_id: event.template_id ?? rule.template_id ?? undefined,
-                  body: event.template_id || rule.template_id
-                    ? undefined
-                    : `Wishing you a Happy ${event.event_name}! From ${clinic?.name || 'your dental clinic'}. 🎉`,
-                  variables: {
-                    // named keys
-                    patient_name: `${patient.first_name} ${patient.last_name}`,
-                    patient_first_name: patient.first_name,
-                    clinic_name: clinic?.name || '',
-                    festival_name: event.event_name,
-                    phone: clinic?.phone || '',
-                    // numbered keys — {{1}} patient {{2}} festival {{3}} clinic
-                    '1': patient.first_name,
-                    '2': event.event_name,
-                    '3': clinic?.name || '',
-                  },
+                  template_id: effectiveTemplateId,
+                  body: effectiveTemplateId ? undefined : fallbackBody,
+                  variables,
                   metadata: { automation: 'festival_greeting', event_id: event.id },
                 });
                 totalSent++;

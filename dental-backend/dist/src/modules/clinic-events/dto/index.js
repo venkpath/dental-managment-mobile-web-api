@@ -18,6 +18,7 @@ class CreateClinicEventDto {
     is_recurring;
     template_id;
     send_offer;
+    occasion_message;
     offer_details;
 }
 exports.CreateClinicEventDto = CreateClinicEventDto;
@@ -50,6 +51,12 @@ __decorate([
     __metadata("design:type", Boolean)
 ], CreateClinicEventDto.prototype, "send_offer", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Custom message body for national/health day events. E.g. "Wishing you a proud 80th Independence Day! 🇮🇳"' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateClinicEventDto.prototype, "occasion_message", void 0);
+__decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'e.g. { percentage: 20, treatment: "cleaning", valid_until: "2025-01-31" }' }),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Object)
@@ -61,6 +68,7 @@ class UpdateClinicEventDto {
     is_enabled;
     template_id;
     send_offer;
+    occasion_message;
     offer_details;
 }
 exports.UpdateClinicEventDto = UpdateClinicEventDto;
@@ -100,6 +108,12 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], UpdateClinicEventDto.prototype, "send_offer", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Custom message body for national/health day events' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateClinicEventDto.prototype, "occasion_message", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
     (0, class_validator_1.IsOptional)(),

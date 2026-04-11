@@ -4,6 +4,7 @@ export declare class CreateClinicEventDto {
     is_recurring?: boolean;
     template_id?: string;
     send_offer?: boolean;
+    occasion_message?: string;
     offer_details?: Record<string, unknown>;
 }
 export declare class UpdateClinicEventDto {
@@ -13,5 +14,6 @@ export declare class UpdateClinicEventDto {
     is_enabled?: boolean;
     template_id?: string;
     send_offer?: boolean;
+    occasion_message?: string;
     offer_details?: Record<string, unknown>;
 }

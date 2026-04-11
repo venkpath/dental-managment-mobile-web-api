@@ -822,17 +822,18 @@ model AutomationRule {
 // ─── Clinic Events / Festival Calendar (Phase 3, Epic 10) ───
 
 model ClinicEvent {
-  id          String    @id @default(uuid()) @db.Uuid
-  clinic_id   String?   @db.Uuid // null = system event (pre-seeded)
-  event_name  String    @db.VarChar(255)
-  event_date  DateTime  @db.Date
-  is_recurring Boolean  @default(true) // repeat annually
-  is_enabled  Boolean   @default(true)
-  template_id String?   @db.Uuid
-  send_offer  Boolean   @default(false)
-  offer_details Json?   // { percentage, treatment, valid_until }
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @updatedAt
+  id               String    @id @default(uuid()) @db.Uuid
+  clinic_id        String?   @db.Uuid // null = system event (pre-seeded)
+  event_name       String    @db.VarChar(255)
+  event_date       DateTime  @db.Date
+  is_recurring     Boolean   @default(true) // repeat annually
+  is_enabled       Boolean   @default(true)
+  template_id      String?   @db.Uuid
+  occasion_message String?   @db.Text // custom body for national/health days e.g. "Wishing you a proud 80th Independence Day!"
+  send_offer       Boolean   @default(false)
+  offer_details    Json?     // { percentage, treatment, valid_until }
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
 
   clinic   Clinic?          @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   template MessageTemplate? @relation(fields: [template_id], references: [id], onDelete: SetNull)

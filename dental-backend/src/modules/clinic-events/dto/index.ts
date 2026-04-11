@@ -25,6 +25,11 @@ export class CreateClinicEventDto {
   @IsBoolean()
   send_offer?: boolean;
 
+  @ApiPropertyOptional({ description: 'Custom message body for national/health day events. E.g. "Wishing you a proud 80th Independence Day! 🇮🇳"' })
+  @IsOptional()
+  @IsString()
+  occasion_message?: string;
+
   @ApiPropertyOptional({ description: 'e.g. { percentage: 20, treatment: "cleaning", valid_until: "2025-01-31" }' })
   @IsOptional()
   offer_details?: Record<string, unknown>;
@@ -60,6 +65,11 @@ export class UpdateClinicEventDto {
   @IsOptional()
   @IsBoolean()
   send_offer?: boolean;
+
+  @ApiPropertyOptional({ description: 'Custom message body for national/health day events' })
+  @IsOptional()
+  @IsString()
+  occasion_message?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

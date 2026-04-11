@@ -103,12 +103,14 @@ export declare class CommunicationService {
             category: string;
             template_name: string;
             subject: string | null;
+            footer: string | null;
             body: string;
             variables: Prisma.JsonValue | null;
             language: string;
             is_active: boolean;
             dlt_template_id: string | null;
             whatsapp_template_status: string | null;
+            meta_template_id: string | null;
         } | null;
         logs: {
             id: string;

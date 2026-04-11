@@ -27,6 +27,7 @@ export declare class ClinicEventsService {
         event_date: Date;
         is_recurring: boolean;
         send_offer: boolean;
+        occasion_message: string | null;
         offer_details: import("@prisma/client/runtime/client").JsonValue | null;
     })[]>;
     create(clinicId: string, dto: CreateClinicEventDto): Promise<{
@@ -40,6 +41,7 @@ export declare class ClinicEventsService {
         event_date: Date;
         is_recurring: boolean;
         send_offer: boolean;
+        occasion_message: string | null;
         offer_details: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     update(clinicId: string, eventId: string, dto: UpdateClinicEventDto): Promise<{
@@ -53,6 +55,7 @@ export declare class ClinicEventsService {
         event_date: Date;
         is_recurring: boolean;
         send_offer: boolean;
+        occasion_message: string | null;
         offer_details: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     remove(clinicId: string, eventId: string): Promise<{
@@ -66,6 +69,7 @@ export declare class ClinicEventsService {
         event_date: Date;
         is_recurring: boolean;
         send_offer: boolean;
+        occasion_message: string | null;
         offer_details: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     getUpcoming(clinicId: string, days?: number): Promise<{
@@ -79,6 +83,7 @@ export declare class ClinicEventsService {
         event_date: Date;
         is_recurring: boolean;
         send_offer: boolean;
+        occasion_message: string | null;
         offer_details: import("@prisma/client/runtime/client").JsonValue | null;
     }[]>;
 }

@@ -150,24 +150,54 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                         for (const patient of patients) {
                             try {
                                 const channel = await this.resolveChannel(clinicId, patient.id, rule.channel);
+                                const effectiveTemplateId = event.template_id ?? rule.template_id ?? undefined;
+                                const tmplName = event.template?.template_name ?? '';
+                                const occasionLabel = event.occasion_message ?? '';
+                                const clinicName = clinic?.name || '';
+                                const patientFirst = patient.first_name;
+                                let variables;
+                                let fallbackBody;
+                                if (occasionLabel && tmplName === 'dental_health_awareness') {
+                                    variables = {
+                                        patient_first_name: patientFirst,
+                                        health_day: occasionLabel,
+                                        clinic_name: clinicName,
+                                        '1': patientFirst,
+                                        '2': occasionLabel,
+                                        '3': clinicName,
+                                    };
+                                    fallbackBody = `Hi ${patientFirst}, on this ${occasionLabel}, ${clinicName} reminds you that your oral health is our priority. Book your dental checkup today!`;
+                                }
+                                else if (occasionLabel && tmplName === 'dental_national_day_greeting') {
+                                    variables = {
+                                        patient_first_name: patientFirst,
+                                        clinic_name: clinicName,
+                                        occasion: occasionLabel,
+                                        '1': patientFirst,
+                                        '2': clinicName,
+                                        '3': occasionLabel,
+                                    };
+                                    fallbackBody = `Hi ${patientFirst}, the team at ${clinicName} wishes you a very Happy ${occasionLabel}! May this special occasion bring joy and good health to you and your loved ones.`;
+                                }
+                                else {
+                                    variables = {
+                                        patient_first_name: patientFirst,
+                                        clinic_name: clinicName,
+                                        festival_name: event.event_name,
+                                        phone: clinic?.phone || '',
+                                        '1': patientFirst,
+                                        '2': event.event_name,
+                                        '3': clinicName,
+                                    };
+                                    fallbackBody = `Wishing you a Happy ${event.event_name}! From ${clinicName}.`;
+                                }
                                 await this.communicationService.sendMessage(clinicId, {
                                     patient_id: patient.id,
                                     channel,
                                     category: send_message_dto_js_1.MessageCategory.PROMOTIONAL,
-                                    template_id: event.template_id ?? rule.template_id ?? undefined,
-                                    body: event.template_id || rule.template_id
-                                        ? undefined
-                                        : `Wishing you a Happy ${event.event_name}! From ${clinic?.name || 'your dental clinic'}. 🎉`,
-                                    variables: {
-                                        patient_name: `${patient.first_name} ${patient.last_name}`,
-                                        patient_first_name: patient.first_name,
-                                        clinic_name: clinic?.name || '',
-                                        festival_name: event.event_name,
-                                        phone: clinic?.phone || '',
-                                        '1': patient.first_name,
-                                        '2': event.event_name,
-                                        '3': clinic?.name || '',
-                                    },
+                                    template_id: effectiveTemplateId,
+                                    body: effectiveTemplateId ? undefined : fallbackBody,
+                                    variables,
                                     metadata: { automation: 'festival_greeting', event_id: event.id },
                                 });
                                 totalSent++;
