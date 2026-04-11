@@ -188,6 +188,7 @@ export class WhatsAppProvider implements ChannelProvider {
     body: string;
     header?: string;
     footer?: string;
+    variableSamples?: string[]; // sample values for {{1}}, {{2}}, ... in the order they appear in body
     buttons?: WhatsAppInteractiveButton[];
   }): Promise<{ success: boolean; templateId?: string; error?: string }> {
     const ctx = this.clinicConfigs.get(clinicId);
@@ -213,48 +214,17 @@ export class WhatsAppProvider implements ChannelProvider {
       const metaBody = toNumbered(templateData.body);
       // varOrder is now populated with all body variables in order
 
-      // Meta REQUIRES sample values for each variable ({{1}}, {{2}} etc.)
-      // without them the template gets rejected immediately by automated review
-      const VAR_SAMPLES: Record<string, string> = {
-        patient_name: 'Priya Sharma',
-        clinic_name: 'Smile Dental Clinic',
-        doctor_name: 'Dr. Anil Mehta',
-        dentist_name: 'Dr. Anil Mehta',
-        date: '15 Jan 2026',
-        time: '10:30 AM',
-        appointment_date: '15 Jan 2026',
-        appointment_time: '10:30 AM',
-        amount: '5000',
-        due_date: '20 Jan 2026',
-        phone: '9876543210',
-        procedure: 'Root Canal Treatment',
-        tooth_number: '26',
-        previous_time: '10:00 AM 14 Jan 2026',
-        new_time: '11:00 AM 15 Jan 2026',
-        offer_details: 'Free cleaning with any treatment booked this month',
-        medicine_name: 'Amoxicillin 500mg',
-        prescription_date: '10 Jan 2026',
-        years: '2',
-        festival_name: 'Diwali',
-        offer_percentage: '20',
-        offer_treatment: 'Teeth Cleaning',
-        offer_valid_until: '31 Jan 2026',
-        reward: 'free consultation',
-        referral_code: 'PRIYA25',
-        referred_name: 'Rahul Kumar',
-        balance: '2000',
-        otp_code: '482917',
-        user_name: 'Priya',
-        campaign_subject: 'Special Offer This Month',
-        campaign_body: 'Get 20% off on all treatments this month',
-      };
-
-      const bodySamples = varOrder.map((name) => VAR_SAMPLES[name] || `Sample ${name}`);
+      // Use caller-supplied sample values (required by Meta to avoid rejection).
+      // variableSamples is ordered to match body variables: index 0 = {{1}}, index 1 = {{2}}, etc.
+      const suppliedSamples = templateData.variableSamples || [];
+      const bodySamples = varOrder.map((_, idx) => suppliedSamples[idx] || `value${idx + 1}`);
 
       // Header variables tracked separately (header is converted after body, shares varOrder)
       const headerVarsBefore = varOrder.length;
       const metaHeader = templateData.header ? toNumbered(templateData.header) : undefined;
-      const headerSamples = varOrder.slice(headerVarsBefore).map((name) => VAR_SAMPLES[name] || `Sample ${name}`);
+      const headerSamples = varOrder.slice(headerVarsBefore).map((_, idx) =>
+        suppliedSamples[headerVarsBefore + idx] || `value${headerVarsBefore + idx + 1}`,
+      );
 
       const components: Array<Record<string, unknown>> = [];
 

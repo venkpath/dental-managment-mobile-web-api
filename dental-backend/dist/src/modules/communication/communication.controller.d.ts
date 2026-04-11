@@ -384,6 +384,7 @@ export declare class CommunicationController {
         body: string;
         header?: string;
         footer?: string;
+        variableSamples?: string[];
     }): Promise<{
         success: boolean;
         templateId?: string;

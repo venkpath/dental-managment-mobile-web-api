@@ -318,10 +318,11 @@ export class CommunicationController {
       elementName: string;
       languageCode: string;
       category: string;
-      templateType?: string; // not used by Meta Cloud API — optional for backwards compat
+      templateType?: string;
       body: string;
       header?: string;
       footer?: string;
+      variableSamples?: string[]; // sample values for {{1}}, {{2}}, ... in body order
     },
   ) {
     if (!body.elementName || !body.body) {

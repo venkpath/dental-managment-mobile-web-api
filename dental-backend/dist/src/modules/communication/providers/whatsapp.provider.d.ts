@@ -39,6 +39,7 @@ export declare class WhatsAppProvider implements ChannelProvider {
         body: string;
         header?: string;
         footer?: string;
+        variableSamples?: string[];
         buttons?: WhatsAppInteractiveButton[];
     }): Promise<{
         success: boolean;
