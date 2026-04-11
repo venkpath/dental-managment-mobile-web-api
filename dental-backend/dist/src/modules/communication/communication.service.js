@@ -1178,11 +1178,11 @@ let CommunicationService = class CommunicationService {
         const internalStatus = statusMap[statusType];
         if (!internalStatus)
             return 0;
+        let processed = 0;
         const logs = await this.prisma.communicationLog.findMany({
             where: { provider_message_id: providerMessageId, channel: 'whatsapp' },
             include: { message: { select: { id: true } } },
         });
-        let processed = 0;
         for (const log of logs) {
             const updateData = { status: internalStatus };
             if (internalStatus === 'delivered')
@@ -1201,6 +1201,24 @@ let CommunicationService = class CommunicationService {
             });
             await this.updateMessageStatus(log.message.id, internalStatus);
             processed++;
+        }
+        if (processed === 0) {
+            const directMsg = await this.prisma.communicationMessage.findFirst({
+                where: { wa_message_id: providerMessageId },
+                select: { id: true, status: true },
+            });
+            if (directMsg) {
+                const statusPriority = { failed: 0, sent: 1, delivered: 2, read: 3 };
+                const currentPriority = statusPriority[directMsg.status] ?? -1;
+                const newPriority = statusPriority[internalStatus] ?? -1;
+                if (newPriority > currentPriority) {
+                    await this.prisma.communicationMessage.update({
+                        where: { id: directMsg.id },
+                        data: { status: internalStatus },
+                    });
+                    processed++;
+                }
+            }
         }
         this.logger.log(`WhatsApp webhook: ${statusType} for ${recipientId}, processed=${processed}`);
         return processed;
@@ -1360,6 +1378,7 @@ let CommunicationService = class CommunicationService {
           r.body AS last_body,
           r.created_at AS last_at,
           r.direction AS last_direction,
+          r.status AS last_status,
           (SELECT COUNT(*) FROM ranked u WHERE u.normalized_phone = r.normalized_phone AND u.direction = 'inbound' AND u.status != 'read') AS unread_count,
           (SELECT MAX(u.created_at) FROM ranked u WHERE u.normalized_phone = r.normalized_phone AND u.direction = 'inbound') AS last_inbound_at
         FROM ranked r
@@ -1382,6 +1401,7 @@ let CommunicationService = class CommunicationService {
                 last_message: r.last_body,
                 last_at: r.last_at,
                 last_direction: r.last_direction,
+                last_status: r.last_status,
                 last_inbound_at: r.last_inbound_at,
                 unread_count: Number(r.unread_count),
             })),
