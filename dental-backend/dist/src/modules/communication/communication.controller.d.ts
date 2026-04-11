@@ -413,6 +413,7 @@ export declare class CommunicationController {
             last_message: string;
             last_at: Date;
             last_direction: string;
+            last_inbound_at: Date | null;
             unread_count: number;
         }[];
         meta: {

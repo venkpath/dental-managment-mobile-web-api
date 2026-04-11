@@ -1777,6 +1777,7 @@ export class CommunicationService {
       last_at: Date;
       last_direction: string;
       unread_count: bigint;
+      last_inbound_at: Date | null;
       total: bigint;
     }>>`
       WITH ranked AS (
@@ -1812,7 +1813,8 @@ export class CommunicationService {
           r.body AS last_body,
           r.created_at AS last_at,
           r.direction AS last_direction,
-          (SELECT COUNT(*) FROM ranked u WHERE u.normalized_phone = r.normalized_phone AND u.direction = 'inbound' AND u.status != 'read') AS unread_count
+          (SELECT COUNT(*) FROM ranked u WHERE u.normalized_phone = r.normalized_phone AND u.direction = 'inbound' AND u.status != 'read') AS unread_count,
+          (SELECT MAX(u.created_at) FROM ranked u WHERE u.normalized_phone = r.normalized_phone AND u.direction = 'inbound') AS last_inbound_at
         FROM ranked r
         LEFT JOIN patients p ON p.id = r.patient_id
         WHERE r.rn = 1
@@ -1835,6 +1837,7 @@ export class CommunicationService {
         last_message: r.last_body,
         last_at: r.last_at,
         last_direction: r.last_direction,
+        last_inbound_at: r.last_inbound_at,
         unread_count: Number(r.unread_count),
       })),
       meta: { total, page, limit, total_pages: Math.ceil(total / limit) },
@@ -2011,6 +2014,14 @@ export class CommunicationService {
     const cfg = settings?.whatsapp_config as Record<string, string> | null;
     if (!cfg?.accessToken || !cfg?.phoneNumberId) return;
 
+    // Access token is stored encrypted in the database — decrypt before use
+    let token: string;
+    try {
+      token = decrypt(cfg.accessToken);
+    } catch {
+      token = cfg.accessToken; // Fallback if token was stored unencrypted (e.g., env var fallback)
+    }
+
     const url = `https://graph.facebook.com/v21.0/${cfg.phoneNumberId}/messages`;
 
     for (const messageId of waMessageIds) {
@@ -2018,7 +2029,7 @@ export class CommunicationService {
         await fetch(url, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${cfg.accessToken}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({

@@ -1360,7 +1360,8 @@ let CommunicationService = class CommunicationService {
           r.body AS last_body,
           r.created_at AS last_at,
           r.direction AS last_direction,
-          (SELECT COUNT(*) FROM ranked u WHERE u.normalized_phone = r.normalized_phone AND u.direction = 'inbound' AND u.status != 'read') AS unread_count
+          (SELECT COUNT(*) FROM ranked u WHERE u.normalized_phone = r.normalized_phone AND u.direction = 'inbound' AND u.status != 'read') AS unread_count,
+          (SELECT MAX(u.created_at) FROM ranked u WHERE u.normalized_phone = r.normalized_phone AND u.direction = 'inbound') AS last_inbound_at
         FROM ranked r
         LEFT JOIN patients p ON p.id = r.patient_id
         WHERE r.rn = 1
@@ -1381,6 +1382,7 @@ let CommunicationService = class CommunicationService {
                 last_message: r.last_body,
                 last_at: r.last_at,
                 last_direction: r.last_direction,
+                last_inbound_at: r.last_inbound_at,
                 unread_count: Number(r.unread_count),
             })),
             meta: { total, page, limit, total_pages: Math.ceil(total / limit) },
@@ -1514,13 +1516,20 @@ let CommunicationService = class CommunicationService {
         const cfg = settings?.whatsapp_config;
         if (!cfg?.accessToken || !cfg?.phoneNumberId)
             return;
+        let token;
+        try {
+            token = (0, encryption_util_js_1.decrypt)(cfg.accessToken);
+        }
+        catch {
+            token = cfg.accessToken;
+        }
         const url = `https://graph.facebook.com/v21.0/${cfg.phoneNumberId}/messages`;
         for (const messageId of waMessageIds) {
             try {
                 await fetch(url, {
                     method: 'POST',
                     headers: {
-                        Authorization: `Bearer ${cfg.accessToken}`,
+                        Authorization: `Bearer ${token}`,
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
