@@ -5,6 +5,63 @@ import { QueryTemplateDto } from './dto/query-template.dto.js';
 export declare class TemplateController {
     private readonly templateService;
     constructor(templateService: TemplateService);
+    getBaseWhatsAppTemplates(): Promise<{
+        id: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string | null;
+        channel: string;
+        category: string;
+        template_name: string;
+        subject: string | null;
+        body: string;
+        variables: import("@prisma/client/runtime/client").JsonValue | null;
+        language: string;
+        is_active: boolean;
+        dlt_template_id: string | null;
+        whatsapp_template_status: string | null;
+    }[]>;
+    cloneBaseTemplate(clinicId: string, id: string): Promise<{
+        cloned: boolean;
+        template: {
+            id: string;
+            created_at: Date;
+            updated_at: Date;
+            clinic_id: string | null;
+            channel: string;
+            category: string;
+            template_name: string;
+            subject: string | null;
+            body: string;
+            variables: import("@prisma/client/runtime/client").JsonValue | null;
+            language: string;
+            is_active: boolean;
+            dlt_template_id: string | null;
+            whatsapp_template_status: string | null;
+        };
+        message: string;
+        submit_hint?: undefined;
+    } | {
+        cloned: boolean;
+        template: {
+            id: string;
+            created_at: Date;
+            updated_at: Date;
+            clinic_id: string | null;
+            channel: string;
+            category: string;
+            template_name: string;
+            subject: string | null;
+            body: string;
+            variables: import("@prisma/client/runtime/client").JsonValue | null;
+            language: string;
+            is_active: boolean;
+            dlt_template_id: string | null;
+            whatsapp_template_status: string | null;
+        };
+        submit_hint: string;
+        message?: undefined;
+    }>;
     create(clinicId: string, dto: CreateTemplateDto): Promise<{
         id: string;
         created_at: Date;

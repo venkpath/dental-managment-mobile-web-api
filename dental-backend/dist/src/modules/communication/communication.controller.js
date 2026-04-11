@@ -223,6 +223,15 @@ let CommunicationController = class CommunicationController {
     async getWhatsAppTemplateStatus(clinicId, templateName) {
         return this.communicationService.getWhatsAppTemplateStatus(clinicId, templateName);
     }
+    async deleteWhatsAppTemplateFromMeta(clinicId, id) {
+        return this.communicationService.deleteWhatsAppTemplateFromMeta(clinicId, id);
+    }
+    async editWhatsAppTemplateOnMeta(clinicId, id, body) {
+        if (!body.body) {
+            throw new common_1.BadRequestException('body is required');
+        }
+        return this.communicationService.editWhatsAppTemplateOnMeta(clinicId, id, body);
+    }
     async completeEmbeddedSignup(clinicId, dto) {
         return this.communicationService.completeWhatsAppEmbeddedSignup(clinicId, dto.code, dto.accessToken, dto.phoneNumberId, dto.wabaId, dto.redirectUri);
     }
@@ -439,6 +448,35 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], CommunicationController.prototype, "getWhatsAppTemplateStatus", null);
+__decorate([
+    (0, common_1.Delete)('whatsapp/templates/:id/meta'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Delete a WhatsApp template from Meta AND local DB',
+        description: 'Permanently removes the template from your Meta WABA and from the local database. This cannot be undone.',
+    }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Template deleted from Meta and local DB' }),
+    openapi.ApiResponse({ status: 200, type: Object }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], CommunicationController.prototype, "deleteWhatsAppTemplateFromMeta", null);
+__decorate([
+    (0, common_1.Patch)('whatsapp/templates/:id/meta'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Edit a REJECTED WhatsApp template on Meta and resubmit for approval',
+        description: 'Meta only allows editing templates that are in REJECTED status. After editing, the template is resubmitted for approval.',
+    }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Template updated on Meta and resubmitted for approval' }),
+    openapi.ApiResponse({ status: 200, type: Object }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], CommunicationController.prototype, "editWhatsAppTemplateOnMeta", null);
 __decorate([
     (0, common_1.Post)('whatsapp/embedded-signup'),
     (0, swagger_1.ApiOperation)({

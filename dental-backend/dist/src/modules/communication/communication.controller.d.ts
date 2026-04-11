@@ -393,6 +393,27 @@ export declare class CommunicationController {
         status: string;
         rejectedReason?: string;
     }>;
+    deleteWhatsAppTemplateFromMeta(clinicId: string, id: string): Promise<{
+        success: boolean;
+        error: string | undefined;
+        local_deleted: boolean;
+    } | {
+        success: boolean;
+        local_deleted: boolean;
+        error?: undefined;
+    }>;
+    editWhatsAppTemplateOnMeta(clinicId: string, id: string, body: {
+        body: string;
+        header?: string;
+        footer?: string;
+        category?: string;
+    }): Promise<{
+        success: boolean;
+        error: string | undefined;
+    } | {
+        success: boolean;
+        error?: undefined;
+    }>;
     completeEmbeddedSignup(clinicId: string, dto: WhatsAppEmbeddedSignupDto): Promise<{
         success: boolean;
         waba_id: string;

@@ -344,6 +344,92 @@ export class WhatsAppProvider implements ChannelProvider {
     }
   }
 
+  /**
+   * Delete a WhatsApp template from Meta.
+   * Meta requires the template name (not ID) for deletion via WABA-level endpoint.
+   */
+  async deleteTemplateFromMeta(clinicId: string, templateName: string): Promise<{ success: boolean; error?: string }> {
+    const ctx = this.clinicConfigs.get(clinicId);
+    if (!ctx) return { success: false, error: 'WhatsApp not configured for this clinic' };
+
+    const { config } = ctx;
+    if (!config.wabaId) return { success: false, error: 'WABA ID is required for template management' };
+
+    try {
+      const response = await fetch(
+        `${META_GRAPH_API}/${config.wabaId}/message_templates?name=${encodeURIComponent(templateName)}`,
+        {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${config.accessToken}` },
+        },
+      );
+
+      const data = await response.json() as Record<string, unknown>;
+
+      if (response.ok && data.success) {
+        return { success: true };
+      }
+
+      const error = data.error as Record<string, unknown> | undefined;
+      return { success: false, error: (error?.message || 'Template deletion failed') as string };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  /**
+   * Edit a WhatsApp template on Meta.
+   * Meta only allows editing templates that are in REJECTED status.
+   */
+  async editTemplateOnMeta(clinicId: string, metaTemplateId: string, templateData: {
+    body: string;
+    header?: string;
+    footer?: string;
+    category?: string;
+  }): Promise<{ success: boolean; error?: string }> {
+    const ctx = this.clinicConfigs.get(clinicId);
+    if (!ctx) return { success: false, error: 'WhatsApp not configured for this clinic' };
+
+    const { config } = ctx;
+
+    try {
+      const components: Array<Record<string, unknown>> = [];
+
+      if (templateData.header) {
+        components.push({ type: 'HEADER', format: 'TEXT', text: templateData.header });
+      }
+      components.push({ type: 'BODY', text: templateData.body });
+      if (templateData.footer) {
+        components.push({ type: 'FOOTER', text: templateData.footer });
+      }
+
+      const payload: Record<string, unknown> = { components };
+      if (templateData.category) {
+        payload.category = templateData.category.toUpperCase();
+      }
+
+      const response = await fetch(`${META_GRAPH_API}/${metaTemplateId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json() as Record<string, unknown>;
+
+      if (response.ok && data.success) {
+        return { success: true };
+      }
+
+      const error = data.error as Record<string, unknown> | undefined;
+      return { success: false, error: (error?.message || 'Template edit failed') as string };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
   // ─── Private Payload Builders (Meta Cloud API format) ───
 
   private buildTextPayload(destination: string, body: string): Record<string, unknown> {

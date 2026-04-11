@@ -2142,24 +2142,33 @@ export class CommunicationService {
 
     // If successful, create/update the DB template record
     if (result.success) {
-      await this.prisma.messageTemplate.upsert({
-        where: {
-          id: result.templateId || '',
-        },
-        create: {
-          clinic_id: clinicId,
-          channel: 'whatsapp',
-          category: templateData.category === 'MARKETING' ? 'campaign' : 'transactional',
-          template_name: templateData.elementName,
-          body: templateData.body,
-          language: templateData.languageCode,
-          whatsapp_template_status: 'submitted',
-          is_active: false,
-        },
-        update: {
-          whatsapp_template_status: 'submitted',
-        },
+      const existing = await this.prisma.messageTemplate.findFirst({
+        where: { clinic_id: clinicId, template_name: templateData.elementName, channel: 'whatsapp', language: templateData.languageCode },
       });
+
+      if (existing) {
+        await this.prisma.messageTemplate.update({
+          where: { id: existing.id },
+          data: {
+            whatsapp_template_status: 'submitted',
+            ...(result.templateId ? { meta_template_id: result.templateId } : {}),
+          } as any,
+        });
+      } else {
+        await this.prisma.messageTemplate.create({
+          data: {
+            clinic_id: clinicId,
+            channel: 'whatsapp',
+            category: templateData.category === 'MARKETING' ? 'campaign' : 'transactional',
+            template_name: templateData.elementName,
+            body: templateData.body,
+            language: templateData.languageCode,
+            whatsapp_template_status: 'submitted',
+            is_active: false,
+            ...(result.templateId ? { meta_template_id: result.templateId } : {}),
+          } as any,
+        });
+      }
     }
 
     return result;
@@ -2249,7 +2258,7 @@ export class CommunicationService {
         : (variables.length > 0 ? variables : undefined);
 
       if (existing) {
-        // Update status and body if changed
+        // Update status, body, and meta_template_id if changed
         // Use 'as any' only for Prisma's JSON field handling — the data is validated/constructed above
         await this.prisma.messageTemplate.update({
           where: { id: existing.id },
@@ -2257,6 +2266,7 @@ export class CommunicationService {
             whatsapp_template_status: whatsappStatus,
             is_active: metaTemplate.status === 'APPROVED',
             body: bodyText || existing.body,
+            meta_template_id: metaTemplate.id,
             ...(variablesJson !== undefined ? { variables: variablesJson as any } : {}),
           } as any,
         });
@@ -2275,6 +2285,7 @@ export class CommunicationService {
             language: metaTemplate.language,
             whatsapp_template_status: whatsappStatus,
             is_active: metaTemplate.status === 'APPROVED',
+            meta_template_id: metaTemplate.id,
           } as any,
         });
         created++;
@@ -2314,6 +2325,93 @@ export class CommunicationService {
     }
 
     return status;
+  }
+
+  /**
+   * Delete a WhatsApp template from Meta AND from the local DB.
+   * Uses template name (required by Meta's API) and optionally removes the local record.
+   */
+  async deleteWhatsAppTemplateFromMeta(clinicId: string, localTemplateId: string) {
+    await this.ensureProvidersConfigured(clinicId);
+
+    // Fetch local template to get its name (required by Meta delete API)
+    const template = await this.prisma.messageTemplate.findFirst({
+      where: { id: localTemplateId, clinic_id: clinicId, channel: 'whatsapp' },
+    });
+
+    if (!template) {
+      throw new Error(`WhatsApp template "${localTemplateId}" not found for this clinic`);
+    }
+
+    const metaResult = await this.whatsAppProvider.deleteTemplateFromMeta(clinicId, (template as any).template_name);
+
+    if (!metaResult.success) {
+      return { success: false, error: metaResult.error, local_deleted: false };
+    }
+
+    // Remove from local DB
+    await this.prisma.messageTemplate.delete({ where: { id: localTemplateId } });
+
+    return { success: true, local_deleted: true };
+  }
+
+  /**
+   * Edit a WhatsApp template on Meta (only works when status = REJECTED).
+   * Also updates the local DB record.
+   */
+  async editWhatsAppTemplateOnMeta(
+    clinicId: string,
+    localTemplateId: string,
+    updateData: {
+      body: string;
+      header?: string;
+      footer?: string;
+      category?: string;
+    },
+  ) {
+    await this.ensureProvidersConfigured(clinicId);
+
+    const template = await this.prisma.messageTemplate.findFirst({
+      where: { id: localTemplateId, clinic_id: clinicId, channel: 'whatsapp' },
+    });
+
+    if (!template) {
+      throw new Error(`WhatsApp template "${localTemplateId}" not found for this clinic`);
+    }
+
+    const metaTemplateId = (template as any).meta_template_id;
+    if (!metaTemplateId) {
+      return {
+        success: false,
+        error: 'No Meta template ID stored for this template. Run a sync first.',
+      };
+    }
+
+    if ((template as any).whatsapp_template_status !== 'rejected') {
+      return {
+        success: false,
+        error: 'Only REJECTED templates can be edited on Meta. Current status: ' + (template as any).whatsapp_template_status,
+      };
+    }
+
+    const metaResult = await this.whatsAppProvider.editTemplateOnMeta(clinicId, metaTemplateId, updateData);
+
+    if (!metaResult.success) {
+      return { success: false, error: metaResult.error };
+    }
+
+    // Update local DB with new body and reset status to submitted
+    await this.prisma.messageTemplate.update({
+      where: { id: localTemplateId },
+      data: {
+        body: updateData.body,
+        whatsapp_template_status: 'submitted',
+        is_active: false,
+        ...(updateData.header ? { subject: updateData.header } : {}),
+      } as any,
+    });
+
+    return { success: true };
   }
 
   renderRichEmailHtml(body: string, subject?: string, options?: {

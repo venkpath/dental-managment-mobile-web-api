@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -336,6 +337,36 @@ export class CommunicationController {
     @Param('templateName') templateName: string,
   ) {
     return this.communicationService.getWhatsAppTemplateStatus(clinicId, templateName);
+  }
+
+  @Delete('whatsapp/templates/:id/meta')
+  @ApiOperation({
+    summary: 'Delete a WhatsApp template from Meta AND local DB',
+    description: 'Permanently removes the template from your Meta WABA and from the local database. This cannot be undone.',
+  })
+  @ApiOkResponse({ description: 'Template deleted from Meta and local DB' })
+  async deleteWhatsAppTemplateFromMeta(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.communicationService.deleteWhatsAppTemplateFromMeta(clinicId, id);
+  }
+
+  @Patch('whatsapp/templates/:id/meta')
+  @ApiOperation({
+    summary: 'Edit a REJECTED WhatsApp template on Meta and resubmit for approval',
+    description: 'Meta only allows editing templates that are in REJECTED status. After editing, the template is resubmitted for approval.',
+  })
+  @ApiOkResponse({ description: 'Template updated on Meta and resubmitted for approval' })
+  async editWhatsAppTemplateOnMeta(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { body: string; header?: string; footer?: string; category?: string },
+  ) {
+    if (!body.body) {
+      throw new BadRequestException('body is required');
+    }
+    return this.communicationService.editWhatsAppTemplateOnMeta(clinicId, id, body);
   }
 
   // ─── WhatsApp Embedded Signup (Connect / Disconnect) ───

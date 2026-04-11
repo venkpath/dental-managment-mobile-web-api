@@ -27,6 +27,12 @@ let TemplateController = class TemplateController {
     constructor(templateService) {
         this.templateService = templateService;
     }
+    async getBaseWhatsAppTemplates() {
+        return this.templateService.getBaseWhatsAppTemplates();
+    }
+    async cloneBaseTemplate(clinicId, id) {
+        return this.templateService.cloneBaseTemplateForClinic(clinicId, id);
+    }
     async create(clinicId, dto) {
         return this.templateService.create(clinicId, dto);
     }
@@ -44,6 +50,32 @@ let TemplateController = class TemplateController {
     }
 };
 exports.TemplateController = TemplateController;
+__decorate([
+    (0, common_1.Get)('whatsapp/base'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'List Smart Dental Desk base WhatsApp templates',
+        description: 'Pre-approved base templates you can clone and submit to your WABA. Rejection rate is very low since these are already approved for Smart Dental Desk.',
+    }),
+    (0, swagger_1.ApiOkResponse)({ description: 'List of base WhatsApp templates' }),
+    openapi.ApiResponse({ status: 200 }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], TemplateController.prototype, "getBaseWhatsAppTemplates", null);
+__decorate([
+    (0, common_1.Post)('whatsapp/base/:id/clone'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Clone a base WhatsApp template into your clinic',
+        description: 'Creates a clinic-owned copy of a base template. After cloning, submit it to Meta for approval via POST /communication/whatsapp/templates/submit.',
+    }),
+    (0, swagger_1.ApiCreatedResponse)({ description: 'Template cloned (or already exists)' }),
+    openapi.ApiResponse({ status: 201, type: Object }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], TemplateController.prototype, "cloneBaseTemplate", null);
 __decorate([
     (0, common_1.Post)(),
     (0, swagger_1.ApiOperation)({ summary: 'Create a message template' }),

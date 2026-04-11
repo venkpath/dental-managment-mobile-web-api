@@ -76,6 +76,63 @@ export declare class TemplateService {
     remove(clinicId: string, id: string): Promise<{
         deleted: boolean;
     }>;
+    getBaseWhatsAppTemplates(): Promise<{
+        id: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string | null;
+        channel: string;
+        category: string;
+        template_name: string;
+        subject: string | null;
+        body: string;
+        variables: Prisma.JsonValue | null;
+        language: string;
+        is_active: boolean;
+        dlt_template_id: string | null;
+        whatsapp_template_status: string | null;
+    }[]>;
+    cloneBaseTemplateForClinic(clinicId: string, baseTemplateId: string): Promise<{
+        cloned: boolean;
+        template: {
+            id: string;
+            created_at: Date;
+            updated_at: Date;
+            clinic_id: string | null;
+            channel: string;
+            category: string;
+            template_name: string;
+            subject: string | null;
+            body: string;
+            variables: Prisma.JsonValue | null;
+            language: string;
+            is_active: boolean;
+            dlt_template_id: string | null;
+            whatsapp_template_status: string | null;
+        };
+        message: string;
+        submit_hint?: undefined;
+    } | {
+        cloned: boolean;
+        template: {
+            id: string;
+            created_at: Date;
+            updated_at: Date;
+            clinic_id: string | null;
+            channel: string;
+            category: string;
+            template_name: string;
+            subject: string | null;
+            body: string;
+            variables: Prisma.JsonValue | null;
+            language: string;
+            is_active: boolean;
+            dlt_template_id: string | null;
+            whatsapp_template_status: string | null;
+        };
+        submit_hint: string;
+        message?: undefined;
+    }>;
     findByName(clinicId: string, templateName: string, channel: string, language?: string): Promise<{
         id: string;
         created_at: Date;

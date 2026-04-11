@@ -500,6 +500,27 @@ export declare class CommunicationService {
         status: string;
         rejectedReason?: string;
     }>;
+    deleteWhatsAppTemplateFromMeta(clinicId: string, localTemplateId: string): Promise<{
+        success: boolean;
+        error: string | undefined;
+        local_deleted: boolean;
+    } | {
+        success: boolean;
+        local_deleted: boolean;
+        error?: undefined;
+    }>;
+    editWhatsAppTemplateOnMeta(clinicId: string, localTemplateId: string, updateData: {
+        body: string;
+        header?: string;
+        footer?: string;
+        category?: string;
+    }): Promise<{
+        success: boolean;
+        error: string | undefined;
+    } | {
+        success: boolean;
+        error?: undefined;
+    }>;
     renderRichEmailHtml(body: string, subject?: string, options?: {
         clinicName?: string;
         clinicLogo?: string;

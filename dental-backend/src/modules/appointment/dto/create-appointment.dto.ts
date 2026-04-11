@@ -1,4 +1,4 @@
-import { IsString, IsUUID, IsDateString, IsOptional, Matches } from 'class-validator';
+import { IsString, IsUUID, IsDateString, IsOptional, IsBoolean, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum AppointmentStatus {
@@ -39,4 +39,13 @@ export class CreateAppointmentDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'When false, this appointment cannot be rescheduled (date/time changes are blocked)',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  allow_reschedule?: boolean;
 }

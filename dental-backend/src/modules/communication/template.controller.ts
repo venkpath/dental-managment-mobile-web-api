@@ -25,6 +25,29 @@ import { QueryTemplateDto } from './dto/query-template.dto.js';
 export class TemplateController {
   constructor(private readonly templateService: TemplateService) {}
 
+  @Get('whatsapp/base')
+  @ApiOperation({
+    summary: 'List Smart Dental Desk base WhatsApp templates',
+    description: 'Pre-approved base templates you can clone and submit to your WABA. Rejection rate is very low since these are already approved for Smart Dental Desk.',
+  })
+  @ApiOkResponse({ description: 'List of base WhatsApp templates' })
+  async getBaseWhatsAppTemplates() {
+    return this.templateService.getBaseWhatsAppTemplates();
+  }
+
+  @Post('whatsapp/base/:id/clone')
+  @ApiOperation({
+    summary: 'Clone a base WhatsApp template into your clinic',
+    description: 'Creates a clinic-owned copy of a base template. After cloning, submit it to Meta for approval via POST /communication/whatsapp/templates/submit.',
+  })
+  @ApiCreatedResponse({ description: 'Template cloned (or already exists)' })
+  async cloneBaseTemplate(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.templateService.cloneBaseTemplateForClinic(clinicId, id);
+  }
+
   @Post()
   @ApiOperation({ summary: 'Create a message template' })
   @ApiCreatedResponse({ description: 'Template created' })

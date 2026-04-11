@@ -12,4 +12,5 @@ export declare class CreateAppointmentDto {
     start_time: string;
     end_time: string;
     notes?: string;
+    allow_reschedule?: boolean;
 }

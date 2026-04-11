@@ -247,6 +247,7 @@ model Appointment {
   end_time            String   @db.VarChar(5)
   status              String   @default("scheduled") @db.VarChar(20)
   notes               String?  @db.Text
+  allow_reschedule    Boolean  @default(true) // when false, date/time changes are blocked
   recurrence_group_id String?  @db.Uuid
   created_at          DateTime @default(now())
   updated_at          DateTime @updatedAt
@@ -614,6 +615,7 @@ model MessageTemplate {
   is_active                Boolean  @default(true)
   dlt_template_id          String?  @db.VarChar(100) // SMS DLT compliance
   whatsapp_template_status String?  @db.VarChar(20) // draft | submitted | approved | rejected
+  meta_template_id         String?  @db.VarChar(100) // Meta Graph API template ID (for delete/edit)
   created_at               DateTime @default(now())
   updated_at               DateTime @updatedAt
 

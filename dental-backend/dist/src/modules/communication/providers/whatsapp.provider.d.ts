@@ -62,6 +62,19 @@ export declare class WhatsAppProvider implements ChannelProvider {
         status: string;
         rejectedReason?: string;
     }>;
+    deleteTemplateFromMeta(clinicId: string, templateName: string): Promise<{
+        success: boolean;
+        error?: string;
+    }>;
+    editTemplateOnMeta(clinicId: string, metaTemplateId: string, templateData: {
+        body: string;
+        header?: string;
+        footer?: string;
+        category?: string;
+    }): Promise<{
+        success: boolean;
+        error?: string;
+    }>;
     private buildTextPayload;
     private buildTemplatePayload;
     private buildInteractivePayload;

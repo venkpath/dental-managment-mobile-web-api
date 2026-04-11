@@ -121,6 +121,62 @@ export class TemplateService {
   }
 
   /**
+   * List all Smart Dental Desk base WhatsApp templates (system templates, clinic_id = null, channel = whatsapp).
+   * These are pre-approved templates that clinics can submit to their own WABA.
+   */
+  async getBaseWhatsAppTemplates() {
+    return this.prisma.messageTemplate.findMany({
+      where: { clinic_id: null, channel: 'whatsapp', is_active: true },
+      orderBy: { template_name: 'asc' },
+    });
+  }
+
+  /**
+   * Clone a base WhatsApp template and create a clinic-owned copy,
+   * returning data ready to submit to Meta for approval.
+   * Does NOT submit to Meta — the controller calls submitWhatsAppTemplate separately.
+   */
+  async cloneBaseTemplateForClinic(clinicId: string, baseTemplateId: string) {
+    const base = await this.prisma.messageTemplate.findFirst({
+      where: { id: baseTemplateId, clinic_id: null, channel: 'whatsapp' },
+    });
+
+    if (!base) {
+      throw new NotFoundException(`Base WhatsApp template "${baseTemplateId}" not found`);
+    }
+
+    // Check if clinic already has this template
+    const existing = await this.prisma.messageTemplate.findFirst({
+      where: { clinic_id: clinicId, template_name: base.template_name, channel: 'whatsapp', language: base.language },
+    });
+
+    if (existing) {
+      return { cloned: false, template: existing, message: 'You already have this template. Use the existing one.' };
+    }
+
+    const cloned = await this.prisma.messageTemplate.create({
+      data: {
+        clinic_id: clinicId,
+        channel: 'whatsapp',
+        category: base.category,
+        template_name: base.template_name,
+        subject: base.subject,
+        body: base.body,
+        variables: base.variables ?? undefined,
+        language: base.language,
+        is_active: false,
+        whatsapp_template_status: 'draft',
+      } as any,
+    });
+
+    return {
+      cloned: true,
+      template: cloned,
+      submit_hint: `Submit this template to Meta using POST /communication/whatsapp/templates/submit with elementName="${base.template_name}"`,
+    };
+  }
+
+  /**
    * Find a template by name, channel, and language — with fallback to 'en'
    */
   async findByName(

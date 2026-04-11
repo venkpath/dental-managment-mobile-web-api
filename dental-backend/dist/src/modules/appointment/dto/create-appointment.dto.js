@@ -28,8 +28,9 @@ class CreateAppointmentDto {
     start_time;
     end_time;
     notes;
+    allow_reschedule;
     static _OPENAPI_METADATA_FACTORY() {
-        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: true, type: () => String, format: "uuid" }, appointment_date: { required: true, type: () => String }, start_time: { required: true, type: () => String, pattern: "/^([01]\\d|2[0-3]):[0-5]\\d$/" }, end_time: { required: true, type: () => String, pattern: "/^([01]\\d|2[0-3]):[0-5]\\d$/" }, notes: { required: false, type: () => String } };
+        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: true, type: () => String, format: "uuid" }, appointment_date: { required: true, type: () => String }, start_time: { required: true, type: () => String, pattern: "/^([01]\\d|2[0-3]):[0-5]\\d$/" }, end_time: { required: true, type: () => String, pattern: "/^([01]\\d|2[0-3]):[0-5]\\d$/" }, notes: { required: false, type: () => String }, allow_reschedule: { required: false, type: () => Boolean } };
     }
 }
 exports.CreateAppointmentDto = CreateAppointmentDto;
@@ -71,4 +72,14 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateAppointmentDto.prototype, "notes", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: true,
+        description: 'When false, this appointment cannot be rescheduled (date/time changes are blocked)',
+        default: true,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CreateAppointmentDto.prototype, "allow_reschedule", void 0);
 //# sourceMappingURL=create-appointment.dto.js.map

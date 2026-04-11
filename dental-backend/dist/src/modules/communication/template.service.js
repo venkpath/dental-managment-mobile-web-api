@@ -104,6 +104,45 @@ let TemplateService = class TemplateService {
         await this.prisma.messageTemplate.delete({ where: { id } });
         return { deleted: true };
     }
+    async getBaseWhatsAppTemplates() {
+        return this.prisma.messageTemplate.findMany({
+            where: { clinic_id: null, channel: 'whatsapp', is_active: true },
+            orderBy: { template_name: 'asc' },
+        });
+    }
+    async cloneBaseTemplateForClinic(clinicId, baseTemplateId) {
+        const base = await this.prisma.messageTemplate.findFirst({
+            where: { id: baseTemplateId, clinic_id: null, channel: 'whatsapp' },
+        });
+        if (!base) {
+            throw new common_1.NotFoundException(`Base WhatsApp template "${baseTemplateId}" not found`);
+        }
+        const existing = await this.prisma.messageTemplate.findFirst({
+            where: { clinic_id: clinicId, template_name: base.template_name, channel: 'whatsapp', language: base.language },
+        });
+        if (existing) {
+            return { cloned: false, template: existing, message: 'You already have this template. Use the existing one.' };
+        }
+        const cloned = await this.prisma.messageTemplate.create({
+            data: {
+                clinic_id: clinicId,
+                channel: 'whatsapp',
+                category: base.category,
+                template_name: base.template_name,
+                subject: base.subject,
+                body: base.body,
+                variables: base.variables ?? undefined,
+                language: base.language,
+                is_active: false,
+                whatsapp_template_status: 'draft',
+            },
+        });
+        return {
+            cloned: true,
+            template: cloned,
+            submit_hint: `Submit this template to Meta using POST /communication/whatsapp/templates/submit with elementName="${base.template_name}"`,
+        };
+    }
     async findByName(clinicId, templateName, channel, language = 'en') {
         let template = await this.prisma.messageTemplate.findFirst({
             where: {

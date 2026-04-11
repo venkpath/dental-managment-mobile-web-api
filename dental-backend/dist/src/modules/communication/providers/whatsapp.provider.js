@@ -229,6 +229,66 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             return { status: 'error' };
         }
     }
+    async deleteTemplateFromMeta(clinicId, templateName) {
+        const ctx = this.clinicConfigs.get(clinicId);
+        if (!ctx)
+            return { success: false, error: 'WhatsApp not configured for this clinic' };
+        const { config } = ctx;
+        if (!config.wabaId)
+            return { success: false, error: 'WABA ID is required for template management' };
+        try {
+            const response = await fetch(`${META_GRAPH_API}/${config.wabaId}/message_templates?name=${encodeURIComponent(templateName)}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${config.accessToken}` },
+            });
+            const data = await response.json();
+            if (response.ok && data.success) {
+                return { success: true };
+            }
+            const error = data.error;
+            return { success: false, error: (error?.message || 'Template deletion failed') };
+        }
+        catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+    }
+    async editTemplateOnMeta(clinicId, metaTemplateId, templateData) {
+        const ctx = this.clinicConfigs.get(clinicId);
+        if (!ctx)
+            return { success: false, error: 'WhatsApp not configured for this clinic' };
+        const { config } = ctx;
+        try {
+            const components = [];
+            if (templateData.header) {
+                components.push({ type: 'HEADER', format: 'TEXT', text: templateData.header });
+            }
+            components.push({ type: 'BODY', text: templateData.body });
+            if (templateData.footer) {
+                components.push({ type: 'FOOTER', text: templateData.footer });
+            }
+            const payload = { components };
+            if (templateData.category) {
+                payload.category = templateData.category.toUpperCase();
+            }
+            const response = await fetch(`${META_GRAPH_API}/${metaTemplateId}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${config.accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+            const data = await response.json();
+            if (response.ok && data.success) {
+                return { success: true };
+            }
+            const error = data.error;
+            return { success: false, error: (error?.message || 'Template edit failed') };
+        }
+        catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+    }
     buildTextPayload(destination, body) {
         return {
             messaging_product: 'whatsapp',
