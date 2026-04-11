@@ -12,11 +12,13 @@ const invoice_controller_js_1 = require("./invoice.controller.js");
 const invoice_service_js_1 = require("./invoice.service.js");
 const invoice_pdf_service_js_1 = require("./invoice-pdf.service.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
+const automation_module_js_1 = require("../automation/automation.module.js");
 let InvoiceModule = class InvoiceModule {
 };
 exports.InvoiceModule = InvoiceModule;
 exports.InvoiceModule = InvoiceModule = __decorate([
     (0, common_1.Module)({
+        imports: [automation_module_js_1.AutomationModule],
         controllers: [invoice_controller_js_1.InvoiceController, invoice_controller_js_1.InvoicePublicController],
         providers: [invoice_service_js_1.InvoiceService, invoice_pdf_service_js_1.InvoicePdfService, s3_service_js_1.S3Service],
         exports: [invoice_service_js_1.InvoiceService],

@@ -247,7 +247,6 @@ model Appointment {
   end_time            String   @db.VarChar(5)
   status              String   @default("scheduled") @db.VarChar(20)
   notes               String?  @db.Text
-  allow_reschedule    Boolean  @default(true) // when false, date/time changes are blocked
   recurrence_group_id String?  @db.Uuid
   created_at          DateTime @default(now())
   updated_at          DateTime @updatedAt

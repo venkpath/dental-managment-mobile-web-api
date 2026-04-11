@@ -618,7 +618,7 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                 if (!['active', 'trial'].includes(invoice.clinic.subscription_status))
                     continue;
                 try {
-                    const rule = await this.automationService.getRuleConfig(invoice.clinic_id, 'payment_reminder');
+                    const rule = await this.automationService.getRuleConfig(invoice.clinic_id, 'payment_overdue');
                     if (!rule?.is_enabled)
                         continue;
                     const channel = await this.resolveChannel(invoice.clinic_id, invoice.patient_id, rule.channel);
@@ -638,7 +638,7 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                             clinic_name: invoice.clinic.name,
                             invoice_number: invoice.invoice_number,
                         },
-                        metadata: { automation: 'overdue_payment_notification', installment_id: item.id, invoice_id: invoice.id },
+                        metadata: { automation: 'payment_overdue', installment_id: item.id, invoice_id: invoice.id },
                     });
                     totalSent++;
                 }

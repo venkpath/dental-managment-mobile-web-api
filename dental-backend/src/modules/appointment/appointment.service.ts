@@ -257,12 +257,6 @@ export class AppointmentService {
   async update(clinicId: string, id: string, dto: UpdateAppointmentDto): Promise<Appointment> {
     const existing = await this.findOne(clinicId, id);
 
-    // Block rescheduling if the appointment has allow_reschedule set to false
-    const isAttemptingReschedule = !!(dto.appointment_date || dto.start_time || dto.end_time);
-    if (isAttemptingReschedule && !(existing as any).allow_reschedule) {
-      throw new BadRequestException('This appointment cannot be rescheduled');
-    }
-
     if (dto.dentist_id) {
       const dentist = await this.prisma.user.findUnique({ where: { id: dto.dentist_id } });
       if (!dentist || dentist.clinic_id !== clinicId) {

@@ -1,5 +1,6 @@
 import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
+import { AutomationService } from '../automation/automation.service.js';
 import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
 import { Invoice, Payment, Prisma } from '@prisma/client';
 import { PaginatedResult } from '../../common/interfaces/paginated-result.interface.js';
@@ -8,10 +9,11 @@ import { S3Service } from '../../common/services/s3.service.js';
 export declare class InvoiceService {
     private readonly prisma;
     private readonly communicationService;
+    private readonly automationService;
     private readonly invoicePdfService;
     private readonly s3Service;
     private readonly logger;
-    constructor(prisma: PrismaService, communicationService: CommunicationService, invoicePdfService: InvoicePdfService, s3Service: S3Service);
+    constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService, invoicePdfService: InvoicePdfService, s3Service: S3Service);
     create(clinicId: string, dto: CreateInvoiceDto): Promise<Invoice>;
     findAll(clinicId: string, query: QueryInvoiceDto): Promise<PaginatedResult<Invoice>>;
     findOne(clinicId: string, id: string): Promise<Invoice>;

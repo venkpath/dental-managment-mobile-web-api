@@ -65,5 +65,8 @@ exports.AUTOMATION_RULE_TYPES = [
     'appointment_confirmation',
     'appointment_cancellation',
     'appointment_rescheduled',
+    'payment_confirmation',
+    'invoice_ready',
+    'payment_overdue',
 ];
 //# sourceMappingURL=upsert-automation-rule.dto.js.map

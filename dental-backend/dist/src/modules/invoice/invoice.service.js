@@ -14,6 +14,7 @@ exports.InvoiceService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const communication_service_js_1 = require("../communication/communication.service.js");
+const automation_service_js_1 = require("../automation/automation.service.js");
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
 const client_1 = require("@prisma/client");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
@@ -30,12 +31,14 @@ const INVOICE_INCLUDE = {
 let InvoiceService = InvoiceService_1 = class InvoiceService {
     prisma;
     communicationService;
+    automationService;
     invoicePdfService;
     s3Service;
     logger = new common_1.Logger(InvoiceService_1.name);
-    constructor(prisma, communicationService, invoicePdfService, s3Service) {
+    constructor(prisma, communicationService, automationService, invoicePdfService, s3Service) {
         this.prisma = prisma;
         this.communicationService = communicationService;
+        this.automationService = automationService;
         this.invoicePdfService = invoicePdfService;
         this.s3Service = s3Service;
     }
@@ -313,7 +316,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
     async sendWhatsApp(clinicId, invoiceId) {
         const invoice = await this.findOne(clinicId, invoiceId);
         await this.getPdfUrl(clinicId, invoiceId);
-        const [patient, clinic] = await Promise.all([
+        const [patient, clinic, rule] = await Promise.all([
             this.prisma.patient.findUnique({
                 where: { id: invoice.patient_id },
                 select: { first_name: true, last_name: true, phone: true },
@@ -322,19 +325,27 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                 where: { id: clinicId },
                 select: { name: true, phone: true },
             }),
+            this.automationService.getRuleConfig(clinicId, 'invoice_ready'),
         ]);
         if (!patient)
             throw new Error('Patient not found');
+        if (rule && !rule.is_enabled) {
+            return { message: 'Invoice WhatsApp notification is disabled' };
+        }
         const patientName = `${patient.first_name} ${patient.last_name}`;
         const netAmount = Number(invoice.net_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 });
         const clinicName = clinic?.name ?? 'your clinic';
         const clinicPhone = clinic?.phone ?? '';
         const redirectUrl = `https://smartdentaldesk.com/api/v1/public/invoice-redirect/${invoiceId}?clinic=${clinicId}`;
+        const channel = rule?.channel ?? 'whatsapp';
         await this.communicationService.sendMessage(clinicId, {
             patient_id: invoice.patient_id,
-            channel: 'whatsapp',
-            category: 'transactional',
-            body: `Hello ${patientName},\n\nYour payment receipt has been generated.\n\nClinic: ${clinicName}\nInvoice No: ${invoice.invoice_number}\nAmount: ₹ ${netAmount}\n\nView & Download Invoice:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
+            channel: channel,
+            category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
+            template_id: rule?.template_id ?? undefined,
+            body: rule?.template_id
+                ? undefined
+                : `Hello ${patientName},\n\nYour payment receipt has been generated.\n\nClinic: ${clinicName}\nInvoice No: ${invoice.invoice_number}\nAmount: ₹ ${netAmount}\n\nView & Download Invoice:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
             variables: {
                 '1': patientName,
                 '2': clinicName,
@@ -343,11 +354,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                 '5': clinicPhone,
                 '6': redirectUrl,
             },
-            metadata: {
-                automation: 'invoice_pdf',
-                invoice_id: invoiceId,
-                whatsapp_template_name: 'dental_invoice_ready',
-            },
+            metadata: { automation: 'invoice_ready', invoice_id: invoiceId },
         });
         return { message: 'Invoice sent via WhatsApp' };
     }
@@ -370,27 +377,45 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         return `${prefix}-${seq.toString().padStart(4, '0')}`;
     }
     async sendPaymentConfirmation(clinicId, patientId, invoiceNumber, amount) {
-        const [patient, clinic, settings] = await Promise.all([
+        const [patient, clinic, rule] = await Promise.all([
             this.prisma.patient.findUnique({ where: { id: patientId }, select: { first_name: true, last_name: true } }),
             this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true } }),
-            this.prisma.clinicCommunicationSettings.findUnique({ where: { clinic_id: clinicId } }),
+            this.automationService.getRuleConfig(clinicId, 'payment_confirmation'),
         ]);
-        if (!patient || !settings)
+        if (!patient)
             return;
-        const channel = settings.enable_whatsapp ? send_message_dto_js_1.MessageChannel.WHATSAPP : settings.enable_sms ? send_message_dto_js_1.MessageChannel.SMS : settings.enable_email ? send_message_dto_js_1.MessageChannel.EMAIL : null;
+        if (rule && !rule.is_enabled)
+            return;
+        let channel = null;
+        if (rule?.channel && rule.channel !== 'preferred') {
+            channel = rule.channel;
+        }
+        else {
+            const settings = await this.prisma.clinicCommunicationSettings.findUnique({ where: { clinic_id: clinicId } });
+            channel = settings?.enable_whatsapp
+                ? send_message_dto_js_1.MessageChannel.WHATSAPP
+                : settings?.enable_sms
+                    ? send_message_dto_js_1.MessageChannel.SMS
+                    : settings?.enable_email
+                        ? send_message_dto_js_1.MessageChannel.EMAIL
+                        : null;
+        }
         if (!channel)
             return;
         await this.communicationService.sendMessage(clinicId, {
             patient_id: patientId,
             channel,
             category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
-            body: `Hi ${patient.first_name}, your payment of ₹${amount} for invoice ${invoiceNumber} has been received. Thank you! — ${clinic?.name || 'Your Dental Clinic'}`,
+            template_id: rule?.template_id ?? undefined,
+            body: rule?.template_id
+                ? undefined
+                : `Hi ${patient.first_name}, your payment of ₹${amount} for invoice ${invoiceNumber} has been received. Thank you! — ${clinic?.name || 'Your Dental Clinic'}`,
             variables: {
-                patient_name: `${patient.first_name} ${patient.last_name}`,
-                patient_first_name: patient.first_name,
-                amount: amount.toString(),
-                invoice_number: invoiceNumber,
-                clinic_name: clinic?.name || '',
+                '1': `${patient.first_name} ${patient.last_name}`,
+                '2': patient.first_name,
+                '3': amount.toString(),
+                '4': invoiceNumber,
+                '5': clinic?.name || '',
             },
             metadata: { automation: 'payment_confirmation', invoice_id: invoiceNumber },
         });
@@ -401,6 +426,7 @@ exports.InvoiceService = InvoiceService = InvoiceService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         communication_service_js_1.CommunicationService,
+        automation_service_js_1.AutomationService,
         invoice_pdf_service_js_1.InvoicePdfService,
         s3_service_js_1.S3Service])
 ], InvoiceService);

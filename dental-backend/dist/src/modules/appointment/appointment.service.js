@@ -208,10 +208,6 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
     }
     async update(clinicId, id, dto) {
         const existing = await this.findOne(clinicId, id);
-        const isAttemptingReschedule = !!(dto.appointment_date || dto.start_time || dto.end_time);
-        if (isAttemptingReschedule && !existing.allow_reschedule) {
-            throw new common_1.BadRequestException('This appointment cannot be rescheduled');
-        }
         if (dto.dentist_id) {
             const dentist = await this.prisma.user.findUnique({ where: { id: dto.dentist_id } });
             if (!dentist || dentist.clinic_id !== clinicId) {
