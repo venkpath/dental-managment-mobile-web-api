@@ -161,7 +161,7 @@ __decorate([
     (0, throttler_1.Throttle)({ default: { ttl: 60000, limit: 3 } }),
     (0, common_1.Post)('forgot-password'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
-    (0, swagger_1.ApiOperation)({ summary: 'Request a password reset email' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Request a password reset email. clinic_id is optional — if omitted, sends to all accounts matching the email.' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Reset email sent (if account exists)' }),
     openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
     __param(0, (0, common_1.Body)()),

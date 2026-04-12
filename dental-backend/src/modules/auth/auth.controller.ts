@@ -97,9 +97,9 @@ export class AuthController {
   @Throttle({ default: { ttl: 60000, limit: 3 } })
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Request a password reset email' })
+  @ApiOperation({ summary: 'Request a password reset email. clinic_id is optional — if omitted, sends to all accounts matching the email.' })
   @ApiResponse({ status: 200, description: 'Reset email sent (if account exists)' })
-  async forgotPassword(@Body() body: { email: string; clinic_id: string }) {
+  async forgotPassword(@Body() body: { email: string; clinic_id?: string }) {
     return this.authService.requestPasswordReset(body.email, body.clinic_id);
   }
 

@@ -83,9 +83,10 @@ export declare class AuthService {
         message: string;
     }>;
     private sendEmailDirect;
-    requestPasswordReset(email: string, clinicId: string): Promise<{
+    requestPasswordReset(email: string, clinicId?: string): Promise<{
         message: string;
     }>;
+    private sendPasswordResetEmailDirect;
     resetPassword(token: string, newPassword: string): Promise<{
         message: string;
     }>;

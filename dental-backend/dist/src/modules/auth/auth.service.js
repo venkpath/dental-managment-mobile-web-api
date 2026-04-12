@@ -327,53 +327,93 @@ let AuthService = AuthService_1 = class AuthService {
         });
     }
     async requestPasswordReset(email, clinicId) {
-        const user = await this.userService.findByEmail(email, clinicId);
-        if (!user) {
-            return { message: 'If an account exists with this email, a password reset link has been sent.' };
-        }
-        const token = await this.jwtService.signAsync({ sub: user.id, type: 'password_reset', email: user.email }, { expiresIn: '1h' });
         const frontendUrl = this.configService.get('app.frontendUrl') || 'http://localhost:3001';
-        const resetLink = `${frontendUrl}/reset-password?token=${token}`;
-        const template = await this.prisma.messageTemplate.findFirst({
-            where: {
-                template_name: 'Password Reset',
-                channel: { in: ['email', 'all'] },
-                is_active: true,
-                OR: [{ clinic_id: clinicId }, { clinic_id: null }],
-            },
-            orderBy: { clinic_id: 'desc' },
-        });
-        if (template) {
+        const SAFE_RESPONSE = { message: 'If an account exists with this email, a password reset link has been sent.' };
+        const users = clinicId
+            ? await (async () => {
+                const u = await this.userService.findByEmail(email, clinicId);
+                return u ? [u] : [];
+            })()
+            : await this.prisma.user.findMany({
+                where: { email, status: 'active' },
+            });
+        if (users.length === 0) {
+            return SAFE_RESPONSE;
+        }
+        for (const user of users) {
+            const cid = user.clinic_id;
+            const token = await this.jwtService.signAsync({ sub: user.id, type: 'password_reset', email: user.email }, { expiresIn: '1h' });
+            const resetLink = `${frontendUrl}/reset-password?token=${token}`;
+            const template = await this.prisma.messageTemplate.findFirst({
+                where: {
+                    template_name: 'Password Reset',
+                    channel: { in: ['email', 'all'] },
+                    is_active: true,
+                    OR: [{ clinic_id: cid }, { clinic_id: null }],
+                },
+                orderBy: { clinic_id: 'desc' },
+            });
+            const clinicName = (await this.prisma.clinic.findUnique({ where: { id: cid }, select: { name: true } }))?.name ||
+                'Smart Dental Desk';
             try {
-                const patient = await this.prisma.patient.findFirst({
-                    where: { clinic_id: clinicId, email: user.email },
-                });
-                if (patient) {
-                    await this.communicationService.sendMessage(clinicId, {
-                        patient_id: patient.id,
-                        channel: send_message_dto_js_1.MessageChannel.EMAIL,
-                        category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
-                        template_id: template.id,
-                        variables: {
-                            user_name: user.name,
-                            reset_link: resetLink,
-                            clinic_name: (await this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true } }))?.name || 'Smart Dental Desk',
-                        },
+                if (template) {
+                    const patient = await this.prisma.patient.findFirst({
+                        where: { clinic_id: cid, email: user.email },
                     });
+                    if (patient) {
+                        await this.communicationService.sendMessage(cid, {
+                            patient_id: patient.id,
+                            channel: send_message_dto_js_1.MessageChannel.EMAIL,
+                            category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
+                            template_id: template.id,
+                            variables: { user_name: user.name, reset_link: resetLink, clinic_name: clinicName },
+                        });
+                    }
+                    else {
+                        await this.sendPasswordResetEmailDirect(cid, user.email, user.name, clinicName, resetLink);
+                    }
+                }
+                else {
+                    await this.sendPasswordResetEmailDirect(cid, user.email, user.name, clinicName, resetLink);
                 }
             }
             catch (err) {
-                this.logger.warn(`Failed to send password reset email: ${err}`);
+                this.logger.warn(`Failed to send password reset email for user ${user.id}: ${err}`);
+            }
+            await this.auditLogService
+                .log({
+                clinic_id: cid,
+                user_id: user.id,
+                action: 'password_reset_requested',
+                entity: 'auth',
+                entity_id: user.id,
+            })
+                .catch(() => { });
+        }
+        return SAFE_RESPONSE;
+    }
+    async sendPasswordResetEmailDirect(clinicId, to, name, clinicName, resetLink) {
+        if (!this.emailProvider.isConfigured(clinicId)) {
+            const host = this.configService.get('app.smtp.host');
+            const user = this.configService.get('app.smtp.user');
+            if (host && user) {
+                this.emailProvider.configure(clinicId, {
+                    host,
+                    port: this.configService.get('app.smtp.port') || 587,
+                    user,
+                    pass: this.configService.get('app.smtp.pass') || '',
+                    from: this.configService.get('app.smtp.from') || user,
+                    secure: this.configService.get('app.smtp.secure') || false,
+                }, 'smtp-env');
             }
         }
-        await this.auditLogService.log({
-            clinic_id: clinicId,
-            user_id: user.id,
-            action: 'password_reset_requested',
-            entity: 'auth',
-            entity_id: user.id,
-        }).catch(() => { });
-        return { message: 'If an account exists with this email, a password reset link has been sent.' };
+        await this.emailProvider.send({
+            to,
+            subject: 'Reset your password',
+            body: `Hi ${name},\n\nYou requested a password reset for your ${clinicName} account.\n\nClick the link below to set a new password:\n${resetLink}\n\nThis link expires in 1 hour. If you did not request this, you can safely ignore this email.\n\n— ${clinicName}`,
+            html: `<p>Hi ${name},</p><p>You requested a password reset for your <strong>${clinicName}</strong> account.</p><p><a href="${resetLink}" style="background:#0d9488;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;">Reset Password</a></p><p>This link expires in 1 hour. If you did not request this, you can safely ignore this email.</p><p>— ${clinicName}</p>`,
+            clinicId,
+        });
     }
     async resetPassword(token, newPassword) {
         try {

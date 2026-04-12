@@ -49,7 +49,7 @@ export declare class AuthController {
     }>;
     forgotPassword(body: {
         email: string;
-        clinic_id: string;
+        clinic_id?: string;
     }): Promise<{
         message: string;
     }>;
