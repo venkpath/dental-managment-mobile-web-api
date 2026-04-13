@@ -43,7 +43,7 @@ let TemplateService = class TemplateService {
         const page = query.page ?? 1;
         const limit = query.limit ?? 20;
         const where = {
-            OR: [{ clinic_id: clinicId }, { clinic_id: null }],
+            clinic_id: clinicId,
         };
         if (query.channel)
             where.channel = query.channel;

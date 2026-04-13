@@ -368,12 +368,14 @@ export declare class CommunicationController {
         total_from_meta?: undefined;
         created?: undefined;
         updated?: undefined;
+        deleted?: undefined;
         skipped?: undefined;
     } | {
         success: boolean;
         total_from_meta: number;
         created: number;
         updated: number;
+        deleted: number;
         skipped: number;
         error?: undefined;
         synced?: undefined;

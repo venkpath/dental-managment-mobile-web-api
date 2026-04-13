@@ -2302,8 +2302,30 @@ export class CommunicationService {
       }
     }
 
+    // Delete clinic WhatsApp templates that no longer exist in Meta
+    const metaTemplateNames = result.templates.map((t) => t.name);
+    const orphaned = await this.prisma.messageTemplate.findMany({
+      where: {
+        clinic_id: clinicId,
+        channel: 'whatsapp',
+        template_name: { notIn: metaTemplateNames },
+      },
+      select: { id: true, template_name: true },
+    });
+
+    let deleted = 0;
+    if (orphaned.length > 0) {
+      await this.prisma.messageTemplate.deleteMany({
+        where: { id: { in: orphaned.map((o) => o.id) } },
+      });
+      deleted = orphaned.length;
+      this.logger.log(
+        `Deleted ${deleted} orphaned WhatsApp templates not found in Meta: ${orphaned.map((o) => o.template_name).join(', ')}`,
+      );
+    }
+
     this.logger.log(
-      `WhatsApp template sync for clinic ${clinicId}: ${created} created, ${updated} updated, ${skipped} skipped (${result.templates.length} total from Meta)`,
+      `WhatsApp template sync for clinic ${clinicId}: ${created} created, ${updated} updated, ${deleted} deleted, ${skipped} skipped (${result.templates.length} total from Meta)`,
     );
 
     return {
@@ -2311,6 +2333,7 @@ export class CommunicationService {
       total_from_meta: result.templates.length,
       created,
       updated,
+      deleted,
       skipped,
     };
   }

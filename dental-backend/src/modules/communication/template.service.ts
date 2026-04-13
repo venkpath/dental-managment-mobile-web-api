@@ -42,7 +42,7 @@ export class TemplateService {
     const limit = query.limit ?? 20;
 
     const where: Prisma.MessageTemplateWhereInput = {
-      OR: [{ clinic_id: clinicId }, { clinic_id: null }], // clinic + system templates
+      clinic_id: clinicId, // only clinic-owned templates (system templates shown via Sample Templates tab)
     };
 
     if (query.channel) where.channel = query.channel;
