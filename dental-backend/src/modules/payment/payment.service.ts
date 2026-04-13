@@ -55,6 +55,45 @@ export class PaymentService implements OnModuleInit {
     const isTrialActive = clinic.subscription_status === 'trial' && trialEndsAt && trialEndsAt > now;
     const trialDaysLeft = trialEndsAt ? Math.max(0, Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))) : 0;
 
+    // Fetch live subscription details from Razorpay if active
+    let billingDetails: {
+      current_period_start: string | null;
+      current_period_end: string | null;
+      next_charge_at: string | null;
+      paid_count: number;
+      total_count: number;
+      remaining_count: number;
+      started_at: string | null;
+      ended_at: string | null;
+    } = {
+      current_period_start: null,
+      current_period_end: null,
+      next_charge_at: null,
+      paid_count: 0,
+      total_count: 0,
+      remaining_count: 0,
+      started_at: null,
+      ended_at: null,
+    };
+
+    if (clinic.subscription_id && this.razorpay) {
+      try {
+        const sub = await this.razorpay.subscriptions.fetch(clinic.subscription_id);
+        billingDetails = {
+          current_period_start: sub.current_start ? new Date(Number(sub.current_start) * 1000).toISOString() : null,
+          current_period_end: sub.current_end ? new Date(Number(sub.current_end) * 1000).toISOString() : null,
+          next_charge_at: sub.charge_at ? new Date(Number(sub.charge_at) * 1000).toISOString() : null,
+          paid_count: Number(sub.paid_count) || 0,
+          total_count: Number(sub.total_count) || 0,
+          remaining_count: Number(sub.remaining_count) || 0,
+          started_at: sub.start_at ? new Date(Number(sub.start_at) * 1000).toISOString() : null,
+          ended_at: sub.ended_at ? new Date(Number(sub.ended_at) * 1000).toISOString() : null,
+        };
+      } catch (e) {
+        this.logger.warn(`Failed to fetch Razorpay subscription ${clinic.subscription_id}: ${(e as Error).message}`);
+      }
+    }
+
     return {
       subscription_status: clinic.subscription_status,
       plan: clinic.plan ? { id: clinic.plan.id, name: clinic.plan.name, price_monthly: clinic.plan.price_monthly } : null,
@@ -63,6 +102,7 @@ export class PaymentService implements OnModuleInit {
       trial_days_left: trialDaysLeft,
       subscription_id: clinic.subscription_id,
       razorpay_key_id: this.configService.get<string>('razorpay.keyId') || '',
+      ...billingDetails,
     };
   }
 

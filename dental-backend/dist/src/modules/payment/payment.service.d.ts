@@ -24,6 +24,14 @@ export declare class PaymentService implements OnModuleInit {
     constructor(configService: ConfigService, prisma: PrismaService);
     onModuleInit(): void;
     getSubscriptionStatus(clinicId: string): Promise<{
+        current_period_start: string | null;
+        current_period_end: string | null;
+        next_charge_at: string | null;
+        paid_count: number;
+        total_count: number;
+        remaining_count: number;
+        started_at: string | null;
+        ended_at: string | null;
         subscription_status: string;
         plan: {
             id: string;
