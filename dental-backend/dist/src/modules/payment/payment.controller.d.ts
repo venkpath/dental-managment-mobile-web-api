@@ -1,4 +1,6 @@
 import { PaymentService } from './payment.service.js';
+import type { RawBodyRequest } from '@nestjs/common';
+import type { Request } from 'express';
 export declare class PaymentController {
     private readonly paymentService;
     private readonly logger;
@@ -58,7 +60,7 @@ export declare class PaymentController {
     cancelSubscription(clinicId: string): Promise<{
         message: string;
     }>;
-    handleWebhook(body: Record<string, unknown>, signature: string): Promise<{
+    handleWebhook(req: RawBodyRequest<Request>, signature: string): Promise<{
         received: boolean;
     }>;
 }

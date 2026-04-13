@@ -1,10 +1,12 @@
-import { Controller, Post, Get, Body, Headers, HttpCode, HttpStatus, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Body, Headers, HttpCode, HttpStatus, Logger, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../user/dto/create-user.dto.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { PaymentService } from './payment.service.js';
+import type { RawBodyRequest } from '@nestjs/common';
+import type { Request } from 'express';
 
 @ApiTags('Payment')
 @Controller('payment')
@@ -60,10 +62,16 @@ export class PaymentController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Razorpay webhook handler' })
   async handleWebhook(
-    @Body() body: Record<string, unknown>,
+    @Req() req: RawBodyRequest<Request>,
     @Headers('x-razorpay-signature') signature: string,
   ) {
-    await this.paymentService.handleWebhook(body as any, signature);
+    // Use raw body for signature verification (JSON.stringify may differ from what Razorpay signed)
+    const rawBody = req.rawBody;
+    const body = req.body;
+
+    this.logger.log(`Webhook received: event=${body?.event}, signature=${signature ? 'present' : 'missing'}`);
+
+    await this.paymentService.handleWebhook(body as any, signature, rawBody);
     return { received: true };
   }
 }

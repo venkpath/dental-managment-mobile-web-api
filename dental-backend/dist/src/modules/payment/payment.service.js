@@ -133,15 +133,18 @@ let PaymentService = PaymentService_1 = class PaymentService {
             shortUrl: subscription.short_url || '',
         };
     }
-    async handleWebhook(body, signature) {
+    async handleWebhook(body, signature, rawBody) {
         const webhookSecret = this.configService.get('razorpay.webhookSecret');
-        if (webhookSecret) {
+        if (webhookSecret && signature) {
+            const bodyToVerify = rawBody || Buffer.from(JSON.stringify(body));
             const expectedSignature = (0, crypto_1.createHmac)('sha256', webhookSecret)
-                .update(JSON.stringify(body))
+                .update(bodyToVerify)
                 .digest('hex');
             if (expectedSignature !== signature) {
+                this.logger.warn(`Webhook signature mismatch. Event: ${body?.event}`);
                 throw new common_1.BadRequestException('Invalid webhook signature');
             }
+            this.logger.log('Webhook signature verified');
         }
         const { event, payload } = body;
         this.logger.log(`Razorpay webhook: ${event}`);
@@ -154,6 +157,9 @@ let PaymentService = PaymentService_1 = class PaymentService {
                 break;
             case 'subscription.cancelled':
                 await this.handleSubscriptionCancelled(payload.subscription?.entity);
+                break;
+            case 'payment.captured':
+                this.logger.log(`Payment captured: ${payload.payment?.entity?.['id']}`);
                 break;
             case 'payment.failed':
                 await this.handlePaymentFailed(payload.payment?.entity);

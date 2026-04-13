@@ -162,16 +162,20 @@ export class PaymentService implements OnModuleInit {
   /**
    * Handle Razorpay webhook events
    */
-  async handleWebhook(body: RazorpayWebhookPayload, signature: string): Promise<void> {
+  async handleWebhook(body: RazorpayWebhookPayload, signature: string, rawBody?: Buffer): Promise<void> {
     const webhookSecret = this.configService.get<string>('razorpay.webhookSecret');
-    if (webhookSecret) {
+    if (webhookSecret && signature) {
+      // Use raw body buffer if available (exact bytes Razorpay signed), fall back to JSON.stringify
+      const bodyToVerify = rawBody || Buffer.from(JSON.stringify(body));
       const expectedSignature = createHmac('sha256', webhookSecret)
-        .update(JSON.stringify(body))
+        .update(bodyToVerify)
         .digest('hex');
 
       if (expectedSignature !== signature) {
+        this.logger.warn(`Webhook signature mismatch. Event: ${body?.event}`);
         throw new BadRequestException('Invalid webhook signature');
       }
+      this.logger.log('Webhook signature verified');
     }
 
     const { event, payload } = body;
@@ -186,6 +190,9 @@ export class PaymentService implements OnModuleInit {
         break;
       case 'subscription.cancelled':
         await this.handleSubscriptionCancelled(payload.subscription?.entity);
+        break;
+      case 'payment.captured':
+        this.logger.log(`Payment captured: ${payload.payment?.entity?.['id']}`);
         break;
       case 'payment.failed':
         await this.handlePaymentFailed(payload.payment?.entity);

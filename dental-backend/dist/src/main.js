@@ -20,7 +20,7 @@ const nestjs_pino_1 = require("nestjs-pino");
 (0, sentry_config_js_1.initSentry)();
 (0, env_validation_js_1.validateEnvVars)();
 async function bootstrap() {
-    const app = await core_1.NestFactory.create(app_module_js_1.AppModule, { bufferLogs: true });
+    const app = await core_1.NestFactory.create(app_module_js_1.AppModule, { bufferLogs: true, rawBody: true });
     app.useLogger(app.get(nestjs_pino_1.Logger));
     app.use((0, helmet_1.default)({
         contentSecurityPolicy: {

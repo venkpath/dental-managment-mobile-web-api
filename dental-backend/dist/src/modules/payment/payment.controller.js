@@ -50,8 +50,11 @@ let PaymentController = PaymentController_1 = class PaymentController {
         await this.paymentService.cancelSubscription(clinicId);
         return { message: 'Subscription cancelled' };
     }
-    async handleWebhook(body, signature) {
-        await this.paymentService.handleWebhook(body, signature);
+    async handleWebhook(req, signature) {
+        const rawBody = req.rawBody;
+        const body = req.body;
+        this.logger.log(`Webhook received: event=${body?.event}, signature=${signature ? 'present' : 'missing'}`);
+        await this.paymentService.handleWebhook(body, signature, rawBody);
         return { received: true };
     }
 };
@@ -105,7 +108,7 @@ __decorate([
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     (0, swagger_1.ApiOperation)({ summary: 'Razorpay webhook handler' }),
     openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Headers)('x-razorpay-signature')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, String]),

@@ -73,7 +73,7 @@ export declare class PaymentService implements OnModuleInit {
         subscriptionId: string;
         shortUrl: string;
     }>;
-    handleWebhook(body: RazorpayWebhookPayload, signature: string): Promise<void>;
+    handleWebhook(body: RazorpayWebhookPayload, signature: string, rawBody?: Buffer): Promise<void>;
     private handleSubscriptionActivated;
     private handleSubscriptionCharged;
     private handleSubscriptionCancelled;
