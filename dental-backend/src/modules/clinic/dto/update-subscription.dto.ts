@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsUUID, IsDateString, IsInt, Min } from 'class-validator';
+import { IsEnum, IsOptional, IsUUID, IsDateString, IsInt, Min, IsBoolean } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum SubscriptionStatus {
@@ -29,4 +29,9 @@ export class UpdateSubscriptionDto {
   @IsInt()
   @Min(0)
   ai_usage_count?: number;
+
+  @ApiPropertyOptional({ example: true, description: 'Complimentary access — no payment required' })
+  @IsOptional()
+  @IsBoolean()
+  is_complimentary?: boolean;
 }

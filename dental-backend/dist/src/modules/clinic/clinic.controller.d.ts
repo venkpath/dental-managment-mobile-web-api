@@ -26,6 +26,7 @@ export declare class ClinicController {
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        is_complimentary: boolean;
         logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
@@ -46,6 +47,7 @@ export declare class ClinicController {
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        is_complimentary: boolean;
         logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
@@ -66,6 +68,7 @@ export declare class ClinicController {
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        is_complimentary: boolean;
         logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
@@ -86,6 +89,7 @@ export declare class ClinicController {
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        is_complimentary: boolean;
         logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
@@ -106,6 +110,7 @@ export declare class ClinicController {
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        is_complimentary: boolean;
         logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
@@ -126,6 +131,7 @@ export declare class ClinicController {
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        is_complimentary: boolean;
         logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
@@ -146,6 +152,7 @@ export declare class ClinicController {
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        is_complimentary: boolean;
         logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
@@ -166,6 +173,7 @@ export declare class ClinicController {
         subscription_status: string;
         subscription_id: string | null;
         trial_ends_at: Date | null;
+        is_complimentary: boolean;
         logo_url: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;

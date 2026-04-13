@@ -25,8 +25,9 @@ class UpdateSubscriptionDto {
     subscription_status;
     trial_ends_at;
     ai_usage_count;
+    is_complimentary;
     static _OPENAPI_METADATA_FACTORY() {
-        return { plan_id: { required: false, type: () => String, format: "uuid" }, subscription_status: { required: false, enum: require("./update-subscription.dto").SubscriptionStatus }, trial_ends_at: { required: false, type: () => String }, ai_usage_count: { required: false, type: () => Number, minimum: 0 } };
+        return { plan_id: { required: false, type: () => String, format: "uuid" }, subscription_status: { required: false, enum: require("./update-subscription.dto").SubscriptionStatus }, trial_ends_at: { required: false, type: () => String }, ai_usage_count: { required: false, type: () => Number, minimum: 0 }, is_complimentary: { required: false, type: () => Boolean } };
     }
 }
 exports.UpdateSubscriptionDto = UpdateSubscriptionDto;
@@ -55,4 +56,10 @@ __decorate([
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
 ], UpdateSubscriptionDto.prototype, "ai_usage_count", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: true, description: 'Complimentary access — no payment required' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateSubscriptionDto.prototype, "is_complimentary", void 0);
 //# sourceMappingURL=update-subscription.dto.js.map

@@ -9,4 +9,5 @@ export declare class UpdateSubscriptionDto {
     subscription_status?: SubscriptionStatus;
     trial_ends_at?: string;
     ai_usage_count?: number;
+    is_complimentary?: boolean;
 }

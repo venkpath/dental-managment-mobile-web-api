@@ -21,6 +21,7 @@ model Clinic {
   subscription_status String    @default("trial") @db.VarChar(20)
   subscription_id     String?   @db.VarChar(100)
   trial_ends_at       DateTime?
+  is_complimentary    Boolean   @default(false)
   logo_url            String?   @db.Text
   ai_usage_count      Int       @default(0)
   ai_quota_override   Int?      // per-clinic AI quota override (null = use global/plan default)

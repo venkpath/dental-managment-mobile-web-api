@@ -235,6 +235,7 @@ let PaymentService = PaymentService_1 = class PaymentService {
             where: {
                 subscription_status: 'trial',
                 trial_ends_at: { lt: now },
+                is_complimentary: false,
             },
             data: { subscription_status: 'expired' },
         });
