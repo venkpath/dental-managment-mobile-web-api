@@ -85,6 +85,8 @@ export declare class TemplateService {
         deleted: boolean;
     }>;
     getBaseWhatsAppTemplates(): Promise<{
+        sampleValues: Record<string, string>;
+        metaCategory: string;
         id: string;
         created_at: Date;
         updated_at: Date;
@@ -102,6 +104,7 @@ export declare class TemplateService {
         whatsapp_template_status: string | null;
         meta_template_id: string | null;
     }[]>;
+    clinicHasWhatsAppTemplate(clinicId: string, templateName: string): Promise<boolean>;
     cloneBaseTemplateForClinic(clinicId: string, baseTemplateId: string): Promise<{
         cloned: boolean;
         template: {

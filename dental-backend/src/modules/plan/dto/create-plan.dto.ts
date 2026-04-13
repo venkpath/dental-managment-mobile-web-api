@@ -27,4 +27,10 @@ export class CreatePlanDto {
   @IsInt()
   @Min(0)
   ai_quota?: number;
+
+  @ApiPropertyOptional({ example: 'plan_XXXXXXXXXXXXX', description: 'Razorpay subscription plan ID' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  razorpay_plan_id?: string;
 }

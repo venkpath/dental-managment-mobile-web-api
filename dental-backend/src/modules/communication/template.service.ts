@@ -7,6 +7,7 @@ import type { CreateTemplateDto } from './dto/create-template.dto.js';
 import type { UpdateTemplateDto } from './dto/update-template.dto.js';
 import type { QueryTemplateDto } from './dto/query-template.dto.js';
 import type { TemplateVariables } from './template-renderer.js';
+import { getWhatsAppSeedSampleValues, getWhatsAppSeedMetaCategory } from './seed-templates.js';
 
 @Injectable()
 export class TemplateService {
@@ -123,12 +124,29 @@ export class TemplateService {
   /**
    * List all Smart Dental Desk base WhatsApp templates (system templates, clinic_id = null, channel = whatsapp).
    * These are pre-approved templates that clinics can submit to their own WABA.
+   * Enriched with sampleValues and metaCategory from the seed definitions.
    */
   async getBaseWhatsAppTemplates() {
-    return this.prisma.messageTemplate.findMany({
+    const templates = await this.prisma.messageTemplate.findMany({
       where: { clinic_id: null, channel: 'whatsapp', is_active: true },
       orderBy: { template_name: 'asc' },
     });
+
+    return templates.map((t) => ({
+      ...t,
+      sampleValues: getWhatsAppSeedSampleValues(t.template_name) ?? {},
+      metaCategory: getWhatsAppSeedMetaCategory(t.template_name),
+    }));
+  }
+
+  /**
+   * Check whether a clinic already has a WhatsApp template with the given name.
+   */
+  async clinicHasWhatsAppTemplate(clinicId: string, templateName: string): Promise<boolean> {
+    const count = await this.prisma.messageTemplate.count({
+      where: { clinic_id: clinicId, template_name: templateName, channel: 'whatsapp' },
+    });
+    return count > 0;
   }
 
   /**

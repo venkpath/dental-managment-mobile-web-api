@@ -292,6 +292,7 @@ export declare class CommunicationService {
         created_at: Date;
         updated_at: Date;
         clinic_id: string;
+        google_review_url: string | null;
         enable_email: boolean;
         enable_sms: boolean;
         enable_whatsapp: boolean;
@@ -305,7 +306,6 @@ export declare class CommunicationService {
         default_reminder_channels: Prisma.JsonValue | null;
         daily_message_limit: number;
         send_rate_per_minute: number;
-        google_review_url: string | null;
         dnd_start: string | null;
         dnd_end: string | null;
     }>;
@@ -316,6 +316,7 @@ export declare class CommunicationService {
         created_at: Date;
         updated_at: Date;
         clinic_id: string;
+        google_review_url: string | null;
         enable_email: boolean;
         enable_sms: boolean;
         enable_whatsapp: boolean;
@@ -329,7 +330,6 @@ export declare class CommunicationService {
         default_reminder_channels: Prisma.JsonValue | null;
         daily_message_limit: number;
         send_rate_per_minute: number;
-        google_review_url: string | null;
         dnd_start: string | null;
         dnd_end: string | null;
     }>;

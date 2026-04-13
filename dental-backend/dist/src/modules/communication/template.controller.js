@@ -27,8 +27,13 @@ let TemplateController = class TemplateController {
     constructor(templateService) {
         this.templateService = templateService;
     }
-    async getBaseWhatsAppTemplates() {
-        return this.templateService.getBaseWhatsAppTemplates();
+    async getBaseWhatsAppTemplates(clinicId) {
+        const bases = await this.templateService.getBaseWhatsAppTemplates();
+        const enriched = await Promise.all(bases.map(async (t) => ({
+            ...t,
+            alreadyCreated: await this.templateService.clinicHasWhatsAppTemplate(clinicId, t.template_name),
+        })));
+        return enriched;
     }
     async cloneBaseTemplate(clinicId, id) {
         return this.templateService.cloneBaseTemplateForClinic(clinicId, id);
@@ -54,12 +59,13 @@ __decorate([
     (0, common_1.Get)('whatsapp/base'),
     (0, swagger_1.ApiOperation)({
         summary: 'List Smart Dental Desk base WhatsApp templates',
-        description: 'Pre-approved base templates you can clone and submit to your WABA. Rejection rate is very low since these are already approved for Smart Dental Desk.',
+        description: 'Pre-approved base templates you can clone and submit to your WABA. Includes sampleValues and metaCategory for each template, plus an `alreadyCreated` flag indicating whether the clinic already has a template with that name.',
     }),
-    (0, swagger_1.ApiOkResponse)({ description: 'List of base WhatsApp templates' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'List of base WhatsApp templates with sample data' }),
     openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], TemplateController.prototype, "getBaseWhatsAppTemplates", null);
 __decorate([

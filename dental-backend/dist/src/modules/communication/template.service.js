@@ -14,6 +14,7 @@ const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
 const template_renderer_js_1 = require("./template-renderer.js");
+const seed_templates_js_1 = require("./seed-templates.js");
 let TemplateService = class TemplateService {
     prisma;
     renderer;
@@ -105,10 +106,21 @@ let TemplateService = class TemplateService {
         return { deleted: true };
     }
     async getBaseWhatsAppTemplates() {
-        return this.prisma.messageTemplate.findMany({
+        const templates = await this.prisma.messageTemplate.findMany({
             where: { clinic_id: null, channel: 'whatsapp', is_active: true },
             orderBy: { template_name: 'asc' },
         });
+        return templates.map((t) => ({
+            ...t,
+            sampleValues: (0, seed_templates_js_1.getWhatsAppSeedSampleValues)(t.template_name) ?? {},
+            metaCategory: (0, seed_templates_js_1.getWhatsAppSeedMetaCategory)(t.template_name),
+        }));
+    }
+    async clinicHasWhatsAppTemplate(clinicId, templateName) {
+        const count = await this.prisma.messageTemplate.count({
+            where: { clinic_id: clinicId, template_name: templateName, channel: 'whatsapp' },
+        });
+        return count > 0;
     }
     async cloneBaseTemplateForClinic(clinicId, baseTemplateId) {
         const base = await this.prisma.messageTemplate.findFirst({

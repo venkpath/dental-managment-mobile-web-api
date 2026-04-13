@@ -5,7 +5,10 @@ import { QueryTemplateDto } from './dto/query-template.dto.js';
 export declare class TemplateController {
     private readonly templateService;
     constructor(templateService: TemplateService);
-    getBaseWhatsAppTemplates(): Promise<{
+    getBaseWhatsAppTemplates(clinicId: string): Promise<{
+        alreadyCreated: boolean;
+        sampleValues: Record<string, string>;
+        metaCategory: string;
         id: string;
         created_at: Date;
         updated_at: Date;

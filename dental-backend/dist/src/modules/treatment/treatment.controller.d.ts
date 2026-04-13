@@ -10,13 +10,13 @@ export declare class TreatmentController {
         updated_at: Date;
         clinic_id: string;
         branch_id: string;
+        procedure: string;
+        tooth_number: string | null;
         cost: import("@prisma/client-runtime-utils").Decimal;
         patient_id: string;
         notes: string | null;
         dentist_id: string;
-        tooth_number: string | null;
         diagnosis: string;
-        procedure: string;
     }>;
     findAll(clinicId: string, query: QueryTreatmentDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         id: string;
@@ -25,13 +25,13 @@ export declare class TreatmentController {
         updated_at: Date;
         clinic_id: string;
         branch_id: string;
+        procedure: string;
+        tooth_number: string | null;
         cost: import("@prisma/client-runtime-utils").Decimal;
         patient_id: string;
         notes: string | null;
         dentist_id: string;
-        tooth_number: string | null;
         diagnosis: string;
-        procedure: string;
     }>>;
     findByPatient(clinicId: string, patientId: string): Promise<{
         id: string;
@@ -40,13 +40,13 @@ export declare class TreatmentController {
         updated_at: Date;
         clinic_id: string;
         branch_id: string;
+        procedure: string;
+        tooth_number: string | null;
         cost: import("@prisma/client-runtime-utils").Decimal;
         patient_id: string;
         notes: string | null;
         dentist_id: string;
-        tooth_number: string | null;
         diagnosis: string;
-        procedure: string;
     }[]>;
     findOne(clinicId: string, id: string): Promise<{
         id: string;
@@ -55,13 +55,13 @@ export declare class TreatmentController {
         updated_at: Date;
         clinic_id: string;
         branch_id: string;
+        procedure: string;
+        tooth_number: string | null;
         cost: import("@prisma/client-runtime-utils").Decimal;
         patient_id: string;
         notes: string | null;
         dentist_id: string;
-        tooth_number: string | null;
         diagnosis: string;
-        procedure: string;
     }>;
     update(clinicId: string, id: string, dto: UpdateTreatmentDto): Promise<{
         id: string;
@@ -70,12 +70,12 @@ export declare class TreatmentController {
         updated_at: Date;
         clinic_id: string;
         branch_id: string;
+        procedure: string;
+        tooth_number: string | null;
         cost: import("@prisma/client-runtime-utils").Decimal;
         patient_id: string;
         notes: string | null;
         dentist_id: string;
-        tooth_number: string | null;
         diagnosis: string;
-        procedure: string;
     }>;
 }

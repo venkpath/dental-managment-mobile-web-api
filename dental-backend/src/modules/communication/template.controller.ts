@@ -28,11 +28,21 @@ export class TemplateController {
   @Get('whatsapp/base')
   @ApiOperation({
     summary: 'List Smart Dental Desk base WhatsApp templates',
-    description: 'Pre-approved base templates you can clone and submit to your WABA. Rejection rate is very low since these are already approved for Smart Dental Desk.',
+    description: 'Pre-approved base templates you can clone and submit to your WABA. Includes sampleValues and metaCategory for each template, plus an `alreadyCreated` flag indicating whether the clinic already has a template with that name.',
   })
-  @ApiOkResponse({ description: 'List of base WhatsApp templates' })
-  async getBaseWhatsAppTemplates() {
-    return this.templateService.getBaseWhatsAppTemplates();
+  @ApiOkResponse({ description: 'List of base WhatsApp templates with sample data' })
+  async getBaseWhatsAppTemplates(@CurrentClinic() clinicId: string) {
+    const bases = await this.templateService.getBaseWhatsAppTemplates();
+
+    // Check which ones the clinic already created (for duplicate prevention)
+    const enriched = await Promise.all(
+      bases.map(async (t) => ({
+        ...t,
+        alreadyCreated: await this.templateService.clinicHasWhatsAppTemplate(clinicId, t.template_name),
+      })),
+    );
+
+    return enriched;
   }
 
   @Post('whatsapp/base/:id/clone')

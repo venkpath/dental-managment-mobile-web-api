@@ -4,4 +4,5 @@ export declare class CreatePlanDto {
     max_branches: number;
     max_staff: number;
     ai_quota?: number;
+    razorpay_plan_id?: string;
 }

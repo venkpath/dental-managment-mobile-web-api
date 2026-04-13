@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.seedDefaultTemplates = seedDefaultTemplates;
+exports.getWhatsAppSeedSampleValues = getWhatsAppSeedSampleValues;
+exports.getWhatsAppSeedMetaCategory = getWhatsAppSeedMetaCategory;
 const common_1 = require("@nestjs/common");
 const logger = new common_1.Logger('TemplateSeed');
 const DEFAULT_TEMPLATES = [
@@ -395,56 +397,163 @@ const DEFAULT_TEMPLATES = [
         channel: 'whatsapp',
         category: 'transactional',
         template_name: 'dental_appointment_confirmation',
-        body: 'Hi {{patient_name}}, your appointment is confirmed with {{doctor_name}} on {{date}} at {{time}} at {{clinic_name}}. For queries call {{phone}}. Please arrive 10 minutes early. If you need to reschedule, call us at {{phone}}. Thank you!',
-        variables: {
-            body: ['patient_name', 'doctor_name', 'date', 'time', 'clinic_name', 'phone'],
-            buttons: [],
-        },
+        body: 'Hi {{patient_name}}, your appointment is confirmed.\nDoctor: {{doctor_name}}\nDate: {{date}}\nTime: {{time}}\nClinic: {{clinic_name}}\nCall us at {{phone}} for any queries.',
+        variables: { body: ['patient_name', 'doctor_name', 'date', 'time', 'clinic_name', 'phone'], buttons: [] },
         language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', doctor_name: 'Dr. Anil Mehta', date: '15 Jan 2026', time: '10:30 AM', clinic_name: 'Smile Dental Clinic', phone: '9876543210' },
     },
     {
         channel: 'whatsapp',
         category: 'transactional',
         template_name: 'dental_appointment_reminder',
-        body: 'Hi {{patient_name}}, reminder: appointment on {{date}} at {{time}} at {{clinic_name}} with {{doctor_name}}. Call {{phone}} to reschedule.',
-        variables: {
-            body: ['patient_name', 'date', 'time', 'clinic_name', 'doctor_name', 'phone'],
-            buttons: [],
-        },
+        body: 'Hi {{patient_name}}, this is a reminder for your appointment tomorrow.\nDate: {{date}}\nTime: {{time}}\nClinic: {{clinic_name}}\nDoctor: {{doctor_name}}\nPlease arrive 5 minutes early. Call us at {{phone}} for any queries.',
+        variables: { body: ['patient_name', 'date', 'time', 'clinic_name', 'doctor_name', 'phone'], buttons: [] },
         language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', date: '16 Jan 2026', time: '10:30 AM', clinic_name: 'Smile Dental Clinic', doctor_name: 'Dr. Anil Mehta', phone: '9876543210' },
     },
     {
         channel: 'whatsapp',
         category: 'transactional',
         template_name: 'dental_appointment_cancel',
-        body: 'Hi {{patient_name}}, your appointment at {{clinic_name}} on {{date}} at {{time}} has been cancelled. Call {{phone}} to rebook.',
-        variables: {
-            body: ['patient_name', 'clinic_name', 'date', 'time', 'phone'],
-            buttons: [],
-        },
+        body: 'Hi {{patient_name}}, your appointment at {{clinic_name}} scheduled for {{date}} at {{time}} has been cancelled.\nPlease call us at {{phone}} to reschedule at your convenience.',
+        variables: { body: ['patient_name', 'clinic_name', 'date', 'time', 'phone'], buttons: [] },
         language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic', date: '15 Jan 2026', time: '10:30 AM', phone: '9876543210' },
     },
     {
         channel: 'whatsapp',
         category: 'transactional',
         template_name: 'dental_appointment_rescheduled',
-        body: 'Hi {{patient_name}}, your appointment has been rescheduled from {{previous_time}} to {{new_time}} at {{clinic_name}}. Call {{phone}} for queries.',
-        variables: {
-            body: ['patient_name', 'previous_time', 'new_time', 'clinic_name', 'phone'],
-            buttons: [],
-        },
+        body: 'Hi {{patient_name}}, your appointment has been rescheduled.\nPrevious Time: {{previous_time}}\nNew Time: {{new_time}}\nClinic: {{clinic_name}}\nPlease call us at {{phone}} for any queries.',
+        variables: { body: ['patient_name', 'previous_time', 'new_time', 'clinic_name', 'phone'], buttons: [] },
         language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', previous_time: '15 Jan 10:30 AM', new_time: '16 Jan 11:00 AM', clinic_name: 'Smile Dental Clinic', phone: '9876543210' },
+    },
+    {
+        channel: 'whatsapp',
+        category: 'transactional',
+        template_name: 'dental_post_treatment_care',
+        body: 'Hi {{patient_name}}, here are your care instructions after your {{procedure}} at {{clinic_name}}.\nFollow your doctor {{doctor_name}}\'s advice carefully.\nCall us at {{phone}} if you experience any discomfort.',
+        variables: { body: ['patient_name', 'procedure', 'clinic_name', 'doctor_name', 'phone'], buttons: [] },
+        language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', procedure: 'Root Canal', clinic_name: 'Smile Dental Clinic', doctor_name: 'Dr. Anil Mehta', phone: '9876543210' },
+    },
+    {
+        channel: 'whatsapp',
+        category: 'transactional',
+        template_name: 'dental_noshow_followup',
+        body: 'Hi {{patient_name}}, we noticed you missed your appointment at {{clinic_name}} today.\nWe understand things come up. Please call us at {{phone}} to reschedule at your convenience.\nWe are here to help!',
+        variables: { body: ['patient_name', 'clinic_name', 'phone'], buttons: [] },
+        language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic', phone: '9876543210' },
+    },
+    {
+        channel: 'whatsapp',
+        category: 'transactional',
+        template_name: 'dental_treatment_reminder',
+        body: 'Hi {{patient_name}}, this is a gentle reminder that you have pending steps in your treatment plan at {{clinic_name}}.\nCompleting your treatment on time ensures the best results. Please call us to schedule your next visit.',
+        variables: { body: ['patient_name', 'clinic_name'], buttons: [] },
+        language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic' },
+    },
+    {
+        channel: 'whatsapp',
+        category: 'transactional',
+        template_name: 'dental_payment_received',
+        body: 'Hi {{patient_name}},\n\nWe have received your payment of {{amount}} for invoice {{invoice_no}} at {{clinic_name}}.\n\nYour receipt is ready. View & download:\n{{receipt_link}}\n\nPlease call us at {{phone}} for any queries.',
+        variables: { body: ['patient_name', 'amount', 'invoice_no', 'clinic_name', 'receipt_link', 'phone'], buttons: [] },
+        language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', amount: 'Rs.5000', invoice_no: 'INV-2026-001', clinic_name: 'Smile Dental Clinic', receipt_link: 'https://example.com/receipt', phone: '9876543210' },
+    },
+    {
+        channel: 'whatsapp',
+        category: 'transactional',
+        template_name: 'dental_invoice_ready',
+        body: 'Hello {{patient_name}}, your invoice has been generated at {{clinic_name}}.\nInvoice No: {{invoice_no}}, Amount: {{amount}}.\nView & Download: {{invoice_link}}.\nFor queries reach us at {{phone}}.',
+        variables: { body: ['patient_name', 'clinic_name', 'invoice_no', 'amount', 'invoice_link', 'phone'], buttons: [] },
+        language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic', invoice_no: 'INV-2026-001', amount: 'Rs.5000', invoice_link: 'https://example.com/invoice', phone: '9876543210' },
+    },
+    {
+        channel: 'whatsapp',
+        category: 'transactional',
+        template_name: 'dental_installment_due',
+        body: 'Hi {{patient_name}}, your installment of {{amount}} is due on {{due_date}} at {{clinic_name}}.\nPlease make the payment on time. Contact us at {{phone}} for any queries.',
+        variables: { body: ['patient_name', 'amount', 'due_date', 'clinic_name', 'phone'], buttons: [] },
+        language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', amount: 'Rs.2000', due_date: '20 Jan 2026', clinic_name: 'Smile Dental Clinic', phone: '9876543210' },
+    },
+    {
+        channel: 'whatsapp',
+        category: 'transactional',
+        template_name: 'dental_payment_overdue',
+        body: 'Hi {{patient_name}}, your installment of {{amount}} due on {{due_date}} is overdue.\nPlease contact {{clinic_name}} at {{phone}} to make the payment at your earliest convenience.',
+        variables: { body: ['patient_name', 'amount', 'due_date', 'clinic_name', 'phone'], buttons: [] },
+        language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', amount: 'Rs.2000', due_date: '10 Jan 2026', clinic_name: 'Smile Dental Clinic', phone: '9876543210' },
+    },
+    {
+        channel: 'whatsapp',
+        category: 'campaign',
+        template_name: 'dental_reactivation',
+        body: 'Hi {{patient_name}}, it has been a while since your last visit to {{clinic_name}}.\nRegular dental checkups are important for your oral health.\nBook your appointment today and get back on track with your dental care!\nCall us at {{phone}}.',
+        variables: { body: ['patient_name', 'clinic_name', 'phone'], buttons: [] },
+        language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic', phone: '9876543210' },
+    },
+    {
+        channel: 'whatsapp',
+        category: 'transactional',
+        template_name: 'dental_feedback_request',
+        body: 'Hi {{patient_name}}, thank you for visiting {{clinic_name}}.\nWe hope your experience was wonderful! We would love to hear your feedback\nto help us serve you better. Your opinion truly matters to us.',
+        variables: { body: ['patient_name', 'clinic_name'], buttons: [] },
+        language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic' },
+    },
+    {
+        channel: 'whatsapp',
+        category: 'greeting',
+        template_name: 'dental_birthday_greeting',
+        body: 'Hi {{patient_name}}, wishing you a very Happy Birthday! May this special day bring\nyou lots of joy and smiles. We look forward to keeping your smile healthy\nat {{clinic_name}}. Have a wonderful day!',
+        variables: { body: ['patient_name', 'clinic_name'], buttons: [] },
+        language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic' },
+    },
+    {
+        channel: 'whatsapp',
+        category: 'greeting',
+        template_name: 'dental_festival_greeting',
+        body: 'Hi {{patient_name}}, warm wishes to you and your family on the occasion of {{festival_name}}!\nMay this festive season bring happiness and good health.\nWith warm regards from the {{clinic_name}} team.',
+        variables: { body: ['patient_name', 'festival_name', 'clinic_name'], buttons: [] },
+        language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', festival_name: 'Diwali', clinic_name: 'Smile Dental Clinic' },
+    },
+    {
+        channel: 'whatsapp',
+        category: 'greeting',
+        template_name: 'dental_national_day_greeting',
+        body: 'Hi {{patient_name}}, the team at {{clinic_name}} wishes you a very Happy {{occasion_label}}!\nMay this special occasion bring joy, pride, and good health\nto you and your loved ones.',
+        variables: { body: ['patient_name', 'clinic_name', 'occasion_label'], buttons: [] },
+        language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic', occasion_label: '80th Independence Day' },
+    },
+    {
+        channel: 'whatsapp',
+        category: 'transactional',
+        template_name: 'dental_health_awareness',
+        body: 'Hi {{patient_name}}, on this {{health_day}}, {{clinic_name}} reminds you that your oral health is our priority.\nRegular dental checkups help prevent issues before they start.\nBook your next visit today!',
+        variables: { body: ['patient_name', 'health_day', 'clinic_name'], buttons: [] },
+        language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', health_day: 'World Oral Health Day', clinic_name: 'Smile Dental Clinic' },
     },
     {
         channel: 'whatsapp',
         category: 'campaign',
         template_name: 'dental_clinic_offer',
-        body: 'Hi {{patient_name}}, We have an exciting offer for you from {{clinic_name}}! {{offer_details}} To avail this offer, book your appointment by calling us at {{phone}} during clinic hours. Hurry, this offer is for a limited time only!',
-        variables: {
-            body: ['patient_name', 'clinic_name', 'offer_details', 'phone'],
-            buttons: [],
-        },
+        body: 'Hi {{patient_name}}, here is a special offer from {{clinic_name}}. {{offer_details}} Don\'t miss out — call us or visit us today!',
+        variables: { body: ['patient_name', 'clinic_name', 'offer_details'], buttons: [] },
         language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic', offer_details: 'Get 20% off on teeth whitening this month!' },
     },
 ];
 async function seedDefaultTemplates(prisma) {
@@ -467,6 +576,7 @@ async function seedDefaultTemplates(prisma) {
                     category: template.category,
                     template_name: template.template_name,
                     subject: template.subject,
+                    footer: template.footer,
                     body: template.body,
                     variables: template.variables,
                     language: template.language,
@@ -478,11 +588,44 @@ async function seedDefaultTemplates(prisma) {
         else if (template.channel === 'whatsapp') {
             await prisma.messageTemplate.update({
                 where: { id: existing.id },
-                data: { variables: template.variables },
+                data: {
+                    body: template.body,
+                    variables: template.variables,
+                    footer: template.footer ?? null,
+                    category: template.category,
+                },
             });
             updated++;
         }
     }
+    const currentWANames = DEFAULT_TEMPLATES
+        .filter((t) => t.channel === 'whatsapp')
+        .map((t) => t.template_name);
+    const stale = await prisma.messageTemplate.findMany({
+        where: {
+            clinic_id: null,
+            channel: 'whatsapp',
+            template_name: { notIn: currentWANames },
+        },
+        select: { id: true, template_name: true },
+    });
+    if (stale.length > 0) {
+        await prisma.messageTemplate.deleteMany({
+            where: { id: { in: stale.map((s) => s.id) } },
+        });
+        logger.log(`Removed ${stale.length} stale system WhatsApp templates: ${stale.map((s) => s.template_name).join(', ')}`);
+    }
     logger.log(`Seeded ${created} new templates, updated ${updated} WhatsApp templates (${DEFAULT_TEMPLATES.length - created - updated} unchanged)`);
+}
+function getWhatsAppSeedSampleValues(templateName) {
+    const seed = DEFAULT_TEMPLATES.find((t) => t.channel === 'whatsapp' && t.template_name === templateName);
+    return seed?.sampleValues;
+}
+function getWhatsAppSeedMetaCategory(templateName) {
+    const seed = DEFAULT_TEMPLATES.find((t) => t.channel === 'whatsapp' && t.template_name === templateName);
+    if (!seed)
+        return 'UTILITY';
+    return seed.category === 'campaign' || seed.category === 'greeting' || seed.category === 'referral'
+        ? 'MARKETING' : 'UTILITY';
 }
 //# sourceMappingURL=seed-templates.js.map
