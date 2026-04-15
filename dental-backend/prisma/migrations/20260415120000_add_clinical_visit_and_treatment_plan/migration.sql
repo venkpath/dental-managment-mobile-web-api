@@ -46,7 +46,7 @@ CREATE TABLE "treatment_plans" (
 CREATE TABLE "treatment_plan_items" (
     "id" UUID NOT NULL,
     "plan_id" UUID NOT NULL,
-    "tooth_number" VARCHAR(10),
+    "tooth_number" VARCHAR(100),
     "procedure" VARCHAR(500) NOT NULL,
     "diagnosis" VARCHAR(500),
     "estimated_cost" DECIMAL(10,2) NOT NULL DEFAULT 0,
