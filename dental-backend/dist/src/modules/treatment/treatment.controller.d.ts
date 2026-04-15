@@ -16,6 +16,8 @@ export declare class TreatmentController {
         patient_id: string;
         notes: string | null;
         dentist_id: string;
+        clinical_visit_id: string | null;
+        treatment_plan_id: string | null;
         diagnosis: string;
     }>;
     findAll(clinicId: string, query: QueryTreatmentDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
@@ -31,6 +33,8 @@ export declare class TreatmentController {
         patient_id: string;
         notes: string | null;
         dentist_id: string;
+        clinical_visit_id: string | null;
+        treatment_plan_id: string | null;
         diagnosis: string;
     }>>;
     findByPatient(clinicId: string, patientId: string): Promise<{
@@ -46,6 +50,8 @@ export declare class TreatmentController {
         patient_id: string;
         notes: string | null;
         dentist_id: string;
+        clinical_visit_id: string | null;
+        treatment_plan_id: string | null;
         diagnosis: string;
     }[]>;
     findOne(clinicId: string, id: string): Promise<{
@@ -61,6 +67,8 @@ export declare class TreatmentController {
         patient_id: string;
         notes: string | null;
         dentist_id: string;
+        clinical_visit_id: string | null;
+        treatment_plan_id: string | null;
         diagnosis: string;
     }>;
     update(clinicId: string, id: string, dto: UpdateTreatmentDto): Promise<{
@@ -76,6 +84,8 @@ export declare class TreatmentController {
         patient_id: string;
         notes: string | null;
         dentist_id: string;
+        clinical_visit_id: string | null;
+        treatment_plan_id: string | null;
         diagnosis: string;
     }>;
 }

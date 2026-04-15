@@ -22,13 +22,13 @@ export class CreateTreatmentDto {
   dentist_id!: string;
 
   @ApiPropertyOptional({
-    example: '14',
-    maxLength: 10,
-    description: 'FDI tooth number (e.g. 11-48 for permanent, 51-85 for primary)',
+    example: '14,15',
+    maxLength: 100,
+    description: 'FDI tooth number(s), comma-separated for multiple (e.g. 35,36,37 for a bridge)',
   })
   @IsOptional()
   @IsString()
-  @MaxLength(10)
+  @MaxLength(100)
   @Transform(({ value }) => value != null ? String(value) : value)
   tooth_number?: string;
 

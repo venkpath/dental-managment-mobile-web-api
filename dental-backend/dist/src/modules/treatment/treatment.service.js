@@ -55,8 +55,11 @@ let TreatmentService = class TreatmentService {
         if (dto.tooth_number) {
             const conditionName = TreatmentService_1.PROCEDURE_CONDITION_MAP[dto.procedure];
             if (conditionName) {
-                const fdiNumber = parseInt(dto.tooth_number, 10);
-                if (!isNaN(fdiNumber)) {
+                const fdiNumbers = dto.tooth_number
+                    .split(',')
+                    .map((s) => parseInt(s.trim(), 10))
+                    .filter((n) => !isNaN(n));
+                for (const fdiNumber of fdiNumbers) {
                     const tooth = await this.prisma.tooth.findUnique({ where: { fdi_number: fdiNumber } });
                     if (tooth) {
                         await this.prisma.patientToothCondition.create({

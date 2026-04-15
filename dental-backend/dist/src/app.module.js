@@ -26,6 +26,7 @@ const super_admin_module_js_1 = require("./modules/super-admin/super-admin.modul
 const patient_module_js_1 = require("./modules/patient/patient.module.js");
 const appointment_module_js_1 = require("./modules/appointment/appointment.module.js");
 const treatment_module_js_1 = require("./modules/treatment/treatment.module.js");
+const clinical_visit_module_js_1 = require("./modules/clinical-visit/clinical-visit.module.js");
 const prescription_module_js_1 = require("./modules/prescription/prescription.module.js");
 const invoice_module_js_1 = require("./modules/invoice/invoice.module.js");
 const inventory_module_js_1 = require("./modules/inventory/inventory.module.js");
@@ -112,6 +113,7 @@ exports.AppModule = AppModule = __decorate([
             patient_module_js_1.PatientModule,
             appointment_module_js_1.AppointmentModule,
             treatment_module_js_1.TreatmentModule,
+            clinical_visit_module_js_1.ClinicalVisitModule,
             prescription_module_js_1.PrescriptionModule,
             invoice_module_js_1.InvoiceModule,
             inventory_module_js_1.InventoryModule,

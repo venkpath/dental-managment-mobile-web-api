@@ -45,11 +45,16 @@ export class TreatmentService {
     });
 
     // Auto-create a tooth condition on the dental chart when a tooth-specific procedure is recorded
+    // Supports comma-separated tooth numbers (e.g. "35,36,37" for bridge)
     if (dto.tooth_number) {
       const conditionName = TreatmentService.PROCEDURE_CONDITION_MAP[dto.procedure];
       if (conditionName) {
-        const fdiNumber = parseInt(dto.tooth_number, 10);
-        if (!isNaN(fdiNumber)) {
+        const fdiNumbers = dto.tooth_number
+          .split(',')
+          .map((s) => parseInt(s.trim(), 10))
+          .filter((n) => !isNaN(n));
+
+        for (const fdiNumber of fdiNumbers) {
           const tooth = await this.prisma.tooth.findUnique({ where: { fdi_number: fdiNumber } });
           if (tooth) {
             await this.prisma.patientToothCondition.create({

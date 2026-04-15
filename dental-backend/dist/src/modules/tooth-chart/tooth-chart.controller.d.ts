@@ -55,6 +55,7 @@ export declare class ToothChartController {
             branch_id: string;
             patient_id: string;
             notes: string | null;
+            clinical_visit_id: string | null;
             condition: string;
             severity: string | null;
             tooth_id: string;
@@ -81,6 +82,8 @@ export declare class ToothChartController {
             patient_id: string;
             notes: string | null;
             dentist_id: string;
+            clinical_visit_id: string | null;
+            treatment_plan_id: string | null;
             diagnosis: string;
         })[];
     }>;
@@ -92,6 +95,7 @@ export declare class ToothChartController {
         branch_id: string;
         patient_id: string;
         notes: string | null;
+        clinical_visit_id: string | null;
         condition: string;
         severity: string | null;
         tooth_id: string;
@@ -106,6 +110,7 @@ export declare class ToothChartController {
         branch_id: string;
         patient_id: string;
         notes: string | null;
+        clinical_visit_id: string | null;
         condition: string;
         severity: string | null;
         tooth_id: string;

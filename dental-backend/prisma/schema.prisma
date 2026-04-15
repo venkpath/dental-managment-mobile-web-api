@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "binary"
 }
 
@@ -24,22 +24,22 @@ model Clinic {
   is_complimentary    Boolean   @default(false)
   logo_url            String?   @db.Text
   ai_usage_count      Int       @default(0)
-  ai_quota_override   Int?      // per-clinic AI quota override (null = use global/plan default)
+  ai_quota_override   Int? // per-clinic AI quota override (null = use global/plan default)
   created_at          DateTime  @default(now())
   updated_at          DateTime  @updatedAt
 
-  plan         Plan?          @relation(fields: [plan_id], references: [id], onDelete: SetNull)
-  users        User[]
-  branches     Branch[]
-  patients     Patient[]
-  appointments  Appointment[]
-  treatments    Treatment[]
-  prescriptions Prescription[]
-  invoices        Invoice[]
-  inventory_items InventoryItem[]
-  attachments          Attachment[]
-  tooth_conditions     PatientToothCondition[]
-  notifications        Notification[]
+  plan                   Plan?                        @relation(fields: [plan_id], references: [id], onDelete: SetNull)
+  users                  User[]
+  branches               Branch[]
+  patients               Patient[]
+  appointments           Appointment[]
+  treatments             Treatment[]
+  prescriptions          Prescription[]
+  invoices               Invoice[]
+  inventory_items        InventoryItem[]
+  attachments            Attachment[]
+  tooth_conditions       PatientToothCondition[]
+  notifications          Notification[]
   communication_messages CommunicationMessage[]
   message_templates      MessageTemplate[]
   communication_settings ClinicCommunicationSettings?
@@ -52,6 +52,8 @@ model Clinic {
   ai_insights            AiInsight[]
   expense_categories     ExpenseCategory[]
   expenses               Expense[]
+  clinical_visits        ClinicalVisit[]
+  treatment_plans        TreatmentPlan[]
 
   @@index([email])
   @@index([plan_id])
@@ -59,64 +61,66 @@ model Clinic {
 }
 
 model Branch {
-  id         String   @id @default(uuid()) @db.Uuid
-  clinic_id  String   @db.Uuid
-  name       String   @db.VarChar(255)
-  phone      String?  @db.VarChar(50)
-  address    String?  @db.VarChar(500)
-  city       String?  @db.VarChar(100)
-  state      String?  @db.VarChar(100)
-  country    String?  @db.VarChar(100)
-  pincode    String?  @db.VarChar(10)
+  id        String  @id @default(uuid()) @db.Uuid
+  clinic_id String  @db.Uuid
+  name      String  @db.VarChar(255)
+  phone     String? @db.VarChar(50)
+  address   String? @db.VarChar(500)
+  city      String? @db.VarChar(100)
+  state     String? @db.VarChar(100)
+  country   String? @db.VarChar(100)
+  pincode   String? @db.VarChar(10)
 
   // Location (for Google Maps directions / WhatsApp "Get Directions" button)
-  latitude   Float?
-  longitude  Float?
-  map_url    String?  @db.VarChar(500) // Google Maps directions URL
+  latitude  Float?
+  longitude Float?
+  map_url   String? @db.VarChar(500) // Google Maps directions URL
 
   // Online booking URL — custom URL set by clinic, or fallback to smartdentaldesk.com/booking/{clinicId}/{branchId}
   book_now_url String? @db.VarChar(2000)
 
   // Configurable scheduling settings (admin-managed per branch)
-  working_start_time    String?  @db.VarChar(5)  // HH:mm e.g. "09:00"
-  working_end_time      String?  @db.VarChar(5)  // HH:mm e.g. "18:00"
-  lunch_start_time      String?  @db.VarChar(5)  // HH:mm e.g. "13:00"
-  lunch_end_time        String?  @db.VarChar(5)  // HH:mm e.g. "14:00"
-  slot_duration         Int?     @default(15)     // minutes: 15, 20, 30, 45, 60
-  default_appt_duration Int?     @default(30)     // default appointment length in minutes
-  buffer_minutes        Int?     @default(0)      // buffer gap between appointments
-  advance_booking_days  Int?     @default(30)     // how far ahead patients can book
-  working_days          String?  @db.VarChar(20)  // comma-separated: "1,2,3,4,5,6" (1=Mon, 7=Sun)
+  working_start_time    String? @db.VarChar(5) // HH:mm e.g. "09:00"
+  working_end_time      String? @db.VarChar(5) // HH:mm e.g. "18:00"
+  lunch_start_time      String? @db.VarChar(5) // HH:mm e.g. "13:00"
+  lunch_end_time        String? @db.VarChar(5) // HH:mm e.g. "14:00"
+  slot_duration         Int?    @default(15) // minutes: 15, 20, 30, 45, 60
+  default_appt_duration Int?    @default(30) // default appointment length in minutes
+  buffer_minutes        Int?    @default(0) // buffer gap between appointments
+  advance_booking_days  Int?    @default(30) // how far ahead patients can book
+  working_days          String? @db.VarChar(20) // comma-separated: "1,2,3,4,5,6" (1=Mon, 7=Sun)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  clinic       Clinic        @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  users        User[]
-  patients     Patient[]
-  appointments  Appointment[]
-  treatments    Treatment[]
-  prescriptions Prescription[]
-  invoices        Invoice[]
-  inventory_items InventoryItem[]
-  attachments          Attachment[]
-  tooth_conditions     PatientToothCondition[]
-  expenses             Expense[]
+  clinic           Clinic                  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  users            User[]
+  patients         Patient[]
+  appointments     Appointment[]
+  treatments       Treatment[]
+  prescriptions    Prescription[]
+  invoices         Invoice[]
+  inventory_items  InventoryItem[]
+  attachments      Attachment[]
+  tooth_conditions PatientToothCondition[]
+  expenses         Expense[]
+  clinical_visits  ClinicalVisit[]
+  treatment_plans  TreatmentPlan[]
 
   @@index([clinic_id])
   @@map("branches")
 }
 
 model Plan {
-  id              String   @id @default(uuid()) @db.Uuid
-  name            String   @unique @db.VarChar(100)
-  price_monthly   Decimal  @db.Decimal(10, 2)
-  max_branches    Int
-  max_staff       Int
-  ai_quota        Int      @default(0)
-  razorpay_plan_id String? @db.VarChar(100)
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
+  id               String   @id @default(uuid()) @db.Uuid
+  name             String   @unique @db.VarChar(100)
+  price_monthly    Decimal  @db.Decimal(10, 2)
+  max_branches     Int
+  max_staff        Int
+  ai_quota         Int      @default(0)
+  razorpay_plan_id String?  @db.VarChar(100)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
 
   clinics       Clinic[]
   plan_features PlanFeature[]
@@ -163,10 +167,10 @@ model SuperAdmin {
 }
 
 model User {
-  id            String   @id @default(uuid()) @db.Uuid
-  clinic_id     String   @db.Uuid
-  branch_id     String?  @db.Uuid
-  name          String   @db.VarChar(255)
+  id             String   @id @default(uuid()) @db.Uuid
+  clinic_id      String   @db.Uuid
+  branch_id      String?  @db.Uuid
+  name           String   @db.VarChar(255)
   email          String   @db.VarChar(255)
   phone          String?  @db.VarChar(20)
   password_hash  String   @db.VarChar(255)
@@ -177,15 +181,17 @@ model User {
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 
-  clinic       Clinic        @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch       Branch?       @relation(fields: [branch_id], references: [id], onDelete: SetNull)
-  appointments  Appointment[]
-  treatments    Treatment[]
-  prescriptions Prescription[]
+  clinic           Clinic                  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch           Branch?                 @relation(fields: [branch_id], references: [id], onDelete: SetNull)
+  appointments     Appointment[]
+  treatments       Treatment[]
+  prescriptions    Prescription[]
   attachments      Attachment[]
   tooth_conditions PatientToothCondition[] @relation("ToothConditionDentist")
   ai_insights      AiInsight[]
   expenses         Expense[]
+  clinical_visits  ClinicalVisit[]         @relation("VisitDentist")
+  treatment_plans  TreatmentPlan[]         @relation("PlanDentist")
 
   @@unique([email, clinic_id])
   @@index([clinic_id])
@@ -195,39 +201,41 @@ model User {
 }
 
 model Patient {
-  id              String   @id @default(uuid()) @db.Uuid
-  clinic_id       String   @db.Uuid
-  branch_id       String   @db.Uuid
-  first_name      String   @db.VarChar(100)
-  last_name       String   @db.VarChar(100)
-  phone           String   @db.VarChar(50)
-  email           String?  @db.VarChar(255)
-  gender          String   @db.VarChar(20)
+  id              String    @id @default(uuid()) @db.Uuid
+  clinic_id       String    @db.Uuid
+  branch_id       String    @db.Uuid
+  first_name      String    @db.VarChar(100)
+  last_name       String    @db.VarChar(100)
+  phone           String    @db.VarChar(50)
+  email           String?   @db.VarChar(255)
+  gender          String    @db.VarChar(20)
   date_of_birth   DateTime? @db.Date
   age             Int?
-  blood_group     String?  @db.VarChar(10)
-  medical_history Json?    @default("{}")
-  allergies       String?  @db.VarChar(1000)
-  notes           String?  @db.Text
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
+  blood_group     String?   @db.VarChar(10)
+  medical_history Json?     @default("{}")
+  allergies       String?   @db.VarChar(1000)
+  notes           String?   @db.Text
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
 
-  preferred_language String  @default("en") @db.VarChar(5)
+  preferred_language String @default("en") @db.VarChar(5)
 
-  clinic       Clinic        @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch       Branch        @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  appointments  Appointment[]
-  treatments    Treatment[]
-  prescriptions Prescription[]
-  invoices      Invoice[]
-  attachments          Attachment[]
-  tooth_conditions     PatientToothCondition[]
-  communication_messages CommunicationMessage[]
+  clinic                   Clinic                          @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch                   Branch                          @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  appointments             Appointment[]
+  treatments               Treatment[]
+  prescriptions            Prescription[]
+  invoices                 Invoice[]
+  attachments              Attachment[]
+  tooth_conditions         PatientToothCondition[]
+  communication_messages   CommunicationMessage[]
   communication_preference PatientCommunicationPreference?
-  feedback               PatientFeedback[]
-  referral_codes         PatientReferralCode[] @relation("PatientReferralCodes")
-  referrals_as_referrer  Referral[]            @relation("ReferrerPatient")
-  referrals_as_referred  Referral[]            @relation("ReferredPatient")
+  feedback                 PatientFeedback[]
+  referral_codes           PatientReferralCode[]           @relation("PatientReferralCodes")
+  referrals_as_referrer    Referral[]                      @relation("ReferrerPatient")
+  referrals_as_referred    Referral[]                      @relation("ReferredPatient")
+  clinical_visits          ClinicalVisit[]
+  treatment_plans          TreatmentPlan[]
 
   @@index([clinic_id])
   @@index([branch_id])
@@ -252,10 +260,11 @@ model Appointment {
   created_at          DateTime @default(now())
   updated_at          DateTime @updatedAt
 
-  clinic  Clinic  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch  Branch  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  patient Patient @relation(fields: [patient_id], references: [id], onDelete: Cascade)
-  dentist User    @relation(fields: [dentist_id], references: [id], onDelete: Cascade)
+  clinic          Clinic          @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch          Branch          @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient         Patient         @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  dentist         User            @relation(fields: [dentist_id], references: [id], onDelete: Cascade)
+  clinical_visits ClinicalVisit[]
 
   @@index([clinic_id])
   @@index([branch_id])
@@ -268,30 +277,37 @@ model Appointment {
 }
 
 model Treatment {
-  id           String   @id @default(uuid()) @db.Uuid
-  clinic_id    String   @db.Uuid
-  branch_id    String   @db.Uuid
-  patient_id   String   @db.Uuid
-  dentist_id   String   @db.Uuid
-  tooth_number String?  @db.VarChar(10)
-  diagnosis    String   @db.VarChar(500)
-  procedure    String   @db.VarChar(500)
-  status       String   @default("planned") @db.VarChar(20)
-  cost         Decimal  @db.Decimal(10, 2)
-  notes        String?  @db.Text
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
+  id                String   @id @default(uuid()) @db.Uuid
+  clinic_id         String   @db.Uuid
+  branch_id         String   @db.Uuid
+  patient_id        String   @db.Uuid
+  dentist_id        String   @db.Uuid
+  clinical_visit_id String?  @db.Uuid
+  treatment_plan_id String?  @db.Uuid
+  tooth_number      String?  @db.VarChar(100)
+  diagnosis         String   @db.VarChar(500)
+  procedure         String   @db.VarChar(500)
+  status            String   @default("planned") @db.VarChar(20)
+  cost              Decimal  @db.Decimal(10, 2)
+  notes             String?  @db.Text
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
 
-  clinic        Clinic        @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch        Branch        @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  patient       Patient       @relation(fields: [patient_id], references: [id], onDelete: Cascade)
-  dentist       User          @relation(fields: [dentist_id], references: [id], onDelete: Cascade)
-  invoice_items InvoiceItem[]
+  clinic         Clinic              @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch         Branch              @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient        Patient             @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  dentist        User                @relation(fields: [dentist_id], references: [id], onDelete: Cascade)
+  clinical_visit ClinicalVisit?      @relation(fields: [clinical_visit_id], references: [id], onDelete: SetNull)
+  treatment_plan TreatmentPlan?      @relation(fields: [treatment_plan_id], references: [id], onDelete: SetNull)
+  plan_items     TreatmentPlanItem[]
+  invoice_items  InvoiceItem[]
 
   @@index([clinic_id])
   @@index([branch_id])
   @@index([patient_id])
   @@index([dentist_id])
+  @@index([clinical_visit_id])
+  @@index([treatment_plan_id])
   @@index([patient_id, tooth_number])
   @@map("treatments")
 }
@@ -306,10 +322,10 @@ model Prescription {
   instructions String?  @db.Text
   created_at   DateTime @default(now())
 
-  clinic  Clinic  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch  Branch  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  patient Patient @relation(fields: [patient_id], references: [id], onDelete: Cascade)
-  dentist User    @relation(fields: [dentist_id], references: [id], onDelete: Cascade)
+  clinic  Clinic             @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch  Branch             @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient Patient            @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  dentist User               @relation(fields: [dentist_id], references: [id], onDelete: Cascade)
   items   PrescriptionItem[]
 
   @@index([clinic_id])
@@ -319,16 +335,16 @@ model Prescription {
 }
 
 model PrescriptionItem {
-  id              String @id @default(uuid()) @db.Uuid
-  prescription_id String @db.Uuid
-  medicine_name   String @db.VarChar(255)
-  dosage          String @db.VarChar(100)
-  frequency       String @db.VarChar(100)
-  duration        String @db.VarChar(100)
-  morning         Int    @default(0)
-  afternoon       Int    @default(0)
-  evening         Int    @default(0)
-  night           Int    @default(0)
+  id              String  @id @default(uuid()) @db.Uuid
+  prescription_id String  @db.Uuid
+  medicine_name   String  @db.VarChar(255)
+  dosage          String  @db.VarChar(100)
+  frequency       String  @db.VarChar(100)
+  duration        String  @db.VarChar(100)
+  morning         Int     @default(0)
+  afternoon       Int     @default(0)
+  evening         Int     @default(0)
+  night           Int     @default(0)
   notes           String? @db.Text
 
   prescription Prescription @relation(fields: [prescription_id], references: [id], onDelete: Cascade)
@@ -353,11 +369,11 @@ model Invoice {
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
 
-  clinic          Clinic             @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch          Branch             @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  patient         Patient            @relation(fields: [patient_id], references: [id], onDelete: Cascade)
-  items           InvoiceItem[]
-  payments        Payment[]
+  clinic           Clinic           @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch           Branch           @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient          Patient          @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  items            InvoiceItem[]
+  payments         Payment[]
   installment_plan InstallmentPlan?
 
   @@unique([clinic_id, invoice_number])
@@ -369,14 +385,14 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id           String   @id @default(uuid()) @db.Uuid
-  invoice_id   String   @db.Uuid
-  treatment_id String?  @db.Uuid
-  item_type    String   @default("service") @db.VarChar(20) // treatment | service | pharmacy
-  description  String   @db.VarChar(500)
-  quantity     Int      @default(1)
-  unit_price   Decimal  @db.Decimal(10, 2)
-  total_price  Decimal  @db.Decimal(10, 2)
+  id           String  @id @default(uuid()) @db.Uuid
+  invoice_id   String  @db.Uuid
+  treatment_id String? @db.Uuid
+  item_type    String  @default("service") @db.VarChar(20) // treatment | service | pharmacy
+  description  String  @db.VarChar(500)
+  quantity     Int     @default(1)
+  unit_price   Decimal @db.Decimal(10, 2)
+  total_price  Decimal @db.Decimal(10, 2)
 
   invoice   Invoice    @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
   treatment Treatment? @relation(fields: [treatment_id], references: [id], onDelete: SetNull)
@@ -404,16 +420,16 @@ model Payment {
 }
 
 model InstallmentPlan {
-  id              String   @id @default(uuid()) @db.Uuid
-  invoice_id      String   @unique @db.Uuid
-  total_amount    Decimal  @db.Decimal(10, 2)
+  id               String   @id @default(uuid()) @db.Uuid
+  invoice_id       String   @unique @db.Uuid
+  total_amount     Decimal  @db.Decimal(10, 2)
   num_installments Int
-  notes           String?  @db.Text
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
+  notes            String?  @db.Text
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
 
-  invoice    Invoice           @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
-  items      InstallmentItem[]
+  invoice Invoice           @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  items   InstallmentItem[]
 
   @@index([invoice_id])
   @@map("installment_plans")
@@ -437,46 +453,46 @@ model InstallmentItem {
 }
 
 model InventoryItem {
-  id              String    @id @default(uuid()) @db.Uuid
-  clinic_id       String    @db.Uuid
-  branch_id       String    @db.Uuid
-  name            String    @db.VarChar(255)
-  category        String?   @db.VarChar(100)
-  quantity        Int       @default(0)
-  unit            String    @db.VarChar(50)
-  reorder_level   Int       @default(0)
-  supplier        String?   @db.VarChar(255)
+  id            String  @id @default(uuid()) @db.Uuid
+  clinic_id     String  @db.Uuid
+  branch_id     String  @db.Uuid
+  name          String  @db.VarChar(255)
+  category      String? @db.VarChar(100)
+  quantity      Int     @default(0)
+  unit          String  @db.VarChar(50)
+  reorder_level Int     @default(0)
+  supplier      String? @db.VarChar(255)
 
   // === Packaging / UOM ===
   // How you purchase (outermost unit)
-  purchase_unit       String?   @db.VarChar(50)   // "box", "bottle", "pack", "carton"
-  purchase_price      Decimal?  @db.Decimal(10,2) // price for 1 purchase_unit
+  purchase_unit  String?  @db.VarChar(50) // "box", "bottle", "pack", "carton"
+  purchase_price Decimal? @db.Decimal(10, 2) // price for 1 purchase_unit
 
   // Intermediate packaging (optional, e.g. strips inside box)
-  pack_unit           String?   @db.VarChar(50)   // "strip", "sachet", "blister"
-  packs_per_purchase  Int?                          // e.g. 10 strips per box
+  pack_unit          String? @db.VarChar(50) // "strip", "sachet", "blister"
+  packs_per_purchase Int? // e.g. 10 strips per box
 
   // Dispensing unit = existing `unit` field (tablet, ml, capsule, etc.)
-  units_per_pack      Int?                          // e.g. 10 tablets per strip
-                                                    // for 2-level: tablets per bottle
+  units_per_pack Int? // e.g. 10 tablets per strip
+  // for 2-level: tablets per bottle
 
   // Derived / stored
-  units_in_purchase   Int?                          // total dispensing units per purchase (auto)
-  cost_price          Decimal?  @db.Decimal(10,2)  // cost per dispensing unit (auto = purchase_price / units_in_purchase)
-  selling_price       Decimal?  @db.Decimal(10,2)  // selling price per dispensing unit
-  markup_percent      Decimal?  @db.Decimal(5,2)   // optional markup % (auto-fills selling_price)
+  units_in_purchase Int? // total dispensing units per purchase (auto)
+  cost_price        Decimal? @db.Decimal(10, 2) // cost per dispensing unit (auto = purchase_price / units_in_purchase)
+  selling_price     Decimal? @db.Decimal(10, 2) // selling price per dispensing unit
+  markup_percent    Decimal? @db.Decimal(5, 2) // optional markup % (auto-fills selling_price)
 
   // Legacy (kept for backwards compat)
-  price_per_unit  Decimal?  @db.Decimal(10, 2)
-  price_per_box   Decimal?  @db.Decimal(10, 2)
-  units_per_box   Int?
+  price_per_unit Decimal? @db.Decimal(10, 2)
+  price_per_box  Decimal? @db.Decimal(10, 2)
+  units_per_box  Int?
 
-  expiry_date     DateTime?
-  batch_number    String?   @db.VarChar(100)
-  location        String?   @db.VarChar(100)
-  notes           String?   @db.Text
-  created_at      DateTime  @default(now())
-  updated_at      DateTime  @updatedAt
+  expiry_date  DateTime?
+  batch_number String?   @db.VarChar(100)
+  location     String?   @db.VarChar(100)
+  notes        String?   @db.Text
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
 
   clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   branch Branch @relation(fields: [branch_id], references: [id], onDelete: Cascade)
@@ -494,18 +510,18 @@ model Attachment {
   branch_id     String   @db.Uuid
   patient_id    String   @db.Uuid
   file_url      String   @db.VarChar(1000)
-  file_name     String   @db.VarChar(255) @default("")
-  original_name String   @db.VarChar(255) @default("")
-  mime_type     String   @db.VarChar(100) @default("")
+  file_name     String   @default("") @db.VarChar(255)
+  original_name String   @default("") @db.VarChar(255)
+  mime_type     String   @default("") @db.VarChar(100)
   type          String   @db.VarChar(20)
   ai_analysis   Json?
   uploaded_by   String   @db.Uuid
   created_at    DateTime @default(now())
 
-  clinic  Clinic  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch  Branch  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  patient Patient @relation(fields: [patient_id], references: [id], onDelete: Cascade)
-  uploader User   @relation(fields: [uploaded_by], references: [id], onDelete: Cascade)
+  clinic   Clinic  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch   Branch  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient  Patient @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  uploader User    @relation(fields: [uploaded_by], references: [id], onDelete: Cascade)
 
   @@index([clinic_id])
   @@index([patient_id])
@@ -531,11 +547,11 @@ model AuditLog {
 }
 
 model Tooth {
-  id          String @id @default(uuid()) @db.Uuid
-  fdi_number  Int    @unique
-  name        String @db.VarChar(100)
-  quadrant    Int
-  position    Int
+  id         String @id @default(uuid()) @db.Uuid
+  fdi_number Int    @unique
+  name       String @db.VarChar(100)
+  quadrant   Int
+  position   Int
 
   conditions PatientToothCondition[]
 
@@ -553,29 +569,32 @@ model ToothSurface {
 }
 
 model PatientToothCondition {
-  id              String   @id @default(uuid()) @db.Uuid
-  clinic_id       String   @db.Uuid
-  branch_id       String   @db.Uuid
-  patient_id      String   @db.Uuid
-  tooth_id        String   @db.Uuid
-  surface_id      String?  @db.Uuid
-  condition       String   @db.VarChar(100)
-  severity        String?  @db.VarChar(20)
-  notes           String?  @db.Text
-  diagnosed_by    String   @db.Uuid
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
+  id                String   @id @default(uuid()) @db.Uuid
+  clinic_id         String   @db.Uuid
+  branch_id         String   @db.Uuid
+  patient_id        String   @db.Uuid
+  tooth_id          String   @db.Uuid
+  surface_id        String?  @db.Uuid
+  clinical_visit_id String?  @db.Uuid
+  condition         String   @db.VarChar(100)
+  severity          String?  @db.VarChar(20)
+  notes             String?  @db.Text
+  diagnosed_by      String   @db.Uuid
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
 
-  clinic    Clinic       @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch    Branch       @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  patient   Patient      @relation(fields: [patient_id], references: [id], onDelete: Cascade)
-  tooth     Tooth        @relation(fields: [tooth_id], references: [id], onDelete: Cascade)
-  surface   ToothSurface? @relation(fields: [surface_id], references: [id], onDelete: SetNull)
-  dentist   User         @relation("ToothConditionDentist", fields: [diagnosed_by], references: [id], onDelete: Cascade)
+  clinic         Clinic         @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch         Branch         @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient        Patient        @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  tooth          Tooth          @relation(fields: [tooth_id], references: [id], onDelete: Cascade)
+  surface        ToothSurface?  @relation(fields: [surface_id], references: [id], onDelete: SetNull)
+  dentist        User           @relation("ToothConditionDentist", fields: [diagnosed_by], references: [id], onDelete: Cascade)
+  clinical_visit ClinicalVisit? @relation(fields: [clinical_visit_id], references: [id], onDelete: SetNull)
 
   @@index([clinic_id])
   @@index([patient_id])
   @@index([tooth_id])
+  @@index([clinical_visit_id])
   @@index([patient_id, tooth_id])
   @@map("patient_tooth_conditions")
 }
@@ -584,7 +603,7 @@ model Notification {
   id         String   @id @default(uuid()) @db.Uuid
   clinic_id  String   @db.Uuid
   user_id    String?  @db.Uuid
-  type       String   @db.VarChar(50)  // appointment_reminder, payment_overdue, low_inventory, system
+  type       String   @db.VarChar(50) // appointment_reminder, payment_overdue, low_inventory, system
   title      String   @db.VarChar(255)
   body       String   @db.Text
   is_read    Boolean  @default(false)
@@ -609,9 +628,9 @@ model MessageTemplate {
   category                 String   @db.VarChar(30) // reminder | greeting | campaign | transactional | follow_up | referral
   template_name            String   @db.VarChar(255)
   subject                  String?  @db.VarChar(500) // header for WhatsApp / subject for email
-  footer                   String?  @db.VarChar(60)  // WhatsApp footer text
+  footer                   String?  @db.VarChar(60) // WhatsApp footer text
   body                     String   @db.Text
-  variables                Json?    // list of supported variables
+  variables                Json? // list of supported variables
   language                 String   @default("en") @db.VarChar(5)
   is_active                Boolean  @default(true)
   dlt_template_id          String?  @db.VarChar(100) // SMS DLT compliance
@@ -634,27 +653,27 @@ model MessageTemplate {
 }
 
 model CommunicationMessage {
-  id           String    @id @default(uuid()) @db.Uuid
-  clinic_id    String    @db.Uuid
-  patient_id   String?   @db.Uuid // nullable for broadcast
-  template_id  String?   @db.Uuid
-  channel      String    @db.VarChar(20) // email | sms | whatsapp | in_app
-  category     String    @default("transactional") @db.VarChar(20) // transactional | promotional
-  subject      String?   @db.VarChar(500)
-  body         String    @db.Text
-  recipient    String    @db.VarChar(255) // phone/email
-  status       String    @default("queued") @db.VarChar(20) // queued | sent | delivered | read | failed | skipped
-  direction    String    @default("outbound") @db.VarChar(10) // outbound | inbound
-  skip_reason  String?   @db.VarChar(255) // if skipped: preference_disabled, dnd_hours, dedup, etc.
-  wa_message_id String?  @db.VarChar(255) // Meta WhatsApp message ID (wamid.xxx)
-  scheduled_at DateTime?
-  sent_at      DateTime?
-  metadata     Json?     // extra context: campaign_id, appointment_id, etc.
-  created_at   DateTime  @default(now())
+  id            String    @id @default(uuid()) @db.Uuid
+  clinic_id     String    @db.Uuid
+  patient_id    String?   @db.Uuid // nullable for broadcast
+  template_id   String?   @db.Uuid
+  channel       String    @db.VarChar(20) // email | sms | whatsapp | in_app
+  category      String    @default("transactional") @db.VarChar(20) // transactional | promotional
+  subject       String?   @db.VarChar(500)
+  body          String    @db.Text
+  recipient     String    @db.VarChar(255) // phone/email
+  status        String    @default("queued") @db.VarChar(20) // queued | sent | delivered | read | failed | skipped
+  direction     String    @default("outbound") @db.VarChar(10) // outbound | inbound
+  skip_reason   String?   @db.VarChar(255) // if skipped: preference_disabled, dnd_hours, dedup, etc.
+  wa_message_id String?   @db.VarChar(255) // Meta WhatsApp message ID (wamid.xxx)
+  scheduled_at  DateTime?
+  sent_at       DateTime?
+  metadata      Json? // extra context: campaign_id, appointment_id, etc.
+  created_at    DateTime  @default(now())
 
-  clinic   Clinic           @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  patient  Patient?         @relation(fields: [patient_id], references: [id], onDelete: SetNull)
-  template MessageTemplate? @relation(fields: [template_id], references: [id], onDelete: SetNull)
+  clinic   Clinic             @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  patient  Patient?           @relation(fields: [patient_id], references: [id], onDelete: SetNull)
+  template MessageTemplate?   @relation(fields: [template_id], references: [id], onDelete: SetNull)
   logs     CommunicationLog[]
 
   @@index([clinic_id])
@@ -697,16 +716,16 @@ model CommunicationLog {
 }
 
 model PatientCommunicationPreference {
-  id                String  @id @default(uuid()) @db.Uuid
-  patient_id        String  @unique @db.Uuid
-  allow_email       Boolean @default(true)
-  allow_sms         Boolean @default(true)
-  allow_whatsapp    Boolean @default(true)
-  allow_marketing   Boolean @default(true)
-  allow_reminders   Boolean @default(true)
-  preferred_channel String  @default("whatsapp") @db.VarChar(20) // email | sms | whatsapp
-  quiet_hours_start String? @db.VarChar(5) // HH:mm e.g. "21:00"
-  quiet_hours_end   String? @db.VarChar(5) // HH:mm e.g. "09:00"
+  id                String   @id @default(uuid()) @db.Uuid
+  patient_id        String   @unique @db.Uuid
+  allow_email       Boolean  @default(true)
+  allow_sms         Boolean  @default(true)
+  allow_whatsapp    Boolean  @default(true)
+  allow_marketing   Boolean  @default(true)
+  allow_reminders   Boolean  @default(true)
+  preferred_channel String   @default("whatsapp") @db.VarChar(20) // email | sms | whatsapp
+  quiet_hours_start String?  @db.VarChar(5) // HH:mm e.g. "21:00"
+  quiet_hours_end   String?  @db.VarChar(5) // HH:mm e.g. "09:00"
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
 
@@ -717,26 +736,26 @@ model PatientCommunicationPreference {
 }
 
 model ClinicCommunicationSettings {
-  id                       String  @id @default(uuid()) @db.Uuid
-  clinic_id                String  @unique @db.Uuid
-  enable_email             Boolean @default(false) // disabled by default
-  enable_sms               Boolean @default(false)
-  enable_whatsapp          Boolean @default(false)
-  email_provider           String? @db.VarChar(50) // gmail | sendgrid | ses | mailtrap
-  email_config             Json?   // { host, port, user, pass } — encrypted in practice
-  sms_provider             String? @db.VarChar(50) // msg91 | textlocal | kaleyra
-  sms_config               Json?   // { api_key, sender_id, dlt_entity_id }
-  whatsapp_provider        String? @db.VarChar(50) // gupshup | wati | interakt
-  whatsapp_config          Json?   // { api_key, phone_number_id, waba_id }
-  fallback_chain           Json?   @default("[\"whatsapp\", \"sms\", \"email\"]")
-  default_reminder_channels Json?  @default("[\"whatsapp\"]")
-  daily_message_limit      Int     @default(1000)
-  send_rate_per_minute     Int     @default(100)
-  google_review_url        String? @db.VarChar(500) // clinic's Google Business review link
-  dnd_start                String? @db.VarChar(5)   // DND quiet hours start e.g. "22:00"
-  dnd_end                  String? @db.VarChar(5)   // DND quiet hours end e.g. "08:00"
-  created_at               DateTime @default(now())
-  updated_at               DateTime @updatedAt
+  id                        String   @id @default(uuid()) @db.Uuid
+  clinic_id                 String   @unique @db.Uuid
+  enable_email              Boolean  @default(false) // disabled by default
+  enable_sms                Boolean  @default(false)
+  enable_whatsapp           Boolean  @default(false)
+  email_provider            String?  @db.VarChar(50) // gmail | sendgrid | ses | mailtrap
+  email_config              Json? // { host, port, user, pass } — encrypted in practice
+  sms_provider              String?  @db.VarChar(50) // msg91 | textlocal | kaleyra
+  sms_config                Json? // { api_key, sender_id, dlt_entity_id }
+  whatsapp_provider         String?  @db.VarChar(50) // gupshup | wati | interakt
+  whatsapp_config           Json? // { api_key, phone_number_id, waba_id }
+  fallback_chain            Json?    @default("[\"whatsapp\", \"sms\", \"email\"]")
+  default_reminder_channels Json?    @default("[\"whatsapp\"]")
+  daily_message_limit       Int      @default(1000)
+  send_rate_per_minute      Int      @default(100)
+  google_review_url         String?  @db.VarChar(500) // clinic's Google Business review link
+  dnd_start                 String?  @db.VarChar(5) // DND quiet hours start e.g. "22:00"
+  dnd_end                   String?  @db.VarChar(5) // DND quiet hours end e.g. "08:00"
+  created_at                DateTime @default(now())
+  updated_at                DateTime @updatedAt
 
   clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
 
@@ -763,27 +782,27 @@ model ConsentAuditLog {
 // ─── Campaigns (Phase 3, Epic 9) ───
 
 model Campaign {
-  id                String    @id @default(uuid()) @db.Uuid
-  clinic_id         String    @db.Uuid
-  name              String    @db.VarChar(255)
-  channel           String    @db.VarChar(20) // email | sms | whatsapp | all
-  template_id       String?   @db.Uuid
-  segment_type      String    @db.VarChar(30) // all | inactive | treatment_type | birthday_month | location | custom
-  segment_config    Json?     // filter criteria
-  status            String    @default("draft") @db.VarChar(20) // draft | scheduled | running | completed | paused | cancelled
-  scheduled_at      DateTime?
-  started_at        DateTime?
-  completed_at      DateTime?
-  total_recipients  Int       @default(0)
-  sent_count        Int       @default(0)
-  delivered_count   Int       @default(0)
-  failed_count      Int       @default(0)
-  read_count        Int       @default(0)
-  estimated_cost    Decimal?  @db.Decimal(10, 2)
-  actual_cost       Decimal?  @db.Decimal(10, 2)
-  created_by        String    @db.Uuid
-  created_at        DateTime  @default(now())
-  updated_at        DateTime  @updatedAt
+  id               String    @id @default(uuid()) @db.Uuid
+  clinic_id        String    @db.Uuid
+  name             String    @db.VarChar(255)
+  channel          String    @db.VarChar(20) // email | sms | whatsapp | all
+  template_id      String?   @db.Uuid
+  segment_type     String    @db.VarChar(30) // all | inactive | treatment_type | birthday_month | location | custom
+  segment_config   Json? // filter criteria
+  status           String    @default("draft") @db.VarChar(20) // draft | scheduled | running | completed | paused | cancelled
+  scheduled_at     DateTime?
+  started_at       DateTime?
+  completed_at     DateTime?
+  total_recipients Int       @default(0)
+  sent_count       Int       @default(0)
+  delivered_count  Int       @default(0)
+  failed_count     Int       @default(0)
+  read_count       Int       @default(0)
+  estimated_cost   Decimal?  @db.Decimal(10, 2)
+  actual_cost      Decimal?  @db.Decimal(10, 2)
+  created_by       String    @db.Uuid
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
 
   clinic   Clinic           @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   template MessageTemplate? @relation(fields: [template_id], references: [id], onDelete: SetNull)
@@ -798,18 +817,18 @@ model Campaign {
 // ─── Automation Rules (Phase 3, Epic 10-11) ───
 
 model AutomationRule {
-  id              String   @id @default(uuid()) @db.Uuid
-  clinic_id       String   @db.Uuid
-  rule_type       String   @db.VarChar(50)
+  id          String   @id @default(uuid()) @db.Uuid
+  clinic_id   String   @db.Uuid
+  rule_type   String   @db.VarChar(50)
   // birthday_greeting | festival_greeting | post_treatment_care | no_show_followup
   // dormant_reactivation | treatment_plan_reminder | payment_reminder
   // feedback_collection | appointment_reminder
-  is_enabled      Boolean  @default(true)
-  channel         String   @default("whatsapp") @db.VarChar(20) // email | sms | whatsapp | preferred
-  template_id     String?  @db.Uuid
-  config          Json?    // rule-specific settings (delay_hours, dormancy_days, etc.)
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
+  is_enabled  Boolean  @default(true)
+  channel     String   @default("whatsapp") @db.VarChar(20) // email | sms | whatsapp | preferred
+  template_id String?  @db.Uuid
+  config      Json? // rule-specific settings (delay_hours, dormancy_days, etc.)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
 
   clinic   Clinic           @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   template MessageTemplate? @relation(fields: [template_id], references: [id], onDelete: SetNull)
@@ -823,18 +842,18 @@ model AutomationRule {
 // ─── Clinic Events / Festival Calendar (Phase 3, Epic 10) ───
 
 model ClinicEvent {
-  id               String    @id @default(uuid()) @db.Uuid
-  clinic_id        String?   @db.Uuid // null = system event (pre-seeded)
-  event_name       String    @db.VarChar(255)
-  event_date       DateTime  @db.Date
-  is_recurring     Boolean   @default(true) // repeat annually
-  is_enabled       Boolean   @default(true)
-  template_id      String?   @db.Uuid
-  occasion_message String?   @db.Text // custom body for national/health days e.g. "Wishing you a proud 80th Independence Day!"
-  send_offer       Boolean   @default(false)
-  offer_details    Json?     // { percentage, treatment, valid_until }
-  created_at       DateTime  @default(now())
-  updated_at       DateTime  @updatedAt
+  id               String   @id @default(uuid()) @db.Uuid
+  clinic_id        String?  @db.Uuid // null = system event (pre-seeded)
+  event_name       String   @db.VarChar(255)
+  event_date       DateTime @db.Date
+  is_recurring     Boolean  @default(true) // repeat annually
+  is_enabled       Boolean  @default(true)
+  template_id      String?  @db.Uuid
+  occasion_message String?  @db.Text // custom body for national/health days e.g. "Wishing you a proud 80th Independence Day!"
+  send_offer       Boolean  @default(false)
+  offer_details    Json? // { percentage, treatment, valid_until }
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
 
   clinic   Clinic?          @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   template MessageTemplate? @relation(fields: [template_id], references: [id], onDelete: SetNull)
@@ -847,14 +866,14 @@ model ClinicEvent {
 // ─── Patient Feedback (Phase 3, Epic 11) ───
 
 model PatientFeedback {
-  id             String   @id @default(uuid()) @db.Uuid
-  clinic_id      String   @db.Uuid
-  patient_id     String   @db.Uuid
-  appointment_id String?  @db.Uuid
-  rating         Int      // 1-5
-  comment        String?  @db.Text
-  google_review_requested Boolean @default(false)
-  created_at     DateTime @default(now())
+  id                      String   @id @default(uuid()) @db.Uuid
+  clinic_id               String   @db.Uuid
+  patient_id              String   @db.Uuid
+  appointment_id          String?  @db.Uuid
+  rating                  Int // 1-5
+  comment                 String?  @db.Text
+  google_review_requested Boolean  @default(false)
+  created_at              DateTime @default(now())
 
   clinic  Clinic  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   patient Patient @relation(fields: [patient_id], references: [id], onDelete: Cascade)
@@ -887,22 +906,22 @@ model PatientReferralCode {
 }
 
 model Referral {
-  id                  String    @id @default(uuid()) @db.Uuid
-  clinic_id           String    @db.Uuid
-  referrer_patient_id String    @db.Uuid
-  referred_patient_id String?   @db.Uuid
-  referral_code_id    String    @db.Uuid
-  status              String    @default("pending") @db.VarChar(20) // pending | completed | rewarded
-  reward_type         String?   @db.VarChar(30) // discount_percentage | discount_flat | credit
-  reward_value        Decimal?  @db.Decimal(10, 2)
-  reward_status       String?   @db.VarChar(20) // pending | credited | redeemed
-  created_at          DateTime  @default(now())
-  updated_at          DateTime  @updatedAt
+  id                  String   @id @default(uuid()) @db.Uuid
+  clinic_id           String   @db.Uuid
+  referrer_patient_id String   @db.Uuid
+  referred_patient_id String?  @db.Uuid
+  referral_code_id    String   @db.Uuid
+  status              String   @default("pending") @db.VarChar(20) // pending | completed | rewarded
+  reward_type         String?  @db.VarChar(30) // discount_percentage | discount_flat | credit
+  reward_value        Decimal? @db.Decimal(10, 2)
+  reward_status       String?  @db.VarChar(20) // pending | credited | redeemed
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
 
-  clinic           Clinic              @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  referrer         Patient             @relation("ReferrerPatient", fields: [referrer_patient_id], references: [id], onDelete: Cascade)
-  referred         Patient?            @relation("ReferredPatient", fields: [referred_patient_id], references: [id], onDelete: SetNull)
-  referral_code    PatientReferralCode @relation("ReferralByCode", fields: [referral_code_id], references: [id], onDelete: Cascade)
+  clinic        Clinic              @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  referrer      Patient             @relation("ReferrerPatient", fields: [referrer_patient_id], references: [id], onDelete: Cascade)
+  referred      Patient?            @relation("ReferredPatient", fields: [referred_patient_id], references: [id], onDelete: SetNull)
+  referral_code PatientReferralCode @relation("ReferralByCode", fields: [referral_code_id], references: [id], onDelete: Cascade)
 
   @@index([clinic_id])
   @@index([referrer_patient_id])
@@ -913,14 +932,14 @@ model Referral {
 }
 
 model AiInsight {
-  id          String   @id @default(uuid()) @db.Uuid
-  clinic_id   String   @db.Uuid
-  type        String   @db.VarChar(50) // revenue_insights | chart_analysis | appointment_summary | campaign_content | clinical_notes | prescription | treatment_plan
-  title       String   @db.VarChar(255)
-  data        Json     // full AI response stored as JSON
-  context     Json?    // input params (date range, patient_id, etc.) for reference
-  generated_by String? @db.Uuid
-  created_at  DateTime @default(now())
+  id           String   @id @default(uuid()) @db.Uuid
+  clinic_id    String   @db.Uuid
+  type         String   @db.VarChar(50) // revenue_insights | chart_analysis | appointment_summary | campaign_content | clinical_notes | prescription | treatment_plan
+  title        String   @db.VarChar(255)
+  data         Json // full AI response stored as JSON
+  context      Json? // input params (date range, patient_id, etc.) for reference
+  generated_by String?  @db.Uuid
+  created_at   DateTime @default(now())
 
   clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   user   User?  @relation(fields: [generated_by], references: [id], onDelete: SetNull)
@@ -990,4 +1009,115 @@ model GlobalSetting {
   updated_at DateTime @updatedAt
 
   @@map("global_settings")
+}
+
+// ─── Clinical Workflow: Visit / Examination / Treatment Planning ───
+// Represents a single clinical consultation: chief complaint → exam findings →
+// diagnosis → treatment plan. Created when a patient is seen by a dentist
+// (optionally linked to a scheduled appointment, or walk-in).
+
+model ClinicalVisit {
+  id             String  @id @default(uuid()) @db.Uuid
+  clinic_id      String  @db.Uuid
+  branch_id      String  @db.Uuid
+  patient_id     String  @db.Uuid
+  dentist_id     String  @db.Uuid
+  appointment_id String? @db.Uuid
+
+  // Step 1 — History & Chief Complaint
+  chief_complaint            String? @db.Text
+  history_of_present_illness String? @db.Text
+  past_dental_history        String? @db.Text
+  medical_history_notes      String? @db.Text
+
+  // Step 2 — Clinical Examination
+  examination_notes String? @db.Text
+  vital_signs       Json?
+
+  // Step 3 — Assessment (SOAP structure — AI generated or manual)
+  diagnosis_summary String? @db.Text
+  soap_notes        Json?
+
+  // Workflow lifecycle
+  status       String    @default("in_progress") @db.VarChar(20) // in_progress | finalized | cancelled
+  finalized_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  clinic      Clinic       @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch      Branch       @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient     Patient      @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  dentist     User         @relation("VisitDentist", fields: [dentist_id], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointment_id], references: [id], onDelete: SetNull)
+
+  tooth_conditions PatientToothCondition[]
+  treatments       Treatment[]
+  treatment_plans  TreatmentPlan[]
+
+  @@index([clinic_id])
+  @@index([branch_id])
+  @@index([patient_id])
+  @@index([dentist_id])
+  @@index([appointment_id])
+  @@index([patient_id, created_at])
+  @@map("clinical_visits")
+}
+
+model TreatmentPlan {
+  id                String  @id @default(uuid()) @db.Uuid
+  clinic_id         String  @db.Uuid
+  branch_id         String  @db.Uuid
+  patient_id        String  @db.Uuid
+  dentist_id        String  @db.Uuid
+  clinical_visit_id String? @db.Uuid
+
+  title                String    @db.VarChar(255)
+  notes                String?   @db.Text
+  total_estimated_cost Decimal   @default(0) @db.Decimal(10, 2)
+  status               String    @default("proposed") @db.VarChar(20) // proposed | accepted | in_progress | completed | cancelled
+  accepted_at          DateTime?
+  completed_at         DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  clinic         Clinic         @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch         Branch         @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient        Patient        @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  dentist        User           @relation("PlanDentist", fields: [dentist_id], references: [id], onDelete: Cascade)
+  clinical_visit ClinicalVisit? @relation(fields: [clinical_visit_id], references: [id], onDelete: SetNull)
+
+  items      TreatmentPlanItem[]
+  treatments Treatment[]
+
+  @@index([clinic_id])
+  @@index([branch_id])
+  @@index([patient_id])
+  @@index([dentist_id])
+  @@index([clinical_visit_id])
+  @@index([status])
+  @@map("treatment_plans")
+}
+
+model TreatmentPlanItem {
+  id             String  @id @default(uuid()) @db.Uuid
+  plan_id        String  @db.Uuid
+  tooth_number   String? @db.VarChar(100)
+  procedure      String  @db.VarChar(500)
+  diagnosis      String? @db.VarChar(500)
+  estimated_cost Decimal @default(0) @db.Decimal(10, 2)
+  urgency        String? @db.VarChar(20) // immediate | high | medium | low
+  phase          Int?    @default(1)
+  sequence       Int?    @default(1)
+  status         String  @default("proposed") @db.VarChar(20) // proposed | accepted | declined | converted
+  notes          String? @db.Text
+  treatment_id   String? @db.Uuid
+
+  plan      TreatmentPlan @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  treatment Treatment?    @relation(fields: [treatment_id], references: [id], onDelete: SetNull)
+
+  @@index([plan_id])
+  @@index([treatment_id])
+  @@map("treatment_plan_items")
 }

@@ -31,7 +31,7 @@ class CreateTreatmentDto {
     status;
     notes;
     static _OPENAPI_METADATA_FACTORY() {
-        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: true, type: () => String, format: "uuid" }, tooth_number: { required: false, type: () => String, maxLength: 10 }, diagnosis: { required: true, type: () => String, maxLength: 500 }, procedure: { required: true, type: () => String, maxLength: 500 }, cost: { required: true, type: () => Number, minimum: 0 }, status: { required: false, enum: require("./create-treatment.dto").TreatmentStatus }, notes: { required: false, type: () => String } };
+        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: true, type: () => String, format: "uuid" }, tooth_number: { required: false, type: () => String, maxLength: 100 }, diagnosis: { required: true, type: () => String, maxLength: 500 }, procedure: { required: true, type: () => String, maxLength: 500 }, cost: { required: true, type: () => Number, minimum: 0 }, status: { required: false, enum: require("./create-treatment.dto").TreatmentStatus }, notes: { required: false, type: () => String } };
     }
 }
 exports.CreateTreatmentDto = CreateTreatmentDto;
@@ -52,13 +52,13 @@ __decorate([
 ], CreateTreatmentDto.prototype, "dentist_id", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
-        example: '14',
-        maxLength: 10,
-        description: 'FDI tooth number (e.g. 11-48 for permanent, 51-85 for primary)',
+        example: '14,15',
+        maxLength: 100,
+        description: 'FDI tooth number(s), comma-separated for multiple (e.g. 35,36,37 for a bridge)',
     }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.MaxLength)(10),
+    (0, class_validator_1.MaxLength)(100),
     (0, class_transformer_1.Transform)(({ value }) => value != null ? String(value) : value),
     __metadata("design:type", String)
 ], CreateTreatmentDto.prototype, "tooth_number", void 0);

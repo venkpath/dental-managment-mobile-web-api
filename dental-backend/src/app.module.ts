@@ -14,6 +14,7 @@ import { SuperAdminModule } from './modules/super-admin/super-admin.module.js';
 import { PatientModule } from './modules/patient/patient.module.js';
 import { AppointmentModule } from './modules/appointment/appointment.module.js';
 import { TreatmentModule } from './modules/treatment/treatment.module.js';
+import { ClinicalVisitModule } from './modules/clinical-visit/clinical-visit.module.js';
 import { PrescriptionModule } from './modules/prescription/prescription.module.js';
 import { InvoiceModule } from './modules/invoice/invoice.module.js';
 import { InventoryModule } from './modules/inventory/inventory.module.js';
@@ -94,6 +95,7 @@ import razorpayConfig from './config/razorpay.config.js';
     PatientModule,
     AppointmentModule,
     TreatmentModule,
+    ClinicalVisitModule,
     PrescriptionModule,
     InvoiceModule,
     InventoryModule,
