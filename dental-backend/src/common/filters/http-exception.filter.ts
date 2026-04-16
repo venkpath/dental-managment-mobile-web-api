@@ -144,6 +144,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           },
         };
       }
+      case 'P2021': {
+        const table = (exception.meta?.table as string) || 'unknown table';
+        return {
+          status: HttpStatus.SERVICE_UNAVAILABLE,
+          body: {
+            success: false,
+            error: {
+              code: 'DATABASE_SCHEMA_OUTDATED',
+              message: `Database table not found: ${table}. Please apply latest migrations.`,
+            },
+          },
+        };
+      }
       default:
         this.logger.error(`Unhandled Prisma error [${exception.code}]`, exception.message);
         return {
