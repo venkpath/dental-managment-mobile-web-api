@@ -699,8 +699,11 @@ export class CommunicationService {
       update: data,
     });
 
-    // Re-configure providers with new settings (invalidate cache)
-    this.configureProviders(clinicId, settings);
+    // Invalidate per-clinic provider cache and reload from latest DB/env config.
+    this.emailProvider.removeClinic(clinicId);
+    this.smsProvider.removeClinic(clinicId);
+    this.whatsAppProvider.removeClinic(clinicId);
+    await this.loadAndConfigureProviders(clinicId);
 
     return settings;
   }

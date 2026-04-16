@@ -541,7 +541,10 @@ let CommunicationService = class CommunicationService {
             create: { clinic_id: clinicId, ...data },
             update: data,
         });
-        this.configureProviders(clinicId, settings);
+        this.emailProvider.removeClinic(clinicId);
+        this.smsProvider.removeClinic(clinicId);
+        this.whatsAppProvider.removeClinic(clinicId);
+        await this.loadAndConfigureProviders(clinicId);
         return settings;
     }
     async getMessageStats(clinicId, startDate, endDate) {
