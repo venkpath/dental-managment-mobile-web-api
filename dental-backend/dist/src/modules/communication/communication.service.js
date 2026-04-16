@@ -952,8 +952,18 @@ let CommunicationService = class CommunicationService {
                 pass: (raw.pass ?? raw.smtp_pass),
                 from: (raw.from ?? raw.from_email),
             };
-            this.emailProvider.configure(clinicId, emailConfig, settings.email_provider);
-            this.logger.log(`Email provider configured for clinic ${clinicId}: ${settings.email_provider}`);
+            const hasValidEmailConfig = Boolean(emailConfig.host &&
+                emailConfig.user &&
+                emailConfig.pass &&
+                Number.isFinite(emailConfig.port) &&
+                emailConfig.port > 0);
+            if (hasValidEmailConfig) {
+                this.emailProvider.configure(clinicId, emailConfig, settings.email_provider);
+                this.logger.log(`Email provider configured for clinic ${clinicId}: ${settings.email_provider}`);
+            }
+            else {
+                this.logger.warn(`Clinic ${clinicId} has incomplete custom SMTP config; skipping clinic SMTP and using env fallback if available`);
+            }
         }
         if (settings.enable_sms && settings.sms_config && settings.sms_provider) {
             const raw = settings.sms_config;

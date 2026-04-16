@@ -1275,8 +1275,21 @@ export class CommunicationService {
         pass: (raw.pass ?? raw.smtp_pass) as string,
         from: (raw.from ?? raw.from_email) as string | undefined,
       };
-      this.emailProvider.configure(clinicId, emailConfig, settings.email_provider);
-      this.logger.log(`Email provider configured for clinic ${clinicId}: ${settings.email_provider}`);
+
+      const hasValidEmailConfig = Boolean(
+        emailConfig.host &&
+        emailConfig.user &&
+        emailConfig.pass &&
+        Number.isFinite(emailConfig.port) &&
+        emailConfig.port > 0,
+      );
+
+      if (hasValidEmailConfig) {
+        this.emailProvider.configure(clinicId, emailConfig, settings.email_provider);
+        this.logger.log(`Email provider configured for clinic ${clinicId}: ${settings.email_provider}`);
+      } else {
+        this.logger.warn(`Clinic ${clinicId} has incomplete custom SMTP config; skipping clinic SMTP and using env fallback if available`);
+      }
     }
 
     // Configure SMS provider
