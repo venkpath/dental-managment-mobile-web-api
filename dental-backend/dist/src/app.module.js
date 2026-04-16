@@ -65,6 +65,7 @@ const payment_module_js_1 = require("./modules/payment/payment.module.js");
 const ai_module_js_1 = require("./modules/ai/ai.module.js");
 const public_booking_module_js_1 = require("./modules/public-booking/public-booking.module.js");
 const expense_module_js_1 = require("./modules/expense/expense.module.js");
+const membership_module_js_1 = require("./modules/membership/membership.module.js");
 const nestjs_pino_1 = require("nestjs-pino");
 const razorpay_config_js_1 = __importDefault(require("./config/razorpay.config.js"));
 let AppModule = class AppModule {
@@ -138,6 +139,7 @@ exports.AppModule = AppModule = __decorate([
             ai_module_js_1.AiModule,
             public_booking_module_js_1.PublicBookingModule,
             expense_module_js_1.ExpenseModule,
+            membership_module_js_1.MembershipModule,
         ],
         providers: [
             { provide: core_1.APP_GUARD, useClass: throttler_1.ThrottlerGuard },

@@ -53,6 +53,7 @@ import { PaymentModule } from './modules/payment/payment.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
 import { PublicBookingModule } from './modules/public-booking/public-booking.module.js';
 import { ExpenseModule } from './modules/expense/expense.module.js';
+import { MembershipModule } from './modules/membership/membership.module.js';
 import { LoggerModule } from 'nestjs-pino';
 import razorpayConfig from './config/razorpay.config.js';
 
@@ -120,6 +121,7 @@ import razorpayConfig from './config/razorpay.config.js';
     AiModule,
     PublicBookingModule,
     ExpenseModule,
+    MembershipModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

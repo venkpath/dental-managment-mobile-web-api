@@ -54,6 +54,9 @@ model Clinic {
   expenses               Expense[]
   clinical_visits        ClinicalVisit[]
   treatment_plans        TreatmentPlan[]
+  membership_plans       MembershipPlan[]
+  membership_enrollments MembershipEnrollment[]
+  membership_usages      MembershipBenefitUsage[]
 
   @@index([email])
   @@index([plan_id])
@@ -106,6 +109,7 @@ model Branch {
   expenses         Expense[]
   clinical_visits  ClinicalVisit[]
   treatment_plans  TreatmentPlan[]
+  membership_enrollments MembershipEnrollment[]
 
   @@index([clinic_id])
   @@map("branches")
@@ -238,6 +242,9 @@ model Patient {
   referrals_as_referred    Referral[]                      @relation("ReferredPatient")
   clinical_visits          ClinicalVisit[]
   treatment_plans          TreatmentPlan[]
+  primary_memberships      MembershipEnrollment[]          @relation("MembershipPrimaryPatient")
+  covered_memberships      MembershipEnrollmentMember[]    @relation("MembershipCoveredPatient")
+  membership_usages        MembershipBenefitUsage[]        @relation("MembershipUsagePatient")
 
   @@index([clinic_id])
   @@index([branch_id])
@@ -303,6 +310,7 @@ model Treatment {
   treatment_plan TreatmentPlan?      @relation(fields: [treatment_plan_id], references: [id], onDelete: SetNull)
   plan_items     TreatmentPlanItem[]
   invoice_items  InvoiceItem[]
+  membership_usages MembershipBenefitUsage[]
 
   @@index([clinic_id])
   @@index([branch_id])
@@ -380,6 +388,7 @@ model Invoice {
   items            InvoiceItem[]
   payments         Payment[]
   installment_plan InstallmentPlan?
+  membership_usages MembershipBenefitUsage[]
 
   @@unique([clinic_id, invoice_number])
   @@index([clinic_id])
@@ -455,6 +464,139 @@ model InstallmentItem {
 
   @@index([installment_plan_id])
   @@map("installment_items")
+}
+
+model MembershipPlan {
+  id                   String   @id @default(uuid()) @db.Uuid
+  clinic_id            String   @db.Uuid
+  code                 String?  @db.VarChar(50)
+  name                 String   @db.VarChar(150)
+  description          String?  @db.Text
+  category             String?  @db.VarChar(50)
+  price                Decimal  @default(0) @db.Decimal(10, 2)
+  duration_months      Int      @default(12)
+  covered_members_limit Int     @default(1)
+  grace_period_days    Int      @default(0)
+  is_active            Boolean  @default(true)
+  terms_and_conditions String?  @db.Text
+  metadata             Json?
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  clinic      Clinic                 @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  benefits    MembershipBenefit[]
+  enrollments MembershipEnrollment[]
+
+  @@unique([clinic_id, name])
+  @@unique([clinic_id, code])
+  @@index([clinic_id])
+  @@index([clinic_id, is_active])
+  @@map("membership_plans")
+}
+
+model MembershipBenefit {
+  id                  String   @id @default(uuid()) @db.Uuid
+  membership_plan_id  String   @db.Uuid
+  title               String   @db.VarChar(150)
+  description         String?  @db.Text
+  benefit_type        String   @db.VarChar(30) // included_service | discount_percentage | discount_flat | credit
+  treatment_label     String?  @db.VarChar(150)
+  coverage_scope      String   @default("shared") @db.VarChar(20) // shared | per_member
+  included_quantity   Int?
+  discount_percentage Decimal? @db.Decimal(5, 2)
+  discount_amount     Decimal? @db.Decimal(10, 2)
+  credit_amount       Decimal? @db.Decimal(10, 2)
+  display_order       Int      @default(0)
+  is_active           Boolean  @default(true)
+  metadata            Json?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  membership_plan MembershipPlan          @relation(fields: [membership_plan_id], references: [id], onDelete: Cascade)
+  usages          MembershipBenefitUsage[]
+
+  @@index([membership_plan_id])
+  @@index([membership_plan_id, is_active])
+  @@map("membership_benefits")
+}
+
+model MembershipEnrollment {
+  id                 String   @id @default(uuid()) @db.Uuid
+  clinic_id          String   @db.Uuid
+  branch_id          String   @db.Uuid
+  membership_plan_id String   @db.Uuid
+  primary_patient_id String   @db.Uuid
+  enrollment_number  String   @db.VarChar(50)
+  status             String   @default("active") @db.VarChar(20) // active | expired | cancelled | paused
+  start_date         DateTime @db.Date
+  end_date           DateTime @db.Date
+  amount_paid        Decimal  @default(0) @db.Decimal(10, 2)
+  notes              String?  @db.Text
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  clinic          Clinic                     @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch          Branch                     @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  membership_plan MembershipPlan             @relation(fields: [membership_plan_id], references: [id], onDelete: Cascade)
+  primary_patient Patient                    @relation("MembershipPrimaryPatient", fields: [primary_patient_id], references: [id], onDelete: Cascade)
+  members         MembershipEnrollmentMember[]
+  usages          MembershipBenefitUsage[]
+
+  @@unique([clinic_id, enrollment_number])
+  @@index([clinic_id])
+  @@index([branch_id])
+  @@index([membership_plan_id])
+  @@index([primary_patient_id])
+  @@index([clinic_id, status])
+  @@map("membership_enrollments")
+}
+
+model MembershipEnrollmentMember {
+  id                       String   @id @default(uuid()) @db.Uuid
+  membership_enrollment_id String   @db.Uuid
+  patient_id               String   @db.Uuid
+  relation_label           String?  @db.VarChar(50)
+  is_primary               Boolean  @default(false)
+  created_at               DateTime @default(now())
+
+  enrollment MembershipEnrollment   @relation(fields: [membership_enrollment_id], references: [id], onDelete: Cascade)
+  patient    Patient                @relation("MembershipCoveredPatient", fields: [patient_id], references: [id], onDelete: Cascade)
+
+  @@unique([membership_enrollment_id, patient_id])
+  @@index([membership_enrollment_id])
+  @@index([patient_id])
+  @@map("membership_enrollment_members")
+}
+
+model MembershipBenefitUsage {
+  id                       String   @id @default(uuid()) @db.Uuid
+  clinic_id                String   @db.Uuid
+  membership_enrollment_id String   @db.Uuid
+  membership_benefit_id    String   @db.Uuid
+  patient_id               String   @db.Uuid
+  treatment_id             String?  @db.Uuid
+  invoice_id               String?  @db.Uuid
+  quantity_used            Int      @default(1)
+  discount_applied         Decimal? @db.Decimal(10, 2)
+  notes                    String?  @db.Text
+  used_on                  DateTime @default(now())
+  created_at               DateTime @default(now())
+
+  clinic     Clinic                @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  enrollment MembershipEnrollment  @relation(fields: [membership_enrollment_id], references: [id], onDelete: Cascade)
+  benefit    MembershipBenefit     @relation(fields: [membership_benefit_id], references: [id], onDelete: Cascade)
+  patient    Patient               @relation("MembershipUsagePatient", fields: [patient_id], references: [id], onDelete: Cascade)
+  treatment  Treatment?            @relation(fields: [treatment_id], references: [id], onDelete: SetNull)
+  invoice    Invoice?              @relation(fields: [invoice_id], references: [id], onDelete: SetNull)
+
+  @@index([clinic_id])
+  @@index([membership_enrollment_id])
+  @@index([membership_benefit_id])
+  @@index([patient_id])
+  @@index([treatment_id])
+  @@index([invoice_id])
+  @@index([used_on])
+  @@map("membership_benefit_usages")
 }
 
 model InventoryItem {
