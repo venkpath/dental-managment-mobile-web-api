@@ -123,11 +123,20 @@ let PatientService = PatientService_1 = class PatientService {
         }
         const page = query.page ?? 1;
         const limit = query.limit ?? 20;
+        const now = new Date();
         const [data, total] = await Promise.all([
             this.prisma.patient.findMany({
                 where,
                 orderBy: { created_at: 'desc' },
-                include: { branch: true },
+                include: {
+                    branch: true,
+                    primary_memberships: {
+                        where: { status: 'active', start_date: { lte: now }, end_date: { gte: now } },
+                        select: { id: true, enrollment_number: true, membership_plan: { select: { name: true } } },
+                        take: 1,
+                        orderBy: { created_at: 'desc' },
+                    },
+                },
                 skip: (page - 1) * limit,
                 take: limit,
             }),
@@ -136,9 +145,18 @@ let PatientService = PatientService_1 = class PatientService {
         return (0, paginated_result_interface_js_1.paginate)(data, total, page, limit);
     }
     async findOne(clinicId, id) {
+        const now = new Date();
         const patient = await this.prisma.patient.findUnique({
             where: { id },
-            include: { branch: true },
+            include: {
+                branch: true,
+                primary_memberships: {
+                    where: { status: 'active', start_date: { lte: now }, end_date: { gte: now } },
+                    select: { id: true, enrollment_number: true, membership_plan: { select: { name: true } } },
+                    take: 1,
+                    orderBy: { created_at: 'desc' },
+                },
+            },
         });
         if (!patient || patient.clinic_id !== clinicId) {
             throw new common_1.NotFoundException(`Patient with ID "${id}" not found`);

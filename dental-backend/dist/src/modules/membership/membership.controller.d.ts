@@ -33,6 +33,7 @@ export declare class MembershipController {
             title: string;
             metadata: import("@prisma/client/runtime/client").JsonValue | null;
             discount_amount: import("@prisma/client-runtime-utils").Decimal | null;
+            membership_plan_id: string;
             discount_percentage: import("@prisma/client-runtime-utils").Decimal | null;
             benefit_type: string;
             treatment_label: string | null;
@@ -40,7 +41,6 @@ export declare class MembershipController {
             included_quantity: number | null;
             credit_amount: import("@prisma/client-runtime-utils").Decimal | null;
             display_order: number;
-            membership_plan_id: string;
         }[];
     } & {
         id: string;
@@ -72,6 +72,7 @@ export declare class MembershipController {
             title: string;
             metadata: import("@prisma/client/runtime/client").JsonValue | null;
             discount_amount: import("@prisma/client-runtime-utils").Decimal | null;
+            membership_plan_id: string;
             discount_percentage: import("@prisma/client-runtime-utils").Decimal | null;
             benefit_type: string;
             treatment_label: string | null;
@@ -79,7 +80,6 @@ export declare class MembershipController {
             included_quantity: number | null;
             credit_amount: import("@prisma/client-runtime-utils").Decimal | null;
             display_order: number;
-            membership_plan_id: string;
         }[];
     } & {
         id: string;
@@ -125,6 +125,61 @@ export declare class MembershipController {
             working_days: string | null;
             clinic_id: string;
         };
+        membership_plan: {
+            benefits: {
+                id: string;
+                created_at: Date;
+                updated_at: Date;
+                description: string | null;
+                is_active: boolean;
+                title: string;
+                metadata: import("@prisma/client/runtime/client").JsonValue | null;
+                discount_amount: import("@prisma/client-runtime-utils").Decimal | null;
+                membership_plan_id: string;
+                discount_percentage: import("@prisma/client-runtime-utils").Decimal | null;
+                benefit_type: string;
+                treatment_label: string | null;
+                coverage_scope: string;
+                included_quantity: number | null;
+                credit_amount: import("@prisma/client-runtime-utils").Decimal | null;
+                display_order: number;
+            }[];
+        } & {
+            id: string;
+            name: string;
+            created_at: Date;
+            updated_at: Date;
+            description: string | null;
+            code: string | null;
+            clinic_id: string;
+            category: string | null;
+            is_active: boolean;
+            metadata: import("@prisma/client/runtime/client").JsonValue | null;
+            price: import("@prisma/client-runtime-utils").Decimal;
+            duration_months: number;
+            covered_members_limit: number;
+            grace_period_days: number;
+            terms_and_conditions: string | null;
+        };
+        primary_patient: {
+            id: string;
+            email: string | null;
+            created_at: Date;
+            updated_at: Date;
+            phone: string;
+            clinic_id: string;
+            branch_id: string;
+            first_name: string;
+            last_name: string;
+            gender: string;
+            date_of_birth: Date | null;
+            age: number | null;
+            blood_group: string | null;
+            medical_history: import("@prisma/client/runtime/client").JsonValue | null;
+            allergies: string | null;
+            notes: string | null;
+            preferred_language: string;
+        };
         members: ({
             patient: {
                 id: string;
@@ -215,6 +270,7 @@ export declare class MembershipController {
                 title: string;
                 metadata: import("@prisma/client/runtime/client").JsonValue | null;
                 discount_amount: import("@prisma/client-runtime-utils").Decimal | null;
+                membership_plan_id: string;
                 discount_percentage: import("@prisma/client-runtime-utils").Decimal | null;
                 benefit_type: string;
                 treatment_label: string | null;
@@ -222,7 +278,6 @@ export declare class MembershipController {
                 included_quantity: number | null;
                 credit_amount: import("@prisma/client-runtime-utils").Decimal | null;
                 display_order: number;
-                membership_plan_id: string;
             };
         } & {
             id: string;
@@ -238,61 +293,6 @@ export declare class MembershipController {
             used_on: Date;
             membership_enrollment_id: string;
         })[];
-        membership_plan: {
-            benefits: {
-                id: string;
-                created_at: Date;
-                updated_at: Date;
-                description: string | null;
-                is_active: boolean;
-                title: string;
-                metadata: import("@prisma/client/runtime/client").JsonValue | null;
-                discount_amount: import("@prisma/client-runtime-utils").Decimal | null;
-                discount_percentage: import("@prisma/client-runtime-utils").Decimal | null;
-                benefit_type: string;
-                treatment_label: string | null;
-                coverage_scope: string;
-                included_quantity: number | null;
-                credit_amount: import("@prisma/client-runtime-utils").Decimal | null;
-                display_order: number;
-                membership_plan_id: string;
-            }[];
-        } & {
-            id: string;
-            name: string;
-            created_at: Date;
-            updated_at: Date;
-            description: string | null;
-            code: string | null;
-            clinic_id: string;
-            category: string | null;
-            is_active: boolean;
-            metadata: import("@prisma/client/runtime/client").JsonValue | null;
-            price: import("@prisma/client-runtime-utils").Decimal;
-            duration_months: number;
-            covered_members_limit: number;
-            grace_period_days: number;
-            terms_and_conditions: string | null;
-        };
-        primary_patient: {
-            id: string;
-            email: string | null;
-            created_at: Date;
-            updated_at: Date;
-            phone: string;
-            clinic_id: string;
-            branch_id: string;
-            first_name: string;
-            last_name: string;
-            gender: string;
-            date_of_birth: Date | null;
-            age: number | null;
-            blood_group: string | null;
-            medical_history: import("@prisma/client/runtime/client").JsonValue | null;
-            allergies: string | null;
-            notes: string | null;
-            preferred_language: string;
-        };
     } & {
         id: string;
         status: string;
@@ -305,8 +305,8 @@ export declare class MembershipController {
         notes: string | null;
         membership_plan_id: string;
         primary_patient_id: string;
-        amount_paid: import("@prisma/client-runtime-utils").Decimal;
         enrollment_number: string;
+        amount_paid: import("@prisma/client-runtime-utils").Decimal;
     })[]>;
     createEnrollment(clinicId: string, dto: CreateMembershipEnrollmentDto): Promise<{
         branch: {
@@ -335,6 +335,61 @@ export declare class MembershipController {
             working_days: string | null;
             clinic_id: string;
         };
+        membership_plan: {
+            benefits: {
+                id: string;
+                created_at: Date;
+                updated_at: Date;
+                description: string | null;
+                is_active: boolean;
+                title: string;
+                metadata: import("@prisma/client/runtime/client").JsonValue | null;
+                discount_amount: import("@prisma/client-runtime-utils").Decimal | null;
+                membership_plan_id: string;
+                discount_percentage: import("@prisma/client-runtime-utils").Decimal | null;
+                benefit_type: string;
+                treatment_label: string | null;
+                coverage_scope: string;
+                included_quantity: number | null;
+                credit_amount: import("@prisma/client-runtime-utils").Decimal | null;
+                display_order: number;
+            }[];
+        } & {
+            id: string;
+            name: string;
+            created_at: Date;
+            updated_at: Date;
+            description: string | null;
+            code: string | null;
+            clinic_id: string;
+            category: string | null;
+            is_active: boolean;
+            metadata: import("@prisma/client/runtime/client").JsonValue | null;
+            price: import("@prisma/client-runtime-utils").Decimal;
+            duration_months: number;
+            covered_members_limit: number;
+            grace_period_days: number;
+            terms_and_conditions: string | null;
+        };
+        primary_patient: {
+            id: string;
+            email: string | null;
+            created_at: Date;
+            updated_at: Date;
+            phone: string;
+            clinic_id: string;
+            branch_id: string;
+            first_name: string;
+            last_name: string;
+            gender: string;
+            date_of_birth: Date | null;
+            age: number | null;
+            blood_group: string | null;
+            medical_history: import("@prisma/client/runtime/client").JsonValue | null;
+            allergies: string | null;
+            notes: string | null;
+            preferred_language: string;
+        };
         members: ({
             patient: {
                 id: string;
@@ -425,6 +480,7 @@ export declare class MembershipController {
                 title: string;
                 metadata: import("@prisma/client/runtime/client").JsonValue | null;
                 discount_amount: import("@prisma/client-runtime-utils").Decimal | null;
+                membership_plan_id: string;
                 discount_percentage: import("@prisma/client-runtime-utils").Decimal | null;
                 benefit_type: string;
                 treatment_label: string | null;
@@ -432,7 +488,6 @@ export declare class MembershipController {
                 included_quantity: number | null;
                 credit_amount: import("@prisma/client-runtime-utils").Decimal | null;
                 display_order: number;
-                membership_plan_id: string;
             };
         } & {
             id: string;
@@ -448,61 +503,6 @@ export declare class MembershipController {
             used_on: Date;
             membership_enrollment_id: string;
         })[];
-        membership_plan: {
-            benefits: {
-                id: string;
-                created_at: Date;
-                updated_at: Date;
-                description: string | null;
-                is_active: boolean;
-                title: string;
-                metadata: import("@prisma/client/runtime/client").JsonValue | null;
-                discount_amount: import("@prisma/client-runtime-utils").Decimal | null;
-                discount_percentage: import("@prisma/client-runtime-utils").Decimal | null;
-                benefit_type: string;
-                treatment_label: string | null;
-                coverage_scope: string;
-                included_quantity: number | null;
-                credit_amount: import("@prisma/client-runtime-utils").Decimal | null;
-                display_order: number;
-                membership_plan_id: string;
-            }[];
-        } & {
-            id: string;
-            name: string;
-            created_at: Date;
-            updated_at: Date;
-            description: string | null;
-            code: string | null;
-            clinic_id: string;
-            category: string | null;
-            is_active: boolean;
-            metadata: import("@prisma/client/runtime/client").JsonValue | null;
-            price: import("@prisma/client-runtime-utils").Decimal;
-            duration_months: number;
-            covered_members_limit: number;
-            grace_period_days: number;
-            terms_and_conditions: string | null;
-        };
-        primary_patient: {
-            id: string;
-            email: string | null;
-            created_at: Date;
-            updated_at: Date;
-            phone: string;
-            clinic_id: string;
-            branch_id: string;
-            first_name: string;
-            last_name: string;
-            gender: string;
-            date_of_birth: Date | null;
-            age: number | null;
-            blood_group: string | null;
-            medical_history: import("@prisma/client/runtime/client").JsonValue | null;
-            allergies: string | null;
-            notes: string | null;
-            preferred_language: string;
-        };
     } & {
         id: string;
         status: string;
@@ -515,8 +515,8 @@ export declare class MembershipController {
         notes: string | null;
         membership_plan_id: string;
         primary_patient_id: string;
-        amount_paid: import("@prisma/client-runtime-utils").Decimal;
         enrollment_number: string;
+        amount_paid: import("@prisma/client-runtime-utils").Decimal;
     }>;
     updateEnrollment(clinicId: string, id: string, dto: UpdateMembershipEnrollmentDto): Promise<{
         branch: {
@@ -545,6 +545,61 @@ export declare class MembershipController {
             working_days: string | null;
             clinic_id: string;
         };
+        membership_plan: {
+            benefits: {
+                id: string;
+                created_at: Date;
+                updated_at: Date;
+                description: string | null;
+                is_active: boolean;
+                title: string;
+                metadata: import("@prisma/client/runtime/client").JsonValue | null;
+                discount_amount: import("@prisma/client-runtime-utils").Decimal | null;
+                membership_plan_id: string;
+                discount_percentage: import("@prisma/client-runtime-utils").Decimal | null;
+                benefit_type: string;
+                treatment_label: string | null;
+                coverage_scope: string;
+                included_quantity: number | null;
+                credit_amount: import("@prisma/client-runtime-utils").Decimal | null;
+                display_order: number;
+            }[];
+        } & {
+            id: string;
+            name: string;
+            created_at: Date;
+            updated_at: Date;
+            description: string | null;
+            code: string | null;
+            clinic_id: string;
+            category: string | null;
+            is_active: boolean;
+            metadata: import("@prisma/client/runtime/client").JsonValue | null;
+            price: import("@prisma/client-runtime-utils").Decimal;
+            duration_months: number;
+            covered_members_limit: number;
+            grace_period_days: number;
+            terms_and_conditions: string | null;
+        };
+        primary_patient: {
+            id: string;
+            email: string | null;
+            created_at: Date;
+            updated_at: Date;
+            phone: string;
+            clinic_id: string;
+            branch_id: string;
+            first_name: string;
+            last_name: string;
+            gender: string;
+            date_of_birth: Date | null;
+            age: number | null;
+            blood_group: string | null;
+            medical_history: import("@prisma/client/runtime/client").JsonValue | null;
+            allergies: string | null;
+            notes: string | null;
+            preferred_language: string;
+        };
         members: ({
             patient: {
                 id: string;
@@ -635,6 +690,7 @@ export declare class MembershipController {
                 title: string;
                 metadata: import("@prisma/client/runtime/client").JsonValue | null;
                 discount_amount: import("@prisma/client-runtime-utils").Decimal | null;
+                membership_plan_id: string;
                 discount_percentage: import("@prisma/client-runtime-utils").Decimal | null;
                 benefit_type: string;
                 treatment_label: string | null;
@@ -642,7 +698,6 @@ export declare class MembershipController {
                 included_quantity: number | null;
                 credit_amount: import("@prisma/client-runtime-utils").Decimal | null;
                 display_order: number;
-                membership_plan_id: string;
             };
         } & {
             id: string;
@@ -658,61 +713,6 @@ export declare class MembershipController {
             used_on: Date;
             membership_enrollment_id: string;
         })[];
-        membership_plan: {
-            benefits: {
-                id: string;
-                created_at: Date;
-                updated_at: Date;
-                description: string | null;
-                is_active: boolean;
-                title: string;
-                metadata: import("@prisma/client/runtime/client").JsonValue | null;
-                discount_amount: import("@prisma/client-runtime-utils").Decimal | null;
-                discount_percentage: import("@prisma/client-runtime-utils").Decimal | null;
-                benefit_type: string;
-                treatment_label: string | null;
-                coverage_scope: string;
-                included_quantity: number | null;
-                credit_amount: import("@prisma/client-runtime-utils").Decimal | null;
-                display_order: number;
-                membership_plan_id: string;
-            }[];
-        } & {
-            id: string;
-            name: string;
-            created_at: Date;
-            updated_at: Date;
-            description: string | null;
-            code: string | null;
-            clinic_id: string;
-            category: string | null;
-            is_active: boolean;
-            metadata: import("@prisma/client/runtime/client").JsonValue | null;
-            price: import("@prisma/client-runtime-utils").Decimal;
-            duration_months: number;
-            covered_members_limit: number;
-            grace_period_days: number;
-            terms_and_conditions: string | null;
-        };
-        primary_patient: {
-            id: string;
-            email: string | null;
-            created_at: Date;
-            updated_at: Date;
-            phone: string;
-            clinic_id: string;
-            branch_id: string;
-            first_name: string;
-            last_name: string;
-            gender: string;
-            date_of_birth: Date | null;
-            age: number | null;
-            blood_group: string | null;
-            medical_history: import("@prisma/client/runtime/client").JsonValue | null;
-            allergies: string | null;
-            notes: string | null;
-            preferred_language: string;
-        };
     } & {
         id: string;
         status: string;
@@ -725,8 +725,8 @@ export declare class MembershipController {
         notes: string | null;
         membership_plan_id: string;
         primary_patient_id: string;
-        amount_paid: import("@prisma/client-runtime-utils").Decimal;
         enrollment_number: string;
+        amount_paid: import("@prisma/client-runtime-utils").Decimal;
     }>;
     recordUsage(clinicId: string, id: string, dto: CreateMembershipUsageDto): Promise<{
         patient: {
@@ -790,6 +790,7 @@ export declare class MembershipController {
             title: string;
             metadata: import("@prisma/client/runtime/client").JsonValue | null;
             discount_amount: import("@prisma/client-runtime-utils").Decimal | null;
+            membership_plan_id: string;
             discount_percentage: import("@prisma/client-runtime-utils").Decimal | null;
             benefit_type: string;
             treatment_label: string | null;
@@ -797,7 +798,6 @@ export declare class MembershipController {
             included_quantity: number | null;
             credit_amount: import("@prisma/client-runtime-utils").Decimal | null;
             display_order: number;
-            membership_plan_id: string;
         };
     } & {
         id: string;
@@ -979,6 +979,7 @@ export declare class MembershipController {
                     title: string;
                     metadata: import("@prisma/client/runtime/client").JsonValue | null;
                     discount_amount: import("@prisma/client-runtime-utils").Decimal | null;
+                    membership_plan_id: string;
                     discount_percentage: import("@prisma/client-runtime-utils").Decimal | null;
                     benefit_type: string;
                     treatment_label: string | null;
@@ -986,7 +987,6 @@ export declare class MembershipController {
                     included_quantity: number | null;
                     credit_amount: import("@prisma/client-runtime-utils").Decimal | null;
                     display_order: number;
-                    membership_plan_id: string;
                 };
             } & {
                 id: string;
@@ -1149,6 +1149,7 @@ export declare class MembershipController {
                     title: string;
                     metadata: import("@prisma/client/runtime/client").JsonValue | null;
                     discount_amount: import("@prisma/client-runtime-utils").Decimal | null;
+                    membership_plan_id: string;
                     discount_percentage: import("@prisma/client-runtime-utils").Decimal | null;
                     benefit_type: string;
                     treatment_label: string | null;
@@ -1156,7 +1157,6 @@ export declare class MembershipController {
                     included_quantity: number | null;
                     credit_amount: import("@prisma/client-runtime-utils").Decimal | null;
                     display_order: number;
-                    membership_plan_id: string;
                 };
             } & {
                 id: string;
