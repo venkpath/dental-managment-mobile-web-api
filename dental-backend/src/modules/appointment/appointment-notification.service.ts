@@ -47,7 +47,7 @@ export class AppointmentNotificationService {
   ) {}
 
   /**
-   * Send appointment confirmation WhatsApp message when a new appointment is created.
+   * Send appointment confirmation notification when a new appointment is created.
    */
   async sendConfirmation(clinicId: string, appointmentId: string): Promise<void> {
     try {
@@ -58,7 +58,7 @@ export class AppointmentNotificationService {
   }
 
   /**
-   * Send cancellation WhatsApp message when an appointment is cancelled.
+   * Send cancellation notification when an appointment is cancelled.
    */
   async sendCancellation(clinicId: string, appointmentId: string): Promise<void> {
     try {
@@ -69,7 +69,7 @@ export class AppointmentNotificationService {
   }
 
   /**
-   * Send reschedule WhatsApp message when an appointment's date/time changes.
+   * Send reschedule notification when an appointment's date/time changes.
    */
   async sendReschedule(
     clinicId: string,
@@ -114,22 +114,20 @@ export class AppointmentNotificationService {
     const defaultTemplateName = RULE_TO_DEFAULT_TEMPLATE[ruleType];
     const variables = this.buildVariables(defaultTemplateName, appt, extra);
 
+    const metadata = { automation: ruleType, appointment_id: appointmentId };
+
+    // Keep existing WhatsApp behavior (rule override template_id takes priority)
     if (templateId) {
-      // Use the template configured in the automation rule
       await this.communicationService.sendMessage(clinicId, {
         patient_id: appt.patient_id,
         channel: MessageChannel.WHATSAPP,
         category: MessageCategory.TRANSACTIONAL,
         template_id: templateId,
         variables,
-        metadata: { automation: ruleType, appointment_id: appointmentId },
+        metadata,
       });
     } else {
-      // Fallback: lookup template by name
-      await this.sendWhatsAppTemplate(clinicId, appt.patient_id, defaultTemplateName, variables, {
-        automation: ruleType,
-        appointment_id: appointmentId,
-      });
+      await this.sendTemplateByName(clinicId, appt.patient_id, MessageChannel.WHATSAPP, defaultTemplateName, variables, metadata);
     }
 
     this.logger.log(`${ruleType} notification sent for ${appointmentId}`);
@@ -235,12 +233,13 @@ export class AppointmentNotificationService {
   }
 
   /**
-   * Send a WhatsApp template message via the communication service.
-   * Finds the template by name in the DB and passes ordered variables.
+   * Send a template-based message via the communication service.
+   * Finds the template by name + channel in the DB and passes variables.
    */
-  private async sendWhatsAppTemplate(
+  private async sendTemplateByName(
     clinicId: string,
     patientId: string,
+    channel: MessageChannel,
     templateName: string,
     variables: Record<string, string>,
     metadata: Record<string, unknown>,
@@ -248,7 +247,7 @@ export class AppointmentNotificationService {
     const template = await this.prisma.messageTemplate.findFirst({
       where: {
         template_name: templateName,
-        channel: 'whatsapp',
+        channel,
         is_active: true,
         OR: [{ clinic_id: clinicId }, { clinic_id: null }],
       },
@@ -256,13 +255,13 @@ export class AppointmentNotificationService {
     });
 
     if (!template) {
-      this.logger.warn(`WhatsApp template "${templateName}" not found or not active — skipping notification`);
+      this.logger.warn(`${channel} template "${templateName}" not found or not active — skipping notification`);
       return;
     }
 
     await this.communicationService.sendMessage(clinicId, {
       patient_id: patientId,
-      channel: MessageChannel.WHATSAPP,
+      channel,
       category: MessageCategory.TRANSACTIONAL,
       template_id: template.id,
       variables,

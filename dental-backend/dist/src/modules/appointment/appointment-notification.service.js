@@ -76,6 +76,7 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
             return;
         const defaultTemplateName = RULE_TO_DEFAULT_TEMPLATE[ruleType];
         const variables = this.buildVariables(defaultTemplateName, appt, extra);
+        const metadata = { automation: ruleType, appointment_id: appointmentId };
         if (templateId) {
             await this.communicationService.sendMessage(clinicId, {
                 patient_id: appt.patient_id,
@@ -83,14 +84,11 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
                 category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
                 template_id: templateId,
                 variables,
-                metadata: { automation: ruleType, appointment_id: appointmentId },
+                metadata,
             });
         }
         else {
-            await this.sendWhatsAppTemplate(clinicId, appt.patient_id, defaultTemplateName, variables, {
-                automation: ruleType,
-                appointment_id: appointmentId,
-            });
+            await this.sendTemplateByName(clinicId, appt.patient_id, send_message_dto_js_1.MessageChannel.WHATSAPP, defaultTemplateName, variables, metadata);
         }
         this.logger.log(`${ruleType} notification sent for ${appointmentId}`);
     }
@@ -168,23 +166,23 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
         });
         return result;
     }
-    async sendWhatsAppTemplate(clinicId, patientId, templateName, variables, metadata) {
+    async sendTemplateByName(clinicId, patientId, channel, templateName, variables, metadata) {
         const template = await this.prisma.messageTemplate.findFirst({
             where: {
                 template_name: templateName,
-                channel: 'whatsapp',
+                channel,
                 is_active: true,
                 OR: [{ clinic_id: clinicId }, { clinic_id: null }],
             },
             orderBy: { clinic_id: 'desc' },
         });
         if (!template) {
-            this.logger.warn(`WhatsApp template "${templateName}" not found or not active — skipping notification`);
+            this.logger.warn(`${channel} template "${templateName}" not found or not active — skipping notification`);
             return;
         }
         await this.communicationService.sendMessage(clinicId, {
             patient_id: patientId,
-            channel: send_message_dto_js_1.MessageChannel.WHATSAPP,
+            channel,
             category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
             template_id: template.id,
             variables,

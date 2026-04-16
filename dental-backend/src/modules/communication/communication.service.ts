@@ -305,6 +305,30 @@ export class CommunicationService {
       scheduledAt: dto.scheduled_at,
     });
 
+    // Global mirror rule: whenever a WhatsApp message is sent, also send an email
+    // if the patient has an email address. Email channel settings and patient
+    // preferences are still enforced by sendMessage() itself.
+    if (dto.channel === 'whatsapp' && patient.email) {
+      try {
+        await this.sendMessage(clinicId, {
+          patient_id: dto.patient_id,
+          channel: 'email' as any,
+          category: dto.category,
+          subject: subject || 'Notification from your clinic',
+          body,
+          metadata: {
+            ...(dto.metadata || {}),
+            mirrored_from_channel: 'whatsapp',
+            mirrored_from_message_id: message.id,
+          },
+          scheduled_at: dto.scheduled_at,
+        });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : 'Unknown error';
+        this.logger.warn(`WhatsApp→Email mirror failed for message ${message.id}: ${reason}`);
+      }
+    }
+
     this.logger.debug(`Message ${message.id} queued via ${dto.channel} to ${recipient}`);
     return message;
   }

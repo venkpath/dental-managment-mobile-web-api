@@ -42,6 +42,35 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
     language: 'en',
   },
 
+  // ─── Appointment Lifecycle (Email) ───
+  {
+    channel: 'email',
+    category: 'transactional',
+    template_name: 'Appointment Confirmation',
+    subject: 'Appointment confirmed at {{clinic_name}}',
+    body: 'Hi {{patient_name}}, your appointment is confirmed with {{doctor_name}} on {{date}} at {{time}}. If you need to make changes, call us at {{phone}}. — {{clinic_name}}',
+    variables: ['patient_name', 'doctor_name', 'date', 'time', 'clinic_name', 'phone'],
+    language: 'en',
+  },
+  {
+    channel: 'email',
+    category: 'transactional',
+    template_name: 'Appointment Cancelled',
+    subject: 'Your appointment has been cancelled',
+    body: 'Hi {{patient_name}}, your appointment at {{clinic_name}} scheduled for {{date}} at {{time}} has been cancelled. Please call {{phone}} if you would like to reschedule.',
+    variables: ['patient_name', 'clinic_name', 'date', 'time', 'phone'],
+    language: 'en',
+  },
+  {
+    channel: 'email',
+    category: 'transactional',
+    template_name: 'Appointment Rescheduled',
+    subject: 'Your appointment has been rescheduled',
+    body: 'Hi {{patient_name}}, your appointment at {{clinic_name}} has been rescheduled from {{previous_time}} to {{new_time}}. For questions, call us at {{phone}}.',
+    variables: ['patient_name', 'previous_time', 'new_time', 'clinic_name', 'phone'],
+    language: 'en',
+  },
+
   // ─── Payment Reminders ───
   {
     channel: 'all',

@@ -15,7 +15,7 @@ export declare class AppointmentNotificationService {
     private resolveTemplate;
     private loadAppointment;
     private buildVariables;
-    private sendWhatsAppTemplate;
+    private sendTemplateByName;
     private formatDate;
     private formatTime;
 }
