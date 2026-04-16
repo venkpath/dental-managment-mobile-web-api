@@ -55,7 +55,7 @@ export class ClinicalVisitService {
 
     const { vital_signs, ...rest } = dto;
 
-    return this.prisma.clinicalVisit.create({
+    const clinicalVisit = await this.prisma.clinicalVisit.create({
       data: {
         ...rest,
         clinic_id: clinicId,
@@ -63,6 +63,16 @@ export class ClinicalVisitService {
       },
       include: { patient: true, dentist: true, branch: true, appointment: true },
     });
+
+    // Auto-update appointment status to 'in_progress' when consultation starts
+    if (dto.appointment_id) {
+      await this.prisma.appointment.update({
+        where: { id: dto.appointment_id },
+        data: { status: 'in_progress' },
+      });
+    }
+
+    return clinicalVisit;
   }
 
   async findAll(clinicId: string, query: QueryClinicalVisitDto): Promise<PaginatedResult<ClinicalVisit>> {
@@ -149,11 +159,21 @@ export class ClinicalVisitService {
       throw new BadRequestException('Cannot finalize a cancelled visit');
     }
 
-    return this.prisma.clinicalVisit.update({
+    const updatedVisit = await this.prisma.clinicalVisit.update({
       where: { id },
       data: { status: 'finalized', finalized_at: new Date() },
       include: { patient: true, dentist: true, branch: true, appointment: true },
     });
+
+    // Auto-update appointment status to 'completed' when consultation is finalized
+    if (updatedVisit.appointment_id) {
+      await this.prisma.appointment.update({
+        where: { id: updatedVisit.appointment_id },
+        data: { status: 'completed' },
+      });
+    }
+
+    return updatedVisit;
   }
 
   async cancel(clinicId: string, id: string): Promise<ClinicalVisit> {
@@ -161,11 +181,22 @@ export class ClinicalVisitService {
     if (visit.status === 'finalized') {
       throw new BadRequestException('Cannot cancel a finalized visit');
     }
-    return this.prisma.clinicalVisit.update({
+
+    const cancelledVisit = await this.prisma.clinicalVisit.update({
       where: { id },
       data: { status: 'cancelled' },
       include: { patient: true, dentist: true, branch: true, appointment: true },
     });
+
+    // Revert appointment status back to 'scheduled' if it was updated to 'in_progress'
+    if (cancelledVisit.appointment_id) {
+      await this.prisma.appointment.update({
+        where: { id: cancelledVisit.appointment_id },
+        data: { status: 'scheduled' },
+      });
+    }
+
+    return cancelledVisit;
   }
 
   // ────────────────────────────────────────────────────────────

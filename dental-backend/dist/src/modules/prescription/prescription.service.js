@@ -21,6 +21,7 @@ const PRESCRIPTION_INCLUDE = {
     patient: true,
     dentist: true,
     branch: true,
+    clinical_visit: true,
 };
 let PrescriptionService = class PrescriptionService {
     prisma;
@@ -47,6 +48,14 @@ let PrescriptionService = class PrescriptionService {
         }
         if (!dentist || dentist.clinic_id !== clinicId) {
             throw new common_1.NotFoundException(`Dentist with ID "${dto.dentist_id}" not found in this clinic`);
+        }
+        if (dto.clinical_visit_id) {
+            const clinicalVisit = await this.prisma.clinicalVisit.findUnique({
+                where: { id: dto.clinical_visit_id },
+            });
+            if (!clinicalVisit || clinicalVisit.clinic_id !== clinicId) {
+                throw new common_1.NotFoundException(`Clinical visit with ID "${dto.clinical_visit_id}" not found in this clinic`);
+            }
         }
         const { items, ...rest } = dto;
         return this.prisma.$transaction(async (tx) => {

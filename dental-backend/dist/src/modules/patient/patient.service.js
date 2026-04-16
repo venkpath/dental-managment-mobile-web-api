@@ -54,19 +54,23 @@ const XLSX = __importStar(require("xlsx"));
 const sync_1 = require("csv-parse/sync");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
+const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
 let PatientService = PatientService_1 = class PatientService {
     prisma;
     config;
+    planLimit;
     logger = new common_1.Logger(PatientService_1.name);
     openai;
-    constructor(prisma, config) {
+    constructor(prisma, config, planLimit) {
         this.prisma = prisma;
         this.config = config;
+        this.planLimit = planLimit;
         this.openai = new openai_1.default({
             apiKey: this.config.get('OPENAI_API_KEY'),
         });
     }
     async create(clinicId, dto) {
+        await this.planLimit.enforceMonthlyCap(clinicId, 'patients');
         const branch = await this.prisma.branch.findUnique({
             where: { id: dto.branch_id },
         });
@@ -391,6 +395,7 @@ exports.PatientService = PatientService;
 exports.PatientService = PatientService = PatientService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
-        config_1.ConfigService])
+        config_1.ConfigService,
+        plan_limit_service_js_1.PlanLimitService])
 ], PatientService);
 //# sourceMappingURL=patient.service.js.map

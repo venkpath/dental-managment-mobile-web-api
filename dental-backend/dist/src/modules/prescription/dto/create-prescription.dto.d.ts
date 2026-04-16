@@ -13,6 +13,7 @@ export declare class CreatePrescriptionDto {
     branch_id: string;
     patient_id: string;
     dentist_id: string;
+    clinical_visit_id?: string;
     diagnosis: string;
     instructions?: string;
     items: PrescriptionItemDto[];

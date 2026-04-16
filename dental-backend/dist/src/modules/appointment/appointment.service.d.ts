@@ -3,6 +3,7 @@ import { CreateAppointmentDto, UpdateAppointmentDto, QueryAppointmentDto, QueryA
 import { Appointment } from '@prisma/client';
 import { PaginatedResult } from '../../common/interfaces/paginated-result.interface.js';
 import { AppointmentNotificationService } from './appointment-notification.service.js';
+import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 export interface AvailableSlot {
     start_time: string;
     end_time: string;
@@ -11,8 +12,9 @@ export interface AvailableSlot {
 export declare class AppointmentService {
     private readonly prisma;
     private readonly notificationService;
+    private readonly planLimit;
     private readonly logger;
-    constructor(prisma: PrismaService, notificationService: AppointmentNotificationService);
+    constructor(prisma: PrismaService, notificationService: AppointmentNotificationService, planLimit: PlanLimitService);
     create(clinicId: string, dto: CreateAppointmentDto): Promise<Appointment>;
     getAvailableSlots(clinicId: string, query: QueryAvailableSlotsDto): Promise<AvailableSlot[]>;
     findAll(clinicId: string, query: QueryAppointmentDto): Promise<PaginatedResult<Appointment>>;

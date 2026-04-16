@@ -49,6 +49,7 @@ const database_config_js_1 = __importDefault(require("./config/database.config.j
 const redis_config_js_1 = __importDefault(require("./config/redis.config.js"));
 const tenant_context_middleware_js_1 = require("./common/middleware/tenant-context.middleware.js");
 const password_module_js_1 = require("./common/services/password.module.js");
+const plan_limit_module_js_1 = require("./common/services/plan-limit.module.js");
 const jwt_auth_guard_js_1 = require("./common/guards/jwt-auth.guard.js");
 const roles_guard_js_1 = require("./common/guards/roles.guard.js");
 const super_admin_guard_js_1 = require("./common/guards/super-admin.guard.js");
@@ -101,6 +102,7 @@ exports.AppModule = AppModule = __decorate([
             prisma_module_js_1.PrismaModule,
             schedule_1.ScheduleModule.forRoot(),
             password_module_js_1.PasswordModule,
+            plan_limit_module_js_1.PlanLimitModule,
             queue_module_js_1.QueueModule,
             health_module_js_1.HealthModule,
             clinic_module_js_1.ClinicModule,

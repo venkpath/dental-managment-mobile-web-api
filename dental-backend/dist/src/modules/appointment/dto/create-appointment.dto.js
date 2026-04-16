@@ -16,6 +16,8 @@ const swagger_1 = require("@nestjs/swagger");
 var AppointmentStatus;
 (function (AppointmentStatus) {
     AppointmentStatus["SCHEDULED"] = "scheduled";
+    AppointmentStatus["CHECKED_IN"] = "checked_in";
+    AppointmentStatus["IN_PROGRESS"] = "in_progress";
     AppointmentStatus["COMPLETED"] = "completed";
     AppointmentStatus["CANCELLED"] = "cancelled";
     AppointmentStatus["NO_SHOW"] = "no_show";

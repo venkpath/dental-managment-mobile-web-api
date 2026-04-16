@@ -11,6 +11,7 @@ export declare class AppointmentNotificationService {
     sendCancellation(clinicId: string, appointmentId: string): Promise<void>;
     sendReschedule(clinicId: string, appointmentId: string, oldDate: string, oldTime: string): Promise<void>;
     private sendNotification;
+    private clinicHasFeature;
     private resolveTemplate;
     private loadAppointment;
     private buildVariables;

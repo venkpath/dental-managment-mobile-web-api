@@ -37,6 +37,7 @@ import databaseConfig from './config/database.config.js';
 import redisConfig from './config/redis.config.js';
 import { TenantContextMiddleware } from './common/middleware/tenant-context.middleware.js';
 import { PasswordModule } from './common/services/password.module.js';
+import { PlanLimitModule } from './common/services/plan-limit.module.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { SuperAdminGuard } from './common/guards/super-admin.guard.js';
@@ -83,6 +84,7 @@ import razorpayConfig from './config/razorpay.config.js';
     PrismaModule,
     ScheduleModule.forRoot(),
     PasswordModule,
+    PlanLimitModule,
     QueueModule,
     HealthModule,
     ClinicModule,

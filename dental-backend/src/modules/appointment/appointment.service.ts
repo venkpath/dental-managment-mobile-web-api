@@ -4,6 +4,7 @@ import { CreateAppointmentDto, UpdateAppointmentDto, QueryAppointmentDto, QueryA
 import { Appointment, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
 import { AppointmentNotificationService } from './appointment-notification.service.js';
+import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 
 export interface AvailableSlot {
   start_time: string;
@@ -39,12 +40,15 @@ export class AppointmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationService: AppointmentNotificationService,
+    private readonly planLimit: PlanLimitService,
   ) {}
 
   async create(clinicId: string, dto: CreateAppointmentDto): Promise<Appointment> {
     if (dto.start_time >= dto.end_time) {
       throw new BadRequestException('start_time must be before end_time');
     }
+
+    await this.planLimit.enforceMonthlyCap(clinicId, 'appointments');
 
     const [branch, patient, dentist] = await Promise.all([
       this.prisma.branch.findUnique({ where: { id: dto.branch_id } }),
@@ -410,6 +414,9 @@ export class AppointmentService {
     if (validDates.length === 0) {
       throw new BadRequestException('No valid dates available for the recurring series — all dates conflict or fall on non-working days');
     }
+
+    // Enforce monthly appointment cap for the whole recurring batch
+    await this.planLimit.enforceMonthlyCap(clinicId, 'appointments', validDates.length);
 
     // Create all appointments in a transaction with shared recurrence_group_id
     const recurrenceGroupId = crypto.randomUUID();

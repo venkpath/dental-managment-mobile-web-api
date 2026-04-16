@@ -20,6 +20,7 @@ const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.gu
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
 const current_user_decorator_js_1 = require("../../common/decorators/current-user.decorator.js");
 const roles_decorator_js_1 = require("../../common/decorators/roles.decorator.js");
+const require_feature_decorator_js_1 = require("../../common/decorators/require-feature.decorator.js");
 const index_js_1 = require("../user/dto/index.js");
 const campaign_service_js_1 = require("./campaign.service.js");
 const create_campaign_dto_js_1 = require("./dto/create-campaign.dto.js");
@@ -240,6 +241,7 @@ exports.CampaignController = CampaignController = __decorate([
     (0, swagger_1.ApiTags)('Campaigns'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true }),
     (0, common_1.UseGuards)(require_clinic_guard_js_1.RequireClinicGuard),
+    (0, require_feature_decorator_js_1.RequireFeature)('MARKETING_CAMPAIGNS'),
     (0, common_1.Controller)('campaigns'),
     __metadata("design:paramtypes", [campaign_service_js_1.CampaignService])
 ], CampaignController);

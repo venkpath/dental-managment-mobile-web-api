@@ -39,6 +39,47 @@ export class ClinicService {
     return clinic;
   }
 
+  async getFeatures(clinicId: string) {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: {
+        plan: {
+          select: {
+            name: true,
+            price_monthly: true,
+            max_branches: true,
+            max_staff: true,
+            ai_quota: true,
+            max_patients_per_month: true,
+            max_appointments_per_month: true,
+            plan_features: {
+              where: { is_enabled: true },
+              select: { feature: { select: { key: true } } },
+            },
+          },
+        },
+      },
+    });
+
+    if (!clinic) throw new NotFoundException(`Clinic with ID "${clinicId}" not found`);
+
+    const plan = clinic.plan;
+    return {
+      plan: plan
+        ? {
+            name: plan.name,
+            price_monthly: Number(plan.price_monthly),
+            max_branches: plan.max_branches,
+            max_staff: plan.max_staff,
+            ai_quota: plan.ai_quota,
+            max_patients_per_month: plan.max_patients_per_month,
+            max_appointments_per_month: plan.max_appointments_per_month,
+          }
+        : null,
+      features: plan?.plan_features.map((pf) => pf.feature.key) ?? [],
+    };
+  }
+
   async update(id: string, dto: UpdateClinicDto): Promise<Clinic> {
     await this.findOne(id);
     return this.prisma.clinic.update({

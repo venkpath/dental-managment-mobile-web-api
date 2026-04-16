@@ -38,6 +38,9 @@ let ClinicController = class ClinicController {
     async getMyClinic(user) {
         return this.clinicService.findOne(user.clinicId);
     }
+    async getMyFeatures(user) {
+        return this.clinicService.getFeatures(user.clinicId);
+    }
     async updateMyClinic(user, dto) {
         return this.clinicService.update(user.clinicId, dto);
     }
@@ -106,6 +109,17 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], ClinicController.prototype, "getMyClinic", null);
+__decorate([
+    (0, common_1.Get)('me/features'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get the current clinic\'s plan + enabled feature keys' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Plan name, limits, and feature flags enabled for this clinic' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], ClinicController.prototype, "getMyFeatures", null);
 __decorate([
     (0, common_1.Patch)('me'),
     (0, swagger_1.ApiBearerAuth)(),

@@ -18,6 +18,7 @@ export declare class PrescriptionController {
         branch_id: string;
         patient_id: string;
         dentist_id: string;
+        clinical_visit_id: string | null;
         diagnosis: string;
         instructions: string | null;
     }>>;
@@ -28,6 +29,7 @@ export declare class PrescriptionController {
         branch_id: string;
         patient_id: string;
         dentist_id: string;
+        clinical_visit_id: string | null;
         diagnosis: string;
         instructions: string | null;
     }>;
@@ -38,6 +40,7 @@ export declare class PrescriptionController {
         branch_id: string;
         patient_id: string;
         dentist_id: string;
+        clinical_visit_id: string | null;
         diagnosis: string;
         instructions: string | null;
     }>;
@@ -48,6 +51,7 @@ export declare class PrescriptionController {
         branch_id: string;
         patient_id: string;
         dentist_id: string;
+        clinical_visit_id: string | null;
         diagnosis: string;
         instructions: string | null;
     }>;
@@ -64,6 +68,7 @@ export declare class PrescriptionController {
         branch_id: string;
         patient_id: string;
         dentist_id: string;
+        clinical_visit_id: string | null;
         diagnosis: string;
         instructions: string | null;
     }[]>;

@@ -12,6 +12,7 @@ const PRESCRIPTION_INCLUDE = {
   patient: true,
   dentist: true,
   branch: true,
+  clinical_visit: true,
 } as const;
 
 @Injectable()
@@ -38,6 +39,18 @@ export class PrescriptionService {
     }
     if (!dentist || dentist.clinic_id !== clinicId) {
       throw new NotFoundException(`Dentist with ID "${dto.dentist_id}" not found in this clinic`);
+    }
+
+    // Validate clinical_visit_id if provided
+    if (dto.clinical_visit_id) {
+      const clinicalVisit = await this.prisma.clinicalVisit.findUnique({
+        where: { id: dto.clinical_visit_id },
+      });
+      if (!clinicalVisit || clinicalVisit.clinic_id !== clinicId) {
+        throw new NotFoundException(
+          `Clinical visit with ID "${dto.clinical_visit_id}" not found in this clinic`,
+        );
+      }
     }
 
     const { items, ...rest } = dto;

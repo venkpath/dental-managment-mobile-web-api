@@ -95,11 +95,12 @@ class CreatePrescriptionDto {
     branch_id;
     patient_id;
     dentist_id;
+    clinical_visit_id;
     diagnosis;
     instructions;
     items;
     static _OPENAPI_METADATA_FACTORY() {
-        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: true, type: () => String, format: "uuid" }, diagnosis: { required: true, type: () => String, maxLength: 500 }, instructions: { required: false, type: () => String }, items: { required: true, type: () => [require("./create-prescription.dto").PrescriptionItemDto], minItems: 1 } };
+        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: true, type: () => String, format: "uuid" }, clinical_visit_id: { required: false, type: () => String, format: "uuid" }, diagnosis: { required: true, type: () => String, maxLength: 500 }, instructions: { required: false, type: () => String }, items: { required: true, type: () => [require("./create-prescription.dto").PrescriptionItemDto], minItems: 1 } };
     }
 }
 exports.CreatePrescriptionDto = CreatePrescriptionDto;
@@ -118,6 +119,12 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], CreatePrescriptionDto.prototype, "dentist_id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: '550e8400-e29b-41d4-a716-446655440003', description: 'Clinical Visit UUID (optional link to consultation)' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], CreatePrescriptionDto.prototype, "clinical_visit_id", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ example: 'Post-extraction infection', maxLength: 500 }),
     (0, class_validator_1.IsString)(),

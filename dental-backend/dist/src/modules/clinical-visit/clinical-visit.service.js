@@ -52,7 +52,7 @@ let ClinicalVisitService = class ClinicalVisitService {
             }
         }
         const { vital_signs, ...rest } = dto;
-        return this.prisma.clinicalVisit.create({
+        const clinicalVisit = await this.prisma.clinicalVisit.create({
             data: {
                 ...rest,
                 clinic_id: clinicId,
@@ -60,6 +60,13 @@ let ClinicalVisitService = class ClinicalVisitService {
             },
             include: { patient: true, dentist: true, branch: true, appointment: true },
         });
+        if (dto.appointment_id) {
+            await this.prisma.appointment.update({
+                where: { id: dto.appointment_id },
+                data: { status: 'in_progress' },
+            });
+        }
+        return clinicalVisit;
     }
     async findAll(clinicId, query) {
         const where = { clinic_id: clinicId };
@@ -137,22 +144,36 @@ let ClinicalVisitService = class ClinicalVisitService {
         if (visit.status === 'cancelled') {
             throw new common_1.BadRequestException('Cannot finalize a cancelled visit');
         }
-        return this.prisma.clinicalVisit.update({
+        const updatedVisit = await this.prisma.clinicalVisit.update({
             where: { id },
             data: { status: 'finalized', finalized_at: new Date() },
             include: { patient: true, dentist: true, branch: true, appointment: true },
         });
+        if (updatedVisit.appointment_id) {
+            await this.prisma.appointment.update({
+                where: { id: updatedVisit.appointment_id },
+                data: { status: 'completed' },
+            });
+        }
+        return updatedVisit;
     }
     async cancel(clinicId, id) {
         const visit = await this.findOne(clinicId, id);
         if (visit.status === 'finalized') {
             throw new common_1.BadRequestException('Cannot cancel a finalized visit');
         }
-        return this.prisma.clinicalVisit.update({
+        const cancelledVisit = await this.prisma.clinicalVisit.update({
             where: { id },
             data: { status: 'cancelled' },
             include: { patient: true, dentist: true, branch: true, appointment: true },
         });
+        if (cancelledVisit.appointment_id) {
+            await this.prisma.appointment.update({
+                where: { id: cancelledVisit.appointment_id },
+                data: { status: 'scheduled' },
+            });
+        }
+        return cancelledVisit;
     }
     async createPlan(clinicId, dto) {
         const [branch, patient, dentist] = await Promise.all([

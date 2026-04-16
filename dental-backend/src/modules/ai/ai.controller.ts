@@ -97,7 +97,7 @@ export class AiController {
   @Post('campaign-content')
   @Roles(UserRole.ADMIN)
   @TrackAiUsage()
-  @RequireFeature('AI_CLINICAL_NOTES')
+  @RequireFeature('AI_CAMPAIGN_CONTENT')
   @ApiOperation({ summary: 'Auto-generate campaign messages with A/B variants' })
   async generateCampaignContent(
     @Req() req: Request,

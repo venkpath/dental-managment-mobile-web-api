@@ -52,6 +52,18 @@ export declare class ClinicController {
         ai_usage_count: number;
         ai_quota_override: number | null;
     }>;
+    getMyFeatures(user: RequestUser): Promise<{
+        plan: {
+            name: string;
+            price_monthly: number;
+            max_branches: number;
+            max_staff: number;
+            ai_quota: number;
+            max_patients_per_month: number | null;
+            max_appointments_per_month: number | null;
+        } | null;
+        features: string[];
+    }>;
     updateMyClinic(user: RequestUser, dto: UpdateClinicDto): Promise<{
         id: string;
         email: string;

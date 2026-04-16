@@ -62,6 +62,10 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
         }
     }
     async sendNotification(clinicId, appointmentId, ruleType, extra) {
+        if (!(await this.clinicHasFeature(clinicId, 'APPOINTMENT_CONFIRMATIONS'))) {
+            this.logger.log(`APPOINTMENT_CONFIRMATIONS not enabled for clinic ${clinicId} — skipping ${ruleType}`);
+            return;
+        }
         const { skip, templateId } = await this.resolveTemplate(clinicId, ruleType);
         if (skip) {
             this.logger.log(`${ruleType} disabled for clinic ${clinicId} — skipping`);
@@ -89,6 +93,17 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
             });
         }
         this.logger.log(`${ruleType} notification sent for ${appointmentId}`);
+    }
+    async clinicHasFeature(clinicId, featureKey) {
+        const match = await this.prisma.planFeature.findFirst({
+            where: {
+                is_enabled: true,
+                plan: { clinics: { some: { id: clinicId } } },
+                feature: { key: featureKey },
+            },
+            select: { id: true },
+        });
+        return !!match;
     }
     async resolveTemplate(clinicId, ruleType) {
         try {

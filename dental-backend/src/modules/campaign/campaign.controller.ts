@@ -15,6 +15,7 @@ import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js'
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { RequireFeature } from '../../common/decorators/require-feature.decorator.js';
 import { UserRole } from '../user/dto/index.js';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 import { CampaignService } from './campaign.service.js';
@@ -25,6 +26,7 @@ import { QueryCampaignDto } from './dto/query-campaign.dto.js';
 @ApiTags('Campaigns')
 @ApiHeader({ name: 'x-clinic-id', required: true })
 @UseGuards(RequireClinicGuard)
+@RequireFeature('MARKETING_CAMPAIGNS')
 @Controller('campaigns')
 export class CampaignController {
   constructor(private readonly campaignService: CampaignService) {}

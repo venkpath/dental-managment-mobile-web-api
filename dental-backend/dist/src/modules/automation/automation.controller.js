@@ -19,6 +19,7 @@ const swagger_1 = require("@nestjs/swagger");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
 const roles_decorator_js_1 = require("../../common/decorators/roles.decorator.js");
+const require_feature_decorator_js_1 = require("../../common/decorators/require-feature.decorator.js");
 const index_js_1 = require("../user/dto/index.js");
 const automation_service_js_1 = require("./automation.service.js");
 const automation_cron_js_1 = require("./automation.cron.js");
@@ -140,6 +141,7 @@ exports.AutomationController = AutomationController = __decorate([
     (0, swagger_1.ApiTags)('Automation Rules'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true }),
     (0, common_1.UseGuards)(require_clinic_guard_js_1.RequireClinicGuard),
+    (0, require_feature_decorator_js_1.RequireFeature)('AUTOMATION_RULES'),
     (0, common_1.Controller)('automation/rules'),
     __metadata("design:paramtypes", [automation_service_js_1.AutomationService,
         automation_cron_js_1.AutomationCronService])

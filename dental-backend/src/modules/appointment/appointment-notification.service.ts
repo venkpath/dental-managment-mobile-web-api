@@ -95,6 +95,13 @@ export class AppointmentNotificationService {
     ruleType: AutomationRuleType,
     extra?: { oldDate?: string; oldTime?: string },
   ): Promise<void> {
+    // Plan gate: appointment confirmation/cancellation/reschedule messages require APPOINTMENT_CONFIRMATIONS
+    // feature. Free plan doesn't have it; other plans do.
+    if (!(await this.clinicHasFeature(clinicId, 'APPOINTMENT_CONFIRMATIONS'))) {
+      this.logger.log(`APPOINTMENT_CONFIRMATIONS not enabled for clinic ${clinicId} — skipping ${ruleType}`);
+      return;
+    }
+
     const { skip, templateId } = await this.resolveTemplate(clinicId, ruleType);
     if (skip) {
       this.logger.log(`${ruleType} disabled for clinic ${clinicId} — skipping`);
@@ -126,6 +133,18 @@ export class AppointmentNotificationService {
     }
 
     this.logger.log(`${ruleType} notification sent for ${appointmentId}`);
+  }
+
+  private async clinicHasFeature(clinicId: string, featureKey: string): Promise<boolean> {
+    const match = await this.prisma.planFeature.findFirst({
+      where: {
+        is_enabled: true,
+        plan: { clinics: { some: { id: clinicId } } },
+        feature: { key: featureKey },
+      },
+      select: { id: true },
+    });
+    return !!match;
   }
 
   /**

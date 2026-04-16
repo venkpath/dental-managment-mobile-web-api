@@ -11,6 +11,7 @@ import { ApiTags, ApiOperation, ApiHeader, ApiOkResponse } from '@nestjs/swagger
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { RequireFeature } from '../../common/decorators/require-feature.decorator.js';
 import { UserRole } from '../user/dto/index.js';
 import { AutomationService } from './automation.service.js';
 import { AutomationCronService } from './automation.cron.js';
@@ -19,6 +20,7 @@ import { UpsertAutomationRuleDto } from './dto/index.js';
 @ApiTags('Automation Rules')
 @ApiHeader({ name: 'x-clinic-id', required: true })
 @UseGuards(RequireClinicGuard)
+@RequireFeature('AUTOMATION_RULES')
 @Controller('automation/rules')
 export class AutomationController {
   constructor(

@@ -36,9 +36,10 @@ async function main() {
 
   // Seed default plans for Indian dental SaaS
   const plans = [
-    { name: 'Starter', price_monthly: 999, max_branches: 1, max_staff: 5, ai_quota: 0 },
-    { name: 'Professional', price_monthly: 2499, max_branches: 3, max_staff: 15, ai_quota: 100 },
-    { name: 'Enterprise', price_monthly: 4999, max_branches: 10, max_staff: 50, ai_quota: 500 },
+    { name: 'Free',         price_monthly: 0,    max_branches: 1,  max_staff: 2,  ai_quota: 0,   max_patients_per_month: 20,   max_appointments_per_month: 20 },
+    { name: 'Starter',      price_monthly: 999,  max_branches: 1,  max_staff: 5,  ai_quota: 0,   max_patients_per_month: null, max_appointments_per_month: null },
+    { name: 'Professional', price_monthly: 1999, max_branches: 3,  max_staff: 15, ai_quota: 100, max_patients_per_month: null, max_appointments_per_month: null },
+    { name: 'Enterprise',   price_monthly: 2999, max_branches: 10, max_staff: 50, ai_quota: 500, max_patients_per_month: null, max_appointments_per_month: null },
   ];
 
   for (const plan of plans) {
@@ -53,13 +54,20 @@ async function main() {
 
   // Seed default features
   const features = [
+    { key: 'AI_CLINICAL_NOTES', description: 'AI-generated SOAP clinical notes' },
     { key: 'AI_PRESCRIPTION', description: 'AI-powered prescription generation' },
     { key: 'AI_TREATMENT_PLAN', description: 'AI-assisted treatment planning' },
+    { key: 'AI_CAMPAIGN_CONTENT', description: 'AI-powered campaign message generation with A/B variants' },
     { key: 'SMS_REMINDERS', description: 'SMS appointment reminders' },
     { key: 'WHATSAPP_INTEGRATION', description: 'WhatsApp messaging for patient communication' },
+    { key: 'WHATSAPP_INBOX', description: 'WhatsApp inbox — receive and reply to patient messages (requires own WABA)' },
     { key: 'DIGITAL_XRAY', description: 'Digital X-ray management and storage' },
     { key: 'INVENTORY_MANAGEMENT', description: 'Dental inventory and supply tracking' },
     { key: 'CUSTOM_PROVIDER_CONFIG', description: 'Override default email/SMS provider config per clinic' },
+    { key: 'PATIENT_IMPORT', description: 'Bulk patient import from CSV/Excel and AI image extraction' },
+    { key: 'MARKETING_CAMPAIGNS', description: 'Bulk marketing campaigns (SMS/Email/WhatsApp) with segmentation, A/B tests, drip sequences' },
+    { key: 'AUTOMATION_RULES', description: 'Automation rules — birthday greetings, reactivation, payment reminders, post-visit follow-ups' },
+    { key: 'APPOINTMENT_CONFIRMATIONS', description: 'Automated appointment confirmation messages to patients' },
   ];
 
   for (const feature of features) {
@@ -138,31 +146,53 @@ async function main() {
   console.log(`Seeded ${surfaces.length} tooth surfaces.`);
 
   // Seed plan-feature mappings
+  const freePlan = await prisma.plan.findUnique({ where: { name: 'Free' } });
   const professionalPlan = await prisma.plan.findUnique({ where: { name: 'Professional' } });
   const enterprisePlan = await prisma.plan.findUnique({ where: { name: 'Enterprise' } });
   const starterPlan = await prisma.plan.findUnique({ where: { name: 'Starter' } });
   const allFeatures = await prisma.feature.findMany();
 
-  if (starterPlan && professionalPlan && enterprisePlan && allFeatures.length > 0) {
+  if (freePlan && starterPlan && professionalPlan && enterprisePlan && allFeatures.length > 0) {
     const featureMap = Object.fromEntries(allFeatures.map((f) => [f.key, f.id]));
 
     const planFeatureMappings = [
-      // Starter: inventory only
+      // Free: inventory only
+      { plan_id: freePlan.id, feature_id: featureMap['INVENTORY_MANAGEMENT']!, is_enabled: true },
+
+      // Starter: Free + confirmations + SMS reminders
       { plan_id: starterPlan.id, feature_id: featureMap['INVENTORY_MANAGEMENT']!, is_enabled: true },
-      // Professional: inventory + SMS + digital xray + AI prescription + custom providers
+      { plan_id: starterPlan.id, feature_id: featureMap['APPOINTMENT_CONFIRMATIONS']!, is_enabled: true },
+      { plan_id: starterPlan.id, feature_id: featureMap['SMS_REMINDERS']!, is_enabled: true },
+
+      // Professional: Starter + WhatsApp + marketing + AI (except treatment plan)
       { plan_id: professionalPlan.id, feature_id: featureMap['INVENTORY_MANAGEMENT']!, is_enabled: true },
+      { plan_id: professionalPlan.id, feature_id: featureMap['APPOINTMENT_CONFIRMATIONS']!, is_enabled: true },
       { plan_id: professionalPlan.id, feature_id: featureMap['SMS_REMINDERS']!, is_enabled: true },
+      { plan_id: professionalPlan.id, feature_id: featureMap['WHATSAPP_INTEGRATION']!, is_enabled: true },
       { plan_id: professionalPlan.id, feature_id: featureMap['DIGITAL_XRAY']!, is_enabled: true },
+      { plan_id: professionalPlan.id, feature_id: featureMap['AI_CLINICAL_NOTES']!, is_enabled: true },
       { plan_id: professionalPlan.id, feature_id: featureMap['AI_PRESCRIPTION']!, is_enabled: true },
       { plan_id: professionalPlan.id, feature_id: featureMap['CUSTOM_PROVIDER_CONFIG']!, is_enabled: true },
-      // Enterprise: all features
+      { plan_id: professionalPlan.id, feature_id: featureMap['PATIENT_IMPORT']!, is_enabled: true },
+      { plan_id: professionalPlan.id, feature_id: featureMap['MARKETING_CAMPAIGNS']!, is_enabled: true },
+      { plan_id: professionalPlan.id, feature_id: featureMap['AUTOMATION_RULES']!, is_enabled: true },
+      { plan_id: professionalPlan.id, feature_id: featureMap['AI_CAMPAIGN_CONTENT']!, is_enabled: true },
+
+      // Enterprise: everything
       { plan_id: enterprisePlan.id, feature_id: featureMap['INVENTORY_MANAGEMENT']!, is_enabled: true },
+      { plan_id: enterprisePlan.id, feature_id: featureMap['APPOINTMENT_CONFIRMATIONS']!, is_enabled: true },
       { plan_id: enterprisePlan.id, feature_id: featureMap['SMS_REMINDERS']!, is_enabled: true },
+      { plan_id: enterprisePlan.id, feature_id: featureMap['WHATSAPP_INTEGRATION']!, is_enabled: true },
+      { plan_id: enterprisePlan.id, feature_id: featureMap['WHATSAPP_INBOX']!, is_enabled: true },
       { plan_id: enterprisePlan.id, feature_id: featureMap['DIGITAL_XRAY']!, is_enabled: true },
+      { plan_id: enterprisePlan.id, feature_id: featureMap['AI_CLINICAL_NOTES']!, is_enabled: true },
       { plan_id: enterprisePlan.id, feature_id: featureMap['AI_PRESCRIPTION']!, is_enabled: true },
       { plan_id: enterprisePlan.id, feature_id: featureMap['AI_TREATMENT_PLAN']!, is_enabled: true },
-      { plan_id: enterprisePlan.id, feature_id: featureMap['WHATSAPP_INTEGRATION']!, is_enabled: true },
+      { plan_id: enterprisePlan.id, feature_id: featureMap['AI_CAMPAIGN_CONTENT']!, is_enabled: true },
       { plan_id: enterprisePlan.id, feature_id: featureMap['CUSTOM_PROVIDER_CONFIG']!, is_enabled: true },
+      { plan_id: enterprisePlan.id, feature_id: featureMap['PATIENT_IMPORT']!, is_enabled: true },
+      { plan_id: enterprisePlan.id, feature_id: featureMap['MARKETING_CAMPAIGNS']!, is_enabled: true },
+      { plan_id: enterprisePlan.id, feature_id: featureMap['AUTOMATION_RULES']!, is_enabled: true },
     ];
 
     for (const mapping of planFeatureMappings) {

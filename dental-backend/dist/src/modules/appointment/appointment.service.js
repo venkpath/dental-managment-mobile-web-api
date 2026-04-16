@@ -15,6 +15,7 @@ const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
 const appointment_notification_service_js_1 = require("./appointment-notification.service.js");
+const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
 const CLINIC_TIMEZONE = process.env.CLINIC_TIMEZONE || 'Asia/Kolkata';
 function getTodayDate(tz = CLINIC_TIMEZONE) {
     return new Date().toLocaleDateString('en-CA', { timeZone: tz });
@@ -31,15 +32,18 @@ function getIsoDay(dateStr) {
 let AppointmentService = AppointmentService_1 = class AppointmentService {
     prisma;
     notificationService;
+    planLimit;
     logger = new common_1.Logger(AppointmentService_1.name);
-    constructor(prisma, notificationService) {
+    constructor(prisma, notificationService, planLimit) {
         this.prisma = prisma;
         this.notificationService = notificationService;
+        this.planLimit = planLimit;
     }
     async create(clinicId, dto) {
         if (dto.start_time >= dto.end_time) {
             throw new common_1.BadRequestException('start_time must be before end_time');
         }
+        await this.planLimit.enforceMonthlyCap(clinicId, 'appointments');
         const [branch, patient, dentist] = await Promise.all([
             this.prisma.branch.findUnique({ where: { id: dto.branch_id } }),
             this.prisma.patient.findUnique({ where: { id: dto.patient_id } }),
@@ -339,6 +343,7 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
         if (validDates.length === 0) {
             throw new common_1.BadRequestException('No valid dates available for the recurring series — all dates conflict or fall on non-working days');
         }
+        await this.planLimit.enforceMonthlyCap(clinicId, 'appointments', validDates.length);
         const recurrenceGroupId = crypto.randomUUID();
         const appointments = await this.prisma.$transaction(validDates.map((dateStr) => this.prisma.appointment.create({
             data: {
@@ -392,6 +397,7 @@ exports.AppointmentService = AppointmentService;
 exports.AppointmentService = AppointmentService = AppointmentService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
-        appointment_notification_service_js_1.AppointmentNotificationService])
+        appointment_notification_service_js_1.AppointmentNotificationService,
+        plan_limit_service_js_1.PlanLimitService])
 ], AppointmentService);
 //# sourceMappingURL=appointment.service.js.map

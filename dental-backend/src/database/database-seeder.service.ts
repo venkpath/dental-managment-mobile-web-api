@@ -104,19 +104,24 @@ export class DatabaseSeederService implements OnModuleInit {
   }
 
   private async seedPlans() {
-    const count = await this.prisma.plan.count();
-    if (count > 0) return;
-
+    // Idempotent: upsert-by-name. Won't overwrite prices for existing plans
+    // (in case super-admin UI has customized them). Only creates missing plans.
     const plans = [
-      { name: 'Starter', price_monthly: 999, max_branches: 1, max_staff: 5, ai_quota: 0 },
-      { name: 'Professional', price_monthly: 2499, max_branches: 3, max_staff: 15, ai_quota: 100 },
-      { name: 'Enterprise', price_monthly: 4999, max_branches: 10, max_staff: 50, ai_quota: 500 },
+      { name: 'Free',         price_monthly: 0,    max_branches: 1,  max_staff: 2,  ai_quota: 0,   max_patients_per_month: 20,   max_appointments_per_month: 20 },
+      { name: 'Starter',      price_monthly: 999,  max_branches: 1,  max_staff: 5,  ai_quota: 0,   max_patients_per_month: null, max_appointments_per_month: null },
+      { name: 'Professional', price_monthly: 1999, max_branches: 3,  max_staff: 15, ai_quota: 100, max_patients_per_month: null, max_appointments_per_month: null },
+      { name: 'Enterprise',   price_monthly: 2999, max_branches: 10, max_staff: 50, ai_quota: 500, max_patients_per_month: null, max_appointments_per_month: null },
     ];
 
+    let created = 0;
     for (const p of plans) {
-      await this.prisma.plan.upsert({ where: { name: p.name }, update: {}, create: p });
+      const existing = await this.prisma.plan.findUnique({ where: { name: p.name } });
+      if (!existing) {
+        await this.prisma.plan.create({ data: p });
+        created++;
+      }
     }
-    this.logger.log('Seeded 3 plans');
+    if (created > 0) this.logger.log(`Seeded ${created} new plans`);
   }
 
   private async seedFeatures() {
@@ -131,6 +136,10 @@ export class DatabaseSeederService implements OnModuleInit {
       { key: 'CUSTOM_PROVIDER_CONFIG', description: 'Override default email/SMS provider config per clinic' },
       { key: 'PATIENT_IMPORT', description: 'Bulk patient import from CSV/Excel and AI image extraction' },
       { key: 'WHATSAPP_INBOX', description: 'WhatsApp inbox — receive and reply to patient messages (requires own WABA)' },
+      { key: 'MARKETING_CAMPAIGNS', description: 'Bulk marketing campaigns (SMS/Email/WhatsApp) with segmentation, A/B tests, drip sequences' },
+      { key: 'AUTOMATION_RULES', description: 'Automation rules — birthday greetings, reactivation, payment reminders, post-visit follow-ups' },
+      { key: 'AI_CAMPAIGN_CONTENT', description: 'AI-powered campaign message generation with A/B variants' },
+      { key: 'APPOINTMENT_CONFIRMATIONS', description: 'Automated appointment confirmation messages to patients' },
     ];
 
     let created = 0;
@@ -145,35 +154,53 @@ export class DatabaseSeederService implements OnModuleInit {
   }
 
   private async seedPlanFeatures() {
+    const free = await this.prisma.plan.findUnique({ where: { name: 'Free' } });
     const starter = await this.prisma.plan.findUnique({ where: { name: 'Starter' } });
     const professional = await this.prisma.plan.findUnique({ where: { name: 'Professional' } });
     const enterprise = await this.prisma.plan.findUnique({ where: { name: 'Enterprise' } });
     const allFeatures = await this.prisma.feature.findMany();
-    if (!starter || !professional || !enterprise || allFeatures.length === 0) return;
+    if (!free || !starter || !professional || !enterprise || allFeatures.length === 0) return;
 
     const fm = Object.fromEntries(allFeatures.map((f) => [f.key, f.id]));
 
     const mappings = [
+      // ── Free: inventory only, no confirmations, no messaging, no AI ──
+      { plan_id: free.id, feature_id: fm['INVENTORY_MANAGEMENT']! },
+
+      // ── Starter: Free + appointment confirmations + SMS reminders ──
       { plan_id: starter.id, feature_id: fm['INVENTORY_MANAGEMENT']! },
+      { plan_id: starter.id, feature_id: fm['APPOINTMENT_CONFIRMATIONS']! },
+      { plan_id: starter.id, feature_id: fm['SMS_REMINDERS']! },
+
+      // ── Professional: Starter + WhatsApp + marketing + AI (except treatment plan) ──
       { plan_id: professional.id, feature_id: fm['INVENTORY_MANAGEMENT']! },
+      { plan_id: professional.id, feature_id: fm['APPOINTMENT_CONFIRMATIONS']! },
       { plan_id: professional.id, feature_id: fm['SMS_REMINDERS']! },
+      { plan_id: professional.id, feature_id: fm['WHATSAPP_INTEGRATION']! },
       { plan_id: professional.id, feature_id: fm['DIGITAL_XRAY']! },
       { plan_id: professional.id, feature_id: fm['AI_CLINICAL_NOTES']! },
       { plan_id: professional.id, feature_id: fm['AI_PRESCRIPTION']! },
       { plan_id: professional.id, feature_id: fm['CUSTOM_PROVIDER_CONFIG']! },
+      { plan_id: professional.id, feature_id: fm['PATIENT_IMPORT']! },
+      { plan_id: professional.id, feature_id: fm['MARKETING_CAMPAIGNS']! },
+      { plan_id: professional.id, feature_id: fm['AUTOMATION_RULES']! },
+      { plan_id: professional.id, feature_id: fm['AI_CAMPAIGN_CONTENT']! },
+
+      // ── Enterprise: everything ──
       { plan_id: enterprise.id, feature_id: fm['INVENTORY_MANAGEMENT']! },
+      { plan_id: enterprise.id, feature_id: fm['APPOINTMENT_CONFIRMATIONS']! },
       { plan_id: enterprise.id, feature_id: fm['SMS_REMINDERS']! },
+      { plan_id: enterprise.id, feature_id: fm['WHATSAPP_INTEGRATION']! },
+      { plan_id: enterprise.id, feature_id: fm['WHATSAPP_INBOX']! },
       { plan_id: enterprise.id, feature_id: fm['DIGITAL_XRAY']! },
       { plan_id: enterprise.id, feature_id: fm['AI_CLINICAL_NOTES']! },
       { plan_id: enterprise.id, feature_id: fm['AI_PRESCRIPTION']! },
       { plan_id: enterprise.id, feature_id: fm['AI_TREATMENT_PLAN']! },
-      { plan_id: enterprise.id, feature_id: fm['WHATSAPP_INTEGRATION']! },
+      { plan_id: enterprise.id, feature_id: fm['AI_CAMPAIGN_CONTENT']! },
       { plan_id: enterprise.id, feature_id: fm['CUSTOM_PROVIDER_CONFIG']! },
-      // Patient Import — Professional & Enterprise only (not Starter)
-      { plan_id: professional.id, feature_id: fm['PATIENT_IMPORT']! },
       { plan_id: enterprise.id, feature_id: fm['PATIENT_IMPORT']! },
-      // WhatsApp Inbox — Enterprise only (requires own WABA number)
-      { plan_id: enterprise.id, feature_id: fm['WHATSAPP_INBOX']! },
+      { plan_id: enterprise.id, feature_id: fm['MARKETING_CAMPAIGNS']! },
+      { plan_id: enterprise.id, feature_id: fm['AUTOMATION_RULES']! },
     ];
 
     let created = 0;

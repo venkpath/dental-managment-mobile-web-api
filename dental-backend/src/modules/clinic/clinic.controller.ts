@@ -52,6 +52,14 @@ export class ClinicController {
     return this.clinicService.findOne(user.clinicId);
   }
 
+  @Get('me/features')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get the current clinic\'s plan + enabled feature keys' })
+  @ApiOkResponse({ description: 'Plan name, limits, and feature flags enabled for this clinic' })
+  async getMyFeatures(@CurrentUser() user: RequestUser) {
+    return this.clinicService.getFeatures(user.clinicId);
+  }
+
   @Patch('me')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update the current user\'s clinic details' })

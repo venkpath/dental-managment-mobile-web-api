@@ -49,6 +49,8 @@ export declare class PaymentController {
         max_branches: number;
         max_staff: number;
         ai_quota: number;
+        max_patients_per_month: number | null;
+        max_appointments_per_month: number | null;
         razorpay_plan_id: string | null;
     })[]>;
     createSubscription(clinicId: string, body: {

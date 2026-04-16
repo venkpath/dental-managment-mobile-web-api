@@ -7,6 +7,7 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { CreatePatientDto, UpdatePatientDto, QueryPatientDto, ImportPatientRow } from './dto/index.js';
 import { Patient, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
+import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 
 @Injectable()
 export class PatientService {
@@ -16,6 +17,7 @@ export class PatientService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly planLimit: PlanLimitService,
   ) {
     this.openai = new OpenAI({
       apiKey: this.config.get<string>('OPENAI_API_KEY'),
@@ -23,6 +25,8 @@ export class PatientService {
   }
 
   async create(clinicId: string, dto: CreatePatientDto): Promise<Patient> {
+    await this.planLimit.enforceMonthlyCap(clinicId, 'patients');
+
     const branch = await this.prisma.branch.findUnique({
       where: { id: dto.branch_id },
     });

@@ -155,7 +155,7 @@ __decorate([
     (0, common_1.Post)('campaign-content'),
     (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN),
     (0, track_ai_usage_decorator_js_1.TrackAiUsage)(),
-    (0, require_feature_decorator_js_1.RequireFeature)('AI_CLINICAL_NOTES'),
+    (0, require_feature_decorator_js_1.RequireFeature)('AI_CAMPAIGN_CONTENT'),
     (0, swagger_1.ApiOperation)({ summary: 'Auto-generate campaign messages with A/B variants' }),
     openapi.ApiResponse({ status: 201 }),
     __param(0, (0, common_1.Req)()),

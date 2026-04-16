@@ -80,6 +80,11 @@ export class CreatePrescriptionDto {
   @IsUUID()
   dentist_id!: string;
 
+  @ApiPropertyOptional({ example: '550e8400-e29b-41d4-a716-446655440003', description: 'Clinical Visit UUID (optional link to consultation)' })
+  @IsOptional()
+  @IsUUID()
+  clinical_visit_id?: string;
+
   @ApiProperty({ example: 'Post-extraction infection', maxLength: 500 })
   @IsString()
   @MaxLength(500)

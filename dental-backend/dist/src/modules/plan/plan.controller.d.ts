@@ -12,6 +12,8 @@ export declare class PlanController {
         max_branches: number;
         max_staff: number;
         ai_quota: number;
+        max_patients_per_month: number | null;
+        max_appointments_per_month: number | null;
         razorpay_plan_id: string | null;
     }>;
     findAll(): Promise<({
@@ -37,6 +39,8 @@ export declare class PlanController {
         max_branches: number;
         max_staff: number;
         ai_quota: number;
+        max_patients_per_month: number | null;
+        max_appointments_per_month: number | null;
         razorpay_plan_id: string | null;
     })[]>;
     findOne(id: string): Promise<{
@@ -48,6 +52,8 @@ export declare class PlanController {
         max_branches: number;
         max_staff: number;
         ai_quota: number;
+        max_patients_per_month: number | null;
+        max_appointments_per_month: number | null;
         razorpay_plan_id: string | null;
     }>;
     update(id: string, dto: UpdatePlanDto): Promise<{
@@ -59,6 +65,8 @@ export declare class PlanController {
         max_branches: number;
         max_staff: number;
         ai_quota: number;
+        max_patients_per_month: number | null;
+        max_appointments_per_month: number | null;
         razorpay_plan_id: string | null;
     }>;
     assignFeatures(id: string, dto: AssignFeaturesDto): Promise<{
@@ -82,6 +90,8 @@ export declare class PlanController {
         max_branches: number;
         max_staff: number;
         ai_quota: number;
+        max_patients_per_month: number | null;
+        max_appointments_per_month: number | null;
         razorpay_plan_id: string | null;
     }>;
 }
