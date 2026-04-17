@@ -8,6 +8,7 @@ import type { UpdateTemplateDto } from './dto/update-template.dto.js';
 import type { QueryTemplateDto } from './dto/query-template.dto.js';
 import type { TemplateVariables } from './template-renderer.js';
 import { getWhatsAppSeedSampleValues, getWhatsAppSeedMetaCategory } from './seed-templates.js';
+import { PLATFORM_TEMPLATE_NAMES } from './platform-templates.js';
 
 @Injectable()
 export class TemplateService {
@@ -43,6 +44,7 @@ export class TemplateService {
 
     const where: Prisma.MessageTemplateWhereInput = {
       clinic_id: clinicId, // only clinic-owned templates (system templates shown via Sample Templates tab)
+      template_name: { notIn: [...PLATFORM_TEMPLATE_NAMES] }, // hide platform-level templates from clinic UI
     };
 
     if (query.channel) where.channel = query.channel;

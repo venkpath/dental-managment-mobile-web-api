@@ -29,6 +29,8 @@ export default registerAs('app', () => ({
     webhookVerifyToken: process.env['WHATSAPP_WEBHOOK_VERIFY_TOKEN'] || '',
     appSecret: process.env['WHATSAPP_APP_SECRET'] || '',
   },
+  adminWhatsappPhone: process.env['ADMIN_WHATSAPP_PHONE'] || '916366767512',
+  adminEmail: process.env['ADMIN_EMAIL'] || 'prasanthshanmugam10@gmail.com',
   facebook: {
     appId: process.env['FACEBOOK_APP_ID'] || '',
     appSecret: process.env['FACEBOOK_APP_SECRET'] || '',

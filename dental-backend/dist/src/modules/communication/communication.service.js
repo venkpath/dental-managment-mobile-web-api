@@ -23,6 +23,7 @@ const communication_producer_js_1 = require("./communication.producer.js");
 const email_provider_js_1 = require("./providers/email.provider.js");
 const sms_provider_js_1 = require("./providers/sms.provider.js");
 const whatsapp_provider_js_1 = require("./providers/whatsapp.provider.js");
+const platform_templates_js_1 = require("./platform-templates.js");
 let CommunicationService = class CommunicationService {
     static { CommunicationService_1 = this; }
     prisma;
@@ -1685,6 +1686,10 @@ let CommunicationService = class CommunicationService {
         let skipped = 0;
         for (const metaTemplate of result.templates) {
             try {
+                if (platform_templates_js_1.PLATFORM_TEMPLATE_NAMES.includes(metaTemplate.name)) {
+                    skipped++;
+                    continue;
+                }
                 const bodyComponent = metaTemplate.components.find((c) => c.type?.toUpperCase() === 'BODY');
                 const bodyText = bodyComponent?.text || '';
                 const varMatches = bodyText.match(/\{\{(\d+)\}\}/g) || [];

@@ -27,6 +27,8 @@ declare const _default: (() => {
         webhookVerifyToken: string;
         appSecret: string;
     };
+    adminWhatsappPhone: string;
+    adminEmail: string;
     facebook: {
         appId: string;
         appSecret: string;
@@ -60,6 +62,8 @@ declare const _default: (() => {
         webhookVerifyToken: string;
         appSecret: string;
     };
+    adminWhatsappPhone: string;
+    adminEmail: string;
     facebook: {
         appId: string;
         appSecret: string;

@@ -18,6 +18,7 @@ import type { SendMessageDto } from './dto/send-message.dto.js';
 import type { QueryMessageDto } from './dto/query-message.dto.js';
 import type { UpdatePreferencesDto } from './dto/update-preferences.dto.js';
 import type { UpdateClinicSettingsDto } from './dto/update-clinic-settings.dto.js';
+import { PLATFORM_TEMPLATE_NAMES } from './platform-templates.js';
 
 @Injectable()
 export class CommunicationService {
@@ -2237,6 +2238,12 @@ export class CommunicationService {
 
     for (const metaTemplate of result.templates) {
       try {
+      // Skip platform-level templates (demo requests etc.) — not clinic-specific
+      if (PLATFORM_TEMPLATE_NAMES.includes(metaTemplate.name as any)) {
+        skipped++;
+        continue;
+      }
+
       // Extract body text and variables from Meta components
       const bodyComponent = metaTemplate.components.find(
         (c) => (c.type as string)?.toUpperCase() === 'BODY',

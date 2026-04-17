@@ -65,7 +65,7 @@ exports.CommunicationModule = CommunicationModule = CommunicationModule_1 = __de
             sms_worker_js_1.SmsWorker,
             whatsapp_worker_js_1.WhatsAppWorker,
         ],
-        exports: [communication_service_js_1.CommunicationService, template_service_js_1.TemplateService, communication_producer_js_1.CommunicationProducer, template_renderer_js_1.TemplateRenderer, sms_provider_js_1.SmsProvider, email_provider_js_1.EmailProvider],
+        exports: [communication_service_js_1.CommunicationService, template_service_js_1.TemplateService, communication_producer_js_1.CommunicationProducer, template_renderer_js_1.TemplateRenderer, sms_provider_js_1.SmsProvider, email_provider_js_1.EmailProvider, whatsapp_provider_js_1.WhatsAppProvider],
     }),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService])
 ], CommunicationModule);

@@ -1269,3 +1269,23 @@ model TreatmentPlanItem {
   @@index([treatment_id])
   @@map("treatment_plan_items")
 }
+
+model DemoRequest {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String   @db.VarChar(200)
+  email      String   @db.VarChar(255)
+  phone      String   @db.VarChar(20)
+  clinic_name String? @db.VarChar(255)
+  chairs     String?  @db.VarChar(10)
+  status     String   @default("pending") @db.VarChar(20) // pending | contacted | scheduled | completed | cancelled
+  notes      String?  @db.Text
+  source     String   @default("website") @db.VarChar(50) // website | landing_page | referral
+  scheduled_at DateTime?
+  meeting_link String? @db.VarChar(500)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([status])
+  @@index([created_at])
+  @@map("demo_requests")
+}

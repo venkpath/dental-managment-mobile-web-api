@@ -15,6 +15,7 @@ const prisma_service_js_1 = require("../../database/prisma.service.js");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
 const template_renderer_js_1 = require("./template-renderer.js");
 const seed_templates_js_1 = require("./seed-templates.js");
+const platform_templates_js_1 = require("./platform-templates.js");
 let TemplateService = class TemplateService {
     prisma;
     renderer;
@@ -44,6 +45,7 @@ let TemplateService = class TemplateService {
         const limit = query.limit ?? 20;
         const where = {
             clinic_id: clinicId,
+            template_name: { notIn: [...platform_templates_js_1.PLATFORM_TEMPLATE_NAMES] },
         };
         if (query.channel)
             where.channel = query.channel;
