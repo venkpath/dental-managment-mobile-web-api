@@ -13,6 +13,7 @@ export declare class DemoRequestService {
     private readonly adminEmail;
     constructor(prisma: PrismaService, whatsapp: WhatsAppProvider, emailProvider: EmailProvider, config: ConfigService);
     private ensureEmailConfigured;
+    private ensureWhatsAppConfigured;
     create(dto: CreateDemoRequestDto): Promise<{
         id: string;
         email: string;

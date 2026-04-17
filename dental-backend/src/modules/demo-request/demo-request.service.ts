@@ -46,6 +46,25 @@ export class DemoRequestService {
     return false;
   }
 
+  /** Ensure platform WhatsApp provider is configured from env vars */
+  private ensureWhatsAppConfigured(): boolean {
+    if (this.whatsapp.isConfigured(PLATFORM_CLINIC_ID)) return true;
+
+    const accessToken = this.config.get<string>('app.whatsapp.accessToken');
+    const phoneNumberId = this.config.get<string>('app.whatsapp.phoneNumberId');
+    if (accessToken && phoneNumberId) {
+      this.whatsapp.configure(PLATFORM_CLINIC_ID, {
+        accessToken,
+        phoneNumberId,
+        wabaId: this.config.get<string>('app.whatsapp.wabaId') || '',
+      }, 'meta-cloud-env');
+      return true;
+    }
+
+    this.logger.warn('WhatsApp not configured — demo request WhatsApp messages will be skipped');
+    return false;
+  }
+
   async create(dto: CreateDemoRequestDto) {
     const demo = await this.prisma.demoRequest.create({
       data: {
@@ -118,6 +137,7 @@ export class DemoRequestService {
 
   // ── Template 1: Confirmation to the person who booked ──
   private async sendConfirmationToProspect(phone: string, name: string) {
+    if (!this.ensureWhatsAppConfigured()) return;
     const to = phone.startsWith('91') ? phone : `91${phone}`;
     return this.whatsapp.send({
       to,
@@ -125,6 +145,7 @@ export class DemoRequestService {
       templateId: 'demo_request_confirmation',
       variables: { '1': name },
       language: 'en',
+      clinicId: PLATFORM_CLINIC_ID,
     });
   }
 
@@ -135,6 +156,7 @@ export class DemoRequestService {
     clinic_name: string | null;
     chairs: string | null;
   }) {
+    if (!this.ensureWhatsAppConfigured()) return;
     return this.whatsapp.send({
       to: this.adminPhone,
       body: `New demo request: ${demo.name} — ${demo.phone}`,
@@ -146,6 +168,7 @@ export class DemoRequestService {
         '4': demo.chairs || 'Not specified',
       },
       language: 'en',
+      clinicId: PLATFORM_CLINIC_ID,
     });
   }
 
@@ -157,6 +180,7 @@ export class DemoRequestService {
     meeting_link: string | null;
   }) {
     if (!demo.scheduled_at || !demo.meeting_link) return;
+    if (!this.ensureWhatsAppConfigured()) return;
 
     const to = demo.phone.startsWith('91') ? demo.phone : `91${demo.phone}`;
     const date = demo.scheduled_at.toLocaleDateString('en-IN', {
@@ -182,6 +206,7 @@ export class DemoRequestService {
         '4': demo.meeting_link,
       },
       language: 'en',
+      clinicId: PLATFORM_CLINIC_ID,
     });
   }
 

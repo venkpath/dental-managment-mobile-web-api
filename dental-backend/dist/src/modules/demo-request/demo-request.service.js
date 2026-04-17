@@ -52,6 +52,22 @@ let DemoRequestService = DemoRequestService_1 = class DemoRequestService {
         this.logger.warn('SMTP not configured — demo request emails will be skipped');
         return false;
     }
+    ensureWhatsAppConfigured() {
+        if (this.whatsapp.isConfigured(PLATFORM_CLINIC_ID))
+            return true;
+        const accessToken = this.config.get('app.whatsapp.accessToken');
+        const phoneNumberId = this.config.get('app.whatsapp.phoneNumberId');
+        if (accessToken && phoneNumberId) {
+            this.whatsapp.configure(PLATFORM_CLINIC_ID, {
+                accessToken,
+                phoneNumberId,
+                wabaId: this.config.get('app.whatsapp.wabaId') || '',
+            }, 'meta-cloud-env');
+            return true;
+        }
+        this.logger.warn('WhatsApp not configured — demo request WhatsApp messages will be skipped');
+        return false;
+    }
     async create(dto) {
         const demo = await this.prisma.demoRequest.create({
             data: {
@@ -99,6 +115,8 @@ let DemoRequestService = DemoRequestService_1 = class DemoRequestService {
         return updated;
     }
     async sendConfirmationToProspect(phone, name) {
+        if (!this.ensureWhatsAppConfigured())
+            return;
         const to = phone.startsWith('91') ? phone : `91${phone}`;
         return this.whatsapp.send({
             to,
@@ -106,9 +124,12 @@ let DemoRequestService = DemoRequestService_1 = class DemoRequestService {
             templateId: 'demo_request_confirmation',
             variables: { '1': name },
             language: 'en',
+            clinicId: PLATFORM_CLINIC_ID,
         });
     }
     async sendAdminAlert(demo) {
+        if (!this.ensureWhatsAppConfigured())
+            return;
         return this.whatsapp.send({
             to: this.adminPhone,
             body: `New demo request: ${demo.name} — ${demo.phone}`,
@@ -120,10 +141,13 @@ let DemoRequestService = DemoRequestService_1 = class DemoRequestService {
                 '4': demo.chairs || 'Not specified',
             },
             language: 'en',
+            clinicId: PLATFORM_CLINIC_ID,
         });
     }
     async sendScheduledConfirmation(demo) {
         if (!demo.scheduled_at || !demo.meeting_link)
+            return;
+        if (!this.ensureWhatsAppConfigured())
             return;
         const to = demo.phone.startsWith('91') ? demo.phone : `91${demo.phone}`;
         const date = demo.scheduled_at.toLocaleDateString('en-IN', {
@@ -148,6 +172,7 @@ let DemoRequestService = DemoRequestService_1 = class DemoRequestService {
                 '4': demo.meeting_link,
             },
             language: 'en',
+            clinicId: PLATFORM_CLINIC_ID,
         });
     }
     async sendConfirmationEmail(demo) {
