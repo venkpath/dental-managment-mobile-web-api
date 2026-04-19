@@ -198,7 +198,8 @@ let PrescriptionService = class PrescriptionService {
         const patientName = `${patient.first_name} ${patient.last_name}`;
         const clinicName = clinic?.name ?? 'your clinic';
         const clinicPhone = clinic?.phone ?? '';
-        const redirectUrl = `https://smartdentaldesk.com/api/v1/public/prescription-redirect/${id}?clinic=${clinicId}`;
+        const apiBase = process.env['API_BASE_URL'] ?? 'http://localhost:3000/api/v1';
+        const redirectUrl = `${apiBase}/public/prescription-redirect/${id}?clinic=${clinicId}`;
         await this.communicationService.sendMessage(clinicId, {
             patient_id: prescription.patient_id,
             channel: 'whatsapp',

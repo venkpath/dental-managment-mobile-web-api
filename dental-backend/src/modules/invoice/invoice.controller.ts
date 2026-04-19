@@ -35,7 +35,7 @@ export class InvoicePublicController {
 
   /**
    * Public redirect endpoint — used in WhatsApp template button URL.
-   * URL pattern: https://smartdentaldesk.com/api/v1/public/invoice-redirect/{{invoiceId}}?clinic={{clinicId}}
+   * URL pattern: {API_BASE_URL}/public/invoice-redirect/{{invoiceId}}?clinic={{clinicId}}
    * No auth required — invoice ID alone is not sensitive; S3 URL is time-limited.
    */
   @Get('public/invoice-redirect/:id')

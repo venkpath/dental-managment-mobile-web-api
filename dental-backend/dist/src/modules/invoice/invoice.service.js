@@ -336,7 +336,8 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         const netAmount = Number(invoice.net_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 });
         const clinicName = clinic?.name ?? 'your clinic';
         const clinicPhone = clinic?.phone ?? '';
-        const redirectUrl = `https://smartdentaldesk.com/api/v1/public/invoice-redirect/${invoiceId}?clinic=${clinicId}`;
+        const apiBase = process.env['API_BASE_URL'] ?? 'http://localhost:3000/api/v1';
+        const redirectUrl = `${apiBase}/public/invoice-redirect/${invoiceId}?clinic=${clinicId}`;
         const channel = rule?.channel ?? 'whatsapp';
         await this.communicationService.sendMessage(clinicId, {
             patient_id: invoice.patient_id,
@@ -406,7 +407,8 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
             await this.getPdfUrl(clinicId, invoiceId);
         }
         catch { }
-        const receiptUrl = `https://smartdentaldesk.com/api/v1/public/invoice-redirect/${invoiceId}?clinic=${clinicId}`;
+        const apiBase = process.env['API_BASE_URL'] ?? 'http://localhost:3000/api/v1';
+        const receiptUrl = `${apiBase}/public/invoice-redirect/${invoiceId}?clinic=${clinicId}`;
         const formattedAmount = `Rs.${amount.toLocaleString('en-IN')}`;
         const clinicName = clinic?.name || 'Your Dental Clinic';
         const clinicPhone = clinic?.phone || '';
