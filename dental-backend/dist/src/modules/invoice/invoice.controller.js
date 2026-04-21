@@ -19,6 +19,7 @@ const swagger_1 = require("@nestjs/swagger");
 const invoice_service_js_1 = require("./invoice.service.js");
 const index_js_1 = require("./dto/index.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
+const public_decorator_js_1 = require("../../common/decorators/public.decorator.js");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
 let InvoicePublicController = class InvoicePublicController {
     invoiceService;
@@ -44,6 +45,7 @@ __decorate([
 ], InvoicePublicController.prototype, "invoiceRedirect", null);
 exports.InvoicePublicController = InvoicePublicController = __decorate([
     (0, swagger_1.ApiTags)('Invoices & Payments'),
+    (0, public_decorator_js_1.Public)(),
     (0, common_1.Controller)(),
     __metadata("design:paramtypes", [invoice_service_js_1.InvoiceService])
 ], InvoicePublicController);

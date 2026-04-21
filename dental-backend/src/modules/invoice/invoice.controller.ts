@@ -22,6 +22,7 @@ import {
 import { InvoiceService } from './invoice.service.js';
 import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
+import { Public } from '../../common/decorators/public.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 
 /**
@@ -29,6 +30,7 @@ import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js'
  * Handles the WhatsApp invoice redirect link which is opened in a browser.
  */
 @ApiTags('Invoices & Payments')
+@Public()
 @Controller()
 export class InvoicePublicController {
   constructor(private readonly invoiceService: InvoiceService) {}
