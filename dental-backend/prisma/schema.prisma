@@ -1184,6 +1184,7 @@ model ClinicalVisit {
   // Step 3 — Assessment (SOAP structure — AI generated or manual)
   diagnosis_summary String? @db.Text
   soap_notes        Json?
+  review_after_date DateTime?
 
   // Workflow lifecycle
   status       String    @default("in_progress") @db.VarChar(20) // in_progress | finalized | cancelled

@@ -18,8 +18,9 @@ const swagger_2 = require("@nestjs/swagger");
 class UpdateClinicalVisitDto extends (0, swagger_1.PartialType)(create_clinical_visit_dto_js_1.CreateClinicalVisitDto) {
     diagnosis_summary;
     soap_notes;
+    review_after_date;
     static _OPENAPI_METADATA_FACTORY() {
-        return { diagnosis_summary: { required: false, type: () => String }, soap_notes: { required: false, type: () => Object } };
+        return { diagnosis_summary: { required: false, type: () => String }, soap_notes: { required: false, type: () => Object }, review_after_date: { required: false, type: () => String } };
     }
 }
 exports.UpdateClinicalVisitDto = UpdateClinicalVisitDto;
@@ -35,4 +36,10 @@ __decorate([
     (0, class_validator_1.IsObject)(),
     __metadata("design:type", Object)
 ], UpdateClinicalVisitDto.prototype, "soap_notes", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ description: 'Recommended review/follow-up date (YYYY-MM-DD)' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsDateString)(),
+    __metadata("design:type", String)
+], UpdateClinicalVisitDto.prototype, "review_after_date", void 0);
 //# sourceMappingURL=update-clinical-visit.dto.js.map

@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/swagger';
 import { CreateClinicalVisitDto } from './create-clinical-visit.dto.js';
-import { IsOptional, IsObject, IsString } from 'class-validator';
+import { IsOptional, IsObject, IsString, IsDateString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateClinicalVisitDto extends PartialType(CreateClinicalVisitDto) {
@@ -13,4 +13,9 @@ export class UpdateClinicalVisitDto extends PartialType(CreateClinicalVisitDto) 
   @IsOptional()
   @IsObject()
   soap_notes?: Record<string, unknown>;
+
+  @ApiPropertyOptional({ description: 'Recommended review/follow-up date (YYYY-MM-DD)' })
+  @IsOptional()
+  @IsDateString()
+  review_after_date?: string;
 }

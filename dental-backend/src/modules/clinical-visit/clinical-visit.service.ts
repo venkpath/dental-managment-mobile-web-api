@@ -53,12 +53,13 @@ export class ClinicalVisitService {
       }
     }
 
-    const { vital_signs, ...rest } = dto;
+    const { vital_signs, review_after_date, ...rest } = dto;
 
     const clinicalVisit = await this.prisma.clinicalVisit.create({
       data: {
         ...rest,
         clinic_id: clinicId,
+        ...(review_after_date ? { review_after_date: new Date(review_after_date) } : {}),
         ...(vital_signs !== undefined ? { vital_signs: vital_signs as Prisma.InputJsonValue } : {}),
       },
       include: { patient: true, dentist: true, branch: true, appointment: true },
@@ -136,12 +137,13 @@ export class ClinicalVisitService {
   async update(clinicId: string, id: string, dto: UpdateClinicalVisitDto): Promise<ClinicalVisit> {
     await this.findOne(clinicId, id);
 
-    const { vital_signs, soap_notes, ...rest } = dto;
+    const { vital_signs, soap_notes, review_after_date, ...rest } = dto;
 
     return this.prisma.clinicalVisit.update({
       where: { id },
       data: {
         ...rest,
+        ...(review_after_date !== undefined ? { review_after_date: review_after_date ? new Date(review_after_date) : null } : {}),
         ...(vital_signs !== undefined ? { vital_signs: vital_signs as Prisma.InputJsonValue } : {}),
         ...(soap_notes !== undefined ? { soap_notes: soap_notes as Prisma.InputJsonValue } : {}),
       },

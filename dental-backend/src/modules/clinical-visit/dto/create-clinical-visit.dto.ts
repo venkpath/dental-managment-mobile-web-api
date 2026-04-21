@@ -1,4 +1,4 @@
-import { IsString, IsUUID, IsOptional, IsObject } from 'class-validator';
+import { IsString, IsUUID, IsOptional, IsObject, IsDateString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateClinicalVisitDto {
@@ -43,6 +43,11 @@ export class CreateClinicalVisitDto {
   @IsOptional()
   @IsString()
   examination_notes?: string;
+
+  @ApiPropertyOptional({ description: 'Recommended review/follow-up date (YYYY-MM-DD)' })
+  @IsOptional()
+  @IsDateString()
+  review_after_date?: string;
 
   @ApiPropertyOptional({ description: 'Vital signs JSON (bp, pulse, temp, etc.)' })
   @IsOptional()

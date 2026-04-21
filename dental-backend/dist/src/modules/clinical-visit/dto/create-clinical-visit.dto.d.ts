@@ -8,5 +8,6 @@ export declare class CreateClinicalVisitDto {
     past_dental_history?: string;
     medical_history_notes?: string;
     examination_notes?: string;
+    review_after_date?: string;
     vital_signs?: Record<string, unknown>;
 }
