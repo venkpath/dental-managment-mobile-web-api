@@ -60,6 +60,7 @@ export function buildTreatmentPlanUserPrompt(input: {
   tooth_chart: Array<{ tooth: string; condition: string; severity?: string; notes?: string }>;
   existing_treatments?: Array<{ procedure: string; tooth?: string; date: string; status: string }>;
   treatment_catalog?: Array<{ name: string; price: number }>;
+  currency_symbol?: string;
 }): string {
   let prompt = `Generate a comprehensive dental treatment plan for:\n\n`;
   prompt += `Patient: ${input.patient_name}`;
@@ -107,9 +108,11 @@ export function buildTreatmentPlanUserPrompt(input: {
   }
 
   if (input.treatment_catalog && input.treatment_catalog.length > 0) {
-    prompt += `\nClinic's Treatment Price List (INR):\n`;
+    const sym = input.currency_symbol ?? '\u20B9';
+    const currCode = sym === '\u20B9' ? 'INR' : sym === '$' ? 'USD' : '';
+    prompt += `\nClinic's Treatment Price List (${currCode || sym}):\n`;
     for (const t of input.treatment_catalog) {
-      prompt += `- ${t.name}: ₹${t.price}\n`;
+      prompt += `- ${t.name}: ${sym}${t.price}\n`;
     }
   }
 

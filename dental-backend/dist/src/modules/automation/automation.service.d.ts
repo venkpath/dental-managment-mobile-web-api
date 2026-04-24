@@ -17,9 +17,9 @@ export declare class AutomationService {
         is_enabled: boolean;
         clinic_id: string;
         channel: string;
-        config: import("@prisma/client/runtime/client").JsonValue | null;
         template_id: string | null;
         rule_type: string;
+        config: import("@prisma/client/runtime/client").JsonValue | null;
     })[]>;
     getRule(clinicId: string, ruleType: string): Promise<{
         template: {
@@ -34,9 +34,9 @@ export declare class AutomationService {
         is_enabled: boolean;
         clinic_id: string;
         channel: string;
-        config: import("@prisma/client/runtime/client").JsonValue | null;
         template_id: string | null;
         rule_type: string;
+        config: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     upsertRule(clinicId: string, ruleType: string, dto: UpsertAutomationRuleDto): Promise<{
         template: {
@@ -51,9 +51,9 @@ export declare class AutomationService {
         is_enabled: boolean;
         clinic_id: string;
         channel: string;
-        config: import("@prisma/client/runtime/client").JsonValue | null;
         template_id: string | null;
         rule_type: string;
+        config: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     isRuleEnabled(clinicId: string, ruleType: AutomationRuleType): Promise<boolean>;
     getRuleConfig(clinicId: string, ruleType: AutomationRuleType): Promise<({
@@ -82,9 +82,9 @@ export declare class AutomationService {
         is_enabled: boolean;
         clinic_id: string;
         channel: string;
-        config: import("@prisma/client/runtime/client").JsonValue | null;
         template_id: string | null;
         rule_type: string;
+        config: import("@prisma/client/runtime/client").JsonValue | null;
     }) | null>;
     private seedDefaults;
     private getDefaultRuleTypes;

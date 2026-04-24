@@ -52,4 +52,10 @@ export class CreateClinicDto {
   @IsOptional()
   @IsString()
   logo_url?: string;
+
+  @ApiPropertyOptional({ description: 'Currency code for this clinic (e.g. INR, USD, EUR)', example: 'INR' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  currency_code?: string;
 }

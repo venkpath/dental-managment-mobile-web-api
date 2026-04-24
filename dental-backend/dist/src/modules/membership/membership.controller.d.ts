@@ -204,9 +204,9 @@ export declare class MembershipController {
             id: string;
             created_at: Date;
             patient_id: string;
-            relation_label: string | null;
-            is_primary: boolean;
             membership_enrollment_id: string;
+            is_primary: boolean;
+            relation_label: string | null;
         })[];
         usages: ({
             patient: {
@@ -237,9 +237,9 @@ export declare class MembershipController {
                 branch_id: string;
                 procedure: string;
                 tooth_number: string | null;
-                cost: import("@prisma/client-runtime-utils").Decimal;
-                patient_id: string;
                 notes: string | null;
+                patient_id: string;
+                cost: import("@prisma/client-runtime-utils").Decimal;
                 dentist_id: string;
                 clinical_visit_id: string | null;
                 treatment_plan_id: string | null;
@@ -283,15 +283,15 @@ export declare class MembershipController {
             id: string;
             created_at: Date;
             clinic_id: string;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
             invoice_id: string | null;
             treatment_id: string | null;
+            membership_enrollment_id: string;
             membership_benefit_id: string;
             quantity_used: number;
             discount_applied: import("@prisma/client-runtime-utils").Decimal | null;
             used_on: Date;
-            membership_enrollment_id: string;
         })[];
     } & {
         id: string;
@@ -300,12 +300,12 @@ export declare class MembershipController {
         updated_at: Date;
         clinic_id: string;
         branch_id: string;
-        start_date: Date;
-        end_date: Date;
         notes: string | null;
         membership_plan_id: string;
         primary_patient_id: string;
         enrollment_number: string;
+        start_date: Date;
+        end_date: Date;
         amount_paid: import("@prisma/client-runtime-utils").Decimal;
     })[]>;
     createEnrollment(clinicId: string, dto: CreateMembershipEnrollmentDto): Promise<{
@@ -414,9 +414,9 @@ export declare class MembershipController {
             id: string;
             created_at: Date;
             patient_id: string;
-            relation_label: string | null;
-            is_primary: boolean;
             membership_enrollment_id: string;
+            is_primary: boolean;
+            relation_label: string | null;
         })[];
         usages: ({
             patient: {
@@ -447,9 +447,9 @@ export declare class MembershipController {
                 branch_id: string;
                 procedure: string;
                 tooth_number: string | null;
-                cost: import("@prisma/client-runtime-utils").Decimal;
-                patient_id: string;
                 notes: string | null;
+                patient_id: string;
+                cost: import("@prisma/client-runtime-utils").Decimal;
                 dentist_id: string;
                 clinical_visit_id: string | null;
                 treatment_plan_id: string | null;
@@ -493,15 +493,15 @@ export declare class MembershipController {
             id: string;
             created_at: Date;
             clinic_id: string;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
             invoice_id: string | null;
             treatment_id: string | null;
+            membership_enrollment_id: string;
             membership_benefit_id: string;
             quantity_used: number;
             discount_applied: import("@prisma/client-runtime-utils").Decimal | null;
             used_on: Date;
-            membership_enrollment_id: string;
         })[];
     } & {
         id: string;
@@ -510,12 +510,12 @@ export declare class MembershipController {
         updated_at: Date;
         clinic_id: string;
         branch_id: string;
-        start_date: Date;
-        end_date: Date;
         notes: string | null;
         membership_plan_id: string;
         primary_patient_id: string;
         enrollment_number: string;
+        start_date: Date;
+        end_date: Date;
         amount_paid: import("@prisma/client-runtime-utils").Decimal;
     }>;
     updateEnrollment(clinicId: string, id: string, dto: UpdateMembershipEnrollmentDto): Promise<{
@@ -624,9 +624,9 @@ export declare class MembershipController {
             id: string;
             created_at: Date;
             patient_id: string;
-            relation_label: string | null;
-            is_primary: boolean;
             membership_enrollment_id: string;
+            is_primary: boolean;
+            relation_label: string | null;
         })[];
         usages: ({
             patient: {
@@ -657,9 +657,9 @@ export declare class MembershipController {
                 branch_id: string;
                 procedure: string;
                 tooth_number: string | null;
-                cost: import("@prisma/client-runtime-utils").Decimal;
-                patient_id: string;
                 notes: string | null;
+                patient_id: string;
+                cost: import("@prisma/client-runtime-utils").Decimal;
                 dentist_id: string;
                 clinical_visit_id: string | null;
                 treatment_plan_id: string | null;
@@ -703,15 +703,15 @@ export declare class MembershipController {
             id: string;
             created_at: Date;
             clinic_id: string;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
             invoice_id: string | null;
             treatment_id: string | null;
+            membership_enrollment_id: string;
             membership_benefit_id: string;
             quantity_used: number;
             discount_applied: import("@prisma/client-runtime-utils").Decimal | null;
             used_on: Date;
-            membership_enrollment_id: string;
         })[];
     } & {
         id: string;
@@ -720,12 +720,12 @@ export declare class MembershipController {
         updated_at: Date;
         clinic_id: string;
         branch_id: string;
-        start_date: Date;
-        end_date: Date;
         notes: string | null;
         membership_plan_id: string;
         primary_patient_id: string;
         enrollment_number: string;
+        start_date: Date;
+        end_date: Date;
         amount_paid: import("@prisma/client-runtime-utils").Decimal;
     }>;
     recordUsage(clinicId: string, id: string, dto: CreateMembershipUsageDto): Promise<{
@@ -757,9 +757,9 @@ export declare class MembershipController {
             branch_id: string;
             procedure: string;
             tooth_number: string | null;
-            cost: import("@prisma/client-runtime-utils").Decimal;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
+            cost: import("@prisma/client-runtime-utils").Decimal;
             dentist_id: string;
             clinical_visit_id: string | null;
             treatment_plan_id: string | null;
@@ -803,15 +803,15 @@ export declare class MembershipController {
         id: string;
         created_at: Date;
         clinic_id: string;
-        patient_id: string;
         notes: string | null;
+        patient_id: string;
         invoice_id: string | null;
         treatment_id: string | null;
+        membership_enrollment_id: string;
         membership_benefit_id: string;
         quantity_used: number;
         discount_applied: import("@prisma/client-runtime-utils").Decimal | null;
         used_on: Date;
-        membership_enrollment_id: string;
     }>;
     getPatientSummary(clinicId: string, patientId: string): Promise<{
         patient: {
@@ -946,9 +946,9 @@ export declare class MembershipController {
                     branch_id: string;
                     procedure: string;
                     tooth_number: string | null;
-                    cost: import("@prisma/client-runtime-utils").Decimal;
-                    patient_id: string;
                     notes: string | null;
+                    patient_id: string;
+                    cost: import("@prisma/client-runtime-utils").Decimal;
                     dentist_id: string;
                     clinical_visit_id: string | null;
                     treatment_plan_id: string | null;
@@ -992,15 +992,15 @@ export declare class MembershipController {
                 id: string;
                 created_at: Date;
                 clinic_id: string;
-                patient_id: string;
                 notes: string | null;
+                patient_id: string;
                 invoice_id: string | null;
                 treatment_id: string | null;
+                membership_enrollment_id: string;
                 membership_benefit_id: string;
                 quantity_used: number;
                 discount_applied: import("@prisma/client-runtime-utils").Decimal | null;
                 used_on: Date;
-                membership_enrollment_id: string;
             })[];
         }[];
         past_enrollments: {
@@ -1116,9 +1116,9 @@ export declare class MembershipController {
                     branch_id: string;
                     procedure: string;
                     tooth_number: string | null;
-                    cost: import("@prisma/client-runtime-utils").Decimal;
-                    patient_id: string;
                     notes: string | null;
+                    patient_id: string;
+                    cost: import("@prisma/client-runtime-utils").Decimal;
                     dentist_id: string;
                     clinical_visit_id: string | null;
                     treatment_plan_id: string | null;
@@ -1162,15 +1162,15 @@ export declare class MembershipController {
                 id: string;
                 created_at: Date;
                 clinic_id: string;
-                patient_id: string;
                 notes: string | null;
+                patient_id: string;
                 invoice_id: string | null;
                 treatment_id: string | null;
+                membership_enrollment_id: string;
                 membership_benefit_id: string;
                 quantity_used: number;
                 discount_applied: import("@prisma/client-runtime-utils").Decimal | null;
                 used_on: Date;
-                membership_enrollment_id: string;
             })[];
         }[];
     }>;

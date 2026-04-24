@@ -8,6 +8,7 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { treatmentService } from '../../services/treatment.service';
+import { getCurrencySymbol } from '../../utils/format';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import ScreenHeader from '../../components/ScreenHeader';
@@ -139,8 +140,8 @@ export default function EditTreatmentScreen() {
             placeholder="Diagnosis description" />
           <Input label="Tooth Number (FDI)" value={form.tooth_number} onChangeText={(v) => set('tooth_number', v)}
             placeholder="e.g. 16, 21, 36" />
-          <Input label="Cost (₹)" value={form.cost} onChangeText={(v) => set('cost', v)}
-            keyboardType="decimal-pad" prefix="₹" />
+          <Input label={`Cost (${getCurrencySymbol()})`} value={form.cost} onChangeText={(v) => set('cost', v)}
+            keyboardType="decimal-pad" prefix={getCurrencySymbol()} />
           <Input label="Notes" value={form.notes} onChangeText={(v) => set('notes', v)}
             placeholder="Additional notes..." multiline numberOfLines={3}
             textAlignVertical="top" style={styles.textarea} />

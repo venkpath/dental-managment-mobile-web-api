@@ -47,6 +47,7 @@ interface InvoiceData {
         method: string;
         paid_at: Date;
     }>;
+    currency_code?: string;
 }
 export declare class InvoicePdfService {
     generate(data: InvoiceData): Promise<Buffer>;

@@ -18,6 +18,7 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const openai_1 = __importDefault(require("openai"));
 const prisma_service_js_1 = require("../../database/prisma.service.js");
+const currency_util_js_1 = require("../../common/utils/currency.util.js");
 const clinical_notes_prompt_js_1 = require("./prompts/clinical-notes.prompt.js");
 const prescription_prompt_js_1 = require("./prompts/prescription.prompt.js");
 const treatment_plan_prompt_js_1 = require("./prompts/treatment-plan.prompt.js");
@@ -39,6 +40,13 @@ let AiService = AiService_1 = class AiService {
             apiKey: this.config.get('OPENAI_API_KEY'),
         });
         this.model = this.config.get('OPENAI_MODEL') || 'gpt-4o-mini';
+    }
+    async getClinicCurrencySymbol(clinicId) {
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: { currency_code: true },
+        });
+        return (0, currency_util_js_1.getCurrencySymbol)(clinic?.currency_code ?? 'INR');
     }
     async saveInsight(params) {
         try {
@@ -323,6 +331,7 @@ let AiService = AiService_1 = class AiService {
                 status: t.status,
             })),
             treatment_catalog: treatmentCatalog,
+            currency_symbol: await this.getClinicCurrencySymbol(clinicId),
         });
         this.logger.log(`Generating treatment plan for patient ${dto.patient_id}`);
         const result = await this.callLLM(treatment_plan_prompt_js_1.TREATMENT_PLAN_SYSTEM_PROMPT, userPrompt);
@@ -423,6 +432,7 @@ let AiService = AiService_1 = class AiService {
             })),
             inventory_alerts: inventoryAlerts,
             date_range: `${dto.start_date} to ${dto.end_date}`,
+            currency_symbol: await this.getClinicCurrencySymbol(clinicId),
         });
         this.logger.log(`Generating revenue insights for clinic ${clinicId}`);
         const result = await this.callLLM(revenue_insights_prompt_js_1.REVENUE_INSIGHTS_SYSTEM_PROMPT, userPrompt);

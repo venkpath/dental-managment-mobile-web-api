@@ -10,6 +10,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { treatmentService } from '../../services/treatment.service';
 import { userService, type StaffUser } from '../../services/user.service';
 import { useAuthStore } from '../../store/auth.store';
+import { getCurrencySymbol } from '../../utils/format';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import ScreenHeader from '../../components/ScreenHeader';
@@ -176,8 +177,8 @@ export default function AddTreatmentScreen() {
             ))}
           </View>
 
-          <Input label="Cost (₹) *" value={form.cost} onChangeText={(v) => set('cost', v)}
-            keyboardType="decimal-pad" placeholder="0.00" error={errors.cost} prefix="₹" />
+          <Input label={`Cost (${getCurrencySymbol()}) *`} value={form.cost} onChangeText={(v) => set('cost', v)}
+            keyboardType="decimal-pad" placeholder="0.00" error={errors.cost} prefix={getCurrencySymbol()} />
 
           <Input label="Notes" value={form.notes} onChangeText={(v) => set('notes', v)}
             placeholder="Additional notes..." multiline numberOfLines={3}

@@ -23,8 +23,9 @@ class CreateClinicDto {
     country;
     pincode;
     logo_url;
+    currency_code;
     static _OPENAPI_METADATA_FACTORY() {
-        return { name: { required: true, type: () => String, maxLength: 255 }, email: { required: true, type: () => String, maxLength: 255, format: "email" }, phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, pincode: { required: false, type: () => String, maxLength: 10 }, logo_url: { required: false, type: () => String } };
+        return { name: { required: true, type: () => String, maxLength: 255 }, email: { required: true, type: () => String, maxLength: 255, format: "email" }, phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, pincode: { required: false, type: () => String, maxLength: 10 }, logo_url: { required: false, type: () => String }, currency_code: { required: false, type: () => String, maxLength: 10 } };
     }
 }
 exports.CreateClinicDto = CreateClinicDto;
@@ -88,4 +89,11 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateClinicDto.prototype, "logo_url", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Currency code for this clinic (e.g. INR, USD, EUR)', example: 'INR' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(10),
+    __metadata("design:type", String)
+], CreateClinicDto.prototype, "currency_code", void 0);
 //# sourceMappingURL=create-clinic.dto.js.map

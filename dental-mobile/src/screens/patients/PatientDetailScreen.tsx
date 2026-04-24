@@ -14,6 +14,7 @@ import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/nativ
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { patientService } from '../../services/patient.service';
+import { getLocale } from '../../utils/format';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import ScreenHeader from '../../components/ScreenHeader';
@@ -142,9 +143,9 @@ export default function PatientDetailScreen() {
         {/* Details */}
         <Card style={styles.detailsCard}>
           <Text style={styles.sectionTitle}>Patient Information</Text>
-          <InfoRow label="Date of Birth" value={patient.date_of_birth ? new Date(patient.date_of_birth).toLocaleDateString('en-IN') : null} />
+          <InfoRow label="Date of Birth" value={patient.date_of_birth ? new Date(patient.date_of_birth).toLocaleDateString(getLocale()) : null} />
           <InfoRow label="Branch" value={patient.branch?.name} />
-          <InfoRow label="Registered On" value={new Date(patient.created_at).toLocaleDateString('en-IN')} />
+          <InfoRow label="Registered On" value={new Date(patient.created_at).toLocaleDateString(getLocale())} />
         </Card>
 
         {/* Medical notes */}

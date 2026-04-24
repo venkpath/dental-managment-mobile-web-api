@@ -10,4 +10,6 @@ export declare class OnboardClinicDto {
     admin_email: string;
     admin_password: string;
     plan_id?: string;
+    billing_cycle?: 'monthly' | 'yearly';
+    has_own_waba?: boolean;
 }

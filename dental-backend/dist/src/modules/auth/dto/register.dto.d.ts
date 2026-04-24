@@ -10,4 +10,5 @@ export declare class RegisterClinicDto {
     admin_email: string;
     admin_password: string;
     plan_key?: string;
+    billing_cycle?: 'monthly' | 'yearly';
 }

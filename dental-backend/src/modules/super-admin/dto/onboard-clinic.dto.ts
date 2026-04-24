@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class OnboardClinicDto {
@@ -66,4 +66,14 @@ export class OnboardClinicDto {
   @IsOptional()
   @IsUUID()
   plan_id?: string;
+
+  @ApiPropertyOptional({ example: 'monthly', enum: ['monthly', 'yearly'], description: 'Billing cycle. Defaults to monthly.' })
+  @IsOptional()
+  @IsIn(['monthly', 'yearly'])
+  billing_cycle?: 'monthly' | 'yearly';
+
+  @ApiPropertyOptional({ example: false, description: 'Enterprise flag — clinic brings their own WhatsApp Business Account (BYO-WABA). When true, platform does not bill WA usage.' })
+  @IsOptional()
+  @IsBoolean()
+  has_own_waba?: boolean;
 }

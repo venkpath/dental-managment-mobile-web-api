@@ -67,20 +67,19 @@ async function main() {
         console.log(`Super admin "${superAdminEmail}" created successfully.`);
     }
     const plans = [
-        { name: 'Free', price_monthly: 0, max_branches: 1, max_staff: 2, ai_quota: 0, max_patients_per_month: 20, max_appointments_per_month: 20 },
-        { name: 'Starter', price_monthly: 999, max_branches: 1, max_staff: 5, ai_quota: 0, max_patients_per_month: null, max_appointments_per_month: null },
-        { name: 'Professional', price_monthly: 1999, max_branches: 3, max_staff: 15, ai_quota: 100, max_patients_per_month: null, max_appointments_per_month: null },
-        { name: 'Enterprise', price_monthly: 2999, max_branches: 10, max_staff: 50, ai_quota: 500, max_patients_per_month: null, max_appointments_per_month: null },
+        { name: 'Free', price_monthly: 0, price_yearly: 0, max_branches: 1, max_staff: 2, ai_quota: 0, max_patients_per_month: 20, max_appointments_per_month: 20, whatsapp_included_monthly: 0, whatsapp_hard_limit_monthly: 0, allow_whatsapp_overage_billing: false },
+        { name: 'Starter', price_monthly: 999, price_yearly: 9990, max_branches: 1, max_staff: 5, ai_quota: 0, max_patients_per_month: null, max_appointments_per_month: null, whatsapp_included_monthly: 0, whatsapp_hard_limit_monthly: 0, allow_whatsapp_overage_billing: false },
+        { name: 'Professional', price_monthly: 1999, price_yearly: 19990, max_branches: 3, max_staff: 15, ai_quota: 100, max_patients_per_month: null, max_appointments_per_month: null, whatsapp_included_monthly: 400, whatsapp_hard_limit_monthly: 500, allow_whatsapp_overage_billing: false },
+        { name: 'Enterprise', price_monthly: 2999, price_yearly: 29990, max_branches: 10, max_staff: 50, ai_quota: 500, max_patients_per_month: null, max_appointments_per_month: null, whatsapp_included_monthly: 500, whatsapp_hard_limit_monthly: null, allow_whatsapp_overage_billing: true },
     ];
     for (const plan of plans) {
-        const existingPlan = await prisma.plan.findUnique({ where: { name: plan.name } });
-        if (!existingPlan) {
-            await prisma.plan.create({ data: plan });
-            console.log(`Plan "${plan.name}" created.`);
-        }
-        else {
-            console.log(`Plan "${plan.name}" already exists, skipping.`);
-        }
+        const { name, ...data } = plan;
+        await prisma.plan.upsert({
+            where: { name },
+            create: { name, ...data },
+            update: data,
+        });
+        console.log(`Plan "${name}" upserted.`);
     }
     const features = [
         { key: 'AI_CLINICAL_NOTES', description: 'AI-generated SOAP clinical notes' },

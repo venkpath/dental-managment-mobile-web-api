@@ -8,6 +8,7 @@ import { Invoice, Payment, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
 import { InvoicePdfService } from './invoice-pdf.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
+import { getCurrencySymbol, getCurrencyLocale } from '../../common/utils/currency.util.js';
 
 const INVOICE_INCLUDE = {
   items: { include: { treatment: { include: { dentist: true } } } },
@@ -351,6 +352,7 @@ export class InvoiceService {
         method: p.method,
         paid_at: p.paid_at,
       })),
+      currency_code: (invoice as any).clinic.currency_code ?? 'INR',
     };
 
     const pdfBuffer = await this.invoicePdfService.generate(pdfData);
@@ -373,8 +375,9 @@ export class InvoiceService {
       }),
       this.prisma.clinic.findUnique({
         where: { id: clinicId },
-        select: { name: true, phone: true },
-      }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        select: { name: true, phone: true, currency_code: true } as any,
+      }) as Promise<{ name: string; phone: string | null; currency_code: string } | null>,
       this.automationService.getRuleConfig(clinicId, 'invoice_ready'),
     ]);
     if (!patient) throw new Error('Patient not found');
@@ -383,8 +386,10 @@ export class InvoiceService {
       return { message: 'Invoice WhatsApp notification is disabled' };
     }
 
+    const currencyCode = clinic?.currency_code ?? 'INR';
     const patientName = `${patient.first_name} ${patient.last_name}`;
-    const netAmount = Number(invoice.net_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    const netAmount = Number(invoice.net_amount).toLocaleString(getCurrencyLocale(currencyCode), { minimumFractionDigits: 2 });
+    const netAmountFormatted = `${getCurrencySymbol(currencyCode)} ${netAmount}`;
     const clinicName = clinic?.name ?? 'your clinic';
     const clinicPhone = clinic?.phone ?? '';
     const apiBase = process.env['API_BASE_URL'] ?? 'http://localhost:3000/api/v1';
@@ -399,12 +404,12 @@ export class InvoiceService {
       template_id: rule?.template_id ?? undefined,
       body: rule?.template_id
         ? undefined
-        : `Hello ${patientName},\n\nYour payment receipt has been generated.\n\nClinic: ${clinicName}\nInvoice No: ${invoice.invoice_number}\nAmount: ₹ ${netAmount}\n\nView & Download Invoice:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
+        : `Hello ${patientName},\n\nYour payment receipt has been generated.\n\nClinic: ${clinicName}\nInvoice No: ${invoice.invoice_number}\nAmount: ${netAmountFormatted}\n\nView & Download Invoice:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
       variables: {
         '1': patientName,
         '2': clinicName,
         '3': invoice.invoice_number,
-        '4': netAmount,
+        '4': netAmountFormatted,
         '5': clinicPhone,
         '6': redirectUrl,
       },
@@ -448,7 +453,7 @@ export class InvoiceService {
   ): Promise<void> {
     const [patient, clinic, rule] = await Promise.all([
       this.prisma.patient.findUnique({ where: { id: patientId }, select: { first_name: true, last_name: true } }),
-      this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true, phone: true } }),
+      this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true, phone: true, currency_code: true } as any }) as Promise<{ name: string; phone: string | null; currency_code: string } | null>,
       this.automationService.getRuleConfig(clinicId, 'payment_confirmation'),
     ]);
     if (!patient) return;
@@ -475,7 +480,8 @@ export class InvoiceService {
 
     const apiBase = process.env['API_BASE_URL'] ?? 'http://localhost:3000/api/v1';
     const receiptUrl = `${apiBase}/public/invoice-redirect/${invoiceId}?clinic=${clinicId}`;
-    const formattedAmount = `Rs.${amount.toLocaleString('en-IN')}`;
+    const currCode = clinic?.currency_code ?? 'INR';
+    const formattedAmount = `${getCurrencySymbol(currCode)}${amount.toLocaleString(getCurrencyLocale(currCode))}`;
     const clinicName = clinic?.name || 'Your Dental Clinic';
     const clinicPhone = clinic?.phone || '';
 

@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { invoiceService } from '../../services/invoice.service';
+import { formatCurrency, getLocale } from '../../utils/format';
 import Badge from '../../components/Badge';
 import EmptyState from '../../components/EmptyState';
 import { colors, spacing, typography, radius, shadow } from '../../theme';
@@ -97,14 +98,14 @@ export default function InvoiceListScreen() {
           <View style={styles.dateRow}>
             <Ionicons name="calendar-outline" size={11} color={colors.textMuted} />
             <Text style={styles.date}>
-              {new Date(item.created_at).toLocaleDateString('en-IN', {
+              {new Date(item.created_at).toLocaleDateString(getLocale(), {
                 day: 'numeric', month: 'short', year: 'numeric',
               })}
             </Text>
           </View>
         </View>
         <View style={styles.right}>
-          <Text style={styles.amount}>₹{Number(item.net_amount).toLocaleString('en-IN')}</Text>
+          <Text style={styles.amount}>{formatCurrency(Number(item.net_amount))}</Text>
           <Badge label={item.status} variant={item.status} showDot={false} size="sm" />
         </View>
       </View>

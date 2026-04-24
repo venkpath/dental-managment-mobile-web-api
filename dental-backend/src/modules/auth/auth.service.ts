@@ -172,8 +172,6 @@ export class AuthService {
 
   async register(dto: RegisterClinicDto) {
     const TRIAL_DAYS = 14;
-    const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS);
 
     // Check if clinic email already exists
     const existingClinic = await this.prisma.clinic.findFirst({
@@ -183,14 +181,27 @@ export class AuthService {
       throw new ConflictException('A clinic with this email already exists');
     }
 
-    // If a paid plan was selected, look it up
+    // Resolve the selected plan (if any). Free plan is free forever — no trial.
+    // Everyone else (or no plan selected) starts on a 14-day trial.
     let planId: string | undefined;
+    let isFreePlan = false;
     if (dto.plan_key && dto.plan_key !== 'trial') {
       const plan = await this.prisma.plan.findFirst({
         where: { name: { contains: dto.plan_key, mode: 'insensitive' } },
       });
-      if (plan) planId = plan.id;
+      if (plan) {
+        planId = plan.id;
+        isFreePlan = plan.name.toLowerCase() === 'free';
+      }
     }
+
+    const billingCycle = dto.billing_cycle === 'yearly' ? 'yearly' : 'monthly';
+    const trialEndsAt = isFreePlan ? null : (() => {
+      const d = new Date();
+      d.setDate(d.getDate() + TRIAL_DAYS);
+      return d;
+    })();
+    const subscriptionStatus = isFreePlan ? 'active' : 'trial';
 
     // Create clinic + admin user in a single transaction
     const result = await this.prisma.$transaction(async (tx) => {
@@ -204,7 +215,8 @@ export class AuthService {
           state: dto.state,
           country: dto.country,
           trial_ends_at: trialEndsAt,
-          subscription_status: 'trial',
+          subscription_status: subscriptionStatus,
+          billing_cycle: billingCycle,
           ...(planId ? { plan_id: planId } : {}),
         },
       });

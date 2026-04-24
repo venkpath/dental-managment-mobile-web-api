@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { colors, spacing, typography, radius } from '../theme';
+import { getLocale } from '../utils/format';
 
 interface Props {
   label?: string;
@@ -35,7 +36,7 @@ export default function DatePickerInput({
   };
 
   const displayValue = value
-    ? new Date(value + 'T12:00:00').toLocaleDateString('en-IN', {
+    ? new Date(value + 'T12:00:00').toLocaleDateString(getLocale(), {
         day: 'numeric', month: 'long', year: 'numeric',
       })
     : 'Select date';

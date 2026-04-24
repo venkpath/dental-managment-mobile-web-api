@@ -18,6 +18,7 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import type { RouteProp } from '@react-navigation/native';
 import { whatsappService, WaMessage, WaTemplate } from '../../services/whatsapp.service';
 import { colors, spacing, typography, radius } from '../../theme';
+import { getLocale } from '../../utils/format';
 import type { WhatsAppStackParamList } from '../../types';
 
 type RouteParams = RouteProp<WhatsAppStackParamList, 'ChatThread'>;
@@ -33,11 +34,11 @@ function getInitials(name: string) {
 }
 
 function formatMsgTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatDateHeader(iso: string) {
-  return new Date(iso).toLocaleDateString('en-IN', {
+  return new Date(iso).toLocaleDateString(getLocale(), {
     weekday: 'long',
     day: 'numeric',
     month: 'long',

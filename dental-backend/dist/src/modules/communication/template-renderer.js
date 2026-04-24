@@ -60,10 +60,18 @@ let TemplateRenderer = TemplateRenderer_1 = class TemplateRenderer {
         }
     }
     formatCurrency(amount, currency) {
-        if (currency === 'INR') {
-            return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+        try {
+            const formatted = new Intl.NumberFormat(undefined, {
+                style: 'currency',
+                currency: currency || 'USD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+            }).format(amount);
+            return formatted;
         }
-        return `${currency} ${amount.toFixed(2)}`;
+        catch {
+            return `${currency} ${amount.toFixed(2)}`;
+        }
     }
     formatDate(dateStr, pattern) {
         try {

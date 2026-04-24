@@ -9,6 +9,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { userService, type Prescription } from '../../services/user.service';
 import api from '../../services/api';
+import { getLocale } from '../../utils/format';
 import EmptyState from '../../components/EmptyState';
 import ScreenHeader from '../../components/ScreenHeader';
 import { colors, spacing, typography, radius, shadow } from '../../theme';
@@ -61,7 +62,7 @@ export default function PatientPrescriptionsScreen() {
       <View style={styles.cardHeader}>
         <View style={styles.cardHeaderLeft}>
           <Text style={styles.date}>
-            📅 {new Date(item.created_at).toLocaleDateString('en-IN', {
+            📅 {new Date(item.created_at).toLocaleDateString(getLocale(), {
               day: 'numeric', month: 'short', year: 'numeric',
             })}
           </Text>

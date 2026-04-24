@@ -62,8 +62,8 @@ export declare class InvoiceController {
     createPayment(clinicId: string, dto: CreatePaymentDto): Promise<{
         id: string;
         amount: import("@prisma/client-runtime-utils").Decimal;
-        method: string;
         notes: string | null;
+        method: string;
         paid_at: Date;
         invoice_id: string;
         installment_item_id: string | null;

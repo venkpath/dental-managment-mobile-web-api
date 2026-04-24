@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
+import { formatCurrencyAmount, getCurrencyLocale, getCurrencySymbol } from '../../common/utils/currency.util.js';
 
 // Teal brand colour matching the template in the image
 const TEAL = '#0891b2';
@@ -59,6 +60,7 @@ interface InvoiceData {
     method: string;
     paid_at: Date;
   }>;
+  currency_code?: string;
 }
 
 /** Draw a simple tooth silhouette using PDFKit curves */
@@ -139,9 +141,12 @@ export class InvoicePdfService {
         .fillColor(WHITE)
         .text('INVOICE', INV_BOX_X, 31, { width: INV_BOX_W, align: 'center' });
 
+      const currencyCode = data.currency_code ?? 'INR';
+      const currencyLocale = getCurrencyLocale(currencyCode);
+
       // ── Invoice meta row (below header) ─────────────────────────────
       const META_Y = HEADER_H + 14;
-      const dateStr = new Date(data.created_at).toLocaleDateString('en-IN', {
+      const dateStr = new Date(data.created_at).toLocaleDateString(currencyLocale, {
         day: 'numeric', month: 'long', year: 'numeric',
       });
 
@@ -212,7 +217,7 @@ export class InvoicePdfService {
         data.patient.phone,
         data.patient.email ?? '',
         data.patient.date_of_birth
-          ? `DOB: ${new Date(data.patient.date_of_birth).toLocaleDateString('en-IN')}`
+          ? `DOB: ${new Date(data.patient.date_of_birth).toLocaleDateString(currencyLocale)}`
           : '',
       ].filter((l): l is string => Boolean(l));
 
@@ -276,8 +281,8 @@ export class InvoicePdfService {
         const numRowData = [
           item.tooth_number ?? '',
           String(item.quantity),
-          `₹${Number(item.unit_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
-          `₹${Number(item.total_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          `${getCurrencySymbol(currencyCode)}${Number(item.unit_price).toLocaleString(currencyLocale, { minimumFractionDigits: 2 })}`,
+          `${getCurrencySymbol(currencyCode)}${Number(item.total_price).toLocaleString(currencyLocale, { minimumFractionDigits: 2 })}`,
         ];
         const numCols = [cols[2], cols[3], cols[4], cols[5]];
         const numAligns = ['center', 'center', 'right', 'right'] as const;
@@ -295,8 +300,7 @@ export class InvoicePdfService {
       const TOT_W = CONTENT_W - 310;
       let totY = rowY + 14;
 
-      const fmt = (n: number) =>
-        `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+      const fmt = (n: number) => formatCurrencyAmount(n, currencyCode);
 
       const totLines: [string, string][] = [['Sub Total', fmt(data.total_amount)]];
       if (data.discount_amount > 0) totLines.push(['Discount', `-${fmt(data.discount_amount)}`]);
@@ -372,7 +376,7 @@ export class InvoicePdfService {
 
         let pmtY = BOTTOM_Y + 18;
         data.payments.forEach((p) => {
-          const pDate = new Date(p.paid_at).toLocaleDateString('en-IN', {
+          const pDate = new Date(p.paid_at).toLocaleDateString(currencyLocale, {
             day: 'numeric', month: 'short', year: 'numeric',
           });
           doc.fontSize(8.5).font('Helvetica').fillColor(TEXT_MID)

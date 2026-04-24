@@ -8,6 +8,7 @@ export declare class AiService {
     private readonly openai;
     private readonly model;
     constructor(prisma: PrismaService, config: ConfigService);
+    private getClinicCurrencySymbol;
     private saveInsight;
     listInsights(clinicId: string, params: {
         type?: string;

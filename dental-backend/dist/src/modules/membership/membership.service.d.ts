@@ -189,9 +189,9 @@ export declare class MembershipService {
             id: string;
             created_at: Date;
             patient_id: string;
-            relation_label: string | null;
-            is_primary: boolean;
             membership_enrollment_id: string;
+            is_primary: boolean;
+            relation_label: string | null;
         })[];
         usages: ({
             patient: {
@@ -222,9 +222,9 @@ export declare class MembershipService {
                 branch_id: string;
                 procedure: string;
                 tooth_number: string | null;
-                cost: Prisma.Decimal;
-                patient_id: string;
                 notes: string | null;
+                patient_id: string;
+                cost: Prisma.Decimal;
                 dentist_id: string;
                 clinical_visit_id: string | null;
                 treatment_plan_id: string | null;
@@ -268,15 +268,15 @@ export declare class MembershipService {
             id: string;
             created_at: Date;
             clinic_id: string;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
             invoice_id: string | null;
             treatment_id: string | null;
+            membership_enrollment_id: string;
             membership_benefit_id: string;
             quantity_used: number;
             discount_applied: Prisma.Decimal | null;
             used_on: Date;
-            membership_enrollment_id: string;
         })[];
     } & {
         id: string;
@@ -285,12 +285,12 @@ export declare class MembershipService {
         updated_at: Date;
         clinic_id: string;
         branch_id: string;
-        start_date: Date;
-        end_date: Date;
         notes: string | null;
         membership_plan_id: string;
         primary_patient_id: string;
         enrollment_number: string;
+        start_date: Date;
+        end_date: Date;
         amount_paid: Prisma.Decimal;
     })[]>;
     createEnrollment(clinicId: string, dto: CreateMembershipEnrollmentDto): Promise<{
@@ -399,9 +399,9 @@ export declare class MembershipService {
             id: string;
             created_at: Date;
             patient_id: string;
-            relation_label: string | null;
-            is_primary: boolean;
             membership_enrollment_id: string;
+            is_primary: boolean;
+            relation_label: string | null;
         })[];
         usages: ({
             patient: {
@@ -432,9 +432,9 @@ export declare class MembershipService {
                 branch_id: string;
                 procedure: string;
                 tooth_number: string | null;
-                cost: Prisma.Decimal;
-                patient_id: string;
                 notes: string | null;
+                patient_id: string;
+                cost: Prisma.Decimal;
                 dentist_id: string;
                 clinical_visit_id: string | null;
                 treatment_plan_id: string | null;
@@ -478,15 +478,15 @@ export declare class MembershipService {
             id: string;
             created_at: Date;
             clinic_id: string;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
             invoice_id: string | null;
             treatment_id: string | null;
+            membership_enrollment_id: string;
             membership_benefit_id: string;
             quantity_used: number;
             discount_applied: Prisma.Decimal | null;
             used_on: Date;
-            membership_enrollment_id: string;
         })[];
     } & {
         id: string;
@@ -495,12 +495,12 @@ export declare class MembershipService {
         updated_at: Date;
         clinic_id: string;
         branch_id: string;
-        start_date: Date;
-        end_date: Date;
         notes: string | null;
         membership_plan_id: string;
         primary_patient_id: string;
         enrollment_number: string;
+        start_date: Date;
+        end_date: Date;
         amount_paid: Prisma.Decimal;
     }>;
     updateEnrollment(clinicId: string, id: string, dto: UpdateMembershipEnrollmentDto): Promise<{
@@ -609,9 +609,9 @@ export declare class MembershipService {
             id: string;
             created_at: Date;
             patient_id: string;
-            relation_label: string | null;
-            is_primary: boolean;
             membership_enrollment_id: string;
+            is_primary: boolean;
+            relation_label: string | null;
         })[];
         usages: ({
             patient: {
@@ -642,9 +642,9 @@ export declare class MembershipService {
                 branch_id: string;
                 procedure: string;
                 tooth_number: string | null;
-                cost: Prisma.Decimal;
-                patient_id: string;
                 notes: string | null;
+                patient_id: string;
+                cost: Prisma.Decimal;
                 dentist_id: string;
                 clinical_visit_id: string | null;
                 treatment_plan_id: string | null;
@@ -688,15 +688,15 @@ export declare class MembershipService {
             id: string;
             created_at: Date;
             clinic_id: string;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
             invoice_id: string | null;
             treatment_id: string | null;
+            membership_enrollment_id: string;
             membership_benefit_id: string;
             quantity_used: number;
             discount_applied: Prisma.Decimal | null;
             used_on: Date;
-            membership_enrollment_id: string;
         })[];
     } & {
         id: string;
@@ -705,12 +705,12 @@ export declare class MembershipService {
         updated_at: Date;
         clinic_id: string;
         branch_id: string;
-        start_date: Date;
-        end_date: Date;
         notes: string | null;
         membership_plan_id: string;
         primary_patient_id: string;
         enrollment_number: string;
+        start_date: Date;
+        end_date: Date;
         amount_paid: Prisma.Decimal;
     }>;
     recordUsage(clinicId: string, enrollmentId: string, dto: CreateMembershipUsageDto): Promise<{
@@ -742,9 +742,9 @@ export declare class MembershipService {
             branch_id: string;
             procedure: string;
             tooth_number: string | null;
-            cost: Prisma.Decimal;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
+            cost: Prisma.Decimal;
             dentist_id: string;
             clinical_visit_id: string | null;
             treatment_plan_id: string | null;
@@ -788,15 +788,15 @@ export declare class MembershipService {
         id: string;
         created_at: Date;
         clinic_id: string;
-        patient_id: string;
         notes: string | null;
+        patient_id: string;
         invoice_id: string | null;
         treatment_id: string | null;
+        membership_enrollment_id: string;
         membership_benefit_id: string;
         quantity_used: number;
         discount_applied: Prisma.Decimal | null;
         used_on: Date;
-        membership_enrollment_id: string;
     }>;
     getPatientSummary(clinicId: string, patientId: string): Promise<{
         patient: {
@@ -931,9 +931,9 @@ export declare class MembershipService {
                     branch_id: string;
                     procedure: string;
                     tooth_number: string | null;
-                    cost: Prisma.Decimal;
-                    patient_id: string;
                     notes: string | null;
+                    patient_id: string;
+                    cost: Prisma.Decimal;
                     dentist_id: string;
                     clinical_visit_id: string | null;
                     treatment_plan_id: string | null;
@@ -977,15 +977,15 @@ export declare class MembershipService {
                 id: string;
                 created_at: Date;
                 clinic_id: string;
-                patient_id: string;
                 notes: string | null;
+                patient_id: string;
                 invoice_id: string | null;
                 treatment_id: string | null;
+                membership_enrollment_id: string;
                 membership_benefit_id: string;
                 quantity_used: number;
                 discount_applied: Prisma.Decimal | null;
                 used_on: Date;
-                membership_enrollment_id: string;
             })[];
         }[];
         past_enrollments: {
@@ -1101,9 +1101,9 @@ export declare class MembershipService {
                     branch_id: string;
                     procedure: string;
                     tooth_number: string | null;
-                    cost: Prisma.Decimal;
-                    patient_id: string;
                     notes: string | null;
+                    patient_id: string;
+                    cost: Prisma.Decimal;
                     dentist_id: string;
                     clinical_visit_id: string | null;
                     treatment_plan_id: string | null;
@@ -1147,15 +1147,15 @@ export declare class MembershipService {
                 id: string;
                 created_at: Date;
                 clinic_id: string;
-                patient_id: string;
                 notes: string | null;
+                patient_id: string;
                 invoice_id: string | null;
                 treatment_id: string | null;
+                membership_enrollment_id: string;
                 membership_benefit_id: string;
                 quantity_used: number;
                 discount_applied: Prisma.Decimal | null;
                 used_on: Date;
-                membership_enrollment_id: string;
             })[];
         }[];
     }>;

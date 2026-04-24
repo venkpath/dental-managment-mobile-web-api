@@ -166,8 +166,21 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
         });
         if (existingClinic)
             throw new common_1.ConflictException('A clinic with this email already exists');
-        const trialEndsAt = new Date();
-        trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+        let isFreePlan = false;
+        if (dto.plan_id) {
+            const plan = await this.prisma.plan.findUnique({ where: { id: dto.plan_id } });
+            if (plan)
+                isFreePlan = plan.name.toLowerCase() === 'free';
+        }
+        const trialEndsAt = !dto.plan_id || isFreePlan
+            ? null
+            : (() => {
+                const d = new Date();
+                d.setDate(d.getDate() + 14);
+                return d;
+            })();
+        const subscriptionStatus = (dto.plan_id && !isFreePlan) || isFreePlan ? 'active' : 'trial';
+        const billingCycle = dto.billing_cycle === 'yearly' ? 'yearly' : 'monthly';
         const passwordHash = await this.passwordService.hash(dto.admin_password);
         const result = await this.prisma.$transaction(async (tx) => {
             const clinic = await tx.clinic.create({
@@ -180,8 +193,10 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
                     state: dto.state,
                     country: dto.country,
                     plan_id: dto.plan_id || null,
-                    subscription_status: dto.plan_id ? 'active' : 'trial',
-                    trial_ends_at: dto.plan_id ? null : trialEndsAt,
+                    subscription_status: subscriptionStatus,
+                    billing_cycle: billingCycle,
+                    trial_ends_at: trialEndsAt,
+                    has_own_waba: dto.has_own_waba ?? false,
                 },
             });
             const branch = await tx.branch.create({

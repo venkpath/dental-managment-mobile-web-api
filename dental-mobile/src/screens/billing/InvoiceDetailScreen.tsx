@@ -8,6 +8,7 @@ import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/nativ
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { invoiceService } from '../../services/invoice.service';
+import { formatCurrency, getLocale, getCurrencySymbol } from '../../utils/format';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import Button from '../../components/Button';
@@ -88,7 +89,7 @@ export default function InvoiceDetailScreen() {
   const handlePayment = async () => {
     const amt = parseFloat(payAmount);
     if (!amt || amt <= 0) { Alert.alert('Invalid Amount', 'Enter a valid amount'); return; }
-    if (amt > balanceDue + 0.01) { Alert.alert('Overpayment', `Max payable: ₹${balanceDue.toLocaleString('en-IN')}`); return; }
+    if (amt > balanceDue + 0.01) { Alert.alert('Overpayment', `Max payable: ${formatCurrency(balanceDue)}`); return; }
     setPaying(true);
     try {
       await invoiceService.recordPayment(invoiceId, {
@@ -101,7 +102,7 @@ export default function InvoiceDetailScreen() {
       setPayAmount('');
       setPayNotes('');
       setSelectedInstallmentId(undefined);
-      Alert.alert('Payment Recorded', `₹${amt.toLocaleString('en-IN')} via ${method.toUpperCase()}`);
+      Alert.alert('Payment Recorded', `${formatCurrency(amt)} via ${method.toUpperCase()}`);
     } catch (err: unknown) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Payment failed');
     } finally {
@@ -171,7 +172,7 @@ export default function InvoiceDetailScreen() {
     const total = planRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
     const balance = Number(invoice!.net_amount) - (invoice!.payments?.reduce((s, p) => s + Number(p.amount), 0) ?? 0);
     if (Math.abs(total - balance) > 0.02) {
-      Alert.alert('Amount Mismatch', `Installment total ₹${total.toFixed(2)} must equal balance ₹${balance.toFixed(2)}`);
+      Alert.alert('Amount Mismatch', `Installment total ${formatCurrency(total)} must equal balance ${formatCurrency(balance)}`);
       return;
     }
     setCreatingPlan(true);
@@ -229,7 +230,7 @@ export default function InvoiceDetailScreen() {
             <View>
               <Text style={styles.invoiceNum}>{invoice.invoice_number}</Text>
               <Text style={styles.invoiceDate}>
-                {new Date(invoice.created_at).toLocaleDateString('en-IN', {
+                {new Date(invoice.created_at).toLocaleDateString(getLocale(), {
                   day: 'numeric', month: 'long', year: 'numeric',
                 })}
               </Text>
@@ -241,13 +242,13 @@ export default function InvoiceDetailScreen() {
           <View style={styles.amountGrid}>
             <View style={styles.amountCell}>
               <Text style={styles.amountCellLabel}>Net Amount</Text>
-              <Text style={styles.amountCellValue}>₹{Number(invoice.net_amount).toLocaleString('en-IN')}</Text>
+              <Text style={styles.amountCellValue}>{formatCurrency(Number(invoice.net_amount))}</Text>
             </View>
             <View style={styles.amountDivider} />
             <View style={styles.amountCell}>
               <Text style={styles.amountCellLabel}>Paid</Text>
               <Text style={[styles.amountCellValue, { color: colors.success }]}>
-                ₹{paidAmount.toLocaleString('en-IN')}
+                {formatCurrency(paidAmount)}
               </Text>
             </View>
             <View style={styles.amountDivider} />
@@ -255,7 +256,7 @@ export default function InvoiceDetailScreen() {
               <Text style={styles.amountCellLabel}>{isPaid ? 'Status' : 'Balance Due'}</Text>
               {isPaid
                 ? <Text style={[styles.amountCellValue, { color: colors.success }]}>Paid ✅</Text>
-                : <Text style={[styles.amountCellValue, { color: colors.warning }]}>₹{balanceDue.toLocaleString('en-IN')}</Text>
+                : <Text style={[styles.amountCellValue, { color: colors.warning }]}>{formatCurrency(balanceDue)}</Text>
               }
             </View>
           </View>
@@ -276,14 +277,14 @@ export default function InvoiceDetailScreen() {
           {(Number(invoice.discount_amount) > 0 || Number(invoice.tax_amount) > 0) && (
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>Subtotal</Text>
-              <Text style={styles.breakdownValue}>₹{Number(invoice.total_amount).toLocaleString('en-IN')}</Text>
+              <Text style={styles.breakdownValue}>{formatCurrency(Number(invoice.total_amount))}</Text>
               {Number(invoice.discount_amount) > 0 && <>
                 <Text style={styles.breakdownLabel}>Discount</Text>
-                <Text style={[styles.breakdownValue, { color: colors.success }]}>-₹{Number(invoice.discount_amount).toLocaleString('en-IN')}</Text>
+                <Text style={[styles.breakdownValue, { color: colors.success }]}>-{formatCurrency(Number(invoice.discount_amount))}</Text>
               </>}
               {Number(invoice.tax_amount) > 0 && <>
                 <Text style={styles.breakdownLabel}>Tax (GST)</Text>
-                <Text style={styles.breakdownValue}>+₹{Number(invoice.tax_amount).toLocaleString('en-IN')}</Text>
+                <Text style={styles.breakdownValue}>+{formatCurrency(Number(invoice.tax_amount))}</Text>
               </>}
             </View>
           )}
@@ -306,10 +307,10 @@ export default function InvoiceDetailScreen() {
                   <Text style={styles.lineItemIcon}>{ITEM_ICONS[item.item_type] ?? '🔧'}</Text>
                   <View style={styles.lineItemInfo}>
                     <Text style={styles.lineItemDesc}>{item.description}</Text>
-                    <Text style={styles.lineItemQty}>Qty: {item.quantity} × ₹{Number(item.unit_price).toLocaleString('en-IN')}</Text>
+                    <Text style={styles.lineItemQty}>Qty: {item.quantity} × {formatCurrency(Number(item.unit_price))}</Text>
                   </View>
                 </View>
-                <Text style={styles.lineItemTotal}>₹{Number(item.total_price).toLocaleString('en-IN')}</Text>
+                <Text style={styles.lineItemTotal}>{formatCurrency(Number(item.total_price))}</Text>
               </View>
             ))}
           </Card>
@@ -332,18 +333,18 @@ export default function InvoiceDetailScreen() {
                   <View>
                     <Text style={styles.installmentNum}>Installment {inst.installment_number}</Text>
                     <Text style={styles.installmentDue}>
-                      Due: {new Date(inst.due_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      Due: {new Date(inst.due_date).toLocaleDateString(getLocale(), { day: 'numeric', month: 'short', year: 'numeric' })}
                       {inst.status === 'overdue' && ' ⚠️'}
                     </Text>
                     {inst.paid_at && (
                       <Text style={styles.installmentPaidAt}>
-                        Paid: {new Date(inst.paid_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                        Paid: {new Date(inst.paid_at).toLocaleDateString(getLocale(), { day: 'numeric', month: 'short' })}
                       </Text>
                     )}
                   </View>
                 </View>
                 <View style={styles.installmentRight}>
-                  <Text style={styles.installmentAmount}>₹{Number(inst.amount).toLocaleString('en-IN')}</Text>
+                  <Text style={styles.installmentAmount}>{formatCurrency(Number(inst.amount))}</Text>
                   {inst.status !== 'paid' && !isPaid && (
                     <TouchableOpacity
                       style={styles.payInstBtn}
@@ -373,14 +374,14 @@ export default function InvoiceDetailScreen() {
                   </View>
                   <View>
                     <Text style={styles.paymentDate}>
-                      {new Date(p.paid_at).toLocaleDateString('en-IN', {
+                      {new Date(p.paid_at).toLocaleDateString(getLocale(), {
                         day: 'numeric', month: 'short', year: 'numeric',
                       })}
                     </Text>
                     {p.notes && <Text style={styles.paymentNotes}>{p.notes}</Text>}
                   </View>
                 </View>
-                <Text style={styles.paymentAmount}>₹{Number(p.amount).toLocaleString('en-IN')}</Text>
+                <Text style={styles.paymentAmount}>{formatCurrency(Number(p.amount))}</Text>
               </View>
             ))}
 
@@ -388,7 +389,7 @@ export default function InvoiceDetailScreen() {
             {invoice.payments.length > 1 && (
               <View style={styles.paymentTotalRow}>
                 <Text style={styles.paymentTotalLabel}>Total Paid</Text>
-                <Text style={styles.paymentTotalValue}>₹{paidAmount.toLocaleString('en-IN')}</Text>
+                <Text style={styles.paymentTotalValue}>{formatCurrency(paidAmount)}</Text>
               </View>
             )}
           </Card>
@@ -405,7 +406,7 @@ export default function InvoiceDetailScreen() {
           <Card>
             <Text style={styles.cardTitle}>Create Installment Plan</Text>
             <Text style={styles.planHint}>
-              Balance ₹{balanceDue.toLocaleString('en-IN')} — set amount and due date for each installment.
+              Balance {formatCurrency(balanceDue)} — set amount and due date for each installment.
             </Text>
 
             <Text style={styles.fieldLabel}>Number of Installments (2–24)</Text>
@@ -427,12 +428,12 @@ export default function InvoiceDetailScreen() {
                 <View style={styles.planRowHeader}>
                   <Text style={styles.planRowNum}>Installment {i + 1}</Text>
                   <Text style={styles.planRowTotal}>
-                    Total so far: ₹{planRows.slice(0, i + 1).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0).toFixed(2)}
+                    Total so far: {formatCurrency(planRows.slice(0, i + 1).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0))}
                   </Text>
                 </View>
                 <View style={styles.planRowFields}>
                   <View style={styles.planAmountWrap}>
-                    <Text style={styles.rupee}>₹</Text>
+                    <Text style={styles.rupee}>{getCurrencySymbol()}</Text>
                     <TextInput
                       style={styles.planAmountInput}
                       value={row.amount}
@@ -463,8 +464,8 @@ export default function InvoiceDetailScreen() {
                     ? { color: colors.success }
                     : { color: colors.danger }
                 ]}>
-                  ₹{planRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0).toFixed(2)}
-                  {' '}/ ₹{balanceDue.toFixed(2)}
+                  {formatCurrency(planRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0))}
+                  {' '}/ {formatCurrency(balanceDue)}
                 </Text>
               </View>
             )}
@@ -501,7 +502,7 @@ export default function InvoiceDetailScreen() {
             </Text>
 
             <Text style={styles.balanceHint}>
-              Balance due: ₹{balanceDue.toLocaleString('en-IN')}
+              Balance due: {formatCurrency(balanceDue)}
             </Text>
 
             {/* Method */}
@@ -520,9 +521,9 @@ export default function InvoiceDetailScreen() {
             </View>
 
             {/* Amount */}
-            <Text style={styles.fieldLabel}>Amount (₹)</Text>
+            <Text style={styles.fieldLabel}>Amount ({getCurrencySymbol()})</Text>
             <View style={styles.amountInputWrap}>
-              <Text style={styles.rupee}>₹</Text>
+              <Text style={styles.rupee}>{getCurrencySymbol()}</Text>
               <TextInput
                 style={styles.amountInput}
                 value={payAmount}

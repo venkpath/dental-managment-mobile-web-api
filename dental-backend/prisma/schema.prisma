@@ -20,9 +20,12 @@ model Clinic {
   plan_id             String?   @db.Uuid
   subscription_status String    @default("trial") @db.VarChar(20)
   subscription_id     String?   @db.VarChar(100)
+  billing_cycle       String    @default("monthly") @db.VarChar(10) // monthly | yearly
   trial_ends_at       DateTime?
   is_complimentary    Boolean   @default(false)
+  has_own_waba        Boolean   @default(false) // true = clinic brings their own WhatsApp Business Account (no platform WA billing)
   logo_url            String?   @db.Text
+  currency_code       String    @default("INR") @db.VarChar(10)
   ai_usage_count      Int       @default(0)
   ai_quota_override   Int? // per-clinic AI quota override (null = use global/plan default)
   created_at          DateTime  @default(now())
@@ -57,6 +60,7 @@ model Clinic {
   membership_plans       MembershipPlan[]
   membership_enrollments MembershipEnrollment[]
   membership_usages      MembershipBenefitUsage[]
+  usage_counters         ClinicUsageCounter[]
 
   @@index([email])
   @@index([plan_id])
@@ -119,12 +123,17 @@ model Plan {
   id                         String   @id @default(uuid()) @db.Uuid
   name                       String   @unique @db.VarChar(100)
   price_monthly              Decimal  @db.Decimal(10, 2)
+  price_yearly               Decimal? @db.Decimal(10, 2) // null for free plan
   max_branches               Int
   max_staff                  Int
   ai_quota                   Int      @default(0)
   max_patients_per_month     Int? // null = unlimited
   max_appointments_per_month Int? // null = unlimited
   razorpay_plan_id           String?  @db.VarChar(100)
+  razorpay_plan_id_yearly    String?  @db.VarChar(100)
+  whatsapp_included_monthly  Int? // messages/month included in the plan (null = unlimited / BYO WABA)
+  whatsapp_hard_limit_monthly Int? // hard cap that blocks further WA sends (null = no block, overage allowed)
+  allow_whatsapp_overage_billing Boolean @default(false) // true = track overage for billing via payment link
   created_at                 DateTime @default(now())
   updated_at                 DateTime @updatedAt
 
@@ -158,6 +167,26 @@ model PlanFeature {
   @@index([plan_id])
   @@index([feature_id])
   @@map("plan_features")
+}
+
+/// Per-clinic per-month counters for messaging usage.
+/// period_start is the first day of the billing month at 00:00 UTC.
+model ClinicUsageCounter {
+  id             String   @id @default(uuid()) @db.Uuid
+  clinic_id      String   @db.Uuid
+  period_start   DateTime @db.Date // first day of the month
+  whatsapp_sent  Int      @default(0)
+  sms_sent       Int      @default(0)
+  email_sent     Int      @default(0)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+
+  @@unique([clinic_id, period_start])
+  @@index([clinic_id])
+  @@index([period_start])
+  @@map("clinic_usage_counters")
 }
 
 model SuperAdmin {

@@ -25,12 +25,17 @@ export declare class PlanService {
         created_at: Date;
         updated_at: Date;
         price_monthly: import("@prisma/client-runtime-utils").Decimal;
+        price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
         max_branches: number;
         max_staff: number;
         ai_quota: number;
         max_patients_per_month: number | null;
         max_appointments_per_month: number | null;
+        whatsapp_included_monthly: number | null;
+        whatsapp_hard_limit_monthly: number | null;
+        allow_whatsapp_overage_billing: boolean;
         razorpay_plan_id: string | null;
+        razorpay_plan_id_yearly: string | null;
     })[]>;
     findOne(id: string): Promise<Plan>;
     update(id: string, dto: UpdatePlanDto): Promise<Plan>;

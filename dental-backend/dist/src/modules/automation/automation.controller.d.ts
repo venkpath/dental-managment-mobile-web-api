@@ -18,9 +18,9 @@ export declare class AutomationController {
         is_enabled: boolean;
         clinic_id: string;
         channel: string;
-        config: import("@prisma/client/runtime/client").JsonValue | null;
         template_id: string | null;
         rule_type: string;
+        config: import("@prisma/client/runtime/client").JsonValue | null;
     })[]>;
     getRule(clinicId: string, ruleType: string): Promise<{
         template: {
@@ -35,9 +35,9 @@ export declare class AutomationController {
         is_enabled: boolean;
         clinic_id: string;
         channel: string;
-        config: import("@prisma/client/runtime/client").JsonValue | null;
         template_id: string | null;
         rule_type: string;
+        config: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     upsertRule(clinicId: string, ruleType: string, dto: UpsertAutomationRuleDto): Promise<{
         template: {
@@ -52,9 +52,9 @@ export declare class AutomationController {
         is_enabled: boolean;
         clinic_id: string;
         channel: string;
-        config: import("@prisma/client/runtime/client").JsonValue | null;
         template_id: string | null;
         rule_type: string;
+        config: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     triggerCrons(): Promise<{
         message: string;

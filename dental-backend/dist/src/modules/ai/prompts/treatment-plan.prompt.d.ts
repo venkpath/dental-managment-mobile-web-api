@@ -22,4 +22,5 @@ export declare function buildTreatmentPlanUserPrompt(input: {
         name: string;
         price: number;
     }>;
+    currency_symbol?: string;
 }): string;

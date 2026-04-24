@@ -8,6 +8,7 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { treatmentService } from '../../services/treatment.service';
+import { formatCurrency } from '../../utils/format';
 import Badge from '../../components/Badge';
 import EmptyState from '../../components/EmptyState';
 import ScreenHeader from '../../components/ScreenHeader';
@@ -75,7 +76,7 @@ export default function TreatmentListScreen() {
           )}
           <Text style={styles.diagnosis} numberOfLines={1}>{item.diagnosis}</Text>
           <View style={styles.cardBottom}>
-            <Text style={styles.cost}>₹{Number(item.cost).toLocaleString('en-IN')}</Text>
+            <Text style={styles.cost}>{formatCurrency(Number(item.cost))}</Text>
             <Text style={styles.dentist}>Dr. {item.dentist.name}</Text>
           </View>
         </View>

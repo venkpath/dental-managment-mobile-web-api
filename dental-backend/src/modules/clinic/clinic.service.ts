@@ -14,10 +14,11 @@ export class ClinicService {
     trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS);
 
     return this.prisma.clinic.create({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: {
         ...dto,
         trial_ends_at: trialEndsAt,
-      },
+      } as any,
     });
   }
 
@@ -84,7 +85,8 @@ export class ClinicService {
     await this.findOne(id);
     return this.prisma.clinic.update({
       where: { id },
-      data: dto,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: dto as any,
     });
   }
 

@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsOptional, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsString, IsOptional, MaxLength, MinLength, IsIn } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RegisterClinicDto {
@@ -57,9 +57,14 @@ export class RegisterClinicDto {
   @MinLength(8)
   admin_password!: string;
 
-  @ApiPropertyOptional({ example: 'starter', description: 'Plan key: starter, professional, enterprise. Defaults to trial.' })
+  @ApiPropertyOptional({ example: 'starter', description: 'Plan key: free, starter, professional, enterprise. Defaults to trial.' })
   @IsOptional()
   @IsString()
   @MaxLength(50)
   plan_key?: string;
+
+  @ApiPropertyOptional({ example: 'monthly', description: 'Billing cycle: monthly or yearly. Defaults to monthly.', enum: ['monthly', 'yearly'] })
+  @IsOptional()
+  @IsIn(['monthly', 'yearly'])
+  billing_cycle?: 'monthly' | 'yearly';
 }

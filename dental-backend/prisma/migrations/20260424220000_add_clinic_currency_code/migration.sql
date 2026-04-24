@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Clinic" ADD COLUMN IF NOT EXISTS "currency_code" VARCHAR(10) NOT NULL DEFAULT 'INR';

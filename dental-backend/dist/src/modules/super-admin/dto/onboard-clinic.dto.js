@@ -25,8 +25,10 @@ class OnboardClinicDto {
     admin_email;
     admin_password;
     plan_id;
+    billing_cycle;
+    has_own_waba;
     static _OPENAPI_METADATA_FACTORY() {
-        return { clinic_name: { required: true, type: () => String, maxLength: 255 }, clinic_email: { required: true, type: () => String, maxLength: 255, format: "email" }, clinic_phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, admin_name: { required: true, type: () => String, maxLength: 255 }, admin_email: { required: true, type: () => String, maxLength: 255, format: "email" }, admin_password: { required: true, type: () => String, minLength: 8 }, plan_id: { required: false, type: () => String, format: "uuid" } };
+        return { clinic_name: { required: true, type: () => String, maxLength: 255 }, clinic_email: { required: true, type: () => String, maxLength: 255, format: "email" }, clinic_phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, admin_name: { required: true, type: () => String, maxLength: 255 }, admin_email: { required: true, type: () => String, maxLength: 255, format: "email" }, admin_password: { required: true, type: () => String, minLength: 8 }, plan_id: { required: false, type: () => String, format: "uuid" }, billing_cycle: { required: false, type: () => Object, enum: ['monthly', 'yearly'] }, has_own_waba: { required: false, type: () => Boolean } };
     }
 }
 exports.OnboardClinicDto = OnboardClinicDto;
@@ -106,4 +108,16 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], OnboardClinicDto.prototype, "plan_id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'monthly', enum: ['monthly', 'yearly'], description: 'Billing cycle. Defaults to monthly.' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['monthly', 'yearly']),
+    __metadata("design:type", String)
+], OnboardClinicDto.prototype, "billing_cycle", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: false, description: 'Enterprise flag — clinic brings their own WhatsApp Business Account (BYO-WABA). When true, platform does not bill WA usage.' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], OnboardClinicDto.prototype, "has_own_waba", void 0);
 //# sourceMappingURL=onboard-clinic.dto.js.map

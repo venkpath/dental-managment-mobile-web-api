@@ -71,9 +71,12 @@ export declare class SuperAdminController {
             pincode: string | null;
             subscription_status: string;
             subscription_id: string | null;
+            billing_cycle: string;
             trial_ends_at: Date | null;
             is_complimentary: boolean;
+            has_own_waba: boolean;
             logo_url: string | null;
+            currency_code: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
         })[];
@@ -105,9 +108,12 @@ export declare class SuperAdminController {
             pincode: string | null;
             subscription_status: string;
             subscription_id: string | null;
+            billing_cycle: string;
             trial_ends_at: Date | null;
             is_complimentary: boolean;
+            has_own_waba: boolean;
             logo_url: string | null;
+            currency_code: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
         })[];
@@ -139,12 +145,17 @@ export declare class SuperAdminController {
             created_at: Date;
             updated_at: Date;
             price_monthly: import("@prisma/client-runtime-utils").Decimal;
+            price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
             max_branches: number;
             max_staff: number;
             ai_quota: number;
             max_patients_per_month: number | null;
             max_appointments_per_month: number | null;
+            whatsapp_included_monthly: number | null;
+            whatsapp_hard_limit_monthly: number | null;
+            allow_whatsapp_overage_billing: boolean;
             razorpay_plan_id: string | null;
+            razorpay_plan_id_yearly: string | null;
         }) | null;
         _count: {
             patients: number;
@@ -200,9 +211,12 @@ export declare class SuperAdminController {
         pincode: string | null;
         subscription_status: string;
         subscription_id: string | null;
+        billing_cycle: string;
         trial_ends_at: Date | null;
         is_complimentary: boolean;
+        has_own_waba: boolean;
         logo_url: string | null;
+        currency_code: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
     }>;
@@ -221,9 +235,12 @@ export declare class SuperAdminController {
         pincode: string | null;
         subscription_status: string;
         subscription_id: string | null;
+        billing_cycle: string;
         trial_ends_at: Date | null;
         is_complimentary: boolean;
+        has_own_waba: boolean;
         logo_url: string | null;
+        currency_code: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
     }>;
@@ -243,9 +260,12 @@ export declare class SuperAdminController {
             pincode: string | null;
             subscription_status: string;
             subscription_id: string | null;
+            billing_cycle: string;
             trial_ends_at: Date | null;
             is_complimentary: boolean;
+            has_own_waba: boolean;
             logo_url: string | null;
+            currency_code: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
         };
@@ -299,10 +319,10 @@ export declare class SuperAdminController {
             id: string;
             created_at: Date;
             clinic_id: string;
+            user_id: string | null;
+            action: string;
             entity: string;
             entity_id: string;
-            action: string;
-            user_id: string | null;
             metadata: import("@prisma/client/runtime/client").JsonValue | null;
         }[];
         meta: {
@@ -383,9 +403,9 @@ export declare class SuperAdminController {
         is_enabled: boolean;
         clinic_id: string;
         channel: string;
-        config: import("@prisma/client/runtime/client").JsonValue | null;
         template_id: string | null;
         rule_type: string;
+        config: import("@prisma/client/runtime/client").JsonValue | null;
     })[]>;
     updateClinicAutomationRule(id: string, ruleType: string, dto: UpsertAutomationRuleDto): Promise<{
         template: {
@@ -400,9 +420,9 @@ export declare class SuperAdminController {
         is_enabled: boolean;
         clinic_id: string;
         channel: string;
-        config: import("@prisma/client/runtime/client").JsonValue | null;
         template_id: string | null;
         rule_type: string;
+        config: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     getClinicBranches(id: string): Promise<{
         id: string;

@@ -9,6 +9,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { appointmentService } from '../../services/appointment.service';
 import { addMinutes } from '../../utils/time';
+import { getLocale } from '../../utils/format';
 import Card from '../../components/Card';
 import Badge from '../../components/Badge';
 import Input from '../../components/Input';
@@ -171,7 +172,7 @@ export default function AppointmentDetailScreen() {
         <View style={styles.statusBanner}>
           <Badge label={appointment.status} variant={appointment.status} />
           <Text style={styles.dateTime}>
-            {new Date(appointment.appointment_date).toLocaleDateString('en-IN', {
+            {new Date(appointment.appointment_date).toLocaleDateString(getLocale(), {
               weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
             })}
           </Text>

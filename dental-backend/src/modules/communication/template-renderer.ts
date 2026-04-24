@@ -97,10 +97,17 @@ export class TemplateRenderer {
   }
 
   private formatCurrency(amount: number, currency: string): string {
-    if (currency === 'INR') {
-      return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    try {
+      const formatted = new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: currency || 'USD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      }).format(amount);
+      return formatted;
+    } catch {
+      return `${currency} ${amount.toFixed(2)}`;
     }
-    return `${currency} ${amount.toFixed(2)}`;
   }
 
   private formatDate(dateStr: string, pattern: string): string {

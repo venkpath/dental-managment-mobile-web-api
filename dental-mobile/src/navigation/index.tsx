@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuthStore, loadAuthFromStorage } from '../store/auth.store';
+import { loadCurrencyFromStorage } from '../store/currency.store';
 import LoadingScreen from '../components/LoadingScreen';
 import { shadow } from '../theme';
 
@@ -200,7 +201,7 @@ export default function AppNavigator() {
   const [bootstrapping, setBootstrapping] = useState(true);
 
   useEffect(() => {
-    loadAuthFromStorage().finally(() => setBootstrapping(false));
+    loadAuthFromStorage().then(() => loadCurrencyFromStorage()).finally(() => setBootstrapping(false));
   }, []);
 
   if (bootstrapping) return <LoadingScreen message="Loading..." />;

@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { appointmentService } from '../../services/appointment.service';
+import { getLocale } from '../../utils/format';
 import Badge from '../../components/Badge';
 import EmptyState from '../../components/EmptyState';
 import { colors, spacing, typography, radius, shadow } from '../../theme';
@@ -107,7 +108,7 @@ export default function AppointmentListScreen() {
         <View style={styles.detailRow}>
           <Ionicons name="calendar-outline" size={12} color={colors.textMuted} />
           <Text style={styles.date}>
-            {new Date(item.appointment_date).toLocaleDateString('en-IN', {
+            {new Date(item.appointment_date).toLocaleDateString(getLocale(), {
               weekday: 'short', day: 'numeric', month: 'short',
             })}
           </Text>

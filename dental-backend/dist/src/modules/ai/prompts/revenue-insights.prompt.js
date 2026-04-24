@@ -9,7 +9,7 @@ RULES:
 - Compare metrics where possible (e.g., completion rate, revenue per patient)
 - Highlight risks (declining revenue, high cancellations, low follow-ups)
 - Suggest specific actions the clinic can take to improve
-- Use Indian Rupee (INR/₹) for currency
+- Use the currency symbol provided in the data (e.g. $, \u20AC, \u20B9) for amounts
 - Be concise but insightful — clinic owners are busy
 - Don't just repeat the numbers — interpret them
 
@@ -30,14 +30,15 @@ OUTPUT FORMAT (JSON):
 
 Respond ONLY with valid JSON. No markdown, no explanation.`;
 function buildRevenueInsightsUserPrompt(input) {
+    const sym = input.currency_symbol ?? '\u20B9';
     let prompt = `Analyze this dental clinic's performance data for the period: ${input.date_range}\n\n`;
     if (input.revenue) {
         prompt += `REVENUE:\n`;
-        prompt += `- Total Revenue: ₹${input.revenue.total_revenue ?? 0}\n`;
-        prompt += `- Paid Invoices: ₹${input.revenue.paid_invoices ?? 0}\n`;
-        prompt += `- Pending Invoices: ₹${input.revenue.pending_invoices ?? 0}\n`;
-        prompt += `- Outstanding Amount: ₹${input.revenue.outstanding_amount ?? 0}\n`;
-        prompt += `- Discounts Given: ₹${input.revenue.discounts ?? 0}\n\n`;
+        prompt += `- Total Revenue: ${sym}${input.revenue.total_revenue ?? 0}\n`;
+        prompt += `- Paid Invoices: ${sym}${input.revenue.paid_invoices ?? 0}\n`;
+        prompt += `- Pending Invoices: ${sym}${input.revenue.pending_invoices ?? 0}\n`;
+        prompt += `- Outstanding Amount: ${sym}${input.revenue.outstanding_amount ?? 0}\n`;
+        prompt += `- Discounts Given: ${sym}${input.revenue.discounts ?? 0}\n\n`;
     }
     if (input.appointments) {
         prompt += `APPOINTMENTS:\n`;
@@ -62,7 +63,7 @@ function buildRevenueInsightsUserPrompt(input) {
     if (input.dentists.length > 0) {
         prompt += `DENTIST PERFORMANCE:\n`;
         for (const d of input.dentists) {
-            prompt += `- ${d.name}: ${d.appointments_handled ?? 0} appointments, ${d.treatments_performed ?? 0} treatments, ₹${d.revenue_generated ?? 0} revenue\n`;
+            prompt += `- ${d.name}: ${d.appointments_handled ?? 0} appointments, ${d.treatments_performed ?? 0} treatments, ${sym}${d.revenue_generated ?? 0} revenue\n`;
         }
         prompt += `\n`;
     }

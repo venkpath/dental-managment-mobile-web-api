@@ -14,6 +14,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { whatsappService, WaConversation } from '../../services/whatsapp.service';
 import { colors, spacing, typography, radius } from '../../theme';
+import { getLocale } from '../../utils/format';
 import type { WhatsAppStackParamList } from '../../types';
 
 type Nav = NativeStackNavigationProp<WhatsAppStackParamList>;
@@ -35,10 +36,10 @@ function formatTime(iso: string) {
   const now = new Date();
   const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
   if (diffDays === 0)
-    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' });
   if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return d.toLocaleDateString('en-IN', { weekday: 'short' });
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  if (diffDays < 7) return d.toLocaleDateString(getLocale(), { weekday: 'short' });
+  return d.toLocaleDateString(getLocale(), { day: 'numeric', month: 'short' });
 }
 
 export default function ConversationListScreen() {

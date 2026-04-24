@@ -100,9 +100,11 @@ function buildTreatmentPlanUserPrompt(input) {
         }
     }
     if (input.treatment_catalog && input.treatment_catalog.length > 0) {
-        prompt += `\nClinic's Treatment Price List (INR):\n`;
+        const sym = input.currency_symbol ?? '\u20B9';
+        const currCode = sym === '\u20B9' ? 'INR' : sym === '$' ? 'USD' : '';
+        prompt += `\nClinic's Treatment Price List (${currCode || sym}):\n`;
         for (const t of input.treatment_catalog) {
-            prompt += `- ${t.name}: ₹${t.price}\n`;
+            prompt += `- ${t.name}: ${sym}${t.price}\n`;
         }
     }
     return prompt;

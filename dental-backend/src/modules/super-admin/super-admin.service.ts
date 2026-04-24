@@ -197,14 +197,32 @@ export class SuperAdminService {
     admin_email: string;
     admin_password: string;
     plan_id?: string;
+    billing_cycle?: 'monthly' | 'yearly';
+    has_own_waba?: boolean;
   }) {
     const existingClinic = await this.prisma.clinic.findFirst({
       where: { email: dto.clinic_email },
     });
     if (existingClinic) throw new ConflictException('A clinic with this email already exists');
 
-    const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+    // Resolve the plan to decide trial vs active. Free plan is free forever — no trial.
+    let isFreePlan = false;
+    if (dto.plan_id) {
+      const plan = await this.prisma.plan.findUnique({ where: { id: dto.plan_id } });
+      if (plan) isFreePlan = plan.name.toLowerCase() === 'free';
+    }
+
+    const trialEndsAt = !dto.plan_id || isFreePlan
+      ? null
+      : (() => {
+          const d = new Date();
+          d.setDate(d.getDate() + 14);
+          return d;
+        })();
+
+    // Free or paid-plan-selected: 'active'. No plan selected: 'trial'.
+    const subscriptionStatus = (dto.plan_id && !isFreePlan) || isFreePlan ? 'active' : 'trial';
+    const billingCycle = dto.billing_cycle === 'yearly' ? 'yearly' : 'monthly';
 
     const passwordHash = await this.passwordService.hash(dto.admin_password);
 
@@ -219,8 +237,10 @@ export class SuperAdminService {
           state: dto.state,
           country: dto.country,
           plan_id: dto.plan_id || null,
-          subscription_status: dto.plan_id ? 'active' : 'trial',
-          trial_ends_at: dto.plan_id ? null : trialEndsAt,
+          subscription_status: subscriptionStatus,
+          billing_cycle: billingCycle,
+          trial_ends_at: trialEndsAt,
+          has_own_waba: dto.has_own_waba ?? false,
         },
       });
 

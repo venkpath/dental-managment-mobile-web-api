@@ -18,9 +18,9 @@ export declare class ClinicalVisitService {
             branch_id: string;
             procedure: string;
             tooth_number: string | null;
-            cost: Prisma.Decimal;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
+            cost: Prisma.Decimal;
             dentist_id: string;
             clinical_visit_id: string | null;
             treatment_plan_id: string | null;
@@ -45,8 +45,8 @@ export declare class ClinicalVisitService {
             updated_at: Date;
             clinic_id: string;
             branch_id: string;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
             clinical_visit_id: string | null;
             condition: string;
             severity: string | null;
@@ -77,8 +77,8 @@ export declare class ClinicalVisitService {
             clinic_id: string;
             branch_id: string;
             title: string;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
             dentist_id: string;
             clinical_visit_id: string | null;
             total_estimated_cost: Prisma.Decimal;
@@ -153,8 +153,8 @@ export declare class ClinicalVisitService {
             clinic_id: string;
             branch_id: string;
             appointment_date: Date;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
             dentist_id: string;
             start_time: string;
             end_time: string;
@@ -175,10 +175,10 @@ export declare class ClinicalVisitService {
         past_dental_history: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
-        review_after_date: Date | null;
         vital_signs: Prisma.JsonValue | null;
         diagnosis_summary: string | null;
         soap_notes: Prisma.JsonValue | null;
+        review_after_date: Date | null;
         finalized_at: Date | null;
     }>;
     findByPatient(clinicId: string, patientId: string): Promise<ClinicalVisit[]>;
@@ -196,9 +196,9 @@ export declare class ClinicalVisitService {
             branch_id: string;
             procedure: string;
             tooth_number: string | null;
-            cost: Prisma.Decimal;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
+            cost: Prisma.Decimal;
             dentist_id: string;
             clinical_visit_id: string | null;
             treatment_plan_id: string | null;
@@ -293,10 +293,10 @@ export declare class ClinicalVisitService {
             past_dental_history: string | null;
             medical_history_notes: string | null;
             examination_notes: string | null;
-            review_after_date: Date | null;
             vital_signs: Prisma.JsonValue | null;
             diagnosis_summary: string | null;
             soap_notes: Prisma.JsonValue | null;
+            review_after_date: Date | null;
             finalized_at: Date | null;
         } | null;
     } & {
@@ -307,8 +307,8 @@ export declare class ClinicalVisitService {
         clinic_id: string;
         branch_id: string;
         title: string;
-        patient_id: string;
         notes: string | null;
+        patient_id: string;
         dentist_id: string;
         clinical_visit_id: string | null;
         total_estimated_cost: Prisma.Decimal;
@@ -353,8 +353,8 @@ export declare class ClinicalVisitService {
         clinic_id: string;
         branch_id: string;
         title: string;
-        patient_id: string;
         notes: string | null;
+        patient_id: string;
         dentist_id: string;
         clinical_visit_id: string | null;
         total_estimated_cost: Prisma.Decimal;
@@ -373,9 +373,9 @@ export declare class ClinicalVisitService {
             branch_id: string;
             procedure: string;
             tooth_number: string | null;
-            cost: Prisma.Decimal;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
+            cost: Prisma.Decimal;
             dentist_id: string;
             clinical_visit_id: string | null;
             treatment_plan_id: string | null;
@@ -403,8 +403,8 @@ export declare class ClinicalVisitService {
         clinic_id: string;
         branch_id: string;
         title: string;
-        patient_id: string;
         notes: string | null;
+        patient_id: string;
         dentist_id: string;
         clinical_visit_id: string | null;
         total_estimated_cost: Prisma.Decimal;

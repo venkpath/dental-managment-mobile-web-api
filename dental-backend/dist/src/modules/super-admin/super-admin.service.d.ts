@@ -46,9 +46,12 @@ export declare class SuperAdminService {
             pincode: string | null;
             subscription_status: string;
             subscription_id: string | null;
+            billing_cycle: string;
             trial_ends_at: Date | null;
             is_complimentary: boolean;
+            has_own_waba: boolean;
             logo_url: string | null;
+            currency_code: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
         })[];
@@ -85,9 +88,12 @@ export declare class SuperAdminService {
             pincode: string | null;
             subscription_status: string;
             subscription_id: string | null;
+            billing_cycle: string;
             trial_ends_at: Date | null;
             is_complimentary: boolean;
+            has_own_waba: boolean;
             logo_url: string | null;
+            currency_code: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
         })[];
@@ -119,12 +125,17 @@ export declare class SuperAdminService {
             created_at: Date;
             updated_at: Date;
             price_monthly: import("@prisma/client-runtime-utils").Decimal;
+            price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
             max_branches: number;
             max_staff: number;
             ai_quota: number;
             max_patients_per_month: number | null;
             max_appointments_per_month: number | null;
+            whatsapp_included_monthly: number | null;
+            whatsapp_hard_limit_monthly: number | null;
+            allow_whatsapp_overage_billing: boolean;
             razorpay_plan_id: string | null;
+            razorpay_plan_id_yearly: string | null;
         }) | null;
         _count: {
             patients: number;
@@ -180,9 +191,12 @@ export declare class SuperAdminService {
         pincode: string | null;
         subscription_status: string;
         subscription_id: string | null;
+        billing_cycle: string;
         trial_ends_at: Date | null;
         is_complimentary: boolean;
+        has_own_waba: boolean;
         logo_url: string | null;
+        currency_code: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
     }>;
@@ -198,6 +212,8 @@ export declare class SuperAdminService {
         admin_email: string;
         admin_password: string;
         plan_id?: string;
+        billing_cycle?: 'monthly' | 'yearly';
+        has_own_waba?: boolean;
     }): Promise<{
         clinic: {
             id: string;
@@ -214,9 +230,12 @@ export declare class SuperAdminService {
             pincode: string | null;
             subscription_status: string;
             subscription_id: string | null;
+            billing_cycle: string;
             trial_ends_at: Date | null;
             is_complimentary: boolean;
+            has_own_waba: boolean;
             logo_url: string | null;
+            currency_code: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
         };
@@ -272,10 +291,10 @@ export declare class SuperAdminService {
             id: string;
             created_at: Date;
             clinic_id: string;
+            user_id: string | null;
+            action: string;
             entity: string;
             entity_id: string;
-            action: string;
-            user_id: string | null;
             metadata: import("@prisma/client/runtime/client").JsonValue | null;
         }[];
         meta: {

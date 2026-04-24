@@ -33,14 +33,14 @@ export declare class CommunicationService {
         subject: string | null;
         body: string;
         metadata: Prisma.JsonValue | null;
-        patient_id: string | null;
-        template_id: string | null;
-        scheduled_at: Date | null;
         recipient: string;
         direction: string;
         skip_reason: string | null;
         wa_message_id: string | null;
+        scheduled_at: Date | null;
         sent_at: Date | null;
+        patient_id: string | null;
+        template_id: string | null;
     }>;
     findAllMessages(clinicId: string, query: QueryMessageDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         patient: {
@@ -58,12 +58,12 @@ export declare class CommunicationService {
             status: string;
             created_at: Date;
             channel: string;
-            cost: Prisma.Decimal | null;
             sent_at: Date | null;
             message_id: string;
             provider: string;
             provider_message_id: string | null;
             error_message: string | null;
+            cost: Prisma.Decimal | null;
             delivered_at: Date | null;
             read_at: Date | null;
             failed_at: Date | null;
@@ -78,14 +78,14 @@ export declare class CommunicationService {
         subject: string | null;
         body: string;
         metadata: Prisma.JsonValue | null;
-        patient_id: string | null;
-        template_id: string | null;
-        scheduled_at: Date | null;
         recipient: string;
         direction: string;
         skip_reason: string | null;
         wa_message_id: string | null;
+        scheduled_at: Date | null;
         sent_at: Date | null;
+        patient_id: string | null;
+        template_id: string | null;
     }>>;
     findOneMessage(clinicId: string, id: string): Promise<{
         patient: {
@@ -117,12 +117,12 @@ export declare class CommunicationService {
             status: string;
             created_at: Date;
             channel: string;
-            cost: Prisma.Decimal | null;
             sent_at: Date | null;
             message_id: string;
             provider: string;
             provider_message_id: string | null;
             error_message: string | null;
+            cost: Prisma.Decimal | null;
             delivered_at: Date | null;
             read_at: Date | null;
             failed_at: Date | null;
@@ -137,14 +137,14 @@ export declare class CommunicationService {
         subject: string | null;
         body: string;
         metadata: Prisma.JsonValue | null;
-        patient_id: string | null;
-        template_id: string | null;
-        scheduled_at: Date | null;
         recipient: string;
         direction: string;
         skip_reason: string | null;
         wa_message_id: string | null;
+        scheduled_at: Date | null;
         sent_at: Date | null;
+        patient_id: string | null;
+        template_id: string | null;
     }>;
     getPatientTimeline(clinicId: string, patientId: string, page?: number, limit?: number, channel?: string): Promise<{
         data: ({
@@ -157,12 +157,12 @@ export declare class CommunicationService {
                 status: string;
                 created_at: Date;
                 channel: string;
-                cost: Prisma.Decimal | null;
                 sent_at: Date | null;
                 message_id: string;
                 provider: string;
                 provider_message_id: string | null;
                 error_message: string | null;
+                cost: Prisma.Decimal | null;
                 delivered_at: Date | null;
                 read_at: Date | null;
                 failed_at: Date | null;
@@ -177,14 +177,14 @@ export declare class CommunicationService {
             subject: string | null;
             body: string;
             metadata: Prisma.JsonValue | null;
-            patient_id: string | null;
-            template_id: string | null;
-            scheduled_at: Date | null;
             recipient: string;
             direction: string;
             skip_reason: string | null;
             wa_message_id: string | null;
+            scheduled_at: Date | null;
             sent_at: Date | null;
+            patient_id: string | null;
+            template_id: string | null;
         })[];
         meta: import("../../common/interfaces/paginated-result.interface.js").PaginationMeta;
         patient: {
@@ -206,12 +206,12 @@ export declare class CommunicationService {
         status: string;
         created_at: Date;
         channel: string;
-        cost: Prisma.Decimal | null;
         sent_at: Date | null;
         message_id: string;
         provider: string;
         provider_message_id: string | null;
         error_message: string | null;
+        cost: Prisma.Decimal | null;
         delivered_at: Date | null;
         read_at: Date | null;
         failed_at: Date | null;
@@ -226,14 +226,14 @@ export declare class CommunicationService {
         subject: string | null;
         body: string;
         metadata: Prisma.JsonValue | null;
-        patient_id: string | null;
-        template_id: string | null;
-        scheduled_at: Date | null;
         recipient: string;
         direction: string;
         skip_reason: string | null;
         wa_message_id: string | null;
+        scheduled_at: Date | null;
         sent_at: Date | null;
+        patient_id: string | null;
+        template_id: string | null;
     }>;
     getPatientPreferences(clinicId: string, patientId: string): Promise<{
         id: string;
@@ -444,12 +444,12 @@ export declare class CommunicationService {
             created_at: Date;
             body: string;
             metadata: Prisma.JsonValue;
-            template: {
-                template_name: string;
-            } | null;
             direction: string;
             wa_message_id: string | null;
             sent_at: Date | null;
+            template: {
+                template_name: string;
+            } | null;
         }[];
         meta: {
             total: number;

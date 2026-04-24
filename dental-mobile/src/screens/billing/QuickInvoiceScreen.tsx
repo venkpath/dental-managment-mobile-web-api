@@ -18,6 +18,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { invoiceService } from '../../services/invoice.service';
 import { treatmentService } from '../../services/treatment.service';
+import { formatCurrency, getCurrencySymbol } from '../../utils/format';
 import { useAuthStore } from '../../store/auth.store';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
@@ -274,7 +275,7 @@ export default function QuickInvoiceScreen() {
                   containerStyle={styles.qtyInput}
                 />
                 <Input
-                  label="Unit Price (₹) *"
+                 label={`Unit Price (${getCurrencySymbol()}) *`}
                   value={item.unit_price}
                   onChangeText={(v) => updateItem(index, 'unit_price', v)}
                   keyboardType="decimal-pad"
@@ -285,7 +286,7 @@ export default function QuickInvoiceScreen() {
 
               {item.description && item.unit_price && (
                 <Text style={styles.itemTotal}>
-                  Subtotal: ₹{((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0)).toLocaleString('en-IN')}
+                  Subtotal: {formatCurrency((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0))}
                 </Text>
               )}
             </View>
@@ -301,7 +302,7 @@ export default function QuickInvoiceScreen() {
 
           <View style={styles.row2}>
             <Input
-              label="Discount (₹)"
+              label={`Discount (${getCurrencySymbol()})`}
               value={discount}
               onChangeText={setDiscount}
               keyboardType="decimal-pad"
@@ -322,25 +323,25 @@ export default function QuickInvoiceScreen() {
           <View style={styles.totalBox}>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Subtotal</Text>
-              <Text style={styles.totalValue}>₹{subtotal.toLocaleString('en-IN')}</Text>
+              <Text style={styles.totalValue}>{formatCurrency(subtotal)}</Text>
             </View>
             {discountAmt > 0 && (
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Discount</Text>
                 <Text style={[styles.totalValue, { color: colors.success }]}>
-                  -₹{discountAmt.toLocaleString('en-IN')}
+                  -{formatCurrency(discountAmt)}
                 </Text>
               </View>
             )}
             {taxAmount > 0 && (
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>GST ({taxRate}%)</Text>
-                <Text style={styles.totalValue}>+₹{taxAmount.toLocaleString('en-IN')}</Text>
+                <Text style={styles.totalValue}>+{formatCurrency(taxAmount)}</Text>
               </View>
             )}
             <View style={[styles.totalRow, styles.grandRow]}>
               <Text style={styles.grandLabel}>Total</Text>
-              <Text style={styles.grandValue}>₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
+              <Text style={styles.grandValue}>{formatCurrency(grandTotal)}</Text>
             </View>
           </View>
 
@@ -401,7 +402,7 @@ export default function QuickInvoiceScreen() {
                         <Text style={styles.treatmentMeta}>{t.status}</Text>
                       )}
                     </View>
-                    <Text style={styles.treatmentCost}>₹{Number(t.cost).toLocaleString('en-IN')}</Text>
+                    <Text style={styles.treatmentCost}>{formatCurrency(Number(t.cost))}</Text>
                   </TouchableOpacity>
                 )}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}

@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { PrismaService } from '../../database/prisma.service.js';
+import { getCurrencySymbol } from '../../common/utils/currency.util.js';
 import {
   GenerateClinicalNotesDto,
   GeneratePrescriptionDto,
@@ -58,6 +59,16 @@ export class AiService {
       apiKey: this.config.get<string>('OPENAI_API_KEY'),
     });
     this.model = this.config.get<string>('OPENAI_MODEL') || 'gpt-4o-mini';
+  }
+
+  // ─── Helper: get clinic currency symbol ────────────────────────
+  private async getClinicCurrencySymbol(clinicId: string): Promise<string> {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      select: { currency_code: true } as any,
+    }) as { currency_code?: string } | null;
+    return getCurrencySymbol(clinic?.currency_code ?? 'INR');
   }
 
   // ─── Save AI result to database ────────────────────────────────
@@ -400,6 +411,7 @@ export class AiService {
         status: t.status,
       })),
       treatment_catalog: treatmentCatalog,
+      currency_symbol: await this.getClinicCurrencySymbol(clinicId),
     });
 
     this.logger.log(`Generating treatment plan for patient ${dto.patient_id}`);
@@ -524,6 +536,7 @@ export class AiService {
       })),
       inventory_alerts: inventoryAlerts,
       date_range: `${dto.start_date} to ${dto.end_date}`,
+      currency_symbol: await this.getClinicCurrencySymbol(clinicId),
     });
 
     this.logger.log(`Generating revenue insights for clinic ${clinicId}`);

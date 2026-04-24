@@ -18,10 +18,10 @@ export declare class ClinicalVisitController {
         past_dental_history: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
-        review_after_date: Date | null;
         vital_signs: import("@prisma/client/runtime/client").JsonValue | null;
         diagnosis_summary: string | null;
         soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
+        review_after_date: Date | null;
         finalized_at: Date | null;
     }>;
     findAll(clinicId: string, query: QueryClinicalVisitDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
@@ -39,10 +39,10 @@ export declare class ClinicalVisitController {
         past_dental_history: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
-        review_after_date: Date | null;
         vital_signs: import("@prisma/client/runtime/client").JsonValue | null;
         diagnosis_summary: string | null;
         soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
+        review_after_date: Date | null;
         finalized_at: Date | null;
     }>>;
     findByPatient(clinicId: string, patientId: string): Promise<{
@@ -60,10 +60,10 @@ export declare class ClinicalVisitController {
         past_dental_history: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
-        review_after_date: Date | null;
         vital_signs: import("@prisma/client/runtime/client").JsonValue | null;
         diagnosis_summary: string | null;
         soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
+        review_after_date: Date | null;
         finalized_at: Date | null;
     }[]>;
     findOne(clinicId: string, id: string): Promise<{
@@ -76,9 +76,9 @@ export declare class ClinicalVisitController {
             branch_id: string;
             procedure: string;
             tooth_number: string | null;
-            cost: import("@prisma/client-runtime-utils").Decimal;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
+            cost: import("@prisma/client-runtime-utils").Decimal;
             dentist_id: string;
             clinical_visit_id: string | null;
             treatment_plan_id: string | null;
@@ -103,8 +103,8 @@ export declare class ClinicalVisitController {
             updated_at: Date;
             clinic_id: string;
             branch_id: string;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
             clinical_visit_id: string | null;
             condition: string;
             severity: string | null;
@@ -135,8 +135,8 @@ export declare class ClinicalVisitController {
             clinic_id: string;
             branch_id: string;
             title: string;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
             dentist_id: string;
             clinical_visit_id: string | null;
             total_estimated_cost: import("@prisma/client-runtime-utils").Decimal;
@@ -211,8 +211,8 @@ export declare class ClinicalVisitController {
             clinic_id: string;
             branch_id: string;
             appointment_date: Date;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
             dentist_id: string;
             start_time: string;
             end_time: string;
@@ -233,10 +233,10 @@ export declare class ClinicalVisitController {
         past_dental_history: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
-        review_after_date: Date | null;
         vital_signs: import("@prisma/client/runtime/client").JsonValue | null;
         diagnosis_summary: string | null;
         soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
+        review_after_date: Date | null;
         finalized_at: Date | null;
     }>;
     update(clinicId: string, id: string, dto: UpdateClinicalVisitDto): Promise<{
@@ -254,10 +254,10 @@ export declare class ClinicalVisitController {
         past_dental_history: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
-        review_after_date: Date | null;
         vital_signs: import("@prisma/client/runtime/client").JsonValue | null;
         diagnosis_summary: string | null;
         soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
+        review_after_date: Date | null;
         finalized_at: Date | null;
     }>;
     finalize(clinicId: string, id: string): Promise<{
@@ -275,10 +275,10 @@ export declare class ClinicalVisitController {
         past_dental_history: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
-        review_after_date: Date | null;
         vital_signs: import("@prisma/client/runtime/client").JsonValue | null;
         diagnosis_summary: string | null;
         soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
+        review_after_date: Date | null;
         finalized_at: Date | null;
     }>;
     cancel(clinicId: string, id: string): Promise<{
@@ -296,10 +296,10 @@ export declare class ClinicalVisitController {
         past_dental_history: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
-        review_after_date: Date | null;
         vital_signs: import("@prisma/client/runtime/client").JsonValue | null;
         diagnosis_summary: string | null;
         soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
+        review_after_date: Date | null;
         finalized_at: Date | null;
     }>;
     createPlan(clinicId: string, dto: CreateTreatmentPlanDto): Promise<{
@@ -310,8 +310,8 @@ export declare class ClinicalVisitController {
         clinic_id: string;
         branch_id: string;
         title: string;
-        patient_id: string;
         notes: string | null;
+        patient_id: string;
         dentist_id: string;
         clinical_visit_id: string | null;
         total_estimated_cost: import("@prisma/client-runtime-utils").Decimal;
@@ -356,8 +356,8 @@ export declare class ClinicalVisitController {
         clinic_id: string;
         branch_id: string;
         title: string;
-        patient_id: string;
         notes: string | null;
+        patient_id: string;
         dentist_id: string;
         clinical_visit_id: string | null;
         total_estimated_cost: import("@prisma/client-runtime-utils").Decimal;
@@ -374,9 +374,9 @@ export declare class ClinicalVisitController {
             branch_id: string;
             procedure: string;
             tooth_number: string | null;
-            cost: import("@prisma/client-runtime-utils").Decimal;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
+            cost: import("@prisma/client-runtime-utils").Decimal;
             dentist_id: string;
             clinical_visit_id: string | null;
             treatment_plan_id: string | null;
@@ -471,10 +471,10 @@ export declare class ClinicalVisitController {
             past_dental_history: string | null;
             medical_history_notes: string | null;
             examination_notes: string | null;
-            review_after_date: Date | null;
             vital_signs: import("@prisma/client/runtime/client").JsonValue | null;
             diagnosis_summary: string | null;
             soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
+            review_after_date: Date | null;
             finalized_at: Date | null;
         } | null;
     } & {
@@ -485,8 +485,8 @@ export declare class ClinicalVisitController {
         clinic_id: string;
         branch_id: string;
         title: string;
-        patient_id: string;
         notes: string | null;
+        patient_id: string;
         dentist_id: string;
         clinical_visit_id: string | null;
         total_estimated_cost: import("@prisma/client-runtime-utils").Decimal;
@@ -501,8 +501,8 @@ export declare class ClinicalVisitController {
         clinic_id: string;
         branch_id: string;
         title: string;
-        patient_id: string;
         notes: string | null;
+        patient_id: string;
         dentist_id: string;
         clinical_visit_id: string | null;
         total_estimated_cost: import("@prisma/client-runtime-utils").Decimal;
@@ -519,9 +519,9 @@ export declare class ClinicalVisitController {
             branch_id: string;
             procedure: string;
             tooth_number: string | null;
-            cost: import("@prisma/client-runtime-utils").Decimal;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
+            cost: import("@prisma/client-runtime-utils").Decimal;
             dentist_id: string;
             clinical_visit_id: string | null;
             treatment_plan_id: string | null;
@@ -549,8 +549,8 @@ export declare class ClinicalVisitController {
         clinic_id: string;
         branch_id: string;
         title: string;
-        patient_id: string;
         notes: string | null;
+        patient_id: string;
         dentist_id: string;
         clinical_visit_id: string | null;
         total_estimated_cost: import("@prisma/client-runtime-utils").Decimal;

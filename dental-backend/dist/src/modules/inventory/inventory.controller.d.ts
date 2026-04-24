@@ -11,8 +11,8 @@ export declare class InventoryController {
         clinic_id: string;
         branch_id: string;
         category: string | null;
-        location: string | null;
         notes: string | null;
+        location: string | null;
         quantity: number;
         unit: string;
         reorder_level: number;
@@ -26,11 +26,11 @@ export declare class InventoryController {
         cost_price: import("@prisma/client-runtime-utils").Decimal | null;
         selling_price: import("@prisma/client-runtime-utils").Decimal | null;
         markup_percent: import("@prisma/client-runtime-utils").Decimal | null;
-        expiry_date: Date | null;
-        batch_number: string | null;
         price_per_unit: import("@prisma/client-runtime-utils").Decimal | null;
         price_per_box: import("@prisma/client-runtime-utils").Decimal | null;
         units_per_box: number | null;
+        expiry_date: Date | null;
+        batch_number: string | null;
     }>;
     findAll(clinicId: string, query: QueryInventoryItemDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         id: string;
@@ -40,8 +40,8 @@ export declare class InventoryController {
         clinic_id: string;
         branch_id: string;
         category: string | null;
-        location: string | null;
         notes: string | null;
+        location: string | null;
         quantity: number;
         unit: string;
         reorder_level: number;
@@ -55,11 +55,11 @@ export declare class InventoryController {
         cost_price: import("@prisma/client-runtime-utils").Decimal | null;
         selling_price: import("@prisma/client-runtime-utils").Decimal | null;
         markup_percent: import("@prisma/client-runtime-utils").Decimal | null;
-        expiry_date: Date | null;
-        batch_number: string | null;
         price_per_unit: import("@prisma/client-runtime-utils").Decimal | null;
         price_per_box: import("@prisma/client-runtime-utils").Decimal | null;
         units_per_box: number | null;
+        expiry_date: Date | null;
+        batch_number: string | null;
     }>>;
     findOne(clinicId: string, id: string): Promise<{
         id: string;
@@ -69,8 +69,8 @@ export declare class InventoryController {
         clinic_id: string;
         branch_id: string;
         category: string | null;
-        location: string | null;
         notes: string | null;
+        location: string | null;
         quantity: number;
         unit: string;
         reorder_level: number;
@@ -84,11 +84,11 @@ export declare class InventoryController {
         cost_price: import("@prisma/client-runtime-utils").Decimal | null;
         selling_price: import("@prisma/client-runtime-utils").Decimal | null;
         markup_percent: import("@prisma/client-runtime-utils").Decimal | null;
-        expiry_date: Date | null;
-        batch_number: string | null;
         price_per_unit: import("@prisma/client-runtime-utils").Decimal | null;
         price_per_box: import("@prisma/client-runtime-utils").Decimal | null;
         units_per_box: number | null;
+        expiry_date: Date | null;
+        batch_number: string | null;
     }>;
     update(clinicId: string, id: string, dto: UpdateInventoryItemDto): Promise<{
         id: string;
@@ -98,8 +98,8 @@ export declare class InventoryController {
         clinic_id: string;
         branch_id: string;
         category: string | null;
-        location: string | null;
         notes: string | null;
+        location: string | null;
         quantity: number;
         unit: string;
         reorder_level: number;
@@ -113,11 +113,11 @@ export declare class InventoryController {
         cost_price: import("@prisma/client-runtime-utils").Decimal | null;
         selling_price: import("@prisma/client-runtime-utils").Decimal | null;
         markup_percent: import("@prisma/client-runtime-utils").Decimal | null;
-        expiry_date: Date | null;
-        batch_number: string | null;
         price_per_unit: import("@prisma/client-runtime-utils").Decimal | null;
         price_per_box: import("@prisma/client-runtime-utils").Decimal | null;
         units_per_box: number | null;
+        expiry_date: Date | null;
+        batch_number: string | null;
     }>;
     bulkImport(clinicId: string, body: {
         items: CreateInventoryItemDto[];

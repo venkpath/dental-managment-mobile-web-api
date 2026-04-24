@@ -17,6 +17,7 @@ import type { RootStackParamList } from '../../types';
 import { dashboardService } from '../../services/dashboard.service';
 import { appointmentService } from '../../services/appointment.service';
 import { useAuthStore } from '../../store/auth.store';
+import { formatCurrency, getLocale } from '../../utils/format';
 import Badge from '../../components/Badge';
 import { colors, spacing, typography, radius, shadow } from '../../theme';
 import type { DashboardSummary, Appointment } from '../../types';
@@ -44,7 +45,6 @@ const STAT_CARDS: Array<{
     label: "Today's Revenue",
     icon: 'wallet',
     gradientColors: ['#059669', '#34d399', '#6ee7b7'],
-    prefix: '₹',
   },
   {
     key: 'pending_invoices',
@@ -98,10 +98,10 @@ export default function DashboardScreen() {
     return 'Good evening';
   };
 
-  const getStatValue = (key: string, prefix = '') => {
+  const getStatValue = (key: string) => {
     if (!summary) return '—';
     const val = summary[key as keyof DashboardSummary] ?? 0;
-    if (key === 'today_revenue') return `${prefix}${Number(val).toLocaleString('en-IN')}`;
+    if (key === 'today_revenue') return formatCurrency(Number(val));
     return String(val);
   };
 
@@ -142,7 +142,7 @@ export default function DashboardScreen() {
             <View style={styles.dateRow}>
               <Ionicons name="calendar-outline" size={13} color="rgba(255,255,255,0.7)" />
               <Text style={styles.dateChip}>
-                {new Date().toLocaleDateString('en-IN', {
+                {new Date().toLocaleDateString(getLocale(), {
                   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
                 })}
               </Text>
@@ -178,7 +178,7 @@ export default function DashboardScreen() {
                   <View style={styles.statSkeleton} />
                 ) : (
                   <Text style={styles.statValue} numberOfLines={1}>
-                    {getStatValue(card.key, card.prefix)}
+                    {getStatValue(card.key)}
                   </Text>
                 )}
                 <Text style={styles.statLabel}>{card.label}</Text>

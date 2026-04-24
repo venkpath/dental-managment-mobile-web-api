@@ -20,6 +20,7 @@ const client_1 = require("@prisma/client");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
 const invoice_pdf_service_js_1 = require("./invoice-pdf.service.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
+const currency_util_js_1 = require("../../common/utils/currency.util.js");
 const INVOICE_INCLUDE = {
     items: { include: { treatment: { include: { dentist: true } } } },
     payments: { include: { installment_item: true }, orderBy: { paid_at: 'asc' } },
@@ -307,6 +308,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                 method: p.method,
                 paid_at: p.paid_at,
             })),
+            currency_code: invoice.clinic.currency_code ?? 'INR',
         };
         const pdfBuffer = await this.invoicePdfService.generate(pdfData);
         await this.s3Service.upload(s3Key, pdfBuffer, 'application/pdf');
@@ -323,7 +325,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
             }),
             this.prisma.clinic.findUnique({
                 where: { id: clinicId },
-                select: { name: true, phone: true },
+                select: { name: true, phone: true, currency_code: true },
             }),
             this.automationService.getRuleConfig(clinicId, 'invoice_ready'),
         ]);
@@ -332,8 +334,10 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         if (rule && !rule.is_enabled) {
             return { message: 'Invoice WhatsApp notification is disabled' };
         }
+        const currencyCode = clinic?.currency_code ?? 'INR';
         const patientName = `${patient.first_name} ${patient.last_name}`;
-        const netAmount = Number(invoice.net_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+        const netAmount = Number(invoice.net_amount).toLocaleString((0, currency_util_js_1.getCurrencyLocale)(currencyCode), { minimumFractionDigits: 2 });
+        const netAmountFormatted = `${(0, currency_util_js_1.getCurrencySymbol)(currencyCode)} ${netAmount}`;
         const clinicName = clinic?.name ?? 'your clinic';
         const clinicPhone = clinic?.phone ?? '';
         const apiBase = process.env['API_BASE_URL'] ?? 'http://localhost:3000/api/v1';
@@ -346,12 +350,12 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
             template_id: rule?.template_id ?? undefined,
             body: rule?.template_id
                 ? undefined
-                : `Hello ${patientName},\n\nYour payment receipt has been generated.\n\nClinic: ${clinicName}\nInvoice No: ${invoice.invoice_number}\nAmount: ₹ ${netAmount}\n\nView & Download Invoice:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
+                : `Hello ${patientName},\n\nYour payment receipt has been generated.\n\nClinic: ${clinicName}\nInvoice No: ${invoice.invoice_number}\nAmount: ${netAmountFormatted}\n\nView & Download Invoice:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
             variables: {
                 '1': patientName,
                 '2': clinicName,
                 '3': invoice.invoice_number,
-                '4': netAmount,
+                '4': netAmountFormatted,
                 '5': clinicPhone,
                 '6': redirectUrl,
             },
@@ -380,7 +384,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
     async sendPaymentConfirmation(clinicId, patientId, invoiceNumber, amount, invoiceId) {
         const [patient, clinic, rule] = await Promise.all([
             this.prisma.patient.findUnique({ where: { id: patientId }, select: { first_name: true, last_name: true } }),
-            this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true, phone: true } }),
+            this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true, phone: true, currency_code: true } }),
             this.automationService.getRuleConfig(clinicId, 'payment_confirmation'),
         ]);
         if (!patient)
@@ -409,7 +413,8 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         catch { }
         const apiBase = process.env['API_BASE_URL'] ?? 'http://localhost:3000/api/v1';
         const receiptUrl = `${apiBase}/public/invoice-redirect/${invoiceId}?clinic=${clinicId}`;
-        const formattedAmount = `Rs.${amount.toLocaleString('en-IN')}`;
+        const currCode = clinic?.currency_code ?? 'INR';
+        const formattedAmount = `${(0, currency_util_js_1.getCurrencySymbol)(currCode)}${amount.toLocaleString((0, currency_util_js_1.getCurrencyLocale)(currCode))}`;
         const clinicName = clinic?.name || 'Your Dental Clinic';
         const clinicPhone = clinic?.phone || '';
         await this.communicationService.sendMessage(clinicId, {
