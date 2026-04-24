@@ -72,6 +72,9 @@ export declare class AuthService {
             branch_id: string | null;
         };
     }>;
+    private sendOnboardingWelcomeEmail;
+    private sendOnboardingAdminAlertEmail;
+    private ensurePlatformEmailConfigured;
     sendVerificationEmail(userId: string, clinicId: string): Promise<{
         message: string;
     }>;
