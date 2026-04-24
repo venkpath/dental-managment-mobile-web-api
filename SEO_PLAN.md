@@ -69,15 +69,68 @@ Replaced the 8-city plan with data-driven content based on actual competitor gap
 
 ### Day 5–7 — Prasanth's ops work (runs in parallel)
 
-- [ ] **P0** Submit updated sitemap in Google Search Console after deploy
-- [ ] **P0** Bing Webmaster Tools — verify + submit sitemap (10 min)
-- [ ] **P1** Submit to 10 directories: G2, Capterra, SoftwareSuggest, SaaSHub, Goodfirms, IndianYellowPages, Sulekha, JustDial, Clutch, BetaList (3-4 hrs one sitting)
+- [x] **P0** Submit updated sitemap in Google Search Console — ✅ 2026-04-19 (20 URLs discovered)
+- [x] **P0** Bing Webmaster Tools — verify + submit sitemap — ✅ 2026-04-19 (20 URLs processed)
+- [x] **P0** Request indexing in GSC for 5 new URLs (Chennai + 4 blogs) — ✅ 2026-04-19
+- [x] **P0** Request indexing in Bing for 6 priority URLs — ✅ 2026-04-19
+- [ ] **P1** Submit to 10 directories (3-4 hrs one sitting):
+  - [x] Capterra — submitted 2026-04-18, in review
+  - [x] SoftwareSuggest — LIVE 2026-04-20 → https://www.softwaresuggest.com/smart-dental-desk
+  - [x] Goodfirms — submitted 2026-04-19
+  - [x] SaaSHub — submitted 2026-04-19
+  - [x] IndianYellowPages — submitted 2026-04-19
+  - [x] Techjockey — submitted 2026-04-19
+  - [ ] BetaList (needs pitch paragraph from Claude)
+  - [ ] JustDial (phone-heavy, plan for calls)
+  - [ ] Sulekha (phone-heavy)
+  - [ ] ~~G2~~ — **deferred to Month 3** when 2-3 pilots committed (ICP doesn't browse G2 anyway)
+  - [ ] ~~Clutch~~ — **skip indefinitely** (agency-focused, not SaaS)
 - [ ] **P1** HARO (Connectively) + Qwoted signup; respond 2×/week to dental/SMB queries
 - [ ] **P2** Review [06_backlink_outreach_list.csv](dental-frontend/src/seo-audit/_analysis/06_backlink_outreach_list.csv), pick top 30 DA domains → Claude drafts outreach email template
 
 ### Day 7 — Decision point (2026-04-25)
 
 **Recommendation: cancel Ubersuggest.** CSVs now contain 6 months of content direction. GSC + Bing Webmaster cover tracking. Re-subscribe for one month if rankings stall around month 4.
+
+---
+
+## Small backlinks tracker (Tier 1 — social/profile backlinks)
+
+- [x] **Crunchbase** (DA 91) — submitted 2026-04-19 ✅
+- [ ] **LinkedIn Company Page** (DA 100) — waiting 1-2 days for account activation
+- [ ] **Wellfound / AngelList** (DA 87)
+- [ ] **Facebook Business Page** (DA 100)
+- [x] **X (Twitter) profile** (DA 100) — @smartdentaldesk live 2026-04-19 ✅
+- [x] **Instagram Business** (DA 100) — @smartdentaldesk live 2026-04-19 ✅
+
+## Small backlinks tracker (Tier 2 — next weekend)
+
+- [ ] StartupIndia (DA 70)
+- [ ] Udyam MSME registration (DA 80)
+- [ ] IndieHackers founder profile (DA 69)
+- [ ] Product Hunt Maker profile (DA 90)
+- [ ] Alternative.to (DA 75)
+
+## Live task state (updated 2026-04-19)
+
+### Claude — pending work (what I owe you)
+- [ ] **Feature bullet list** (8-10 bullets) reusable for G2, BetaList, IndianYellowPages
+- [ ] **BetaList pitch paragraph** (2-3 sentences)
+- [ ] **50/150-word descriptions for G2 + Capterra format** (different from Goodfirms)
+- [ ] **Outreach email template** — blocked: waiting for Prasanth's top-30 domain shortlist from `06_backlink_outreach_list.csv`
+- [ ] **Add ERP4Dentist as 9th competitor** to `/blog/best-dental-practice-management-software-india-2026` — blocked: waiting for Prasanth's go-ahead
+- [ ] **Navbar `rel="nofollow"` on /login and /register** (~2 min edit, silences 2 cosmetic Bing errors, low priority)
+- [ ] **Weekly blog content** (Phase 5, starts once directory grind is done)
+- [ ] **Next city pages** — Bengaluru, Hyderabad, Mumbai (Phase 5, after Chennai shows GSC traction in 4-6 weeks)
+
+### Prasanth — pending work (what's on your plate)
+- [ ] **Set up work email** `prasanth@smartdentaldesk.com` (blocks G2)
+- [ ] **Line up 2-3 pilot dentist clinics** (ask sister's dentist network) — needed for G2 review + case studies
+- [ ] **Review `_analysis/06_backlink_outreach_list.csv`** → send Claude top-30 DA domains for outreach template
+- [ ] **Decide**: add ERP4Dentist as 9th competitor to comparison blog? yes/no
+- [ ] **Submit IndianYellowPages** (tonight, 10 min, copy ready)
+- [ ] **HARO + Qwoted signup** (15 min one-time)
+- [ ] **Ubersuggest cancel/extend decision** on 2026-04-25
 
 ---
 

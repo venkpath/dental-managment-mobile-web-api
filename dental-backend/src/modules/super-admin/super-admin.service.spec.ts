@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SuperAdminService } from './super-admin.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { PasswordService } from '../../common/services/password.service.js';
+import { EmailProvider } from '../communication/providers/email.provider.js';
 
 const mockSuperAdmin = {
   id: '123e4567-e89b-12d3-a456-426614174000',
@@ -25,6 +27,16 @@ const mockPasswordService = {
   hash: jest.fn().mockResolvedValue('$2b$12$hashedpassword'),
 };
 
+const mockEmailProvider = {
+  isConfigured: jest.fn().mockReturnValue(true),
+  configure: jest.fn(),
+  send: jest.fn().mockResolvedValue({ success: true }),
+};
+
+const mockConfigService = {
+  get: jest.fn((_key: string, defaultValue?: unknown) => defaultValue),
+};
+
 describe('SuperAdminService', () => {
   let service: SuperAdminService;
 
@@ -34,6 +46,8 @@ describe('SuperAdminService', () => {
         SuperAdminService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: PasswordService, useValue: mockPasswordService },
+        { provide: EmailProvider, useValue: mockEmailProvider },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 

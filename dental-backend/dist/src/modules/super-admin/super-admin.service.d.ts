@@ -1,11 +1,19 @@
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service.js';
 import { PasswordService } from '../../common/services/password.service.js';
+import { EmailProvider } from '../communication/providers/email.provider.js';
 import { CreateSuperAdminDto } from './dto/index.js';
 import { SuperAdmin } from '@prisma/client';
 export declare class SuperAdminService {
     private readonly prisma;
     private readonly passwordService;
-    constructor(prisma: PrismaService, passwordService: PasswordService);
+    private readonly emailProvider;
+    private readonly config;
+    private readonly logger;
+    private readonly adminEmail;
+    private readonly frontendUrl;
+    constructor(prisma: PrismaService, passwordService: PasswordService, emailProvider: EmailProvider, config: ConfigService);
+    private ensureEmailConfigured;
     create(dto: CreateSuperAdminDto): Promise<Omit<SuperAdmin, 'password_hash'>>;
     findByEmail(email: string): Promise<SuperAdmin | null>;
     findOne(id: string): Promise<Omit<SuperAdmin, 'password_hash'>>;
@@ -245,6 +253,8 @@ export declare class SuperAdminService {
             role: string;
         };
     }>;
+    private sendOnboardingWelcomeEmail;
+    private sendOnboardingAdminAlertEmail;
     deleteClinic(id: string): Promise<{
         deleted: boolean;
         clinic_name: string;

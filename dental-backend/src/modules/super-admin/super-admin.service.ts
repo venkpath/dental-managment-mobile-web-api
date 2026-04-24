@@ -1,15 +1,51 @@
-import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service.js';
 import { PasswordService } from '../../common/services/password.service.js';
+import { EmailProvider } from '../communication/providers/email.provider.js';
 import { CreateSuperAdminDto } from './dto/index.js';
 import { SuperAdmin } from '@prisma/client';
 
+/** Synthetic clinic ID used to configure the platform-level SMTP transporter */
+const PLATFORM_CLINIC_ID = '__platform__';
+
 @Injectable()
 export class SuperAdminService {
+  private readonly logger = new Logger(SuperAdminService.name);
+  private readonly adminEmail: string;
+  private readonly frontendUrl: string;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly passwordService: PasswordService,
-  ) {}
+    private readonly emailProvider: EmailProvider,
+    private readonly config: ConfigService,
+  ) {
+    this.adminEmail = this.config.get<string>('app.adminEmail', 'prasanthshanmugam10@gmail.com');
+    this.frontendUrl = this.config.get<string>('app.frontendUrl', 'http://localhost:3001');
+  }
+
+  /** Ensure platform SMTP transporter is configured (same pattern as demo-request.service.ts) */
+  private ensureEmailConfigured(): boolean {
+    if (this.emailProvider.isConfigured(PLATFORM_CLINIC_ID)) return true;
+
+    const host = this.config.get<string>('app.smtp.host');
+    const user = this.config.get<string>('app.smtp.user');
+    if (host && user) {
+      this.emailProvider.configure(PLATFORM_CLINIC_ID, {
+        host,
+        port: this.config.get<number>('app.smtp.port') || 587,
+        user,
+        pass: this.config.get<string>('app.smtp.pass') || '',
+        from: this.config.get<string>('app.smtp.from') || user,
+        secure: this.config.get<boolean>('app.smtp.secure') || false,
+      }, 'smtp-env');
+      return true;
+    }
+
+    this.logger.warn('SMTP not configured — onboarding emails will be skipped');
+    return false;
+  }
 
   async create(dto: CreateSuperAdminDto): Promise<Omit<SuperAdmin, 'password_hash'>> {
     const existing = await this.prisma.superAdmin.findUnique({ where: { email: dto.email } });
@@ -172,7 +208,7 @@ export class SuperAdminService {
 
     const passwordHash = await this.passwordService.hash(dto.admin_password);
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const clinic = await tx.clinic.create({
         data: {
           name: dto.clinic_name,
@@ -206,6 +242,153 @@ export class SuperAdminService {
 
       return { clinic, branch, admin: user };
     });
+
+    // Fire-and-forget onboarding emails (don't block the response)
+    this.sendOnboardingWelcomeEmail({
+      admin_name: result.admin.name,
+      admin_email: result.admin.email,
+      admin_password: dto.admin_password,
+      clinic_name: result.clinic.name,
+      subscription_status: result.clinic.subscription_status,
+      trial_ends_at: result.clinic.trial_ends_at,
+    }).catch((err) =>
+      this.logger.warn(`Failed to send onboarding welcome email: ${err.message}`),
+    );
+
+    this.sendOnboardingAdminAlertEmail({
+      clinic_name: result.clinic.name,
+      clinic_email: result.clinic.email,
+      clinic_phone: result.clinic.phone,
+      city: result.clinic.city,
+      state: result.clinic.state,
+      country: result.clinic.country,
+      subscription_status: result.clinic.subscription_status,
+      trial_ends_at: result.clinic.trial_ends_at,
+      admin_name: result.admin.name,
+      admin_email: result.admin.email,
+      created_at: result.clinic.created_at,
+    }).catch((err) =>
+      this.logger.warn(`Failed to send onboarding admin alert email: ${err.message}`),
+    );
+
+    return result;
+  }
+
+  // ── Email: Welcome email to newly onboarded clinic admin ──
+  private async sendOnboardingWelcomeEmail(data: {
+    admin_name: string;
+    admin_email: string;
+    admin_password: string;
+    clinic_name: string;
+    subscription_status: string;
+    trial_ends_at: Date | null;
+  }) {
+    if (!this.ensureEmailConfigured()) return;
+
+    const loginUrl = `${this.frontendUrl}/login`;
+    const planLine = data.subscription_status === 'trial' && data.trial_ends_at
+      ? `You're on a <strong>14-day free trial</strong> that ends on <strong>${data.trial_ends_at.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.`
+      : `Your subscription is <strong>active</strong>.`;
+
+    const html = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #0ea5e9, #6366f1); padding: 32px; border-radius: 12px 12px 0 0;">
+          <h1 style="color: #fff; margin: 0; font-size: 24px;">Welcome to Smart Dental Desk</h1>
+        </div>
+        <div style="padding: 32px; background: #fff; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+          <h2 style="color: #1f2937; margin-top: 0;">Hi ${data.admin_name},</h2>
+          <p style="color: #4b5563; line-height: 1.6;">
+            Your clinic <strong>${data.clinic_name}</strong> is now set up on Smart Dental Desk. ${planLine}
+          </p>
+          <p style="color: #4b5563; line-height: 1.6;">Here are your login details:</p>
+          <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 4px 0; color: #1f2937;"><strong>Email:</strong> ${data.admin_email}</p>
+            <p style="margin: 4px 0; color: #1f2937;"><strong>Temporary password:</strong> ${data.admin_password}</p>
+          </div>
+          <p style="color: #dc2626; line-height: 1.6; font-size: 14px;">
+            For security, please sign in and change your password immediately.
+          </p>
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="${loginUrl}" style="background: #0ea5e9; color: #fff; padding: 14px 40px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">Sign In</a>
+          </div>
+          <p style="color: #4b5563; line-height: 1.6;">Getting started:</p>
+          <ul style="color: #4b5563; line-height: 1.8;">
+            <li>Add your branch details and operating hours</li>
+            <li>Invite your dentists and staff</li>
+            <li>Configure communication channels (SMS, email, WhatsApp)</li>
+            <li>Start adding patients and booking appointments</li>
+          </ul>
+          <p style="color: #4b5563; line-height: 1.6;">
+            If you have any questions, just reply to this email — we're happy to help.
+          </p>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+            Smart Dental Desk — Modern dental practice management<br/>
+            <a href="https://smartdentaldesk.com" style="color: #6366f1;">smartdentaldesk.com</a>
+          </p>
+        </div>
+      </div>`;
+
+    await this.emailProvider.send({
+      to: data.admin_email,
+      subject: `Welcome to Smart Dental Desk — ${data.clinic_name}`,
+      body: `Hi ${data.admin_name}, your clinic ${data.clinic_name} is now set up on Smart Dental Desk. Login email: ${data.admin_email}. Temporary password: ${data.admin_password}. Sign in at ${loginUrl} and change your password immediately.`,
+      html,
+      clinicId: PLATFORM_CLINIC_ID,
+    });
+    this.logger.log(`Onboarding welcome email sent to ${data.admin_email}`);
+  }
+
+  // ── Email: New clinic onboarding alert to super admin ──
+  private async sendOnboardingAdminAlertEmail(data: {
+    clinic_name: string;
+    clinic_email: string;
+    clinic_phone: string | null;
+    city: string | null;
+    state: string | null;
+    country: string | null;
+    subscription_status: string;
+    trial_ends_at: Date | null;
+    admin_name: string;
+    admin_email: string;
+    created_at: Date;
+  }) {
+    if (!this.ensureEmailConfigured()) return;
+
+    const location = [data.city, data.state, data.country].filter(Boolean).join(', ') || 'Not specified';
+    const planLabel = data.subscription_status === 'trial' && data.trial_ends_at
+      ? `Trial (ends ${data.trial_ends_at.toLocaleDateString('en-IN')})`
+      : data.subscription_status;
+
+    const html = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #059669; padding: 20px 32px; border-radius: 12px 12px 0 0;">
+          <h2 style="color: #fff; margin: 0;">New Clinic Onboarded</h2>
+        </div>
+        <div style="padding: 32px; background: #fff; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="padding: 8px 0; color: #6b7280; width: 140px;">Clinic</td><td style="padding: 8px 0; font-weight: 600;">${data.clinic_name}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Clinic Email</td><td style="padding: 8px 0;"><a href="mailto:${data.clinic_email}">${data.clinic_email}</a></td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Clinic Phone</td><td style="padding: 8px 0;">${data.clinic_phone || 'Not specified'}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Location</td><td style="padding: 8px 0;">${location}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Subscription</td><td style="padding: 8px 0;">${planLabel}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Admin</td><td style="padding: 8px 0;">${data.admin_name} &lt;${data.admin_email}&gt;</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Onboarded At</td><td style="padding: 8px 0;">${data.created_at.toLocaleString('en-IN')}</td></tr>
+          </table>
+          <div style="margin-top: 24px; text-align: center;">
+            <a href="${this.frontendUrl}/super-admin/clinics" style="background: #6366f1; color: #fff; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600;">View in Dashboard</a>
+          </div>
+        </div>
+      </div>`;
+
+    await this.emailProvider.send({
+      to: this.adminEmail,
+      subject: `New Clinic Onboarded: ${data.clinic_name} (${planLabel})`,
+      body: `New clinic onboarded: ${data.clinic_name} (${data.clinic_email}). Admin: ${data.admin_name} <${data.admin_email}>. Subscription: ${planLabel}. Location: ${location}.`,
+      html,
+      clinicId: PLATFORM_CLINIC_ID,
+    });
+    this.logger.log(`Onboarding admin alert email sent to ${this.adminEmail}`);
   }
 
   // ─── Delete Clinic ───

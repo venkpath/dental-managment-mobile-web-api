@@ -271,3 +271,14 @@ Error responses:
   "message": "Error description"
 }
 ```
+
+
+
+curl -s -X POST "https://graph.facebook.com/v21.0/<PHONE_NUMBER_ID>/register" \
+  -H "Authorization: Bearer <WHATSAPP_ACCESS_TOKEN>" \
+  -d "messaging_product=whatsapp" \
+  -d "pin=123456"
+
+
+
+  The card type you've entered isn't supported. Try a different card.
