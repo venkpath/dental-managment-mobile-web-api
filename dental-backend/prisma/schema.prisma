@@ -837,6 +837,32 @@ model CommunicationMessage {
   @@map("communication_messages")
 }
 
+model PlatformMessage {
+  id            String    @id @default(uuid()) @db.Uuid
+  direction     String    @db.VarChar(10) // outbound | inbound
+  channel       String    @default("whatsapp") @db.VarChar(20) // whatsapp (extensible)
+  from_phone    String    @db.VarChar(50) // platform number for outbound, sender for inbound
+  to_phone      String    @db.VarChar(50) // recipient for outbound, platform number for inbound
+  contact_phone String    @db.VarChar(50) // the OTHER party's phone (for conversation grouping)
+  contact_name  String?   @db.VarChar(255) // optional display name
+  body          String    @db.Text
+  message_type  String    @default("text") @db.VarChar(30) // text | template | image | button | interactive | document | audio | location
+  status        String    @default("sent") @db.VarChar(20) // sent | delivered | read | failed
+  wa_message_id String?   @db.VarChar(255) // Meta wamid
+  template_name String?   @db.VarChar(255) // for outbound template sends
+  metadata      Json?
+  sent_at       DateTime?
+  created_at    DateTime  @default(now())
+
+  @@index([contact_phone])
+  @@index([direction])
+  @@index([status])
+  @@index([wa_message_id])
+  @@index([created_at])
+  @@index([contact_phone, created_at])
+  @@map("platform_messages")
+}
+
 model CommunicationLog {
   id                  String    @id @default(uuid()) @db.Uuid
   message_id          String    @db.Uuid

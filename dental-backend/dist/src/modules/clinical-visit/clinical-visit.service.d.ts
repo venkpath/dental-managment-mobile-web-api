@@ -175,6 +175,7 @@ export declare class ClinicalVisitService {
         past_dental_history: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
+        review_after_date: Date | null;
         vital_signs: Prisma.JsonValue | null;
         diagnosis_summary: string | null;
         soap_notes: Prisma.JsonValue | null;
@@ -292,6 +293,7 @@ export declare class ClinicalVisitService {
             past_dental_history: string | null;
             medical_history_notes: string | null;
             examination_notes: string | null;
+            review_after_date: Date | null;
             vital_signs: Prisma.JsonValue | null;
             diagnosis_summary: string | null;
             soap_notes: Prisma.JsonValue | null;

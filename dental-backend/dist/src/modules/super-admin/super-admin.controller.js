@@ -22,6 +22,7 @@ const super_admin_decorator_js_1 = require("../../common/decorators/super-admin.
 const current_super_admin_decorator_js_1 = require("../../common/decorators/current-super-admin.decorator.js");
 const super_admin_service_js_1 = require("./super-admin.service.js");
 const super_admin_auth_service_js_1 = require("./super-admin-auth.service.js");
+const super_admin_whatsapp_service_js_1 = require("./super-admin-whatsapp.service.js");
 const index_js_1 = require("./dto/index.js");
 const clinic_service_js_1 = require("../clinic/clinic.service.js");
 const index_js_2 = require("../clinic/dto/index.js");
@@ -40,13 +41,15 @@ let SuperAdminController = class SuperAdminController {
     communicationService;
     automationService;
     branchService;
-    constructor(superAdminService, superAdminAuthService, clinicService, communicationService, automationService, branchService) {
+    whatsAppService;
+    constructor(superAdminService, superAdminAuthService, clinicService, communicationService, automationService, branchService, whatsAppService) {
         this.superAdminService = superAdminService;
         this.superAdminAuthService = superAdminAuthService;
         this.clinicService = clinicService;
         this.communicationService = communicationService;
         this.automationService = automationService;
         this.branchService = branchService;
+        this.whatsAppService = whatsAppService;
     }
     async login(dto) {
         return this.superAdminAuthService.login(dto);
@@ -132,6 +135,27 @@ let SuperAdminController = class SuperAdminController {
     }
     async resetClinicAiUsage(id) {
         return this.superAdminService.resetClinicAiUsage(id);
+    }
+    getWhatsAppStatus() {
+        return this.whatsAppService.getStatus();
+    }
+    listConversations(page, limit) {
+        return this.whatsAppService.getConversations(page ? Number(page) : 1, limit ? Number(limit) : 30);
+    }
+    getConversationMessages(phone, page, limit) {
+        return this.whatsAppService.getConversationMessages(phone, page ? Number(page) : 1, limit ? Number(limit) : 50);
+    }
+    sendReply(phone, body) {
+        return this.whatsAppService.sendReply(phone, body.message);
+    }
+    sendTemplate(body) {
+        return this.whatsAppService.sendTemplate({
+            phone: body.phone,
+            templateName: body.template_name,
+            languageCode: body.language_code,
+            bodyParams: body.body_params,
+            contactName: body.contact_name,
+        });
     }
 };
 exports.SuperAdminController = SuperAdminController;
@@ -413,6 +437,59 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "resetClinicAiUsage", null);
+__decorate([
+    (0, common_1.Get)('super-admins/whatsapp/status'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get platform WhatsApp connection status (env-configured)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], SuperAdminController.prototype, "getWhatsAppStatus", null);
+__decorate([
+    (0, common_1.Get)('super-admins/whatsapp/inbox'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List platform WhatsApp conversations (grouped by contact phone)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], SuperAdminController.prototype, "listConversations", null);
+__decorate([
+    (0, common_1.Get)('super-admins/whatsapp/inbox/:phone'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get messages in a platform WhatsApp conversation thread' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('phone')),
+    __param(1, (0, common_1.Query)('page')),
+    __param(2, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", void 0)
+], SuperAdminController.prototype, "getConversationMessages", null);
+__decorate([
+    (0, common_1.Post)('super-admins/whatsapp/inbox/:phone/reply'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Send a free-form reply within 24hr session window' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Param)('phone')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], SuperAdminController.prototype, "sendReply", null);
+__decorate([
+    (0, common_1.Post)('super-admins/whatsapp/inbox/send-template'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Send a template message to start a new platform conversation' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], SuperAdminController.prototype, "sendTemplate", null);
 exports.SuperAdminController = SuperAdminController = __decorate([
     (0, swagger_1.ApiTags)('Super Admin'),
     (0, common_1.Controller)(),
@@ -421,6 +498,7 @@ exports.SuperAdminController = SuperAdminController = __decorate([
         clinic_service_js_1.ClinicService,
         communication_service_js_1.CommunicationService,
         automation_service_js_1.AutomationService,
-        branch_service_js_1.BranchService])
+        branch_service_js_1.BranchService,
+        super_admin_whatsapp_service_js_1.SuperAdminWhatsAppService])
 ], SuperAdminController);
 //# sourceMappingURL=super-admin.controller.js.map

@@ -1,5 +1,6 @@
 import { SuperAdminService } from './super-admin.service.js';
 import { SuperAdminAuthService } from './super-admin-auth.service.js';
+import { SuperAdminWhatsAppService } from './super-admin-whatsapp.service.js';
 import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto } from './dto/index.js';
 import { ClinicService } from '../clinic/clinic.service.js';
 import { UpdateSubscriptionDto } from '../clinic/dto/index.js';
@@ -18,7 +19,8 @@ export declare class SuperAdminController {
     private readonly communicationService;
     private readonly automationService;
     private readonly branchService;
-    constructor(superAdminService: SuperAdminService, superAdminAuthService: SuperAdminAuthService, clinicService: ClinicService, communicationService: CommunicationService, automationService: AutomationService, branchService: BranchService);
+    private readonly whatsAppService;
+    constructor(superAdminService: SuperAdminService, superAdminAuthService: SuperAdminAuthService, clinicService: ClinicService, communicationService: CommunicationService, automationService: AutomationService, branchService: BranchService, whatsAppService: SuperAdminWhatsAppService);
     login(dto: LoginSuperAdminDto): Promise<import("./super-admin-auth.service.js").SuperAdminLoginResponse>;
     create(dto: CreateSuperAdminDto): Promise<Omit<{
         id: string;
@@ -539,5 +541,72 @@ export declare class SuperAdminController {
         id: string;
         name: string;
         ai_usage_count: number;
+    }>;
+    getWhatsAppStatus(): {
+        connected: boolean;
+        phoneNumberId: string | null;
+        wabaId: string | null;
+    };
+    listConversations(page?: string, limit?: string): Promise<{
+        data: {
+            phone: string;
+            contact_name: string;
+            last_message: string;
+            last_at: Date;
+            last_direction: string;
+            last_status: string;
+            last_inbound_at: Date | null;
+            unread_count: number;
+        }[];
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            total_pages: number;
+        };
+    }>;
+    getConversationMessages(phone: string, page?: string, limit?: string): Promise<{
+        data: {
+            id: string;
+            status: string;
+            created_at: Date;
+            channel: string;
+            template_name: string | null;
+            body: string;
+            metadata: import("@prisma/client/runtime/client").JsonValue | null;
+            direction: string;
+            wa_message_id: string | null;
+            sent_at: Date | null;
+            from_phone: string;
+            to_phone: string;
+            contact_phone: string;
+            contact_name: string | null;
+            message_type: string;
+        }[];
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            total_pages: number;
+            normalized_phone: string;
+        };
+    }>;
+    sendReply(phone: string, body: {
+        message: string;
+    }): Promise<{
+        success: boolean;
+        message_id: string;
+        error: string | undefined;
+    }>;
+    sendTemplate(body: {
+        phone: string;
+        template_name: string;
+        language_code?: string;
+        body_params?: string[];
+        contact_name?: string;
+    }): Promise<{
+        success: boolean;
+        message_id: string;
+        error: string | undefined;
     }>;
 }

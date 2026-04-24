@@ -1689,8 +1689,82 @@ export class CommunicationService {
       }
     }
 
+    // Path 3: Platform messages (Smart Dental Desk business inbox)
+    if (processed === 0) {
+      const platformMsg = await this.prisma.platformMessage.findFirst({
+        where: { wa_message_id: providerMessageId },
+        select: { id: true, status: true },
+      });
+
+      if (platformMsg) {
+        const statusPriority: Record<string, number> = { failed: 0, sent: 1, delivered: 2, read: 3 };
+        const currentPriority = statusPriority[platformMsg.status] ?? -1;
+        const newPriority = statusPriority[internalStatus] ?? -1;
+
+        if (newPriority > currentPriority) {
+          await this.prisma.platformMessage.update({
+            where: { id: platformMsg.id },
+            data: { status: internalStatus },
+          });
+          processed++;
+        }
+      }
+    }
+
     this.logger.log(`WhatsApp webhook: ${statusType} for ${recipientId}, processed=${processed}`);
     return processed;
+  }
+
+  /**
+   * Store an inbound WhatsApp message received on the platform's business number.
+   * These messages are NOT tied to any clinic — they go into the super admin inbox.
+   */
+  private async storePlatformInboundMessage(
+    msg: Record<string, unknown>,
+    from: string,
+    msgType: string,
+    text: string,
+    waMessageId: string,
+    phoneNumberId: string,
+  ): Promise<void> {
+    // Idempotency — skip if this wamid is already stored
+    if (waMessageId) {
+      const existing = await this.prisma.platformMessage.findFirst({
+        where: { wa_message_id: waMessageId },
+        select: { id: true },
+      });
+      if (existing) return;
+    }
+
+    // Extract contact name from the webhook contacts array if available
+    const mediaData: Record<string, string | undefined> = { type: msgType, phone_number_id: phoneNumberId };
+    if (['image', 'document', 'audio', 'video'].includes(msgType)) {
+      const mediaObj = msg[msgType] as Record<string, unknown> | undefined;
+      if (mediaObj) {
+        mediaData['media_id'] = mediaObj['id'] as string;
+        mediaData['mime_type'] = mediaObj['mime_type'] as string;
+        if (mediaObj['caption']) mediaData['caption'] = mediaObj['caption'] as string;
+        if (mediaObj['filename']) mediaData['filename'] = mediaObj['filename'] as string;
+      }
+    }
+
+    await this.prisma.platformMessage.create({
+      data: {
+        direction: 'inbound',
+        channel: 'whatsapp',
+        from_phone: from,
+        to_phone: phoneNumberId,
+        contact_phone: from,
+        body: text,
+        message_type: msgType,
+        status: 'delivered',
+        wa_message_id: waMessageId || null,
+        sent_at: new Date(),
+        metadata: mediaData,
+      },
+    });
+
+    this.logger.log(`Platform inbound stored: from=${from}, type=${msgType}`);
   }
 
   /**
@@ -1730,9 +1804,17 @@ export class CommunicationService {
 
     this.logger.log(`WhatsApp incoming message from ${from} (type: ${msgType}): ${text.substring(0, 50)}`);
 
-    // The phone_number_id tells us which clinic WABA number received the message
+    // The phone_number_id tells us which WABA number received the message
     const metadata = value['metadata'] as Record<string, unknown> | undefined;
     const phoneNumberId = metadata?.['phone_number_id'] as string;
+    const platformPhoneNumberId = this.configService.get<string>('app.whatsapp.phoneNumberId');
+
+    // Platform-level routing: messages to the Smart Dental Desk business number
+    // are stored separately (not under any clinic) and visible in super admin inbox.
+    if (phoneNumberId && platformPhoneNumberId && phoneNumberId === platformPhoneNumberId) {
+      await this.storePlatformInboundMessage(msg, from, msgType, text, waMessageId, phoneNumberId);
+      return;
+    }
 
     // Find clinic by phone number ID
     let clinicId: string | null = null;

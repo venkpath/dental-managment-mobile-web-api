@@ -416,6 +416,7 @@ export declare class CommunicationService {
         processed: number;
     }>;
     private processMetaStatusUpdate;
+    private storePlatformInboundMessage;
     private processMetaIncomingMessage;
     getInboxConversations(clinicId: string, page?: number, limit?: number): Promise<{
         data: {

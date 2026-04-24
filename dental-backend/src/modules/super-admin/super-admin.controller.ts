@@ -6,6 +6,7 @@ import { SuperAdmin } from '../../common/decorators/super-admin.decorator.js';
 import { CurrentSuperAdmin } from '../../common/decorators/current-super-admin.decorator.js';
 import { SuperAdminService } from './super-admin.service.js';
 import { SuperAdminAuthService } from './super-admin-auth.service.js';
+import { SuperAdminWhatsAppService } from './super-admin-whatsapp.service.js';
 import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto } from './dto/index.js';
 import { ClinicService } from '../clinic/clinic.service.js';
 import { UpdateSubscriptionDto } from '../clinic/dto/index.js';
@@ -28,6 +29,7 @@ export class SuperAdminController {
     private readonly communicationService: CommunicationService,
     private readonly automationService: AutomationService,
     private readonly branchService: BranchService,
+    private readonly whatsAppService: SuperAdminWhatsAppService,
   ) {}
 
   // ─── Auth ───
@@ -287,5 +289,68 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Reset AI usage counter for a clinic' })
   async resetClinicAiUsage(@Param('id', ParseUUIDPipe) id: string) {
     return this.superAdminService.resetClinicAiUsage(id);
+  }
+
+  // ─── Platform WhatsApp Inbox (Smart Dental Desk business number) ───
+
+  @Get('super-admins/whatsapp/status')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Get platform WhatsApp connection status (env-configured)' })
+  getWhatsAppStatus() {
+    return this.whatsAppService.getStatus();
+  }
+
+  @Get('super-admins/whatsapp/inbox')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'List platform WhatsApp conversations (grouped by contact phone)' })
+  listConversations(@Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.whatsAppService.getConversations(
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 30,
+    );
+  }
+
+  @Get('super-admins/whatsapp/inbox/:phone')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Get messages in a platform WhatsApp conversation thread' })
+  getConversationMessages(
+    @Param('phone') phone: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.whatsAppService.getConversationMessages(
+      phone,
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 50,
+    );
+  }
+
+  @Post('super-admins/whatsapp/inbox/:phone/reply')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Send a free-form reply within 24hr session window' })
+  sendReply(@Param('phone') phone: string, @Body() body: { message: string }) {
+    return this.whatsAppService.sendReply(phone, body.message);
+  }
+
+  @Post('super-admins/whatsapp/inbox/send-template')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Send a template message to start a new platform conversation' })
+  sendTemplate(
+    @Body()
+    body: {
+      phone: string;
+      template_name: string;
+      language_code?: string;
+      body_params?: string[];
+      contact_name?: string;
+    },
+  ) {
+    return this.whatsAppService.sendTemplate({
+      phone: body.phone,
+      templateName: body.template_name,
+      languageCode: body.language_code,
+      bodyParams: body.body_params,
+      contactName: body.contact_name,
+    });
   }
 }

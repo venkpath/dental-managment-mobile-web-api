@@ -1255,8 +1255,64 @@ let CommunicationService = class CommunicationService {
                 }
             }
         }
+        if (processed === 0) {
+            const platformMsg = await this.prisma.platformMessage.findFirst({
+                where: { wa_message_id: providerMessageId },
+                select: { id: true, status: true },
+            });
+            if (platformMsg) {
+                const statusPriority = { failed: 0, sent: 1, delivered: 2, read: 3 };
+                const currentPriority = statusPriority[platformMsg.status] ?? -1;
+                const newPriority = statusPriority[internalStatus] ?? -1;
+                if (newPriority > currentPriority) {
+                    await this.prisma.platformMessage.update({
+                        where: { id: platformMsg.id },
+                        data: { status: internalStatus },
+                    });
+                    processed++;
+                }
+            }
+        }
         this.logger.log(`WhatsApp webhook: ${statusType} for ${recipientId}, processed=${processed}`);
         return processed;
+    }
+    async storePlatformInboundMessage(msg, from, msgType, text, waMessageId, phoneNumberId) {
+        if (waMessageId) {
+            const existing = await this.prisma.platformMessage.findFirst({
+                where: { wa_message_id: waMessageId },
+                select: { id: true },
+            });
+            if (existing)
+                return;
+        }
+        const mediaData = { type: msgType, phone_number_id: phoneNumberId };
+        if (['image', 'document', 'audio', 'video'].includes(msgType)) {
+            const mediaObj = msg[msgType];
+            if (mediaObj) {
+                mediaData['media_id'] = mediaObj['id'];
+                mediaData['mime_type'] = mediaObj['mime_type'];
+                if (mediaObj['caption'])
+                    mediaData['caption'] = mediaObj['caption'];
+                if (mediaObj['filename'])
+                    mediaData['filename'] = mediaObj['filename'];
+            }
+        }
+        await this.prisma.platformMessage.create({
+            data: {
+                direction: 'inbound',
+                channel: 'whatsapp',
+                from_phone: from,
+                to_phone: phoneNumberId,
+                contact_phone: from,
+                body: text,
+                message_type: msgType,
+                status: 'delivered',
+                wa_message_id: waMessageId || null,
+                sent_at: new Date(),
+                metadata: mediaData,
+            },
+        });
+        this.logger.log(`Platform inbound stored: from=${from}, type=${msgType}`);
     }
     async processMetaIncomingMessage(msg, value) {
         const from = msg['from'];
@@ -1294,6 +1350,11 @@ let CommunicationService = class CommunicationService {
         this.logger.log(`WhatsApp incoming message from ${from} (type: ${msgType}): ${text.substring(0, 50)}`);
         const metadata = value['metadata'];
         const phoneNumberId = metadata?.['phone_number_id'];
+        const platformPhoneNumberId = this.configService.get('app.whatsapp.phoneNumberId');
+        if (phoneNumberId && platformPhoneNumberId && phoneNumberId === platformPhoneNumberId) {
+            await this.storePlatformInboundMessage(msg, from, msgType, text, waMessageId, phoneNumberId);
+            return;
+        }
         let clinicId = null;
         if (phoneNumberId) {
             try {

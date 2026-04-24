@@ -18,6 +18,7 @@ export declare class ClinicalVisitController {
         past_dental_history: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
+        review_after_date: Date | null;
         vital_signs: import("@prisma/client/runtime/client").JsonValue | null;
         diagnosis_summary: string | null;
         soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
@@ -38,6 +39,7 @@ export declare class ClinicalVisitController {
         past_dental_history: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
+        review_after_date: Date | null;
         vital_signs: import("@prisma/client/runtime/client").JsonValue | null;
         diagnosis_summary: string | null;
         soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
@@ -58,6 +60,7 @@ export declare class ClinicalVisitController {
         past_dental_history: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
+        review_after_date: Date | null;
         vital_signs: import("@prisma/client/runtime/client").JsonValue | null;
         diagnosis_summary: string | null;
         soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
@@ -230,6 +233,7 @@ export declare class ClinicalVisitController {
         past_dental_history: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
+        review_after_date: Date | null;
         vital_signs: import("@prisma/client/runtime/client").JsonValue | null;
         diagnosis_summary: string | null;
         soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
@@ -250,6 +254,7 @@ export declare class ClinicalVisitController {
         past_dental_history: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
+        review_after_date: Date | null;
         vital_signs: import("@prisma/client/runtime/client").JsonValue | null;
         diagnosis_summary: string | null;
         soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
@@ -270,6 +275,7 @@ export declare class ClinicalVisitController {
         past_dental_history: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
+        review_after_date: Date | null;
         vital_signs: import("@prisma/client/runtime/client").JsonValue | null;
         diagnosis_summary: string | null;
         soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
@@ -290,6 +296,7 @@ export declare class ClinicalVisitController {
         past_dental_history: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
+        review_after_date: Date | null;
         vital_signs: import("@prisma/client/runtime/client").JsonValue | null;
         diagnosis_summary: string | null;
         soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
@@ -464,6 +471,7 @@ export declare class ClinicalVisitController {
             past_dental_history: string | null;
             medical_history_notes: string | null;
             examination_notes: string | null;
+            review_after_date: Date | null;
             vital_signs: import("@prisma/client/runtime/client").JsonValue | null;
             diagnosis_summary: string | null;
             soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
