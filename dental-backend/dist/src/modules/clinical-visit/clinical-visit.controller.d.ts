@@ -14,8 +14,8 @@ export declare class ClinicalVisitController {
         dentist_id: string;
         appointment_id: string | null;
         chief_complaint: string | null;
-        history_of_present_illness: string | null;
         past_dental_history: string | null;
+        history_of_present_illness: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
         review_after_date: Date | null;
@@ -35,8 +35,8 @@ export declare class ClinicalVisitController {
         dentist_id: string;
         appointment_id: string | null;
         chief_complaint: string | null;
-        history_of_present_illness: string | null;
         past_dental_history: string | null;
+        history_of_present_illness: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
         review_after_date: Date | null;
@@ -56,8 +56,8 @@ export declare class ClinicalVisitController {
         dentist_id: string;
         appointment_id: string | null;
         chief_complaint: string | null;
-        history_of_present_illness: string | null;
         past_dental_history: string | null;
+        history_of_present_illness: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
         review_after_date: Date | null;
@@ -182,6 +182,8 @@ export declare class ClinicalVisitController {
             role: string;
             email_verified: boolean;
             phone_verified: boolean;
+            license_number: string | null;
+            signature_url: string | null;
             branch_id: string | null;
         };
         patient: {
@@ -229,8 +231,8 @@ export declare class ClinicalVisitController {
         dentist_id: string;
         appointment_id: string | null;
         chief_complaint: string | null;
-        history_of_present_illness: string | null;
         past_dental_history: string | null;
+        history_of_present_illness: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
         review_after_date: Date | null;
@@ -250,8 +252,8 @@ export declare class ClinicalVisitController {
         dentist_id: string;
         appointment_id: string | null;
         chief_complaint: string | null;
-        history_of_present_illness: string | null;
         past_dental_history: string | null;
+        history_of_present_illness: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
         review_after_date: Date | null;
@@ -271,8 +273,8 @@ export declare class ClinicalVisitController {
         dentist_id: string;
         appointment_id: string | null;
         chief_complaint: string | null;
-        history_of_present_illness: string | null;
         past_dental_history: string | null;
+        history_of_present_illness: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
         review_after_date: Date | null;
@@ -292,8 +294,8 @@ export declare class ClinicalVisitController {
         dentist_id: string;
         appointment_id: string | null;
         chief_complaint: string | null;
-        history_of_present_illness: string | null;
         past_dental_history: string | null;
+        history_of_present_illness: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
         review_after_date: Date | null;
@@ -332,6 +334,8 @@ export declare class ClinicalVisitController {
             role: string;
             email_verified: boolean;
             phone_verified: boolean;
+            license_number: string | null;
+            signature_url: string | null;
             branch_id: string | null;
         };
         items: {
@@ -421,6 +425,8 @@ export declare class ClinicalVisitController {
             role: string;
             email_verified: boolean;
             phone_verified: boolean;
+            license_number: string | null;
+            signature_url: string | null;
             branch_id: string | null;
         };
         patient: {
@@ -467,8 +473,8 @@ export declare class ClinicalVisitController {
             dentist_id: string;
             appointment_id: string | null;
             chief_complaint: string | null;
-            history_of_present_illness: string | null;
             past_dental_history: string | null;
+            history_of_present_illness: string | null;
             medical_history_notes: string | null;
             examination_notes: string | null;
             review_after_date: Date | null;

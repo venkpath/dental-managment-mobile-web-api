@@ -3,6 +3,10 @@ export interface PrescriptionPdfData {
     created_at: Date;
     diagnosis?: string | null;
     instructions?: string | null;
+    chief_complaint?: string | null;
+    past_dental_history?: string | null;
+    allergies_medical_history?: string | null;
+    review_after_date?: string | Date | null;
     clinic: {
         name: string;
         phone?: string | null;
@@ -33,6 +37,7 @@ export interface PrescriptionPdfData {
         specialization?: string | null;
         qualification?: string | null;
         license_number?: string | null;
+        signature_image?: Buffer | null;
     };
     items: Array<{
         medicine_name: string;
@@ -44,6 +49,12 @@ export interface PrescriptionPdfData {
         evening?: number | null;
         night?: number | null;
         notes?: string | null;
+    }>;
+    treatments?: Array<{
+        procedure: string;
+        tooth_number?: string | null;
+        notes?: string | null;
+        status?: string | null;
     }>;
 }
 export declare class PrescriptionPdfService {

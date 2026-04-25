@@ -16,6 +16,8 @@ export declare class UserController {
         role: string;
         email_verified: boolean;
         phone_verified: boolean;
+        license_number: string | null;
+        signature_url: string | null;
         branch_id: string | null;
     }, "password_hash">>;
     findAll(clinicId: string, role?: string, search?: string, branchId?: string): Promise<Omit<{
@@ -31,6 +33,8 @@ export declare class UserController {
         role: string;
         email_verified: boolean;
         phone_verified: boolean;
+        license_number: string | null;
+        signature_url: string | null;
         branch_id: string | null;
     }, "password_hash">[]>;
     findOne(clinicId: string, id: string): Promise<Omit<{
@@ -46,6 +50,8 @@ export declare class UserController {
         role: string;
         email_verified: boolean;
         phone_verified: boolean;
+        license_number: string | null;
+        signature_url: string | null;
         branch_id: string | null;
     }, "password_hash">>;
     update(clinicId: string, id: string, dto: UpdateUserDto): Promise<Omit<{
@@ -61,9 +67,14 @@ export declare class UserController {
         role: string;
         email_verified: boolean;
         phone_verified: boolean;
+        license_number: string | null;
+        signature_url: string | null;
         branch_id: string | null;
     }, "password_hash">>;
     remove(clinicId: string, id: string): Promise<{
         message: string;
+    }>;
+    uploadSignature(clinicId: string, id: string, file: Express.Multer.File): Promise<{
+        signature_url: string;
     }>;
 }

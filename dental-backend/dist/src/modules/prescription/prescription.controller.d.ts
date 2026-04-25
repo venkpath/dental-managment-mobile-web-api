@@ -20,6 +20,9 @@ export declare class PrescriptionController {
         dentist_id: string;
         clinical_visit_id: string | null;
         diagnosis: string;
+        chief_complaint: string | null;
+        past_dental_history: string | null;
+        allergies_medical_history: string | null;
         instructions: string | null;
     }>>;
     create(clinicId: string, dto: CreatePrescriptionDto): Promise<{
@@ -31,6 +34,9 @@ export declare class PrescriptionController {
         dentist_id: string;
         clinical_visit_id: string | null;
         diagnosis: string;
+        chief_complaint: string | null;
+        past_dental_history: string | null;
+        allergies_medical_history: string | null;
         instructions: string | null;
     }>;
     findOne(clinicId: string, id: string): Promise<{
@@ -42,6 +48,9 @@ export declare class PrescriptionController {
         dentist_id: string;
         clinical_visit_id: string | null;
         diagnosis: string;
+        chief_complaint: string | null;
+        past_dental_history: string | null;
+        allergies_medical_history: string | null;
         instructions: string | null;
     }>;
     update(clinicId: string, id: string, dto: UpdatePrescriptionDto): Promise<{
@@ -53,6 +62,9 @@ export declare class PrescriptionController {
         dentist_id: string;
         clinical_visit_id: string | null;
         diagnosis: string;
+        chief_complaint: string | null;
+        past_dental_history: string | null;
+        allergies_medical_history: string | null;
         instructions: string | null;
     }>;
     getPdfUrl(clinicId: string, id: string): Promise<{
@@ -70,6 +82,9 @@ export declare class PrescriptionController {
         dentist_id: string;
         clinical_visit_id: string | null;
         diagnosis: string;
+        chief_complaint: string | null;
+        past_dental_history: string | null;
+        allergies_medical_history: string | null;
         instructions: string | null;
     }[]>;
 }

@@ -26,8 +26,8 @@ export declare class NotificationController {
         body: string;
         type: string;
         title: string;
-        user_id: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
+        user_id: string | null;
         is_read: boolean;
     }>>;
     unreadCount(clinicId: string, user: JwtPayload): Promise<{
@@ -43,8 +43,8 @@ export declare class NotificationController {
         body: string;
         type: string;
         title: string;
-        user_id: string | null;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
+        user_id: string | null;
         is_read: boolean;
     }>;
 }

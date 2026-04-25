@@ -47,4 +47,25 @@ export class S3Service {
     const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
     return getSignedUrl(this.client, command, { expiresIn: this.expiresIn });
   }
+
+  /** Fetch object bytes — used for embedding small images (e.g. doctor
+   *  signatures) directly into generated PDFs. Returns null on any failure
+   *  so callers can fall back gracefully. */
+  async getObject(key: string): Promise<Buffer | null> {
+    try {
+      const res = await this.client.send(
+        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      );
+      const stream = res.Body as NodeJS.ReadableStream | undefined;
+      if (!stream) return null;
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream) {
+        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : (chunk as Buffer));
+      }
+      return Buffer.concat(chunks);
+    } catch (err) {
+      this.logger.warn(`S3 getObject failed for "${key}": ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    }
+  }
 }

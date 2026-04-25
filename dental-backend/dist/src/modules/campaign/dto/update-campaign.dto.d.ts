@@ -6,4 +6,5 @@ export declare class UpdateCampaignDto {
     segment_config?: Record<string, unknown>;
     status?: string;
     scheduled_at?: string;
+    template_variables?: Record<string, string>;
 }

@@ -127,7 +127,7 @@ let ClinicalVisitService = class ClinicalVisitService {
     async update(clinicId, id, dto) {
         await this.findOne(clinicId, id);
         const { vital_signs, soap_notes, review_after_date, ...rest } = dto;
-        return this.prisma.clinicalVisit.update({
+        const updated = await this.prisma.clinicalVisit.update({
             where: { id },
             data: {
                 ...rest,
@@ -137,6 +137,22 @@ let ClinicalVisitService = class ClinicalVisitService {
             },
             include: { patient: true, dentist: true, branch: true, appointment: true },
         });
+        const prescriptionPatch = {};
+        if (dto.chief_complaint !== undefined)
+            prescriptionPatch.chief_complaint = dto.chief_complaint || null;
+        if (dto.past_dental_history !== undefined)
+            prescriptionPatch.past_dental_history = dto.past_dental_history || null;
+        if (dto.medical_history_notes !== undefined)
+            prescriptionPatch.allergies_medical_history = dto.medical_history_notes || null;
+        if (dto.diagnosis_summary !== undefined && dto.diagnosis_summary)
+            prescriptionPatch.diagnosis = dto.diagnosis_summary;
+        if (Object.keys(prescriptionPatch).length > 0) {
+            await this.prisma.prescription.updateMany({
+                where: { clinical_visit_id: id, clinic_id: clinicId },
+                data: prescriptionPatch,
+            });
+        }
+        return updated;
     }
     async finalize(clinicId, id) {
         const visit = await this.findOne(clinicId, id);

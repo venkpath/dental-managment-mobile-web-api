@@ -319,11 +319,11 @@ export declare class SuperAdminController {
             id: string;
             created_at: Date;
             clinic_id: string;
+            metadata: import("@prisma/client/runtime/client").JsonValue | null;
             entity: string;
             entity_id: string;
             action: string;
             user_id: string | null;
-            metadata: import("@prisma/client/runtime/client").JsonValue | null;
         }[];
         meta: {
             total: number;

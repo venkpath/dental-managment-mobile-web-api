@@ -10,4 +10,6 @@ export declare class CreateUserDto {
     password?: string;
     phone?: string;
     role: UserRole;
+    license_number?: string;
+    signature_url?: string;
 }

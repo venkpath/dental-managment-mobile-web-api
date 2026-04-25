@@ -16,6 +16,7 @@ exports.UserController = void 0;
 const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
+const platform_express_1 = require("@nestjs/platform-express");
 const user_service_js_1 = require("./user.service.js");
 const index_js_1 = require("./dto/index.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
@@ -39,6 +40,9 @@ let UserController = class UserController {
     }
     async remove(clinicId, id) {
         return this.userService.remove(clinicId, id);
+    }
+    async uploadSignature(clinicId, id, file) {
+        return this.userService.uploadSignature(clinicId, id, file);
     }
 };
 exports.UserController = UserController;
@@ -105,6 +109,20 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Post)(':id/signature'),
+    (0, swagger_1.ApiOperation)({ summary: 'Upload a signature image for the user (printed on prescription PDFs)' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiOkResponse)({ description: 'Signature uploaded' }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', { limits: { fileSize: 1 * 1024 * 1024 } })),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "uploadSignature", null);
 exports.UserController = UserController = __decorate([
     (0, swagger_1.ApiTags)('Users'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' }),

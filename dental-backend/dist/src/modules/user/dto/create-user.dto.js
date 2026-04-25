@@ -26,8 +26,10 @@ class CreateUserDto {
     password;
     phone;
     role;
+    license_number;
+    signature_url;
     static _OPENAPI_METADATA_FACTORY() {
-        return { branch_id: { required: false, type: () => String, format: "uuid" }, name: { required: true, type: () => String, maxLength: 255 }, email: { required: true, type: () => String, maxLength: 255, format: "email" }, password: { required: false, type: () => String, minLength: 8 }, phone: { required: false, type: () => String, maxLength: 20 }, role: { required: true, enum: require("./create-user.dto").UserRole } };
+        return { branch_id: { required: false, type: () => String, format: "uuid" }, name: { required: true, type: () => String, maxLength: 255 }, email: { required: true, type: () => String, maxLength: 255, format: "email" }, password: { required: false, type: () => String, minLength: 8 }, phone: { required: false, type: () => String, maxLength: 20 }, role: { required: true, enum: require("./create-user.dto").UserRole }, license_number: { required: false, type: () => String, maxLength: 100 }, signature_url: { required: false, type: () => String, maxLength: 500 } };
     }
 }
 exports.CreateUserDto = CreateUserDto;
@@ -68,4 +70,18 @@ __decorate([
     (0, class_validator_1.IsEnum)(UserRole),
     __metadata("design:type", String)
 ], CreateUserDto.prototype, "role", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'KDC-12345', description: 'Doctor registration / license number printed on prescription PDFs', maxLength: 100 }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(100),
+    __metadata("design:type", String)
+], CreateUserDto.prototype, "license_number", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'clinics/abc/doctor-signatures/xyz.png', description: 'S3 key of the uploaded signature image. Set via POST /users/:id/signature.', maxLength: 500 }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(500),
+    __metadata("design:type", String)
+], CreateUserDto.prototype, "signature_url", void 0);
 //# sourceMappingURL=create-user.dto.js.map

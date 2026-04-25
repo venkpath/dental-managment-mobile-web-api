@@ -15,6 +15,21 @@ export class UpdatePrescriptionDto {
   @IsString()
   instructions?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  chief_complaint?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  past_dental_history?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  allergies_medical_history?: string;
+
   @ApiPropertyOptional({ example: '550e8400-e29b-41d4-a716-446655440002', description: 'Dentist (User) UUID' })
   @IsOptional()
   @IsUUID()

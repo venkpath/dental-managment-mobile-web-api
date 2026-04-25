@@ -21,8 +21,9 @@ class CreateCampaignDto {
     segment_config;
     scheduled_at;
     button_url_suffix;
+    template_variables;
     static _OPENAPI_METADATA_FACTORY() {
-        return { name: { required: true, type: () => String }, channel: { required: true, type: () => String }, template_id: { required: false, type: () => String, format: "uuid" }, segment_type: { required: true, type: () => String }, segment_config: { required: false, type: () => Object }, scheduled_at: { required: false, type: () => String }, button_url_suffix: { required: false, type: () => String, maxLength: 2000, format: "uri" } };
+        return { name: { required: true, type: () => String }, channel: { required: true, type: () => String }, template_id: { required: false, type: () => String, format: "uuid" }, segment_type: { required: true, type: () => String }, segment_config: { required: false, type: () => Object }, scheduled_at: { required: false, type: () => String }, button_url_suffix: { required: false, type: () => String, maxLength: 2000, format: "uri" }, template_variables: { required: false, type: () => Object } };
     }
 }
 exports.CreateCampaignDto = CreateCampaignDto;
@@ -76,4 +77,14 @@ __decorate([
     (0, class_validator_1.MaxLength)(2000),
     __metadata("design:type", String)
 ], CreateCampaignDto.prototype, "button_url_suffix", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Values for custom (non-system) template variables. Same value sent to every recipient. ' +
+            'System variables like patient_name and clinic_name are auto-filled and should NOT be included here.',
+        example: { festival_name: 'Ugadi', offer_details: 'Get 20% off cleaning this week!' },
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsObject)(),
+    __metadata("design:type", Object)
+], CreateCampaignDto.prototype, "template_variables", void 0);
 //# sourceMappingURL=create-campaign.dto.js.map

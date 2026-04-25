@@ -97,10 +97,13 @@ class CreatePrescriptionDto {
     dentist_id;
     clinical_visit_id;
     diagnosis;
+    chief_complaint;
+    past_dental_history;
+    allergies_medical_history;
     instructions;
     items;
     static _OPENAPI_METADATA_FACTORY() {
-        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: true, type: () => String, format: "uuid" }, clinical_visit_id: { required: false, type: () => String, format: "uuid" }, diagnosis: { required: true, type: () => String, maxLength: 500 }, instructions: { required: false, type: () => String }, items: { required: true, type: () => [require("./create-prescription.dto").PrescriptionItemDto], minItems: 1 } };
+        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: true, type: () => String, format: "uuid" }, clinical_visit_id: { required: false, type: () => String, format: "uuid" }, diagnosis: { required: true, type: () => String, maxLength: 500 }, chief_complaint: { required: false, type: () => String }, past_dental_history: { required: false, type: () => String }, allergies_medical_history: { required: false, type: () => String }, instructions: { required: false, type: () => String }, items: { required: true, type: () => [require("./create-prescription.dto").PrescriptionItemDto], minItems: 1 } };
     }
 }
 exports.CreatePrescriptionDto = CreatePrescriptionDto;
@@ -131,6 +134,24 @@ __decorate([
     (0, class_validator_1.MaxLength)(500),
     __metadata("design:type", String)
 ], CreatePrescriptionDto.prototype, "diagnosis", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Pain in lower-right molar for 3 days' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreatePrescriptionDto.prototype, "chief_complaint", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'RCT done on tooth 36 in 2024' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreatePrescriptionDto.prototype, "past_dental_history", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Allergic to penicillin. Hypertension on medication.' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreatePrescriptionDto.prototype, "allergies_medical_history", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 'Avoid hot food for 24 hours. Follow up in 1 week.' }),
     (0, class_validator_1.IsOptional)(),

@@ -47,6 +47,23 @@ let S3Service = S3Service_1 = class S3Service {
         const command = new client_s3_1.GetObjectCommand({ Bucket: this.bucket, Key: key });
         return (0, s3_request_presigner_1.getSignedUrl)(this.client, command, { expiresIn: this.expiresIn });
     }
+    async getObject(key) {
+        try {
+            const res = await this.client.send(new client_s3_1.GetObjectCommand({ Bucket: this.bucket, Key: key }));
+            const stream = res.Body;
+            if (!stream)
+                return null;
+            const chunks = [];
+            for await (const chunk of stream) {
+                chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+            }
+            return Buffer.concat(chunks);
+        }
+        catch (err) {
+            this.logger.warn(`S3 getObject failed for "${key}": ${err instanceof Error ? err.message : String(err)}`);
+            return null;
+        }
+    }
 };
 exports.S3Service = S3Service;
 exports.S3Service = S3Service = S3Service_1 = __decorate([

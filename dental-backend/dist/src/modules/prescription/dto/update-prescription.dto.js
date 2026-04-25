@@ -18,10 +18,13 @@ const create_prescription_dto_js_1 = require("./create-prescription.dto.js");
 class UpdatePrescriptionDto {
     diagnosis;
     instructions;
+    chief_complaint;
+    past_dental_history;
+    allergies_medical_history;
     dentist_id;
     items;
     static _OPENAPI_METADATA_FACTORY() {
-        return { diagnosis: { required: false, type: () => String, maxLength: 500 }, instructions: { required: false, type: () => String }, dentist_id: { required: false, type: () => String, format: "uuid" }, items: { required: false, type: () => [require("./create-prescription.dto").PrescriptionItemDto], minItems: 1 } };
+        return { diagnosis: { required: false, type: () => String, maxLength: 500 }, instructions: { required: false, type: () => String }, chief_complaint: { required: false, type: () => String }, past_dental_history: { required: false, type: () => String }, allergies_medical_history: { required: false, type: () => String }, dentist_id: { required: false, type: () => String, format: "uuid" }, items: { required: false, type: () => [require("./create-prescription.dto").PrescriptionItemDto], minItems: 1 } };
     }
 }
 exports.UpdatePrescriptionDto = UpdatePrescriptionDto;
@@ -38,6 +41,24 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], UpdatePrescriptionDto.prototype, "instructions", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdatePrescriptionDto.prototype, "chief_complaint", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdatePrescriptionDto.prototype, "past_dental_history", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdatePrescriptionDto.prototype, "allergies_medical_history", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: '550e8400-e29b-41d4-a716-446655440002', description: 'Dentist (User) UUID' }),
     (0, class_validator_1.IsOptional)(),

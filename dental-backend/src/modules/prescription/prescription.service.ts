@@ -156,12 +156,38 @@ export class PrescriptionService {
     const branch = (prescription as any).branch;
     const patient = (prescription as any).patient;
     const dentist = (prescription as any).dentist;
+    const clinicalVisit = (prescription as any).clinical_visit;
+
+    // Fetch the doctor signature image bytes if uploaded — embedded directly
+    // into the PDF so the printed copy never depends on a live URL fetch.
+    let signatureBuffer: Buffer | null = null;
+    if (dentist?.signature_url) {
+      signatureBuffer = await this.s3Service.getObject(dentist.signature_url);
+    }
+
+    // Pull the treatments performed during the linked consultation so the
+    // prescription PDF shows a clear procedure-level summary alongside meds.
+    let visitTreatments: Array<{ procedure: string; tooth_number: string | null; notes: string | null; status: string }> = [];
+    if (prescription.clinical_visit_id) {
+      visitTreatments = await this.prisma.treatment.findMany({
+        where: {
+          clinical_visit_id: prescription.clinical_visit_id,
+          clinic_id: clinicId,
+        },
+        select: { procedure: true, tooth_number: true, notes: true, status: true },
+        orderBy: { created_at: 'asc' },
+      });
+    }
 
     const pdfBuffer = await this.pdfService.generate({
       id: prescription.id,
       created_at: prescription.created_at,
       diagnosis: prescription.diagnosis,
       instructions: prescription.instructions,
+      chief_complaint: prescription.chief_complaint,
+      past_dental_history: prescription.past_dental_history,
+      allergies_medical_history: prescription.allergies_medical_history,
+      review_after_date: clinicalVisit?.review_after_date ?? null,
       clinic: {
         name: clinic.name,
         phone: clinic.phone,
@@ -191,8 +217,10 @@ export class PrescriptionService {
         specialization: dentist?.specialization,
         qualification: dentist?.qualification,
         license_number: dentist?.license_number,
+        signature_image: signatureBuffer,
       },
       items: (prescription as any).items ?? [],
+      treatments: visitTreatments,
     });
 
     const key = `clinics/${clinicId}/prescriptions/${id}/prescription.pdf`;

@@ -36,4 +36,11 @@ export class UpdateCampaignDto {
   @IsOptional()
   @IsDateString()
   scheduled_at?: string;
+
+  @ApiPropertyOptional({
+    description: 'Values for custom (non-system) template variables. See CreateCampaignDto.',
+  })
+  @IsOptional()
+  @IsObject()
+  template_variables?: Record<string, string>;
 }

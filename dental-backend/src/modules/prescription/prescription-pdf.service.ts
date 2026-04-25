@@ -1,21 +1,27 @@
 import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 
-const TEAL = '#0d6efd';
-const TEAL_DARK = '#0a58ca';
-const WHITE = '#ffffff';
-const TEXT_DARK = '#1e293b';
-const TEXT_MID = '#475569';
-const TEXT_LIGHT = '#94a3b8';
-const BORDER = '#dee2e6';
-const BG_LIGHT = '#f8f9fa';
-const RX_COLOR = '#1a1a2e';
+// Monochrome palette — single thin accent line, the rest is black on white
+// with hairlines and a tinted patient card. Mirrors the Medicover sample.
+const ACCENT = '#0d6efd';        // single thin underline + signature line
+const TEXT_HEAD = '#0d1b2a';     // headings + key data
+const TEXT_BODY = '#1f2937';     // regular body text
+const TEXT_MUTED = '#6b7280';    // labels
+const TEXT_FAINT = '#9ca3af';    // footer text
+const HAIRLINE = '#e5e7eb';
+const CARD_BG = '#f8fafc';
+const TABLE_HEAD_BG = '#f1f5f9';
 
 export interface PrescriptionPdfData {
   id: string;
   created_at: Date;
   diagnosis?: string | null;
   instructions?: string | null;
+  chief_complaint?: string | null;
+  past_dental_history?: string | null;
+  allergies_medical_history?: string | null;
+  /** From the linked ClinicalVisit if any — printed in the Follow Up After section. */
+  review_after_date?: string | Date | null;
   clinic: {
     name: string;
     phone?: string | null;
@@ -46,6 +52,8 @@ export interface PrescriptionPdfData {
     specialization?: string | null;
     qualification?: string | null;
     license_number?: string | null;
+    /** Pre-fetched signature image bytes — printed above the doctor's name. */
+    signature_image?: Buffer | null;
   };
   items: Array<{
     medicine_name: string;
@@ -57,6 +65,13 @@ export interface PrescriptionPdfData {
     evening?: number | null;
     night?: number | null;
     notes?: string | null;
+  }>;
+  /** Treatments performed during the linked consultation. Rendered above Rx. */
+  treatments?: Array<{
+    procedure: string;
+    tooth_number?: string | null;
+    notes?: string | null;
+    status?: string | null;
   }>;
 }
 
@@ -80,50 +95,64 @@ export class PrescriptionPdfService {
 
       const W = 595; // A4 width in points
       const H = 842; // A4 height in points
-      const margin = 36;
-      const contentWidth = W - margin * 2;
+      const M = 40;  // page margin
+      const CW = W - M * 2;
 
-      /* ─── HEADER BAND ─── */
-      doc.rect(0, 0, W, 88).fill(TEAL_DARK);
+      const fmtDate = (d: Date) => d.toLocaleDateString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+      });
+      const fmtTime = (d: Date) => d.toLocaleTimeString('en-IN', {
+        hour: '2-digit', minute: '2-digit', hour12: true,
+      });
 
-      // Clinic name & speciality
-      doc.fillColor(WHITE).fontSize(18).font('Helvetica-Bold')
-        .text(data.clinic.name, margin, 18, { width: contentWidth * 0.65, lineBreak: false });
-      doc.fillColor('#cfe2ff').fontSize(9).font('Helvetica')
-        .text('Multi-speciality Dental Clinic', margin, 38);
+      // ─── HEADER ───
+      // Clinic name (bold) + tagline; thin hairline below.
+      doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(20)
+        .text(data.clinic.name, M, 36, { width: CW * 0.7, lineBreak: false });
+      doc.fillColor(TEXT_MUTED).font('Helvetica').fontSize(9)
+        .text('Multi-speciality Dental Clinic', M, 60);
 
-      // Clinic contact (top right)
-      const contactX = W - margin - 180;
-      doc.fillColor(WHITE).fontSize(8).font('Helvetica');
-      if (data.branch.phone || data.clinic.phone) {
-        doc.text(`📞 ${data.branch.phone || data.clinic.phone}`, contactX, 18, { width: 180, align: 'right' });
-      }
-      if (data.clinic.email) {
-        doc.text(`✉  ${data.clinic.email}`, contactX, 30, { width: 180, align: 'right' });
-      }
+      // Right-aligned clinic contact lines (phone / email / address)
+      const headerRX = M;
+      const headerRW = CW;
+      doc.fillColor(TEXT_BODY).fontSize(8.5).font('Helvetica');
+      const phone = data.branch.phone || data.clinic.phone || '';
+      const email = data.clinic.email || '';
       const addr = [
         data.branch.address || data.clinic.address,
         data.branch.city || data.clinic.city,
         data.branch.state || data.clinic.state,
       ].filter(Boolean).join(', ');
-      if (addr) {
-        doc.text(addr, contactX, 42, { width: 180, align: 'right' });
+
+      let rY = 36;
+      if (phone) {
+        doc.text(phone, headerRX, rY, { width: headerRW, align: 'right' });
+        rY += 12;
       }
-      if (data.clinic.gst_number) {
-        doc.fillColor('#cfe2ff').text(`GST: ${data.clinic.gst_number}`, contactX, 54, { width: 180, align: 'right' });
+      if (email) {
+        doc.text(email, headerRX, rY, { width: headerRW, align: 'right' });
+        rY += 12;
+      }
+      if (addr) {
+        doc.fillColor(TEXT_MUTED).text(addr, headerRX, rY, { width: headerRW, align: 'right' });
       }
 
-      /* ─── PATIENT INFO STRIP ─── */
-      doc.rect(0, 88, W, 2).fill(TEAL);
-      doc.rect(0, 90, W, 72).fill('#eaf4fb');
+      // Thin accent line + hairline beneath header
+      doc.rect(M, 88, CW, 1.5).fill(ACCENT);
+      doc.rect(M, 89.5, CW, 0.5).fill(HAIRLINE);
+
+      // ─── DOCUMENT TITLE ───
+      doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(13)
+        .text('PRESCRIPTION', M, 102, { width: CW, align: 'center', characterSpacing: 2 });
+
+      // ─── PATIENT INFO CARD ───
+      const cardY = 124;
+      const cardH = 76;
+      doc.rect(M, cardY, CW, cardH).fill(CARD_BG).stroke(HAIRLINE);
 
       const patientName = `${data.patient.first_name} ${data.patient.last_name}`;
-      const dateStr = new Date(data.created_at).toLocaleDateString('en-IN', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-      });
-      const timeStr = new Date(data.created_at).toLocaleTimeString('en-IN', {
-        hour: '2-digit', minute: '2-digit', hour12: true,
-      });
+      const dateStr = fmtDate(new Date(data.created_at));
+      const timeStr = fmtTime(new Date(data.created_at));
 
       // Calculate age
       let ageStr = '';
@@ -134,247 +163,322 @@ export class PrescriptionPdfService {
           (now < new Date(now.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0);
         ageStr = `${age} Years`;
       }
+      const genderStr = data.patient.gender || '';
+      const ageGender = [ageStr, genderStr].filter(Boolean).join(' / ') || '—';
 
-      // Left block: Name, MR No, Doctor
-      const pInfoY = 98;
-      const labelX = margin;
-      const valX = margin + 72;
-      doc.fillColor(TEXT_MID).fontSize(8).font('Helvetica');
-      doc.text('Name', labelX, pInfoY);
-      doc.text('MR No.', labelX, pInfoY + 13);
-      doc.text('Dr. Name', labelX, pInfoY + 26);
+      const drawKV = (label: string, value: string, x: number, y: number, labelW: number, valueW: number) => {
+        doc.fillColor(TEXT_MUTED).font('Helvetica').fontSize(8.5)
+          .text(label, x, y, { width: labelW });
+        doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(9)
+          .text(value || '—', x + labelW, y, { width: valueW, ellipsis: true, lineBreak: false });
+      };
 
-      doc.fillColor(TEXT_DARK).font('Helvetica-Bold').fontSize(8);
-      doc.text(`: ${patientName}`, valX, pInfoY, { width: 160 });
-      doc.font('Helvetica').fillColor(TEXT_DARK);
-      doc.text(`: ${data.patient.mr_number || data.id.slice(0, 8).toUpperCase()}`, valX, pInfoY + 13);
-      doc.text(`: Dr. ${data.dentist.name}`, valX, pInfoY + 26);
+      // Two columns inside card
+      const padX = 16;
+      const colW = (CW - padX * 2) / 2;
+      const labelW = 78;
+      const valueW = colW - labelW - 8;
 
-      // Right block: Age/Gender, Date/Time, Consultation No
-      const midX = W / 2 + 20;
-      const val2X = midX + 90;
-      doc.fillColor(TEXT_MID).font('Helvetica').fontSize(8);
-      doc.text('Age / Gender', midX, pInfoY);
-      doc.text('Date / Time', midX, pInfoY + 13);
-      doc.text('Consultation No.', midX, pInfoY + 26);
+      const leftX = M + padX;
+      const rightX = M + padX + colW + 8;
+      const r1 = cardY + 12;
+      const r2 = cardY + 30;
+      const r3 = cardY + 48;
 
-      doc.fillColor(TEXT_DARK).font('Helvetica');
-      const genderStr = data.patient.gender ? `/ ${data.patient.gender}` : '';
-      doc.text(`: ${ageStr}${genderStr}`, val2X, pInfoY);
-      doc.text(`: ${dateStr} ${timeStr}`, val2X, pInfoY + 13);
-      doc.text(`: ${data.id.slice(0, 12).toUpperCase()}`, val2X, pInfoY + 26);
+      drawKV('Name',         patientName, leftX, r1, labelW, valueW);
+      drawKV('MR No.',       data.patient.mr_number || data.id.slice(0, 8).toUpperCase(), leftX, r2, labelW, valueW);
+      drawKV('Doctor',       `Dr. ${data.dentist.name}`, leftX, r3, labelW, valueW);
 
-      doc.rect(0, 162, W, 1).fill(BORDER);
+      drawKV('Age / Gender', ageGender, rightX, r1, labelW, valueW);
+      drawKV('Date / Time',  `${dateStr}  ${timeStr}`, rightX, r2, labelW, valueW);
+      drawKV('Rx ID',        data.id.slice(0, 12).toUpperCase(), rightX, r3, labelW, valueW);
 
-      /* ─── BODY: two columns ─── */
-      let bodyY = 170;
-      const leftColW = contentWidth * 0.62;
-      const rightColX = margin + leftColW + 14;
-      const rightColW = contentWidth - leftColW - 14;
+      // ─── HELPERS for section heading + body text ───
+      let cursorY = cardY + cardH + 16;
 
-      /* ─── DIAGNOSIS (right column) ─── */
-      doc.fillColor(TEXT_DARK).fontSize(9).font('Helvetica-Bold')
-        .text('Diagnosis :', rightColX, bodyY);
-      bodyY += 14;
-      doc.rect(rightColX, bodyY - 2, rightColW, 0.5).fill(BORDER);
+      const sectionHeading = (label: string, y: number): number => {
+        doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(10)
+          .text(label.toUpperCase(), M, y, { characterSpacing: 1 });
+        // Thin accent underline
+        doc.rect(M, y + 14, 32, 1.2).fill(ACCENT);
+        doc.rect(M + 32, y + 14, CW - 32, 0.5).fill(HAIRLINE);
+        return y + 22;
+      };
 
-      let diagY = bodyY + 4;
-      if (data.diagnosis) {
-        const diagnoses = data.diagnosis.split(/[,;\n]+/);
-        for (const d of diagnoses) {
-          const trimmed = d.trim();
-          if (trimmed) {
-            doc.fillColor(TEXT_MID).fontSize(8).font('Helvetica')
-              .text(`• ${trimmed}`, rightColX + 4, diagY, { width: rightColW - 4 });
-            diagY += 12;
-          }
+      const labeledLine = (label: string, value: string, y: number): number => {
+        doc.fillColor(TEXT_MUTED).font('Helvetica-Bold').fontSize(8.5)
+          .text(label, M, y, { continued: false });
+        doc.fillColor(TEXT_BODY).font('Helvetica').fontSize(9);
+        const valY = y + 11;
+        const consumed = doc.heightOfString(value, { width: CW });
+        doc.text(value, M, valY, { width: CW });
+        return valY + consumed + 6;
+      };
+
+      // ─── ASSESSMENT SECTION ───
+      const hasAssessment =
+        !!(data.chief_complaint || data.diagnosis || data.past_dental_history || data.allergies_medical_history);
+      if (hasAssessment) {
+        cursorY = sectionHeading('Assessment', cursorY);
+        if (data.chief_complaint) {
+          cursorY = labeledLine('Chief Complaint', data.chief_complaint, cursorY);
         }
+        if (data.diagnosis) {
+          cursorY = labeledLine('Diagnosis', data.diagnosis, cursorY);
+        }
+        if (data.past_dental_history) {
+          cursorY = labeledLine('Past Dental History', data.past_dental_history, cursorY);
+        }
+        if (data.allergies_medical_history) {
+          cursorY = labeledLine('Allergies / Medical History', data.allergies_medical_history, cursorY);
+        }
+        cursorY += 6;
       }
 
-      /* ─── Rx SYMBOL ─── */
-      const rxY = 172;
-      doc.fillColor(RX_COLOR).fontSize(32).font('Helvetica-Bold')
-        .text('Rx', margin, rxY, { lineBreak: false });
+      // ─── TREATMENTS PERFORMED ───
+      const treatments = data.treatments || [];
+      if (treatments.length > 0) {
+        cursorY = sectionHeading('Treatments', cursorY);
 
-      /* ─── MEDICINES TABLE ─── */
-      const tableStartY = rxY + 42;
-      const colWidths = [28, 160, 52, 30, 55, 55, 62];
-      const colHeaders = ['Sr.No.', 'Medicine Name', 'Regime', 'Qty', 'Duration', 'Route', 'Remark'];
-      const tableW = colWidths.reduce((a, b) => a + b, 0);
+        const tCols = [22, 220, 70, CW - 22 - 220 - 70];
+        const tHeaders = ['#', 'Procedure', 'Tooth', 'Notes'];
+        const tableW = tCols.reduce((a, b) => a + b, 0);
 
-      // Header row
-      doc.rect(margin, tableStartY, tableW, 18).fill(TEAL_DARK);
-      let colX = margin;
-      doc.fillColor(WHITE).fontSize(7.5).font('Helvetica-Bold');
-      for (let i = 0; i < colHeaders.length; i++) {
-        doc.text(colHeaders[i], colX + 3, tableStartY + 5, {
-          width: colWidths[i] - 6,
-          align: i === 0 ? 'center' : 'left',
-        });
-        colX += colWidths[i];
+        // Header row
+        doc.rect(M, cursorY, tableW, 18).fill(TABLE_HEAD_BG);
+        let hx = M;
+        doc.fillColor(TEXT_HEAD).fontSize(8).font('Helvetica-Bold');
+        for (let i = 0; i < tHeaders.length; i++) {
+          doc.text(tHeaders[i], hx + 6, cursorY + 5, {
+            width: tCols[i] - 12,
+            align: i === 0 || i === 2 ? 'center' : 'left',
+            lineBreak: false,
+          });
+          hx += tCols[i];
+        }
+        doc.rect(M, cursorY + 18, tableW, 0.5).fill(HAIRLINE);
+        cursorY += 18;
+
+        // Data rows — height grows with notes
+        for (let idx = 0; idx < treatments.length; idx++) {
+          const t = treatments[idx];
+          const procedureLines = Math.max(1, Math.ceil((t.procedure || '').length / 32));
+          const noteLines = t.notes ? Math.max(1, Math.ceil((t.notes || '').length / 28)) : 0;
+          const rowH = Math.max(20, procedureLines * 11 + noteLines * 10 + 8);
+
+          if (idx % 2 === 1) {
+            doc.rect(M, cursorY, tableW, rowH).fill(CARD_BG);
+          }
+
+          let bx = M;
+          // # column
+          doc.fillColor(TEXT_BODY).fontSize(8.5).font('Helvetica')
+            .text(`${idx + 1}`, bx + 6, cursorY + 6, { width: tCols[0] - 12, align: 'center' });
+          bx += tCols[0];
+
+          // Procedure (bold) + status sub-line
+          doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(8.5)
+            .text(t.procedure || '—', bx + 6, cursorY + 5, { width: tCols[1] - 12 });
+          if (t.status) {
+            doc.fillColor(TEXT_MUTED).font('Helvetica').fontSize(7)
+              .text(t.status.replace(/_/g, ' '), bx + 6, cursorY + 5 + procedureLines * 11, { width: tCols[1] - 12 });
+          }
+          bx += tCols[1];
+
+          // Tooth
+          doc.fillColor(TEXT_BODY).font('Helvetica').fontSize(8.5)
+            .text(t.tooth_number || '—', bx + 6, cursorY + 6, { width: tCols[2] - 12, align: 'center' });
+          bx += tCols[2];
+
+          // Notes
+          doc.fillColor(TEXT_BODY).font('Helvetica').fontSize(8.5)
+            .text(t.notes || '—', bx + 6, cursorY + 5, { width: tCols[3] - 12 });
+
+          cursorY += rowH;
+          doc.rect(M, cursorY, tableW, 0.4).fill(HAIRLINE);
+        }
+        cursorY += 12;
       }
 
-      // Data rows
-      let rowY = tableStartY + 18;
+      // ─── Rx — MEDICINES ───
+      cursorY = sectionHeading('Rx', cursorY);
+
       const items = data.items || [];
-      for (let idx = 0; idx < items.length; idx++) {
-        const item = items[idx];
-        const rowBg = idx % 2 === 0 ? WHITE : BG_LIGHT;
+      if (items.length === 0) {
+        doc.fillColor(TEXT_MUTED).font('Helvetica-Oblique').fontSize(9)
+          .text('No medicines prescribed.', M, cursorY);
+        cursorY += 16;
+      } else {
+        const colWidths = [26, 178, 60, 36, 64, 64, 87];
+        const colHeaders = ['#', 'Medicine', 'Regime', 'Qty', 'Duration', 'Route', 'Remark'];
+        const tableW = colWidths.reduce((a, b) => a + b, 0);
 
-        // Calculate regime string (e.g. "1-0-1") and route
-        const m = item.morning ?? 0;
-        const af = item.afternoon ?? 0;
-        const ev = item.evening ?? 0;
-        const n = item.night ?? 0;
-        const hasDosePattern = m || af || ev || n;
-        const regime = hasDosePattern ? `${m}-${af}-${ev}${n ? '-' + n : ''}` : (item.frequency || '');
-        const route = 'Per Oral';
-        const remark = item.notes || 'After Food';
-
-        // Estimate row height
-        const medNameLines = Math.ceil((item.medicine_name?.length || 0) / 24);
-        const rowH = Math.max(22, medNameLines * 12 + 8);
-
-        doc.rect(margin, rowY, tableW, rowH).fill(rowBg);
-        // Column borders
-        let bx = margin;
-        for (const cw of colWidths) {
-          doc.rect(bx, tableStartY, cw, rowY - tableStartY + rowH).stroke(BORDER);
-          bx += cw;
+        // Header row
+        doc.rect(M, cursorY, tableW, 18).fill(TABLE_HEAD_BG);
+        let cx = M;
+        doc.fillColor(TEXT_HEAD).fontSize(8).font('Helvetica-Bold');
+        for (let i = 0; i < colHeaders.length; i++) {
+          doc.text(colHeaders[i], cx + 6, cursorY + 5, {
+            width: colWidths[i] - 12,
+            align: i === 0 || i === 3 ? 'center' : 'left',
+            lineBreak: false,
+          });
+          cx += colWidths[i];
         }
-        doc.rect(margin, tableStartY, tableW, rowY - tableStartY + rowH).stroke(BORDER);
+        // Hairline under header
+        doc.rect(M, cursorY + 18, tableW, 0.5).fill(HAIRLINE);
+        cursorY += 18;
 
-        colX = margin;
-        doc.fillColor(TEXT_DARK).fontSize(8).font('Helvetica');
+        // Body rows — alternate very-faint shading
+        for (let idx = 0; idx < items.length; idx++) {
+          const item = items[idx];
+          const m = item.morning ?? 0;
+          const af = item.afternoon ?? 0;
+          const ev = item.evening ?? 0;
+          const n = item.night ?? 0;
+          const hasDosePattern = m || af || ev || n;
+          const regime = hasDosePattern
+            ? `${m}-${af}-${ev}${n ? '-' + n : ''}`
+            : (item.frequency || '—');
+          const route = 'Per Oral';
+          const remark = item.notes || 'After Food';
 
-        // Sr.No
-        doc.text(`${idx + 1}`, colX + 3, rowY + 6, { width: colWidths[0] - 6, align: 'center' });
-        colX += colWidths[0];
+          // Estimate row height (medicine name may wrap)
+          const medName = item.medicine_name || '';
+          const medLines = Math.max(1, Math.ceil(medName.length / 26));
+          const baseH = item.dosage ? medLines * 11 + 14 : medLines * 11 + 6;
+          const rowH = Math.max(20, baseH);
 
-        // Medicine Name (bold) + dosage sub-text
-        doc.font('Helvetica-Bold').text(item.medicine_name, colX + 3, rowY + 4, { width: colWidths[1] - 6 });
-        if (item.dosage) {
-          doc.fillColor(TEXT_MID).font('Helvetica').fontSize(7)
-            .text(`(${item.dosage})`, colX + 3, rowY + 14, { width: colWidths[1] - 6 });
-        }
-        colX += colWidths[1];
-
-        doc.fillColor(TEXT_DARK).fontSize(8).font('Helvetica');
-        // Regime
-        doc.text(regime, colX + 3, rowY + 6, { width: colWidths[2] - 6 });
-        colX += colWidths[2];
-
-        // Qty (blank — to be filled)
-        doc.text('', colX + 3, rowY + 6, { width: colWidths[3] - 6 });
-        colX += colWidths[3];
-
-        // Duration
-        doc.text(item.duration || '', colX + 3, rowY + 6, { width: colWidths[4] - 6 });
-        colX += colWidths[4];
-
-        // Route
-        doc.text(route, colX + 3, rowY + 6, { width: colWidths[5] - 6 });
-        colX += colWidths[5];
-
-        // Remark
-        doc.text(remark, colX + 3, rowY + 6, { width: colWidths[6] - 6 });
-
-        rowY += rowH;
-      }
-
-      /* ─── INSTRUCTIONS / PLAN OF TREATMENT ─── */
-      let planY = rowY + 16;
-      if (data.instructions) {
-        doc.fillColor(TEXT_DARK).fontSize(9).font('Helvetica-Bold')
-          .text('Plan Of Treatment', margin, planY);
-        doc.rect(margin, planY + 12, contentWidth, 0.5).fill(BORDER);
-        planY += 18;
-
-        const lines = data.instructions.split('\n');
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (trimmed) {
-            doc.fillColor(TEXT_MID).fontSize(8).font('Helvetica')
-              .text(trimmed, margin + 8, planY, { width: contentWidth - 8 });
-            planY += 13;
+          if (idx % 2 === 1) {
+            doc.rect(M, cursorY, tableW, rowH).fill(CARD_BG);
           }
+
+          let bx = M;
+          doc.fillColor(TEXT_BODY).fontSize(8.5).font('Helvetica');
+
+          // # column
+          doc.text(`${idx + 1}`, bx + 6, cursorY + 6, { width: colWidths[0] - 12, align: 'center' });
+          bx += colWidths[0];
+
+          // Medicine
+          doc.font('Helvetica-Bold').fillColor(TEXT_HEAD)
+            .text(medName, bx + 6, cursorY + 5, { width: colWidths[1] - 12 });
+          if (item.dosage) {
+            doc.font('Helvetica').fontSize(7.5).fillColor(TEXT_MUTED)
+              .text(item.dosage, bx + 6, cursorY + 5 + medLines * 11, { width: colWidths[1] - 12 });
+          }
+          bx += colWidths[1];
+
+          doc.fillColor(TEXT_BODY).fontSize(8.5).font('Helvetica');
+          doc.text(regime, bx + 6, cursorY + 6, { width: colWidths[2] - 12 });
+          bx += colWidths[2];
+
+          doc.text('', bx + 6, cursorY + 6, { width: colWidths[3] - 12, align: 'center' });
+          bx += colWidths[3];
+
+          doc.text(item.duration || '—', bx + 6, cursorY + 6, { width: colWidths[4] - 12 });
+          bx += colWidths[4];
+
+          doc.text(route, bx + 6, cursorY + 6, { width: colWidths[5] - 12 });
+          bx += colWidths[5];
+
+          doc.text(remark, bx + 6, cursorY + 6, { width: colWidths[6] - 12 });
+
+          cursorY += rowH;
+          // Hairline between rows
+          doc.rect(M, cursorY, tableW, 0.4).fill(HAIRLINE);
         }
-        planY += 4;
+        cursorY += 12;
       }
 
-      /* ─── FOLLOW UP ─── */
-      planY += 10;
-      doc.fillColor(TEXT_DARK).fontSize(9).font('Helvetica-Bold')
-        .text('Follow Up After', margin, planY, { continued: true })
-        .fillColor(TEXT_MID).font('Helvetica')
-        .text(' : ___________________');
-
-      /* ─── DOCTOR SIGNATURE (bottom right) ─── */
-      const sigY = Math.max(planY + 40, H - 160);
-      const sigX = W - margin - 200;
-
-      doc.rect(sigX - 8, sigY - 8, 208, 110).fill('#f0f7ff').stroke('#cfe2ff');
-      doc.fillColor(TEXT_DARK).fontSize(10).font('Helvetica-Bold')
-        .text(`Dr. ${data.dentist.name}`, sigX, sigY, { width: 200, align: 'center' });
-      if (data.dentist.specialization) {
-        doc.fillColor(TEAL).fontSize(8.5).font('Helvetica')
-          .text(data.dentist.specialization, sigX, sigY + 15, { width: 200, align: 'center' });
+      // ─── INSTRUCTIONS ───
+      if (data.instructions) {
+        cursorY = sectionHeading('General Instructions', cursorY);
+        doc.fillColor(TEXT_BODY).font('Helvetica').fontSize(9);
+        const lines = data.instructions.split('\n').filter((l) => l.trim());
+        for (const line of lines) {
+          doc.text(`• ${line.trim()}`, M + 4, cursorY, { width: CW - 4 });
+          cursorY = doc.y + 2;
+        }
+        cursorY += 6;
       }
-      if (data.dentist.qualification) {
-        doc.fillColor(TEXT_MID).fontSize(8).font('Helvetica')
-          .text(data.dentist.qualification, sigX, sigY + 27, { width: 200, align: 'center' });
+
+      // ─── FOLLOW UP ───
+      cursorY += 4;
+      doc.fillColor(TEXT_MUTED).font('Helvetica-Bold').fontSize(8.5)
+        .text('FOLLOW UP ON', M, cursorY, { characterSpacing: 1 });
+      const followUpValue = data.review_after_date
+        ? ` : ${fmtDate(new Date(data.review_after_date))}`
+        : ' : ___________________';
+      doc.fillColor(TEXT_BODY).font('Helvetica').fontSize(9)
+        .text(followUpValue, M + 110, cursorY);
+
+      // ─── DOCTOR SIGNATURE BLOCK (right side) ───
+      // Layout (top → bottom):
+      //   1. Signature image (if uploaded) — above the line
+      //   2. Thin accent baseline                     ← signature rests on this
+      //   3. Dr. {name}     (bold)
+      //   4. Reg No. {license_number}                 ← below the name
+      //   5. Qualification · Specialization           (smaller, optional)
+      const sigBoxW = 200;
+      const sigBoxH = 28; // image area above the baseline
+      const sigBlockY = Math.min(Math.max(cursorY + 60, H - 200), H - 160);
+      const sigX = W - M - sigBoxW;
+      const baselineY = sigBlockY + sigBoxH;
+
+      // Signature image — draw above the baseline, centered, capped to box
+      if (data.dentist.signature_image) {
+        try {
+          doc.image(data.dentist.signature_image, sigX, sigBlockY, {
+            fit: [sigBoxW, sigBoxH],
+            align: 'center',
+            valign: 'bottom',
+          });
+        } catch {
+          // Bad image format — skip silently rather than failing the whole PDF
+        }
       }
+
+      // Baseline (thin accent line, always drawn so the block reads as a signature area)
+      doc.rect(sigX, baselineY, sigBoxW, 0.5).fill(ACCENT);
+
+      // Doctor name
+      doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(10)
+        .text(`Dr. ${data.dentist.name}`, sigX, baselineY + 6, { width: sigBoxW, align: 'center' });
+
+      // Reg No. (printed BELOW the name, per requested layout)
+      let metaY = baselineY + 20;
       if (data.dentist.license_number) {
-        doc.fillColor(TEXT_MID).fontSize(8)
-          .text(`Reg No. : ${data.dentist.license_number}`, sigX, sigY + 39, { width: 200, align: 'center' });
-      }
-      doc.moveTo(sigX, sigY + 56).lineTo(sigX + 200, sigY + 56).stroke('#cfe2ff');
-      doc.fillColor(TEXT_LIGHT).fontSize(7.5).font('Helvetica')
-        .text('Authorised Signature', sigX, sigY + 60, { width: 200, align: 'center' });
-
-      /* ─── END OF PRESCRIPTION ─── */
-      const endY = Math.max(sigY + 120, H - 80);
-      doc.fillColor(TEXT_LIGHT).fontSize(7.5).font('Helvetica')
-        .text('— — — — — — — — — — — End of Prescription — — — — — — — — — — —', 0, endY, {
-          width: W,
-          align: 'center',
-        });
-
-      /* ─── FOOTER ─── */
-      const footerH = 52;
-      const footerY = H - footerH;
-      doc.rect(0, footerY, W, footerH).fill(TEXT_DARK);
-
-      // Three columns
-      const colWf = W / 3;
-
-      // Col 1: Book Appointment
-      doc.fillColor(WHITE).fontSize(8).font('Helvetica-Bold')
-        .text('Book an Appointment', margin, footerY + 10, { width: colWf - margin });
-      if (data.branch.phone || data.clinic.phone) {
-        doc.fillColor(TEXT_LIGHT).fontSize(8).font('Helvetica')
-          .text(data.branch.phone || data.clinic.phone || '', margin, footerY + 24, { width: colWf - margin });
+        doc.fillColor(TEXT_MUTED).font('Helvetica').fontSize(8)
+          .text(`Reg No. ${data.dentist.license_number}`, sigX, metaY, { width: sigBoxW, align: 'center' });
+        metaY += 12;
       }
 
-      // Col 2: Address (centered)
-      doc.fillColor(WHITE).fontSize(8).font('Helvetica-Bold')
-        .text('Address', colWf, footerY + 10, { width: colWf, align: 'center' });
-      const fullAddr = [
-        data.branch.address || data.clinic.address,
-        data.branch.city || data.clinic.city,
-        data.branch.state || data.clinic.state,
-      ].filter(Boolean).join(', ');
-      if (fullAddr) {
-        doc.fillColor(TEXT_LIGHT).fontSize(7).font('Helvetica')
-          .text(fullAddr, colWf, footerY + 23, { width: colWf, align: 'center' });
+      // Qualification / Specialization (extra context, smaller)
+      const subParts: string[] = [];
+      if (data.dentist.qualification) subParts.push(data.dentist.qualification);
+      if (data.dentist.specialization) subParts.push(data.dentist.specialization);
+      if (subParts.length > 0) {
+        doc.fillColor(TEXT_MUTED).font('Helvetica').fontSize(7.5)
+          .text(subParts.join(' · '), sigX, metaY, { width: sigBoxW, align: 'center' });
       }
 
-      // Col 3: Visit Us (right aligned)
-      doc.fillColor(WHITE).fontSize(8).font('Helvetica-Bold')
-        .text('Visit Us', W - colWf, footerY + 10, { width: colWf - margin, align: 'right' });
-      if (data.clinic.email) {
-        doc.fillColor(TEXT_LIGHT).fontSize(7.5).font('Helvetica')
-          .text(data.clinic.email, W - colWf, footerY + 24, { width: colWf - margin, align: 'right' });
+      // ─── FOOTER ───
+      const footerY = H - 40;
+      doc.rect(M, footerY - 10, CW, 0.5).fill(HAIRLINE);
+
+      const colWf = CW / 3;
+      doc.fillColor(TEXT_FAINT).font('Helvetica').fontSize(7.5);
+      // Left
+      doc.text(`${data.clinic.name}${data.dentist.license_number ? ` · Reg No. ${data.dentist.license_number}` : ''}`,
+        M, footerY, { width: colWf, align: 'left' });
+      // Center
+      if (phone) {
+        doc.text(phone, M + colWf, footerY, { width: colWf, align: 'center' });
+      }
+      // Right
+      if (email) {
+        doc.text(email, M + colWf * 2, footerY, { width: colWf, align: 'right' });
       }
 
       doc.end();

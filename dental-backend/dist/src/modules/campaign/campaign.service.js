@@ -19,6 +19,7 @@ const template_service_js_1 = require("../communication/template.service.js");
 const booking_url_util_js_1 = require("../../common/utils/booking-url.util.js");
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
+const system_variables_js_1 = require("./system-variables.js");
 let CampaignService = class CampaignService {
     static { CampaignService_1 = this; }
     prisma;
@@ -67,7 +68,7 @@ let CampaignService = class CampaignService {
             patient_email: patient.email || '',
         };
     }
-    async dispatchMessages(clinicId, patients, channels, templateId, metadata) {
+    async dispatchMessages(clinicId, patients, channels, templateId, metadata, extraVariables = {}) {
         const stats = {
             attempted_count: 0,
             queued_count: 0,
@@ -77,7 +78,7 @@ let CampaignService = class CampaignService {
             accepted_by_channel: { whatsapp: 0, sms: 0, email: 0 },
         };
         for (const patient of patients) {
-            const variables = this.buildPatientVariables(patient);
+            const variables = { ...extraVariables, ...this.buildPatientVariables(patient) };
             for (const channel of channels) {
                 stats.attempted_count++;
                 try {
@@ -123,6 +124,7 @@ let CampaignService = class CampaignService {
                 segment_config: JSON.parse(JSON.stringify({
                     ...(dto.segment_config || {}),
                     ...(dto.button_url_suffix ? { _button_url_suffix: dto.button_url_suffix } : {}),
+                    ...(dto.template_variables ? { _template_variables: dto.template_variables } : {}),
                 })),
                 status: dto.scheduled_at ? 'scheduled' : 'draft',
                 scheduled_at: dto.scheduled_at ? new Date(dto.scheduled_at) : null,
@@ -169,11 +171,22 @@ let CampaignService = class CampaignService {
         if (dto.template_id) {
             await this.templateService.findOne(clinicId, dto.template_id);
         }
+        const existingConfig = existing.segment_config || {};
+        const internalKeys = Object.fromEntries(Object.entries(existingConfig).filter(([k]) => k.startsWith('_')));
+        const mergedConfig = dto.segment_config
+            ? { ...dto.segment_config, ...internalKeys }
+            : { ...existingConfig };
+        if (dto.template_variables !== undefined) {
+            mergedConfig._template_variables = dto.template_variables;
+        }
+        const { template_variables: _tv, segment_config: _sc, ...rest } = dto;
+        void _tv;
+        void _sc;
         return this.prisma.campaign.update({
             where: { id },
             data: {
-                ...dto,
-                segment_config: dto.segment_config ? JSON.parse(JSON.stringify(dto.segment_config)) : undefined,
+                ...rest,
+                segment_config: JSON.parse(JSON.stringify(mergedConfig)),
                 scheduled_at: dto.scheduled_at ? new Date(dto.scheduled_at) : undefined,
             },
             include: { template: { select: { template_name: true, channel: true } } },
@@ -209,7 +222,23 @@ let CampaignService = class CampaignService {
         try {
             const channels = this.getDeliveryChannels(campaign.channel);
             const patients = await this.resolveSegment(clinicId, campaign.segment_type, campaign.segment_config || {});
-            await this.templateService.findOne(clinicId, campaign.template_id);
+            const template = await this.templateService.findOne(clinicId, campaign.template_id);
+            const segmentCfg = campaign.segment_config || {};
+            const suppliedVars = segmentCfg._template_variables || {};
+            const customVarNames = (0, system_variables_js_1.extractCustomVariableNames)(template.variables);
+            const missingVars = customVarNames.filter((name) => !suppliedVars[name] || !String(suppliedVars[name]).trim());
+            if (missingVars.length > 0) {
+                throw new common_1.BadRequestException(`Missing values for custom template variables: ${missingVars.join(', ')}. ` +
+                    `Provide them via template_variables when creating or updating the campaign.`);
+            }
+            const clinic = await this.prisma.clinic.findUnique({
+                where: { id: clinicId },
+                select: { name: true },
+            });
+            const extraVariables = {
+                clinic_name: clinic?.name || '',
+                ...suppliedVars,
+            };
             const estimatedCost = Math.round((patients.length * this.getPerRecipientCost(channels)) * 100) / 100;
             await this.prisma.campaign.update({
                 where: { id },
@@ -257,7 +286,7 @@ let CampaignService = class CampaignService {
             const stats = await this.dispatchMessages(clinicId, patients, channels, campaign.template_id, {
                 campaign_id: campaign.id,
                 ...(buttonUrlSuffix ? { button_url_suffix: buttonUrlSuffix } : {}),
-            });
+            }, extraVariables);
             const sentCount = stats.queued_count + stats.scheduled_count;
             const unsentCount = stats.failed_count + stats.skipped_count;
             const actualCost = this.calculateActualCost(stats.accepted_by_channel);

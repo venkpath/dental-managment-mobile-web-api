@@ -6,6 +6,7 @@ import { TemplateService } from '../communication/template.service.js';
 import { getBookingUrl } from '../../common/utils/booking-url.util.js';
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
 import { paginate } from '../../common/interfaces/paginated-result.interface.js';
+import { extractCustomVariableNames } from './system-variables.js';
 import type { CreateCampaignDto } from './dto/create-campaign.dto.js';
 import type { UpdateCampaignDto } from './dto/update-campaign.dto.js';
 import type { QueryCampaignDto } from './dto/query-campaign.dto.js';
@@ -91,6 +92,7 @@ export class CampaignService {
     channels: DeliveryChannel[],
     templateId: string,
     metadata: Record<string, unknown>,
+    extraVariables: Record<string, string> = {},
   ): Promise<DispatchStats> {
     const stats: DispatchStats = {
       attempted_count: 0,
@@ -102,7 +104,10 @@ export class CampaignService {
     };
 
     for (const patient of patients) {
-      const variables = this.buildPatientVariables(patient);
+      // Merge order: extras (clinic_name, custom user-supplied) first,
+      // patient fields override last so a clinic can never accidentally
+      // shadow patient_name etc.
+      const variables = { ...extraVariables, ...this.buildPatientVariables(patient) };
 
       for (const channel of channels) {
         stats.attempted_count++;
@@ -159,6 +164,7 @@ export class CampaignService {
         segment_config: JSON.parse(JSON.stringify({
           ...(dto.segment_config || {}),
           ...(dto.button_url_suffix ? { _button_url_suffix: dto.button_url_suffix } : {}),
+          ...(dto.template_variables ? { _template_variables: dto.template_variables } : {}),
         })),
         status: dto.scheduled_at ? 'scheduled' : 'draft',
         scheduled_at: dto.scheduled_at ? new Date(dto.scheduled_at) : null,
@@ -214,11 +220,29 @@ export class CampaignService {
       await this.templateService.findOne(clinicId, dto.template_id);
     }
 
+    // Build merged segment_config that preserves internal _-prefixed keys
+    // (e.g. _template_variables, _button_url_suffix) across partial updates.
+    const existingConfig = (existing.segment_config as Record<string, unknown> | null) || {};
+    const internalKeys = Object.fromEntries(
+      Object.entries(existingConfig).filter(([k]) => k.startsWith('_')),
+    );
+    const mergedConfig: Record<string, unknown> = dto.segment_config
+      ? { ...dto.segment_config, ...internalKeys }
+      : { ...existingConfig };
+    if (dto.template_variables !== undefined) {
+      mergedConfig._template_variables = dto.template_variables;
+    }
+
+    // Strip non-column fields from spread so Prisma doesn't reject them.
+    const { template_variables: _tv, segment_config: _sc, ...rest } = dto;
+    void _tv;
+    void _sc;
+
     return this.prisma.campaign.update({
       where: { id },
       data: {
-        ...dto,
-        segment_config: dto.segment_config ? JSON.parse(JSON.stringify(dto.segment_config)) : undefined,
+        ...rest,
+        segment_config: JSON.parse(JSON.stringify(mergedConfig)),
         scheduled_at: dto.scheduled_at ? new Date(dto.scheduled_at) : undefined,
       },
       include: { template: { select: { template_name: true, channel: true } } },
@@ -271,7 +295,32 @@ export class CampaignService {
         (campaign.segment_config as Record<string, unknown>) || {},
       );
 
-      await this.templateService.findOne(clinicId, campaign.template_id);
+      const template = await this.templateService.findOne(clinicId, campaign.template_id);
+
+      // Validate that every custom (non-system) variable in the template has
+      // a value supplied via the campaign's template_variables.
+      const segmentCfg = (campaign.segment_config as Record<string, unknown>) || {};
+      const suppliedVars = (segmentCfg._template_variables as Record<string, string> | undefined) || {};
+      const customVarNames = extractCustomVariableNames(template.variables);
+      const missingVars = customVarNames.filter(
+        (name) => !suppliedVars[name] || !String(suppliedVars[name]).trim(),
+      );
+      if (missingVars.length > 0) {
+        throw new BadRequestException(
+          `Missing values for custom template variables: ${missingVars.join(', ')}. ` +
+            `Provide them via template_variables when creating or updating the campaign.`,
+        );
+      }
+
+      // Look up clinic_name once so it's the same value for every recipient.
+      const clinic = await this.prisma.clinic.findUnique({
+        where: { id: clinicId },
+        select: { name: true },
+      });
+      const extraVariables: Record<string, string> = {
+        clinic_name: clinic?.name || '',
+        ...suppliedVars,
+      };
 
       const estimatedCost = Math.round((patients.length * this.getPerRecipientCost(channels)) * 100) / 100;
 
@@ -332,6 +381,7 @@ export class CampaignService {
           campaign_id: campaign.id,
           ...(buttonUrlSuffix ? { button_url_suffix: buttonUrlSuffix } : {}),
         },
+        extraVariables,
       );
 
       const sentCount = stats.queued_count + stats.scheduled_count;

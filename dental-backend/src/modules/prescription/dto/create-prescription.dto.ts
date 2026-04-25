@@ -90,6 +90,21 @@ export class CreatePrescriptionDto {
   @MaxLength(500)
   diagnosis!: string;
 
+  @ApiPropertyOptional({ example: 'Pain in lower-right molar for 3 days' })
+  @IsOptional()
+  @IsString()
+  chief_complaint?: string;
+
+  @ApiPropertyOptional({ example: 'RCT done on tooth 36 in 2024' })
+  @IsOptional()
+  @IsString()
+  past_dental_history?: string;
+
+  @ApiPropertyOptional({ example: 'Allergic to penicillin. Hypertension on medication.' })
+  @IsOptional()
+  @IsString()
+  allergies_medical_history?: string;
+
   @ApiPropertyOptional({ example: 'Avoid hot food for 24 hours. Follow up in 1 week.' })
   @IsOptional()
   @IsString()

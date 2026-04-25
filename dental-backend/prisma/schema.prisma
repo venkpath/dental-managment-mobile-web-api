@@ -213,6 +213,10 @@ model User {
   status         String   @default("active") @db.VarChar(20)
   email_verified Boolean  @default(false)
   phone_verified Boolean  @default(false)
+  // Doctor-specific (optional). Printed on prescription PDFs:
+  // signature_url is an S3 key for an uploaded signature image.
+  license_number String?  @db.VarChar(100)
+  signature_url  String?  @db.VarChar(500)
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 
@@ -358,6 +362,12 @@ model Prescription {
   patient_id        String   @db.Uuid
   dentist_id        String   @db.Uuid
   clinical_visit_id String?  @db.Uuid // Optional link to consultation
+  // Frozen-at-issue clinical context. We snapshot these on the prescription
+  // so it stays a stable, printable record even if the linked ClinicalVisit
+  // is later edited.
+  chief_complaint            String?  @db.Text
+  past_dental_history        String?  @db.Text
+  allergies_medical_history  String?  @db.Text
   diagnosis         String   @db.VarChar(500)
   instructions      String?  @db.Text
   created_at        DateTime @default(now())

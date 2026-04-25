@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseUUIDPipe, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -9,7 +9,9 @@ import {
   ApiHeader,
   ApiBadRequestResponse,
   ApiNoContentResponse,
+  ApiConsumes,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UserService } from './user.service.js';
 import { CreateUserDto, UpdateUserDto } from './dto/index.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
@@ -79,5 +81,18 @@ export class UserController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.userService.remove(clinicId, id);
+  }
+
+  @Post(':id/signature')
+  @ApiOperation({ summary: 'Upload a signature image for the user (printed on prescription PDFs)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiOkResponse({ description: 'Signature uploaded' })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 1 * 1024 * 1024 } }))
+  async uploadSignature(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadSignature(clinicId, id, file);
   }
 }

@@ -10,13 +10,14 @@ exports.UserModule = void 0;
 const common_1 = require("@nestjs/common");
 const user_controller_js_1 = require("./user.controller.js");
 const user_service_js_1 = require("./user.service.js");
+const s3_service_js_1 = require("../../common/services/s3.service.js");
 let UserModule = class UserModule {
 };
 exports.UserModule = UserModule;
 exports.UserModule = UserModule = __decorate([
     (0, common_1.Module)({
         controllers: [user_controller_js_1.UserController],
-        providers: [user_service_js_1.UserService],
+        providers: [user_service_js_1.UserService, s3_service_js_1.S3Service],
         exports: [user_service_js_1.UserService],
     })
 ], UserModule);

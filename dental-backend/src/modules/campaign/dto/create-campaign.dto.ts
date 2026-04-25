@@ -44,4 +44,14 @@ export class CreateCampaignDto {
   @IsUrl()
   @MaxLength(2000)
   button_url_suffix?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Values for custom (non-system) template variables. Same value sent to every recipient. ' +
+      'System variables like patient_name and clinic_name are auto-filled and should NOT be included here.',
+    example: { festival_name: 'Ugadi', offer_details: 'Get 20% off cleaning this week!' },
+  })
+  @IsOptional()
+  @IsObject()
+  template_variables?: Record<string, string>;
 }

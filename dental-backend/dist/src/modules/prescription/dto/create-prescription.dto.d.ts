@@ -15,6 +15,9 @@ export declare class CreatePrescriptionDto {
     dentist_id: string;
     clinical_visit_id?: string;
     diagnosis: string;
+    chief_complaint?: string;
+    past_dental_history?: string;
+    allergies_medical_history?: string;
     instructions?: string;
     items: PrescriptionItemDto[];
 }
