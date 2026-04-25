@@ -176,6 +176,13 @@ export class SuperAdminController {
     return this.communicationService.getClinicSettings(id);
   }
 
+  @Get('super-admins/clinics/:id/usage')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Get current month usage counters and quota status for a clinic' })
+  async getClinicUsage(@Param('id', ParseUUIDPipe) id: string) {
+    return this.communicationService.getUsage(id);
+  }
+
   @Patch('super-admins/clinics/:id/communication-settings')
   @SuperAdmin()
   @ApiOperation({ summary: 'Update communication settings for a clinic (bypasses feature gate)' })

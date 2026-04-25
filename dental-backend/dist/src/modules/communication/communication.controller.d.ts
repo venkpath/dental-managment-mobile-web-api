@@ -67,14 +67,14 @@ export declare class CommunicationController {
         subject: string | null;
         body: string;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
+        patient_id: string | null;
+        template_id: string | null;
+        scheduled_at: Date | null;
         recipient: string;
         direction: string;
         skip_reason: string | null;
         wa_message_id: string | null;
-        scheduled_at: Date | null;
         sent_at: Date | null;
-        patient_id: string | null;
-        template_id: string | null;
     }>;
     findAllMessages(clinicId: string, query: QueryMessageDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         patient: {
@@ -92,12 +92,12 @@ export declare class CommunicationController {
             status: string;
             created_at: Date;
             channel: string;
+            cost: import("@prisma/client-runtime-utils").Decimal | null;
             sent_at: Date | null;
             message_id: string;
             provider: string;
             provider_message_id: string | null;
             error_message: string | null;
-            cost: import("@prisma/client-runtime-utils").Decimal | null;
             delivered_at: Date | null;
             read_at: Date | null;
             failed_at: Date | null;
@@ -112,14 +112,14 @@ export declare class CommunicationController {
         subject: string | null;
         body: string;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
+        patient_id: string | null;
+        template_id: string | null;
+        scheduled_at: Date | null;
         recipient: string;
         direction: string;
         skip_reason: string | null;
         wa_message_id: string | null;
-        scheduled_at: Date | null;
         sent_at: Date | null;
-        patient_id: string | null;
-        template_id: string | null;
     }>>;
     getStats(clinicId: string, startDate?: string, endDate?: string): Promise<{
         total: number;
@@ -149,6 +149,29 @@ export declare class CommunicationController {
             delivered: number;
             failed: number;
         }[];
+    }>;
+    getUsage(clinicId: string): Promise<{
+        clinic_id: string;
+        plan: string | null;
+        billing_cycle: string;
+        has_own_waba: boolean;
+        period_start: string;
+        period_end: string;
+        whatsapp: {
+            sent: number;
+            included: number;
+            hard_limit: number | null;
+            remaining: number | null;
+            allow_overage: boolean;
+            approaching_limit: boolean;
+            blocked: boolean;
+        };
+        sms: {
+            sent: number;
+        };
+        email: {
+            sent: number;
+        };
     }>;
     findOneMessage(clinicId: string, id: string): Promise<{
         patient: {
@@ -180,12 +203,12 @@ export declare class CommunicationController {
             status: string;
             created_at: Date;
             channel: string;
+            cost: import("@prisma/client-runtime-utils").Decimal | null;
             sent_at: Date | null;
             message_id: string;
             provider: string;
             provider_message_id: string | null;
             error_message: string | null;
-            cost: import("@prisma/client-runtime-utils").Decimal | null;
             delivered_at: Date | null;
             read_at: Date | null;
             failed_at: Date | null;
@@ -200,14 +223,14 @@ export declare class CommunicationController {
         subject: string | null;
         body: string;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
+        patient_id: string | null;
+        template_id: string | null;
+        scheduled_at: Date | null;
         recipient: string;
         direction: string;
         skip_reason: string | null;
         wa_message_id: string | null;
-        scheduled_at: Date | null;
         sent_at: Date | null;
-        patient_id: string | null;
-        template_id: string | null;
     }>;
     getCircuitBreakerStatus(clinicId: string): Promise<Record<string, {
         is_open: boolean;
@@ -239,12 +262,12 @@ export declare class CommunicationController {
                 status: string;
                 created_at: Date;
                 channel: string;
+                cost: import("@prisma/client-runtime-utils").Decimal | null;
                 sent_at: Date | null;
                 message_id: string;
                 provider: string;
                 provider_message_id: string | null;
                 error_message: string | null;
-                cost: import("@prisma/client-runtime-utils").Decimal | null;
                 delivered_at: Date | null;
                 read_at: Date | null;
                 failed_at: Date | null;
@@ -259,14 +282,14 @@ export declare class CommunicationController {
             subject: string | null;
             body: string;
             metadata: import("@prisma/client/runtime/client").JsonValue | null;
+            patient_id: string | null;
+            template_id: string | null;
+            scheduled_at: Date | null;
             recipient: string;
             direction: string;
             skip_reason: string | null;
             wa_message_id: string | null;
-            scheduled_at: Date | null;
             sent_at: Date | null;
-            patient_id: string | null;
-            template_id: string | null;
         })[];
         meta: import("../../common/interfaces/paginated-result.interface.js").PaginationMeta;
         patient: {
@@ -457,12 +480,12 @@ export declare class CommunicationController {
             created_at: Date;
             body: string;
             metadata: import("@prisma/client/runtime/client").JsonValue;
-            direction: string;
-            wa_message_id: string | null;
-            sent_at: Date | null;
             template: {
                 template_name: string;
             } | null;
+            direction: string;
+            wa_message_id: string | null;
+            sent_at: Date | null;
         }[];
         meta: {
             total: number;
@@ -491,13 +514,13 @@ export declare class CommunicationController {
         subject: string | null;
         body: string;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
+        patient_id: string | null;
+        template_id: string | null;
+        scheduled_at: Date | null;
         recipient: string;
         direction: string;
         skip_reason: string | null;
         wa_message_id: string | null;
-        scheduled_at: Date | null;
         sent_at: Date | null;
-        patient_id: string | null;
-        template_id: string | null;
     }>;
 }

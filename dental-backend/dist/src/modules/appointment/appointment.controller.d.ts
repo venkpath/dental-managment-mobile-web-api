@@ -11,8 +11,8 @@ export declare class AppointmentController {
         clinic_id: string;
         branch_id: string;
         appointment_date: Date;
-        notes: string | null;
         patient_id: string;
+        notes: string | null;
         dentist_id: string;
         start_time: string;
         end_time: string;
@@ -26,8 +26,8 @@ export declare class AppointmentController {
         clinic_id: string;
         branch_id: string;
         appointment_date: Date;
-        notes: string | null;
         patient_id: string;
+        notes: string | null;
         dentist_id: string;
         start_time: string;
         end_time: string;
@@ -41,8 +41,8 @@ export declare class AppointmentController {
         clinic_id: string;
         branch_id: string;
         appointment_date: Date;
-        notes: string | null;
         patient_id: string;
+        notes: string | null;
         dentist_id: string;
         start_time: string;
         end_time: string;
@@ -57,8 +57,8 @@ export declare class AppointmentController {
         clinic_id: string;
         branch_id: string;
         appointment_date: Date;
-        notes: string | null;
         patient_id: string;
+        notes: string | null;
         dentist_id: string;
         start_time: string;
         end_time: string;
@@ -72,8 +72,8 @@ export declare class AppointmentController {
         clinic_id: string;
         branch_id: string;
         appointment_date: Date;
-        notes: string | null;
         patient_id: string;
+        notes: string | null;
         dentist_id: string;
         start_time: string;
         end_time: string;
@@ -87,8 +87,8 @@ export declare class AppointmentController {
         clinic_id: string;
         branch_id: string;
         appointment_date: Date;
-        notes: string | null;
         patient_id: string;
+        notes: string | null;
         dentist_id: string;
         start_time: string;
         end_time: string;

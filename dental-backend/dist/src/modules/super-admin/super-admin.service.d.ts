@@ -291,10 +291,10 @@ export declare class SuperAdminService {
             id: string;
             created_at: Date;
             clinic_id: string;
-            user_id: string | null;
-            action: string;
             entity: string;
             entity_id: string;
+            action: string;
+            user_id: string | null;
             metadata: import("@prisma/client/runtime/client").JsonValue | null;
         }[];
         meta: {

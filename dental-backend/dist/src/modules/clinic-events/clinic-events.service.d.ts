@@ -27,8 +27,8 @@ export declare class ClinicEventsService {
         event_name: string;
         event_date: Date;
         is_recurring: boolean;
-        occasion_message: string | null;
         send_offer: boolean;
+        occasion_message: string | null;
     })[]>;
     create(clinicId: string, dto: CreateClinicEventDto): Promise<{
         id: string;
@@ -41,8 +41,8 @@ export declare class ClinicEventsService {
         event_name: string;
         event_date: Date;
         is_recurring: boolean;
-        occasion_message: string | null;
         send_offer: boolean;
+        occasion_message: string | null;
     }>;
     update(clinicId: string, eventId: string, dto: UpdateClinicEventDto): Promise<{
         id: string;
@@ -55,8 +55,8 @@ export declare class ClinicEventsService {
         event_name: string;
         event_date: Date;
         is_recurring: boolean;
-        occasion_message: string | null;
         send_offer: boolean;
+        occasion_message: string | null;
     }>;
     remove(clinicId: string, eventId: string): Promise<{
         id: string;
@@ -69,8 +69,8 @@ export declare class ClinicEventsService {
         event_name: string;
         event_date: Date;
         is_recurring: boolean;
-        occasion_message: string | null;
         send_offer: boolean;
+        occasion_message: string | null;
     }>;
     getUpcoming(clinicId: string, days?: number): Promise<{
         id: string;
@@ -83,7 +83,7 @@ export declare class ClinicEventsService {
         event_name: string;
         event_date: Date;
         is_recurring: boolean;
-        occasion_message: string | null;
         send_offer: boolean;
+        occasion_message: string | null;
     }[]>;
 }

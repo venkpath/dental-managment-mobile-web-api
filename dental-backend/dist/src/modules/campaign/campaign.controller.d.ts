@@ -19,10 +19,10 @@ export declare class CampaignController {
         updated_at: Date;
         clinic_id: string;
         channel: string;
-        scheduled_at: Date | null;
         template_id: string | null;
-        completed_at: Date | null;
+        scheduled_at: Date | null;
         estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
+        completed_at: Date | null;
         created_by: string;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
@@ -47,10 +47,10 @@ export declare class CampaignController {
         updated_at: Date;
         clinic_id: string;
         channel: string;
-        scheduled_at: Date | null;
         template_id: string | null;
-        completed_at: Date | null;
+        scheduled_at: Date | null;
         estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
+        completed_at: Date | null;
         created_by: string;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
@@ -89,10 +89,10 @@ export declare class CampaignController {
         updated_at: Date;
         clinic_id: string;
         channel: string;
-        scheduled_at: Date | null;
         template_id: string | null;
-        completed_at: Date | null;
+        scheduled_at: Date | null;
         estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
+        completed_at: Date | null;
         created_by: string;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
@@ -117,10 +117,10 @@ export declare class CampaignController {
         updated_at: Date;
         clinic_id: string;
         channel: string;
-        scheduled_at: Date | null;
         template_id: string | null;
-        completed_at: Date | null;
+        scheduled_at: Date | null;
         estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
+        completed_at: Date | null;
         created_by: string;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
@@ -140,10 +140,10 @@ export declare class CampaignController {
         updated_at: Date;
         clinic_id: string;
         channel: string;
-        scheduled_at: Date | null;
         template_id: string | null;
-        completed_at: Date | null;
+        scheduled_at: Date | null;
         estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
+        completed_at: Date | null;
         created_by: string;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
@@ -275,7 +275,7 @@ export declare class CampaignController {
         total_recipients: number;
         total_messages: number;
         channels: {
-            channel: "email" | "whatsapp" | "sms";
+            channel: "email" | "sms" | "whatsapp";
             recipients: number;
             cost_per_message: number;
             total_cost: number;
@@ -296,10 +296,10 @@ export declare class CampaignController {
             updated_at: Date;
             clinic_id: string;
             channel: string;
-            scheduled_at: Date | null;
             template_id: string | null;
-            completed_at: Date | null;
+            scheduled_at: Date | null;
             estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
+            completed_at: Date | null;
             created_by: string;
             segment_type: string;
             segment_config: import("@prisma/client/runtime/client").JsonValue | null;

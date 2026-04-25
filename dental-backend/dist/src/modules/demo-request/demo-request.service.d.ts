@@ -23,8 +23,8 @@ export declare class DemoRequestService {
         updated_at: Date;
         phone: string;
         clinic_name: string | null;
-        notes: string | null;
         scheduled_at: Date | null;
+        notes: string | null;
         chairs: string | null;
         source: string;
         meeting_link: string | null;
@@ -38,8 +38,8 @@ export declare class DemoRequestService {
         updated_at: Date;
         phone: string;
         clinic_name: string | null;
-        notes: string | null;
         scheduled_at: Date | null;
+        notes: string | null;
         chairs: string | null;
         source: string;
         meeting_link: string | null;
@@ -53,8 +53,8 @@ export declare class DemoRequestService {
         updated_at: Date;
         phone: string;
         clinic_name: string | null;
-        notes: string | null;
         scheduled_at: Date | null;
+        notes: string | null;
         chairs: string | null;
         source: string;
         meeting_link: string | null;
@@ -68,8 +68,8 @@ export declare class DemoRequestService {
         updated_at: Date;
         phone: string;
         clinic_name: string | null;
-        notes: string | null;
         scheduled_at: Date | null;
+        notes: string | null;
         chairs: string | null;
         source: string;
         meeting_link: string | null;

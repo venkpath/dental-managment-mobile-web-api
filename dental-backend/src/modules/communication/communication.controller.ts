@@ -178,6 +178,13 @@ export class CommunicationController {
     return this.communicationService.getMessageStats(clinicId, startDate, endDate);
   }
 
+  @Get('usage')
+  @ApiOperation({ summary: 'Get current month usage counters and plan quotas' })
+  @ApiOkResponse({ description: 'Per-channel usage with WhatsApp quota status' })
+  async getUsage(@CurrentClinic() clinicId: string) {
+    return this.communicationService.getUsage(clinicId);
+  }
+
   @Get('messages/:id')
   @ApiOperation({ summary: 'Get a message with delivery logs' })
   async findOneMessage(

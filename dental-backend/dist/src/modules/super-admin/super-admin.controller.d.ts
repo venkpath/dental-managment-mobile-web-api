@@ -319,10 +319,10 @@ export declare class SuperAdminController {
             id: string;
             created_at: Date;
             clinic_id: string;
-            user_id: string | null;
-            action: string;
             entity: string;
             entity_id: string;
+            action: string;
+            user_id: string | null;
             metadata: import("@prisma/client/runtime/client").JsonValue | null;
         }[];
         meta: {
@@ -368,6 +368,29 @@ export declare class SuperAdminController {
         dnd_start: string | null;
         dnd_end: string | null;
     }>;
+    getClinicUsage(id: string): Promise<{
+        clinic_id: string;
+        plan: string | null;
+        billing_cycle: string;
+        has_own_waba: boolean;
+        period_start: string;
+        period_end: string;
+        whatsapp: {
+            sent: number;
+            included: number;
+            hard_limit: number | null;
+            remaining: number | null;
+            allow_overage: boolean;
+            approaching_limit: boolean;
+            blocked: boolean;
+        };
+        sms: {
+            sent: number;
+        };
+        email: {
+            sent: number;
+        };
+    }>;
     updateClinicCommunicationSettings(id: string, dto: UpdateClinicSettingsDto): Promise<{
         id: string;
         created_at: Date;
@@ -403,9 +426,9 @@ export declare class SuperAdminController {
         is_enabled: boolean;
         clinic_id: string;
         channel: string;
+        config: import("@prisma/client/runtime/client").JsonValue | null;
         template_id: string | null;
         rule_type: string;
-        config: import("@prisma/client/runtime/client").JsonValue | null;
     })[]>;
     updateClinicAutomationRule(id: string, ruleType: string, dto: UpsertAutomationRuleDto): Promise<{
         template: {
@@ -420,9 +443,9 @@ export declare class SuperAdminController {
         is_enabled: boolean;
         clinic_id: string;
         channel: string;
+        config: import("@prisma/client/runtime/client").JsonValue | null;
         template_id: string | null;
         rule_type: string;
-        config: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     getClinicBranches(id: string): Promise<{
         id: string;

@@ -105,6 +105,14 @@ export class CommunicationService {
       }
     }
 
+    // 4.7 WhatsApp quota check (skipped for Enterprise BYO-WABA clinics)
+    if (dto.channel === 'whatsapp') {
+      const quotaExceeded = await this.checkWhatsAppQuota(clinicId);
+      if (quotaExceeded) {
+        return this.createSkippedMessage(clinicId, dto, patient, 'whatsapp_quota_exceeded');
+      }
+    }
+
     // 5. Resolve message body (from template or direct)
     let body = dto.body || '';
     let subject = dto.subject;
@@ -305,6 +313,11 @@ export class CommunicationService {
       metadata: dto.metadata,
       scheduledAt: dto.scheduled_at,
     });
+
+    // 10.5 Increment usage counter (fire-and-forget — failure should not block send)
+    this.incrementUsageCounter(clinicId, dto.channel).catch((err) =>
+      this.logger.warn(`Failed to increment ${dto.channel} usage counter for clinic ${clinicId}: ${err instanceof Error ? err.message : String(err)}`),
+    );
 
     // Global mirror rule: whenever a WhatsApp message is sent, also send an email
     // if the patient has an email address. Email channel settings and patient
@@ -1488,6 +1501,161 @@ export class CommunicationService {
     });
 
     return !!planFeature;
+  }
+
+  // ─── WhatsApp Quota & Usage Tracking ───
+
+  async getUsage(clinicId: string) {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: {
+        id: true,
+        has_own_waba: true,
+        billing_cycle: true,
+        plan_id: true,
+        plan: {
+          select: {
+            name: true,
+            whatsapp_included_monthly: true,
+            whatsapp_hard_limit_monthly: true,
+            allow_whatsapp_overage_billing: true,
+          },
+        },
+      },
+    });
+
+    if (!clinic) {
+      throw new NotFoundException(`Clinic ${clinicId} not found`);
+    }
+
+    const now = new Date();
+    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    const usage = await this.prisma.clinicUsageCounter.findUnique({
+      where: {
+        clinic_id_period_start: {
+          clinic_id: clinicId,
+          period_start: periodStart,
+        },
+      },
+    });
+
+    const whatsappSent = usage?.whatsapp_sent ?? 0;
+    const smsSent = usage?.sms_sent ?? 0;
+    const emailSent = usage?.email_sent ?? 0;
+
+    const waIncluded = clinic.plan?.whatsapp_included_monthly ?? 0;
+    const waHardLimit = clinic.plan?.whatsapp_hard_limit_monthly ?? null;
+    const allowOverage = clinic.plan?.allow_whatsapp_overage_billing ?? false;
+
+    const isByoWaba = clinic.has_own_waba;
+    const waRemaining = isByoWaba
+      ? null
+      : waHardLimit !== null
+      ? Math.max(0, waHardLimit - whatsappSent)
+      : null;
+    const waApproachingLimit = !isByoWaba && waIncluded > 0 && whatsappSent >= waIncluded;
+    const waBlocked = !isByoWaba && waHardLimit !== null && whatsappSent >= waHardLimit;
+
+    return {
+      clinic_id: clinic.id,
+      plan: clinic.plan?.name ?? null,
+      billing_cycle: clinic.billing_cycle,
+      has_own_waba: isByoWaba,
+      period_start: periodStart.toISOString(),
+      period_end: periodEnd.toISOString(),
+      whatsapp: {
+        sent: whatsappSent,
+        included: waIncluded,
+        hard_limit: waHardLimit,
+        remaining: waRemaining,
+        allow_overage: allowOverage,
+        approaching_limit: waApproachingLimit,
+        blocked: waBlocked,
+      },
+      sms: {
+        sent: smsSent,
+      },
+      email: {
+        sent: emailSent,
+      },
+    };
+  }
+
+  private async checkWhatsAppQuota(clinicId: string): Promise<boolean> {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: {
+        id: true,
+        has_own_waba: true,
+        plan_id: true,
+      },
+    });
+
+    if (!clinic) return false;
+
+    if (clinic.has_own_waba) return false;
+
+    if (!clinic.plan_id) return false;
+
+    const plan = await this.prisma.plan.findUnique({
+      where: { id: clinic.plan_id },
+      select: { whatsapp_hard_limit_monthly: true },
+    });
+
+    if (!plan?.whatsapp_hard_limit_monthly || plan.whatsapp_hard_limit_monthly <= 0) {
+      return false;
+    }
+
+    const now = new Date();
+    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const usage = await this.prisma.clinicUsageCounter.findUnique({
+      where: {
+        clinic_id_period_start: {
+          clinic_id: clinicId,
+          period_start: periodStart,
+        },
+      },
+      select: { whatsapp_sent: true },
+    });
+
+    const currentUsage = usage?.whatsapp_sent ?? 0;
+    return currentUsage >= plan.whatsapp_hard_limit_monthly;
+  }
+
+  private async incrementUsageCounter(clinicId: string, channel: string): Promise<void> {
+    const now = new Date();
+    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    let column: 'whatsapp_sent' | 'sms_sent' | 'email_sent';
+    if (channel === 'whatsapp') {
+      column = 'whatsapp_sent';
+    } else if (channel === 'sms') {
+      column = 'sms_sent';
+    } else if (channel === 'email') {
+      column = 'email_sent';
+    } else {
+      return;
+    }
+
+    await this.prisma.clinicUsageCounter.upsert({
+      where: {
+        clinic_id_period_start: {
+          clinic_id: clinicId,
+          period_start: periodStart,
+        },
+      },
+      create: {
+        clinic_id: clinicId,
+        period_start: periodStart,
+        [column]: 1,
+      },
+      update: {
+        [column]: { increment: 1 },
+      },
+    });
   }
 
   // ─── SMS Delivery Webhook (MSG91 DLR) ───

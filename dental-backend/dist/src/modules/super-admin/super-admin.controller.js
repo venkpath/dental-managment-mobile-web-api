@@ -100,6 +100,9 @@ let SuperAdminController = class SuperAdminController {
     async getClinicCommunicationSettings(id) {
         return this.communicationService.getClinicSettings(id);
     }
+    async getClinicUsage(id) {
+        return this.communicationService.getUsage(id);
+    }
     async updateClinicCommunicationSettings(id, dto) {
         return this.communicationService.updateClinicSettings(id, dto, { skipFeatureCheck: true });
     }
@@ -307,6 +310,16 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "getClinicCommunicationSettings", null);
+__decorate([
+    (0, common_1.Get)('super-admins/clinics/:id/usage'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get current month usage counters and quota status for a clinic' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getClinicUsage", null);
 __decorate([
     (0, common_1.Patch)('super-admins/clinics/:id/communication-settings'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),

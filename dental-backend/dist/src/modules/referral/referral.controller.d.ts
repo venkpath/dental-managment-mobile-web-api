@@ -64,11 +64,11 @@ export declare class ReferralController {
         created_at: Date;
         updated_at: Date;
         clinic_id: string;
-        referrer_patient_id: string;
-        referred_patient_id: string | null;
-        referral_code_id: string;
         reward_type: string | null;
         reward_value: import("@prisma/client-runtime-utils").Decimal | null;
+        referred_patient_id: string | null;
+        referrer_patient_id: string;
+        referral_code_id: string;
         reward_status: string | null;
     }>;
     creditReward(clinicId: string, referralId: string): Promise<{
@@ -77,11 +77,11 @@ export declare class ReferralController {
         created_at: Date;
         updated_at: Date;
         clinic_id: string;
-        referrer_patient_id: string;
-        referred_patient_id: string | null;
-        referral_code_id: string;
         reward_type: string | null;
         reward_value: import("@prisma/client-runtime-utils").Decimal | null;
+        referred_patient_id: string | null;
+        referrer_patient_id: string;
+        referral_code_id: string;
         reward_status: string | null;
     }>;
     getStats(clinicId: string): Promise<{
@@ -135,11 +135,11 @@ export declare class ReferralController {
         created_at: Date;
         updated_at: Date;
         clinic_id: string;
-        referrer_patient_id: string;
-        referred_patient_id: string | null;
-        referral_code_id: string;
         reward_type: string | null;
         reward_value: import("@prisma/client-runtime-utils").Decimal | null;
+        referred_patient_id: string | null;
+        referrer_patient_id: string;
+        referral_code_id: string;
         reward_status: string | null;
     })[]>;
 }

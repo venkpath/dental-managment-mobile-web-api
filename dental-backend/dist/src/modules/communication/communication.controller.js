@@ -171,6 +171,9 @@ let CommunicationController = class CommunicationController {
     async getStats(clinicId, startDate, endDate) {
         return this.communicationService.getMessageStats(clinicId, startDate, endDate);
     }
+    async getUsage(clinicId) {
+        return this.communicationService.getUsage(clinicId);
+    }
     async findOneMessage(clinicId, id) {
         return this.communicationService.findOneMessage(clinicId, id);
     }
@@ -297,6 +300,16 @@ __decorate([
     __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], CommunicationController.prototype, "getStats", null);
+__decorate([
+    (0, common_1.Get)('usage'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get current month usage counters and plan quotas' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Per-channel usage with WhatsApp quota status' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], CommunicationController.prototype, "getUsage", null);
 __decorate([
     (0, common_1.Get)('messages/:id'),
     (0, swagger_1.ApiOperation)({ summary: 'Get a message with delivery logs' }),
