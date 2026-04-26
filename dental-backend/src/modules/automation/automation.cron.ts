@@ -238,9 +238,9 @@ export class AutomationCronService {
     this.logger.log(`Festival greeting automation completed. Total sent: ${totalSent}`);
   }
 
-  // ─── Appointment Reminders to Patients — Daily at 7:30 AM ───
+  // ─── Appointment Reminders to Patients — Hourly (Two configurable reminders) ───
 
-  @Cron('0 30 7 * * *')
+  @Cron('0 * * * * *')  // Run every hour at minute 0
   async appointmentRemindersToPatients(): Promise<void> {
     this.logger.log('Running patient appointment reminder automation...');
     let sent = 0;
@@ -248,73 +248,117 @@ export class AutomationCronService {
     let failed = 0;
 
     try {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(0, 0, 0, 0);
+      const now = new Date();
+      const clinics = await this.getActiveClinics();
 
-      const dayAfter = new Date(tomorrow);
-      dayAfter.setDate(dayAfter.getDate() + 1);
-
-      const appointments = await this.prisma.appointment.findMany({
-        where: {
-          appointment_date: { gte: tomorrow, lt: dayAfter },
-          status: 'scheduled',
-        },
-        include: {
-          patient: true,
-          dentist: { select: { name: true } },
-          clinic: { select: { id: true, name: true, phone: true } },
-          branch: { select: { name: true, address: true } },
-        },
-      });
-
-      this.logger.log(`Found ${appointments.length} appointments for tomorrow`);
-
-      for (const appt of appointments) {
+      for (const clinic of clinics) {
         try {
-          const rule = await this.automationService.getRuleConfig(appt.clinic_id, 'appointment_reminder_patient');
+          const rule = await this.automationService.getRuleConfig(clinic.id, 'appointment_reminder_patient');
           if (!rule?.is_enabled) {
             skipped++;
             continue;
           }
 
-          const fmtDate = this.formatDate(appt.appointment_date);
-          const fmtTime = this.formatTime(appt.start_time);
-          const clinicPhone = appt.clinic.phone || '';
+          const config = (rule.config as Record<string, unknown>) || {};
 
-          const channel = await this.resolveChannel(appt.clinic_id, appt.patient_id, rule.channel);
-          await this.communicationService.sendMessage(appt.clinic_id, {
-            patient_id: appt.patient_id,
-            channel,
-            category: MessageCategory.TRANSACTIONAL,
-            template_id: rule.template_id ?? undefined,
-            body: rule.template_id
-              ? undefined
-              : `Reminder: You have an appointment tomorrow at ${fmtTime} with Dr. ${appt.dentist.name} at ${appt.clinic.name}.`,
-            variables: {
-              // named keys (for DB template.variables mapping)
-              patient_name: `${appt.patient.first_name} ${appt.patient.last_name}`,
-              patient_first_name: appt.patient.first_name,
-              date: fmtDate,
-              time: fmtTime,
-              dentist_name: appt.dentist.name,
-              doctor_name: appt.dentist.name,
-              clinic_name: appt.clinic.name,
-              phone: clinicPhone,
-              // numbered keys — {{1}} patient {{2}} date {{3}} time {{4}} clinic {{5}} doctor {{6}} phone
-              '1': appt.patient.first_name,
-              '2': fmtDate,
-              '3': fmtTime,
-              '4': appt.clinic.name,
-              '5': appt.dentist.name,
-              '6': clinicPhone,
+          // Two independently configurable reminders
+          const reminders = [
+            {
+              label: 'Reminder 1',
+              enabled: config.reminder_1_enabled !== false,
+              hours: (config.reminder_1_hours as number) ?? 24,
+              templateId: (config.reminder_1_template_id as string | null) ?? rule.template_id ?? null,
             },
-            metadata: { automation: 'appointment_reminder_patient', appointment_id: appt.id },
-          });
-          sent++;
+            {
+              label: 'Reminder 2',
+              enabled: config.reminder_2_enabled !== false,
+              hours: (config.reminder_2_hours as number) ?? 2,
+              templateId: (config.reminder_2_template_id as string | null) ?? rule.template_id ?? null,
+            },
+          ];
+
+          for (const reminder of reminders) {
+            if (!reminder.enabled) continue;
+            if (typeof reminder.hours !== 'number' || reminder.hours <= 0 || reminder.hours > 24) continue;
+
+            // Search 1-hour window centered on the reminder offset (tolerates hourly cron drift)
+            const windowStart = new Date(now.getTime() + reminder.hours * 3600000);
+            const windowEnd = new Date(windowStart.getTime() + 60 * 60000);
+
+            const appointments = await this.prisma.appointment.findMany({
+              where: {
+                clinic_id: clinic.id,
+                appointment_date: { gte: windowStart, lt: windowEnd },
+                status: 'scheduled',
+              },
+              include: {
+                patient: true,
+                dentist: { select: { name: true } },
+                clinic: { select: { id: true, name: true, phone: true } },
+                branch: { select: { name: true } },
+              },
+            });
+
+            for (const appt of appointments) {
+              try {
+                const fmtDate = this.formatDate(appt.appointment_date);
+                const fmtTime = this.formatTime(appt.start_time);
+                const clinicPhone = appt.clinic.phone || '';
+
+                // Build human-friendly time-until phrase for fallback message
+                const timeUntilPhrase =
+                  reminder.hours >= 24
+                    ? 'tomorrow'
+                    : reminder.hours >= 1
+                      ? `in ${reminder.hours} hour${reminder.hours === 1 ? '' : 's'}`
+                      : `in ${Math.round(reminder.hours * 60)} minutes`;
+
+                const channel = await this.resolveChannel(clinic.id, appt.patient_id, rule.channel);
+                await this.communicationService.sendMessage(clinic.id, {
+                  patient_id: appt.patient_id,
+                  channel,
+                  category: MessageCategory.TRANSACTIONAL,
+                  template_id: reminder.templateId ?? undefined,
+                  body: reminder.templateId
+                    ? undefined
+                    : `Reminder: You have an appointment ${timeUntilPhrase} at ${fmtTime} with Dr. ${appt.dentist.name} at ${appt.clinic.name}.`,
+                  variables: {
+                    patient_name: `${appt.patient.first_name} ${appt.patient.last_name}`,
+                    patient_first_name: appt.patient.first_name,
+                    appointment_date: fmtDate,
+                    date: fmtDate,
+                    appointment_time: fmtTime,
+                    time: fmtTime,
+                    dentist_name: appt.dentist.name,
+                    doctor_name: appt.dentist.name,
+                    clinic_name: appt.clinic.name,
+                    clinic_phone: clinicPhone,
+                    phone: clinicPhone,
+                    time_until: timeUntilPhrase,
+                    // numbered keys — {{1}} patient {{2}} date {{3}} time {{4}} clinic {{5}} doctor {{6}} phone
+                    '1': appt.patient.first_name,
+                    '2': fmtDate,
+                    '3': fmtTime,
+                    '4': appt.clinic.name,
+                    '5': appt.dentist.name,
+                    '6': clinicPhone,
+                  },
+                  metadata: {
+                    automation: 'appointment_reminder_patient',
+                    appointment_id: appt.id,
+                    reminder_label: reminder.label,
+                    reminder_hours: reminder.hours,
+                  },
+                });
+                sent++;
+              } catch (e) {
+                failed++;
+                this.logger.warn(`${reminder.label} (${reminder.hours}h) failed for patient ${appt.patient_id}: ${(e as Error).message}`);
+              }
+            }
+          }
         } catch (e) {
-          failed++;
-          this.logger.warn(`Appointment reminder failed for ${appt.patient_id}: ${(e as Error).message}`);
+          this.logger.error(`Appointment reminder error for clinic ${clinic.id}: ${(e as Error).message}`);
         }
       }
     } catch (e) {

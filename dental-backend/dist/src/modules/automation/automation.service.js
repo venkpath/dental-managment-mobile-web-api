@@ -137,7 +137,14 @@ let AutomationService = AutomationService_1 = class AutomationService {
                 rule_type: 'appointment_reminder_patient',
                 is_enabled: true,
                 channel: 'preferred',
-                config: { reminder_24hr: true, reminder_2hr: true },
+                config: {
+                    reminder_1_enabled: true,
+                    reminder_1_hours: 24,
+                    reminder_1_template_id: null,
+                    reminder_2_enabled: true,
+                    reminder_2_hours: 2,
+                    reminder_2_template_id: null,
+                },
             },
             {
                 rule_type: 'appointment_confirmation',
