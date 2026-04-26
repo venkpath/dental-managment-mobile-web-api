@@ -365,8 +365,9 @@ export class InvoiceService {
   async sendWhatsApp(clinicId: string, invoiceId: string): Promise<{ message: string }> {
     const invoice = await this.findOne(clinicId, invoiceId);
 
-    // Generate / refresh PDF so it's current
-    await this.getPdfUrl(clinicId, invoiceId);
+    // Generate / refresh PDF so it's current — capture the signed URL for
+    // PDF-header templates (e.g. dental_invoice_pdf).
+    const { url: pdfUrl } = await this.getPdfUrl(clinicId, invoiceId);
 
     const [patient, clinic, rule] = await Promise.all([
       this.prisma.patient.findUnique({
@@ -397,6 +398,39 @@ export class InvoiceService {
 
     const channel = rule?.channel ?? 'whatsapp';
 
+    // Numbered slots for the new PDF template `dental_invoice_pdf`:
+    //   {{1}}=patient {{2}}=invoice_no {{3}}=amount {{4}}=clinic {{5}}=phone
+    // PLUS named keys so any template whose DB.variables uses semantic names
+    // (e.g. legacy `dental_invoice_ready` link-based) also fills correctly.
+    const variables: Record<string, string> = {
+      // Numbered (PDF template)
+      '1': patientName,
+      '2': invoice.invoice_number,
+      '3': netAmountFormatted,
+      '4': clinicName,
+      '5': clinicPhone,
+      // Named (link-based / custom templates)
+      patient_name: patientName,
+      patient_first_name: patient.first_name,
+      invoice_number: invoice.invoice_number,
+      amount: netAmountFormatted,
+      clinic_name: clinicName,
+      clinic_phone: clinicPhone,
+      link: redirectUrl,
+    };
+
+    // Attach the invoice PDF as a HEADER:DOCUMENT only for templates whose
+    // approved Meta body has a PDF header (we key off `_pdf` suffix).
+    const templateName = rule?.template?.template_name || '';
+    const isPdfTemplate = /_pdf$/i.test(templateName);
+    const headerMedia = isPdfTemplate
+      ? {
+          type: 'document' as const,
+          url: pdfUrl,
+          filename: `Invoice-${invoice.invoice_number}.pdf`,
+        }
+      : undefined;
+
     await this.communicationService.sendMessage(clinicId, {
       patient_id: invoice.patient_id,
       channel: channel as any,
@@ -404,16 +438,14 @@ export class InvoiceService {
       template_id: rule?.template_id ?? undefined,
       body: rule?.template_id
         ? undefined
-        : `Hello ${patientName},\n\nYour payment receipt has been generated.\n\nClinic: ${clinicName}\nInvoice No: ${invoice.invoice_number}\nAmount: ${netAmountFormatted}\n\nView & Download Invoice:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
-      variables: {
-        '1': patientName,
-        '2': clinicName,
-        '3': invoice.invoice_number,
-        '4': netAmountFormatted,
-        '5': clinicPhone,
-        '6': redirectUrl,
+        : `Hello ${patientName},\n\nYour invoice has been generated.\n\nClinic: ${clinicName}\nInvoice No: ${invoice.invoice_number}\nAmount: ${netAmountFormatted}\n\nView & Download Invoice:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
+      variables,
+      metadata: {
+        automation: 'invoice_ready',
+        invoice_id: invoiceId,
+        button_url_suffix: redirectUrl,
+        ...(headerMedia ? { whatsapp_header_media: headerMedia } : {}),
       },
-      metadata: { automation: 'invoice_ready', invoice_id: invoiceId },
     });
 
     return { message: 'Invoice sent via WhatsApp' };
@@ -475,8 +507,12 @@ export class InvoiceService {
     }
     if (!channel) return;
 
-    // Generate PDF so S3 link is fresh
-    try { await this.getPdfUrl(clinicId, invoiceId); } catch { /* non-fatal */ }
+    // Generate PDF so S3 link is fresh — keep the URL for PDF-header templates.
+    let pdfUrl: string | null = null;
+    try {
+      const res = await this.getPdfUrl(clinicId, invoiceId);
+      pdfUrl = res.url;
+    } catch { /* non-fatal */ }
 
     const apiBase = process.env['API_BASE_URL'] ?? 'http://localhost:3000/api/v1';
     const receiptUrl = `${apiBase}/public/invoice-redirect/${invoiceId}?clinic=${clinicId}`;
@@ -484,6 +520,38 @@ export class InvoiceService {
     const formattedAmount = `${getCurrencySymbol(currCode)}${amount.toLocaleString(getCurrencyLocale(currCode))}`;
     const clinicName = clinic?.name || 'Your Dental Clinic';
     const clinicPhone = clinic?.phone || '';
+    const patientName = `${patient.first_name} ${patient.last_name}`;
+
+    // Numbered slots for the new PDF template `dental_payment_received_pdf`:
+    //   {{1}}=patient {{2}}=amount {{3}}=invoice_no {{4}}=clinic {{5}}=phone
+    // PLUS named keys for any template using semantic variable names.
+    const variables: Record<string, string> = {
+      // Numbered (PDF template)
+      '1': patientName,
+      '2': formattedAmount,
+      '3': invoiceNumber,
+      '4': clinicName,
+      '5': clinicPhone,
+      // Named (link-based / custom templates)
+      patient_name: patientName,
+      patient_first_name: patient.first_name,
+      amount: formattedAmount,
+      invoice_number: invoiceNumber,
+      clinic_name: clinicName,
+      clinic_phone: clinicPhone,
+      link: receiptUrl,
+    };
+
+    // Attach the invoice/receipt PDF only for templates with a PDF header.
+    const templateName = rule?.template?.template_name || '';
+    const isPdfTemplate = /_pdf$/i.test(templateName);
+    const headerMedia = isPdfTemplate && pdfUrl
+      ? {
+          type: 'document' as const,
+          url: pdfUrl,
+          filename: `Receipt-${invoiceNumber}.pdf`,
+        }
+      : undefined;
 
     await this.communicationService.sendMessage(clinicId, {
       patient_id: patientId,
@@ -493,15 +561,13 @@ export class InvoiceService {
       body: rule?.template_id
         ? undefined
         : `Hi ${patient.first_name},\n\nWe have received your payment of ${formattedAmount} for invoice ${invoiceNumber} at ${clinicName}.\n\nYour receipt is ready. View & download:\n${receiptUrl}\n\nPlease call us ${clinicPhone} for any queries.`,
-      variables: {
-        '1': patient.first_name,
-        '2': formattedAmount,
-        '3': invoiceNumber,
-        '4': clinicName,
-        '5': receiptUrl,
-        '6': clinicPhone,
+      variables,
+      metadata: {
+        automation: 'payment_confirmation',
+        invoice_id: invoiceId,
+        button_url_suffix: receiptUrl,
+        ...(headerMedia ? { whatsapp_header_media: headerMedia } : {}),
       },
-      metadata: { automation: 'payment_confirmation', invoice_id: invoiceId },
     });
   }
 }

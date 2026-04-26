@@ -317,7 +317,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
     }
     async sendWhatsApp(clinicId, invoiceId) {
         const invoice = await this.findOne(clinicId, invoiceId);
-        await this.getPdfUrl(clinicId, invoiceId);
+        const { url: pdfUrl } = await this.getPdfUrl(clinicId, invoiceId);
         const [patient, clinic, rule] = await Promise.all([
             this.prisma.patient.findUnique({
                 where: { id: invoice.patient_id },
@@ -343,6 +343,29 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         const apiBase = process.env['API_BASE_URL'] ?? 'http://localhost:3000/api/v1';
         const redirectUrl = `${apiBase}/public/invoice-redirect/${invoiceId}?clinic=${clinicId}`;
         const channel = rule?.channel ?? 'whatsapp';
+        const variables = {
+            '1': patientName,
+            '2': invoice.invoice_number,
+            '3': netAmountFormatted,
+            '4': clinicName,
+            '5': clinicPhone,
+            patient_name: patientName,
+            patient_first_name: patient.first_name,
+            invoice_number: invoice.invoice_number,
+            amount: netAmountFormatted,
+            clinic_name: clinicName,
+            clinic_phone: clinicPhone,
+            link: redirectUrl,
+        };
+        const templateName = rule?.template?.template_name || '';
+        const isPdfTemplate = /_pdf$/i.test(templateName);
+        const headerMedia = isPdfTemplate
+            ? {
+                type: 'document',
+                url: pdfUrl,
+                filename: `Invoice-${invoice.invoice_number}.pdf`,
+            }
+            : undefined;
         await this.communicationService.sendMessage(clinicId, {
             patient_id: invoice.patient_id,
             channel: channel,
@@ -350,16 +373,14 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
             template_id: rule?.template_id ?? undefined,
             body: rule?.template_id
                 ? undefined
-                : `Hello ${patientName},\n\nYour payment receipt has been generated.\n\nClinic: ${clinicName}\nInvoice No: ${invoice.invoice_number}\nAmount: ${netAmountFormatted}\n\nView & Download Invoice:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
-            variables: {
-                '1': patientName,
-                '2': clinicName,
-                '3': invoice.invoice_number,
-                '4': netAmountFormatted,
-                '5': clinicPhone,
-                '6': redirectUrl,
+                : `Hello ${patientName},\n\nYour invoice has been generated.\n\nClinic: ${clinicName}\nInvoice No: ${invoice.invoice_number}\nAmount: ${netAmountFormatted}\n\nView & Download Invoice:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
+            variables,
+            metadata: {
+                automation: 'invoice_ready',
+                invoice_id: invoiceId,
+                button_url_suffix: redirectUrl,
+                ...(headerMedia ? { whatsapp_header_media: headerMedia } : {}),
             },
-            metadata: { automation: 'invoice_ready', invoice_id: invoiceId },
         });
         return { message: 'Invoice sent via WhatsApp' };
     }
@@ -407,8 +428,10 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         }
         if (!channel)
             return;
+        let pdfUrl = null;
         try {
-            await this.getPdfUrl(clinicId, invoiceId);
+            const res = await this.getPdfUrl(clinicId, invoiceId);
+            pdfUrl = res.url;
         }
         catch { }
         const apiBase = process.env['API_BASE_URL'] ?? 'http://localhost:3000/api/v1';
@@ -417,6 +440,30 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         const formattedAmount = `${(0, currency_util_js_1.getCurrencySymbol)(currCode)}${amount.toLocaleString((0, currency_util_js_1.getCurrencyLocale)(currCode))}`;
         const clinicName = clinic?.name || 'Your Dental Clinic';
         const clinicPhone = clinic?.phone || '';
+        const patientName = `${patient.first_name} ${patient.last_name}`;
+        const variables = {
+            '1': patientName,
+            '2': formattedAmount,
+            '3': invoiceNumber,
+            '4': clinicName,
+            '5': clinicPhone,
+            patient_name: patientName,
+            patient_first_name: patient.first_name,
+            amount: formattedAmount,
+            invoice_number: invoiceNumber,
+            clinic_name: clinicName,
+            clinic_phone: clinicPhone,
+            link: receiptUrl,
+        };
+        const templateName = rule?.template?.template_name || '';
+        const isPdfTemplate = /_pdf$/i.test(templateName);
+        const headerMedia = isPdfTemplate && pdfUrl
+            ? {
+                type: 'document',
+                url: pdfUrl,
+                filename: `Receipt-${invoiceNumber}.pdf`,
+            }
+            : undefined;
         await this.communicationService.sendMessage(clinicId, {
             patient_id: patientId,
             channel,
@@ -425,15 +472,13 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
             body: rule?.template_id
                 ? undefined
                 : `Hi ${patient.first_name},\n\nWe have received your payment of ${formattedAmount} for invoice ${invoiceNumber} at ${clinicName}.\n\nYour receipt is ready. View & download:\n${receiptUrl}\n\nPlease call us ${clinicPhone} for any queries.`,
-            variables: {
-                '1': patient.first_name,
-                '2': formattedAmount,
-                '3': invoiceNumber,
-                '4': clinicName,
-                '5': receiptUrl,
-                '6': clinicPhone,
+            variables,
+            metadata: {
+                automation: 'payment_confirmation',
+                invoice_id: invoiceId,
+                button_url_suffix: receiptUrl,
+                ...(headerMedia ? { whatsapp_header_media: headerMedia } : {}),
             },
-            metadata: { automation: 'payment_confirmation', invoice_id: invoiceId },
         });
     }
 };
