@@ -263,6 +263,7 @@ export class CommunicationService {
       dto.patient_id,
       dto.template_id || null,
       dto.channel,
+      dto.metadata,
     );
 
     if (isDuplicate) {
@@ -1094,8 +1095,14 @@ export class CommunicationService {
     patientId: string,
     templateId: string | null,
     channel: string,
+    metadata?: Record<string, unknown>,
   ): Promise<boolean> {
     if (!templateId) return false; // no dedup for ad-hoc messages
+
+    // Appointment reminders are already deduplicated by BullMQ deterministic job IDs
+    // (job ID = "appointment:<id>:reminder:<1|2>"). Skipping dedup here allows both
+    // reminder 1 and reminder 2 to send even though they use the same template.
+    if (metadata?.['automation'] === 'appointment_reminder_patient') return false;
 
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 

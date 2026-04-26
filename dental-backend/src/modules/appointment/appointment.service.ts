@@ -4,6 +4,7 @@ import { CreateAppointmentDto, UpdateAppointmentDto, QueryAppointmentDto, QueryA
 import { Appointment, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
 import { AppointmentNotificationService } from './appointment-notification.service.js';
+import { AppointmentReminderProducer } from './appointment-reminder.producer.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 
 export interface AvailableSlot {
@@ -40,6 +41,7 @@ export class AppointmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationService: AppointmentNotificationService,
+    private readonly reminderProducer: AppointmentReminderProducer,
     private readonly planLimit: PlanLimitService,
   ) {}
 
@@ -118,6 +120,13 @@ export class AppointmentService {
     this.notificationService.sendConfirmation(clinicId, appointment.id).catch((e) => {
       this.logger.warn(`Appointment confirmation notification failed: ${(e as Error).message}`);
     });
+
+    // Schedule BullMQ reminder jobs at exact times (fire-and-forget)
+    this.reminderProducer
+      .scheduleReminders(appointment.id, clinicId, appointment.appointment_date, appointment.start_time)
+      .catch((e) => {
+        this.logger.warn(`Failed to schedule reminders for appointment ${appointment.id}: ${(e as Error).message}`);
+      });
 
     return appointment;
   }
@@ -328,10 +337,20 @@ export class AppointmentService {
       this.notificationService.sendCancellation(clinicId, id).catch((e) => {
         this.logger.warn(`Cancellation notification failed: ${(e as Error).message}`);
       });
+      // Cancel queued reminder jobs so patient doesn't get reminded about cancelled appointment
+      this.reminderProducer.cancelReminders(id).catch((e) => {
+        this.logger.warn(`Failed to cancel reminders for appointment ${id}: ${(e as Error).message}`);
+      });
     } else if (isRescheduled) {
       this.notificationService.sendReschedule(clinicId, id, oldDate, oldTime).catch((e) => {
         this.logger.warn(`Reschedule notification failed: ${(e as Error).message}`);
       });
+      // Cancel old reminder jobs and schedule new ones for the updated time
+      this.reminderProducer
+        .rescheduleReminders(id, clinicId, updated.appointment_date, updated.start_time)
+        .catch((e) => {
+          this.logger.warn(`Failed to reschedule reminders for appointment ${id}: ${(e as Error).message}`);
+        });
     }
 
     return updated;

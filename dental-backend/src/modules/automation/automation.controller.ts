@@ -68,7 +68,6 @@ export class AutomationController {
     const jobs = [
       { name: 'birthdayGreetings', fn: () => this.automationCronService.birthdayGreetings() },
       { name: 'festivalGreetings', fn: () => this.automationCronService.festivalGreetings() },
-      { name: 'appointmentRemindersToPatients', fn: () => this.automationCronService.appointmentRemindersToPatients() },
       { name: 'paymentReminders', fn: () => this.automationCronService.paymentReminders() },
       { name: 'dormantPatientDetection', fn: () => this.automationCronService.dormantPatientDetection() },
       { name: 'treatmentPlanReminders', fn: () => this.automationCronService.treatmentPlanReminders() },
@@ -93,7 +92,6 @@ export class AutomationController {
     const jobMap: Record<string, () => Promise<void>> = {
       birthdayGreetings: () => this.automationCronService.birthdayGreetings(),
       festivalGreetings: () => this.automationCronService.festivalGreetings(),
-      appointmentRemindersToPatients: () => this.automationCronService.appointmentRemindersToPatients(),
       paymentReminders: () => this.automationCronService.paymentReminders(),
       dormantPatientDetection: () => this.automationCronService.dormantPatientDetection(),
       treatmentPlanReminders: () => this.automationCronService.treatmentPlanReminders(),
