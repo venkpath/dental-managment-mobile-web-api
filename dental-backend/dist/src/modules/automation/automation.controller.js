@@ -106,14 +106,18 @@ let AutomationController = class AutomationController {
                 failed: failed.length,
                 completed: completed.length,
             },
-            delayed: delayed.map((j) => ({
-                jobId: j.id,
-                appointmentId: j.data['appointmentId'],
-                reminderIndex: j.data['reminderIndex'],
-                reminderHours: j.data['reminderHours'],
-                firesAt: new Date(now + (j.delay ?? 0)).toISOString(),
-                firesIn: `${Math.round((j.delay ?? 0) / 60000)} minutes`,
-            })),
+            delayed: delayed.map((j) => {
+                const firesAtMs = (j.timestamp ?? now) + (j.delay ?? 0);
+                const firesInMs = firesAtMs - now;
+                return {
+                    jobId: j.id,
+                    appointmentId: j.data['appointmentId'],
+                    reminderIndex: j.data['reminderIndex'],
+                    reminderHours: j.data['reminderHours'],
+                    firesAt: new Date(firesAtMs).toISOString(),
+                    firesIn: firesInMs > 0 ? `${Math.round(firesInMs / 60000)} minutes` : 'due now',
+                };
+            }),
             active: active.map((j) => ({
                 jobId: j.id,
                 appointmentId: j.data['appointmentId'],
@@ -195,8 +199,12 @@ let AutomationController = class AutomationController {
             },
             preview,
             actualQueuedJobs: [
-                queuedJob1 ? { jobId: queuedJob1.id, state: await queuedJob1.getState(), firesAt: new Date(Date.now() + (queuedJob1.delay ?? 0)).toISOString() } : null,
-                queuedJob2 ? { jobId: queuedJob2.id, state: await queuedJob2.getState(), firesAt: new Date(Date.now() + (queuedJob2.delay ?? 0)).toISOString() } : null,
+                queuedJob1
+                    ? { jobId: queuedJob1.id, state: await queuedJob1.getState(), firesAt: new Date((queuedJob1.timestamp ?? Date.now()) + (queuedJob1.delay ?? 0)).toISOString() }
+                    : null,
+                queuedJob2
+                    ? { jobId: queuedJob2.id, state: await queuedJob2.getState(), firesAt: new Date((queuedJob2.timestamp ?? Date.now()) + (queuedJob2.delay ?? 0)).toISOString() }
+                    : null,
             ].filter(Boolean),
         };
     }
