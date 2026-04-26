@@ -68,5 +68,6 @@ exports.AUTOMATION_RULE_TYPES = [
     'payment_confirmation',
     'invoice_ready',
     'payment_overdue',
+    'prescription_ready',
 ];
 //# sourceMappingURL=upsert-automation-rule.dto.js.map

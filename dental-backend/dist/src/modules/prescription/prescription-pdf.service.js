@@ -42,9 +42,6 @@ let PrescriptionPdfService = class PrescriptionPdfService {
             const fmtDate = (d) => d.toLocaleDateString('en-IN', {
                 day: '2-digit', month: 'short', year: 'numeric',
             });
-            const fmtTime = (d) => d.toLocaleTimeString('en-IN', {
-                hour: '2-digit', minute: '2-digit', hour12: true,
-            });
             doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(20)
                 .text(data.clinic.name, M, 36, { width: CW * 0.7, lineBreak: false });
             doc.fillColor(TEXT_MUTED).font('Helvetica').fontSize(9)
@@ -76,11 +73,10 @@ let PrescriptionPdfService = class PrescriptionPdfService {
             doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(13)
                 .text('PRESCRIPTION', M, 102, { width: CW, align: 'center', characterSpacing: 2 });
             const cardY = 124;
-            const cardH = 76;
+            const cardH = 110;
             doc.rect(M, cardY, CW, cardH).fill(CARD_BG).stroke(HAIRLINE);
             const patientName = `${data.patient.first_name} ${data.patient.last_name}`;
             const dateStr = fmtDate(new Date(data.created_at));
-            const timeStr = fmtTime(new Date(data.created_at));
             let ageStr = '';
             if (data.patient.date_of_birth) {
                 const dob = new Date(data.patient.date_of_birth);
@@ -91,6 +87,7 @@ let PrescriptionPdfService = class PrescriptionPdfService {
             }
             const genderStr = data.patient.gender || '';
             const ageGender = [ageStr, genderStr].filter(Boolean).join(' / ') || '—';
+            const uhid = `P-${data.patient.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
             const drawKV = (label, value, x, y, labelW, valueW) => {
                 doc.fillColor(TEXT_MUTED).font('Helvetica').fontSize(8.5)
                     .text(label, x, y, { width: labelW });
@@ -98,20 +95,29 @@ let PrescriptionPdfService = class PrescriptionPdfService {
                     .text(value || '—', x + labelW, y, { width: valueW, ellipsis: true, lineBreak: false });
             };
             const padX = 16;
-            const colW = (CW - padX * 2) / 2;
-            const labelW = 78;
-            const valueW = colW - labelW - 8;
+            const dividerX = M + Math.round(CW * 0.6);
+            doc.rect(dividerX, cardY + 10, 0.5, cardH - 20).fill(HAIRLINE);
             const leftX = M + padX;
-            const rightX = M + padX + colW + 8;
-            const r1 = cardY + 12;
-            const r2 = cardY + 30;
-            const r3 = cardY + 48;
-            drawKV('Name', patientName, leftX, r1, labelW, valueW);
-            drawKV('MR No.', data.patient.mr_number || data.id.slice(0, 8).toUpperCase(), leftX, r2, labelW, valueW);
-            drawKV('Doctor', `Dr. ${data.dentist.name}`, leftX, r3, labelW, valueW);
-            drawKV('Age / Gender', ageGender, rightX, r1, labelW, valueW);
-            drawKV('Date / Time', `${dateStr}  ${timeStr}`, rightX, r2, labelW, valueW);
-            drawKV('Rx ID', data.id.slice(0, 12).toUpperCase(), rightX, r3, labelW, valueW);
+            const leftColW = dividerX - leftX - 12;
+            const leftLabelW = 78;
+            const leftValueW = leftColW - leftLabelW - 4;
+            const rowGap = 18;
+            const r0 = cardY + 12;
+            drawKV('Patient', patientName, leftX, r0 + rowGap * 0, leftLabelW, leftValueW);
+            drawKV('Age / Gender', ageGender, leftX, r0 + rowGap * 1, leftLabelW, leftValueW);
+            drawKV('Mobile', data.patient.phone || '—', leftX, r0 + rowGap * 2, leftLabelW, leftValueW);
+            drawKV('Visit Date', dateStr, leftX, r0 + rowGap * 3, leftLabelW, leftValueW);
+            drawKV('UHID', uhid, leftX, r0 + rowGap * 4, leftLabelW, leftValueW);
+            const rightX = dividerX + 12;
+            const rightColW = M + CW - rightX - padX;
+            const rightLabelW = 60;
+            const rightValueW = rightColW - rightLabelW - 4;
+            doc.fillColor(TEXT_MUTED).font('Helvetica-Bold').fontSize(7.5)
+                .text('DOCTOR', rightX, cardY + 12, { characterSpacing: 1 });
+            doc.rect(rightX, cardY + 24, 24, 1).fill(ACCENT);
+            const drR0 = cardY + 32;
+            drawKV('Name', `Dr. ${data.dentist.name}`, rightX, drR0 + rowGap * 0, rightLabelW, rightValueW);
+            drawKV('Reg ID', data.dentist.license_number || '—', rightX, drR0 + rowGap * 1, rightLabelW, rightValueW);
             let cursorY = cardY + cardH + 16;
             const sectionHeading = (label, y) => {
                 doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(10)

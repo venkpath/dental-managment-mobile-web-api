@@ -24,13 +24,13 @@ export interface PrescriptionPdfData {
         state?: string | null;
     };
     patient: {
+        id: string;
         first_name: string;
         last_name: string;
         phone?: string | null;
         email?: string | null;
         date_of_birth?: string | Date | null;
         gender?: string | null;
-        mr_number?: string | null;
     };
     dentist: {
         name: string;

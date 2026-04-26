@@ -44,6 +44,7 @@ export const AUTOMATION_RULE_TYPES = [
   'payment_confirmation',
   'invoice_ready',
   'payment_overdue',
+  'prescription_ready',
 ] as const;
 
 export type AutomationRuleType = typeof AUTOMATION_RULE_TYPES[number];

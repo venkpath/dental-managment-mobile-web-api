@@ -6,7 +6,13 @@ import { TemplateService } from '../communication/template.service.js';
 import { getBookingUrl } from '../../common/utils/booking-url.util.js';
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
 import { paginate } from '../../common/interfaces/paginated-result.interface.js';
-import { extractCustomVariableNames } from './system-variables.js';
+import {
+  extractUserMappedVariableNames,
+  normalizeMapping,
+  type CampaignVariableMapping,
+  type CampaignVariableMappingInput,
+  type SystemCampaignVariable,
+} from './system-variables.js';
 import type { CreateCampaignDto } from './dto/create-campaign.dto.js';
 import type { UpdateCampaignDto } from './dto/update-campaign.dto.js';
 import type { QueryCampaignDto } from './dto/query-campaign.dto.js';
@@ -86,6 +92,45 @@ export class CampaignService {
     };
   }
 
+  /**
+   * Build the bag of system values (per recipient) that a template variable
+   * mapping with `type: 'system'` can resolve against.
+   */
+  private buildSystemVariableValues(
+    patient: SegmentPatient,
+    clinicContext: { clinic_name: string; clinic_phone: string; today_date: string },
+  ): Record<SystemCampaignVariable, string> {
+    return {
+      patient_name:       `${patient.first_name} ${patient.last_name}`,
+      patient_first_name: patient.first_name,
+      patient_last_name:  patient.last_name,
+      patient_phone:      patient.phone,
+      patient_email:      patient.email || '',
+      clinic_name:        clinicContext.clinic_name,
+      clinic_phone:       clinicContext.clinic_phone,
+      today_date:         clinicContext.today_date,
+    };
+  }
+
+  /**
+   * Resolve a per-template-variable mapping into a flat name → value bag for
+   * a single recipient. Used by dispatchMessages once per patient.
+   */
+  private resolveMappingsForRecipient(
+    mappings: Record<string, CampaignVariableMapping>,
+    systemValues: Record<SystemCampaignVariable, string>,
+  ): Record<string, string> {
+    const resolved: Record<string, string> = {};
+    for (const [varName, mapping] of Object.entries(mappings)) {
+      if (mapping.type === 'system') {
+        resolved[varName] = systemValues[mapping.key] ?? '';
+      } else {
+        resolved[varName] = mapping.value ?? '';
+      }
+    }
+    return resolved;
+  }
+
   private async dispatchMessages(
     clinicId: string,
     patients: SegmentPatient[],
@@ -93,6 +138,11 @@ export class CampaignService {
     templateId: string,
     metadata: Record<string, unknown>,
     extraVariables: Record<string, string> = {},
+    /** Resolved per recipient — used for {{1}}, {{2}} numbered templates. */
+    variableMappings: Record<string, CampaignVariableMapping> = {},
+    clinicContext: { clinic_name: string; clinic_phone: string; today_date: string } = {
+      clinic_name: '', clinic_phone: '', today_date: '',
+    },
   ): Promise<DispatchStats> {
     const stats: DispatchStats = {
       attempted_count: 0,
@@ -103,11 +153,25 @@ export class CampaignService {
       accepted_by_channel: { whatsapp: 0, sms: 0, email: 0 },
     };
 
+    const hasMappings = Object.keys(variableMappings).length > 0;
+
     for (const patient of patients) {
-      // Merge order: extras (clinic_name, custom user-supplied) first,
-      // patient fields override last so a clinic can never accidentally
-      // shadow patient_name etc.
-      const variables = { ...extraVariables, ...this.buildPatientVariables(patient) };
+      const systemValues = hasMappings
+        ? this.buildSystemVariableValues(patient, clinicContext)
+        : null;
+      const resolvedMappings = systemValues
+        ? this.resolveMappingsForRecipient(variableMappings, systemValues)
+        : {};
+
+      // Merge order:
+      //   1. extras (clinic_name etc. for legacy named templates)
+      //   2. patient fields (named-template auto-fill)
+      //   3. resolved mappings (overrides — this is the explicit user choice)
+      const variables = {
+        ...extraVariables,
+        ...this.buildPatientVariables(patient),
+        ...resolvedMappings,
+      };
 
       for (const channel of channels) {
         stats.attempted_count++;
@@ -297,29 +361,54 @@ export class CampaignService {
 
       const template = await this.templateService.findOne(clinicId, campaign.template_id);
 
-      // Validate that every custom (non-system) variable in the template has
-      // a value supplied via the campaign's template_variables.
+      // ── Resolve persisted template_variables ──
+      // Stored shape after our refactor:
+      //   { "1": { type: 'system', key: 'patient_name' }, "3": { type: 'custom', value: 'Ugadi' } }
+      // Legacy shape (still accepted): { "festival_name": "Ugadi" } — treated as { type: 'custom' }.
       const segmentCfg = (campaign.segment_config as Record<string, unknown>) || {};
-      const suppliedVars = (segmentCfg._template_variables as Record<string, string> | undefined) || {};
-      const customVarNames = extractCustomVariableNames(template.variables);
-      const missingVars = customVarNames.filter(
-        (name) => !suppliedVars[name] || !String(suppliedVars[name]).trim(),
-      );
-      if (missingVars.length > 0) {
+      const rawSupplied = (segmentCfg._template_variables as Record<string, CampaignVariableMappingInput> | undefined) || {};
+      const suppliedMappings: Record<string, CampaignVariableMapping> = {};
+      const legacyExtras: Record<string, string> = {};
+      for (const [name, raw] of Object.entries(rawSupplied)) {
+        if (raw === undefined || raw === null) continue;
+        const mapping = normalizeMapping(raw);
+        suppliedMappings[name] = mapping;
+        // Legacy custom strings on NAMED templates feed into extraVariables
+        // (which feeds the named template renderer). For numbered slots
+        // they only matter through the per-recipient mapping path.
+        if (mapping.type === 'custom' && !/^\d+$/.test(name)) {
+          legacyExtras[name] = mapping.value;
+        }
+      }
+
+      // Validate every required slot has a mapping (rejects empty custom values too).
+      const requiredSlots = extractUserMappedVariableNames(template.variables);
+      const missingSlots = requiredSlots.filter((name) => {
+        const m = suppliedMappings[name];
+        if (!m) return true;
+        if (m.type === 'custom' && !String(m.value || '').trim()) return true;
+        return false;
+      });
+      if (missingSlots.length > 0) {
         throw new BadRequestException(
-          `Missing values for custom template variables: ${missingVars.join(', ')}. ` +
-            `Provide them via template_variables when creating or updating the campaign.`,
+          `Missing values for template variables: ${missingSlots.join(', ')}. ` +
+            `Map each variable to a system field or a custom text in the wizard.`,
         );
       }
 
-      // Look up clinic_name once so it's the same value for every recipient.
+      // Look up clinic info once so per-recipient resolution stays cheap.
       const clinic = await this.prisma.clinic.findUnique({
         where: { id: clinicId },
-        select: { name: true },
+        select: { name: true, phone: true },
       });
-      const extraVariables: Record<string, string> = {
+      const clinicContext = {
         clinic_name: clinic?.name || '',
-        ...suppliedVars,
+        clinic_phone: clinic?.phone || '',
+        today_date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+      };
+      const extraVariables: Record<string, string> = {
+        clinic_name: clinicContext.clinic_name,
+        ...legacyExtras,
       };
 
       const estimatedCost = Math.round((patients.length * this.getPerRecipientCost(channels)) * 100) / 100;
@@ -382,6 +471,8 @@ export class CampaignService {
           ...(buttonUrlSuffix ? { button_url_suffix: buttonUrlSuffix } : {}),
         },
         extraVariables,
+        suppliedMappings,
+        clinicContext,
       );
 
       const sentCount = stats.queued_count + stats.scheduled_count;

@@ -39,13 +39,14 @@ export interface PrescriptionPdfData {
     state?: string | null;
   };
   patient: {
+    /** Patient UUID — used to derive a short human-readable UHID for printing. */
+    id: string;
     first_name: string;
     last_name: string;
     phone?: string | null;
     email?: string | null;
     date_of_birth?: string | Date | null;
     gender?: string | null;
-    mr_number?: string | null;
   };
   dentist: {
     name: string;
@@ -101,9 +102,6 @@ export class PrescriptionPdfService {
       const fmtDate = (d: Date) => d.toLocaleDateString('en-IN', {
         day: '2-digit', month: 'short', year: 'numeric',
       });
-      const fmtTime = (d: Date) => d.toLocaleTimeString('en-IN', {
-        hour: '2-digit', minute: '2-digit', hour12: true,
-      });
 
       // ─── HEADER ───
       // Clinic name (bold) + tagline; thin hairline below.
@@ -145,14 +143,16 @@ export class PrescriptionPdfService {
       doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(13)
         .text('PRESCRIPTION', M, 102, { width: CW, align: 'center', characterSpacing: 2 });
 
-      // ─── PATIENT INFO CARD ───
+      // ─── PATIENT / DOCTOR CARD ───
+      // Left column: patient details (Name, Age/Gender, Mobile, Visit Date, UHID)
+      // Right column: doctor details (Name, Reg ID)
+      // Hairline divider between the two columns to make ownership clear.
       const cardY = 124;
-      const cardH = 76;
+      const cardH = 110; // 5 rows on the left at ~18pt + padding
       doc.rect(M, cardY, CW, cardH).fill(CARD_BG).stroke(HAIRLINE);
 
       const patientName = `${data.patient.first_name} ${data.patient.last_name}`;
       const dateStr = fmtDate(new Date(data.created_at));
-      const timeStr = fmtTime(new Date(data.created_at));
 
       // Calculate age
       let ageStr = '';
@@ -166,6 +166,10 @@ export class PrescriptionPdfService {
       const genderStr = data.patient.gender || '';
       const ageGender = [ageStr, genderStr].filter(Boolean).join(' / ') || '—';
 
+      // Derive a short, stable, human-readable UHID from the patient UUID —
+      // not the full 36-char string. Same patient always renders the same code.
+      const uhid = `P-${data.patient.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+
       const drawKV = (label: string, value: string, x: number, y: number, labelW: number, valueW: number) => {
         doc.fillColor(TEXT_MUTED).font('Helvetica').fontSize(8.5)
           .text(label, x, y, { width: labelW });
@@ -173,25 +177,42 @@ export class PrescriptionPdfService {
           .text(value || '—', x + labelW, y, { width: valueW, ellipsis: true, lineBreak: false });
       };
 
-      // Two columns inside card
+      // Layout: left column is wider (more rows + longer labels);
+      // right column is narrower and holds just the doctor.
       const padX = 16;
-      const colW = (CW - padX * 2) / 2;
-      const labelW = 78;
-      const valueW = colW - labelW - 8;
+      const dividerX = M + Math.round(CW * 0.6);
 
+      // Vertical divider between patient and doctor columns
+      doc.rect(dividerX, cardY + 10, 0.5, cardH - 20).fill(HAIRLINE);
+
+      // ── LEFT: Patient ──
       const leftX = M + padX;
-      const rightX = M + padX + colW + 8;
-      const r1 = cardY + 12;
-      const r2 = cardY + 30;
-      const r3 = cardY + 48;
+      const leftColW = dividerX - leftX - 12;
+      const leftLabelW = 78;
+      const leftValueW = leftColW - leftLabelW - 4;
 
-      drawKV('Name',         patientName, leftX, r1, labelW, valueW);
-      drawKV('MR No.',       data.patient.mr_number || data.id.slice(0, 8).toUpperCase(), leftX, r2, labelW, valueW);
-      drawKV('Doctor',       `Dr. ${data.dentist.name}`, leftX, r3, labelW, valueW);
+      const rowGap = 18;
+      const r0 = cardY + 12;
+      drawKV('Patient',     patientName,                leftX, r0 + rowGap * 0, leftLabelW, leftValueW);
+      drawKV('Age / Gender', ageGender,                 leftX, r0 + rowGap * 1, leftLabelW, leftValueW);
+      drawKV('Mobile',      data.patient.phone || '—', leftX, r0 + rowGap * 2, leftLabelW, leftValueW);
+      drawKV('Visit Date',  dateStr,                    leftX, r0 + rowGap * 3, leftLabelW, leftValueW);
+      drawKV('UHID',        uhid,                       leftX, r0 + rowGap * 4, leftLabelW, leftValueW);
 
-      drawKV('Age / Gender', ageGender, rightX, r1, labelW, valueW);
-      drawKV('Date / Time',  `${dateStr}  ${timeStr}`, rightX, r2, labelW, valueW);
-      drawKV('Rx ID',        data.id.slice(0, 12).toUpperCase(), rightX, r3, labelW, valueW);
+      // ── RIGHT: Doctor ──
+      const rightX = dividerX + 12;
+      const rightColW = M + CW - rightX - padX;
+      const rightLabelW = 60;
+      const rightValueW = rightColW - rightLabelW - 4;
+
+      // Small "DOCTOR" eyebrow above the doctor block
+      doc.fillColor(TEXT_MUTED).font('Helvetica-Bold').fontSize(7.5)
+        .text('DOCTOR', rightX, cardY + 12, { characterSpacing: 1 });
+      doc.rect(rightX, cardY + 24, 24, 1).fill(ACCENT);
+
+      const drR0 = cardY + 32;
+      drawKV('Name',   `Dr. ${data.dentist.name}`,       rightX, drR0 + rowGap * 0, rightLabelW, rightValueW);
+      drawKV('Reg ID', data.dentist.license_number || '—', rightX, drR0 + rowGap * 1, rightLabelW, rightValueW);
 
       // ─── HELPERS for section heading + body text ───
       let cursorY = cardY + cardH + 16;

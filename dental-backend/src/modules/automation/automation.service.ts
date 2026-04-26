@@ -186,6 +186,12 @@ export class AutomationService {
         channel: 'preferred',
         config: { days_overdue: 1 },
       },
+      {
+        rule_type: 'prescription_ready',
+        is_enabled: true,
+        channel: 'whatsapp',
+        config: {},
+      },
     ];
 
     await this.prisma.automationRule.createMany({
@@ -208,6 +214,7 @@ export class AutomationService {
       'payment_reminder', 'feedback_collection', 'appointment_reminder_patient',
       'appointment_confirmation', 'appointment_cancellation', 'appointment_rescheduled',
       'payment_confirmation', 'invoice_ready', 'payment_overdue',
+      'prescription_ready',
     ];
   }
 }

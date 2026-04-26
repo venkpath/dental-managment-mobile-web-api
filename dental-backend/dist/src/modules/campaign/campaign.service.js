@@ -68,7 +68,33 @@ let CampaignService = class CampaignService {
             patient_email: patient.email || '',
         };
     }
-    async dispatchMessages(clinicId, patients, channels, templateId, metadata, extraVariables = {}) {
+    buildSystemVariableValues(patient, clinicContext) {
+        return {
+            patient_name: `${patient.first_name} ${patient.last_name}`,
+            patient_first_name: patient.first_name,
+            patient_last_name: patient.last_name,
+            patient_phone: patient.phone,
+            patient_email: patient.email || '',
+            clinic_name: clinicContext.clinic_name,
+            clinic_phone: clinicContext.clinic_phone,
+            today_date: clinicContext.today_date,
+        };
+    }
+    resolveMappingsForRecipient(mappings, systemValues) {
+        const resolved = {};
+        for (const [varName, mapping] of Object.entries(mappings)) {
+            if (mapping.type === 'system') {
+                resolved[varName] = systemValues[mapping.key] ?? '';
+            }
+            else {
+                resolved[varName] = mapping.value ?? '';
+            }
+        }
+        return resolved;
+    }
+    async dispatchMessages(clinicId, patients, channels, templateId, metadata, extraVariables = {}, variableMappings = {}, clinicContext = {
+        clinic_name: '', clinic_phone: '', today_date: '',
+    }) {
         const stats = {
             attempted_count: 0,
             queued_count: 0,
@@ -77,8 +103,19 @@ let CampaignService = class CampaignService {
             failed_count: 0,
             accepted_by_channel: { whatsapp: 0, sms: 0, email: 0 },
         };
+        const hasMappings = Object.keys(variableMappings).length > 0;
         for (const patient of patients) {
-            const variables = { ...extraVariables, ...this.buildPatientVariables(patient) };
+            const systemValues = hasMappings
+                ? this.buildSystemVariableValues(patient, clinicContext)
+                : null;
+            const resolvedMappings = systemValues
+                ? this.resolveMappingsForRecipient(variableMappings, systemValues)
+                : {};
+            const variables = {
+                ...extraVariables,
+                ...this.buildPatientVariables(patient),
+                ...resolvedMappings,
+            };
             for (const channel of channels) {
                 stats.attempted_count++;
                 try {
@@ -224,20 +261,43 @@ let CampaignService = class CampaignService {
             const patients = await this.resolveSegment(clinicId, campaign.segment_type, campaign.segment_config || {});
             const template = await this.templateService.findOne(clinicId, campaign.template_id);
             const segmentCfg = campaign.segment_config || {};
-            const suppliedVars = segmentCfg._template_variables || {};
-            const customVarNames = (0, system_variables_js_1.extractCustomVariableNames)(template.variables);
-            const missingVars = customVarNames.filter((name) => !suppliedVars[name] || !String(suppliedVars[name]).trim());
-            if (missingVars.length > 0) {
-                throw new common_1.BadRequestException(`Missing values for custom template variables: ${missingVars.join(', ')}. ` +
-                    `Provide them via template_variables when creating or updating the campaign.`);
+            const rawSupplied = segmentCfg._template_variables || {};
+            const suppliedMappings = {};
+            const legacyExtras = {};
+            for (const [name, raw] of Object.entries(rawSupplied)) {
+                if (raw === undefined || raw === null)
+                    continue;
+                const mapping = (0, system_variables_js_1.normalizeMapping)(raw);
+                suppliedMappings[name] = mapping;
+                if (mapping.type === 'custom' && !/^\d+$/.test(name)) {
+                    legacyExtras[name] = mapping.value;
+                }
+            }
+            const requiredSlots = (0, system_variables_js_1.extractUserMappedVariableNames)(template.variables);
+            const missingSlots = requiredSlots.filter((name) => {
+                const m = suppliedMappings[name];
+                if (!m)
+                    return true;
+                if (m.type === 'custom' && !String(m.value || '').trim())
+                    return true;
+                return false;
+            });
+            if (missingSlots.length > 0) {
+                throw new common_1.BadRequestException(`Missing values for template variables: ${missingSlots.join(', ')}. ` +
+                    `Map each variable to a system field or a custom text in the wizard.`);
             }
             const clinic = await this.prisma.clinic.findUnique({
                 where: { id: clinicId },
-                select: { name: true },
+                select: { name: true, phone: true },
             });
-            const extraVariables = {
+            const clinicContext = {
                 clinic_name: clinic?.name || '',
-                ...suppliedVars,
+                clinic_phone: clinic?.phone || '',
+                today_date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+            };
+            const extraVariables = {
+                clinic_name: clinicContext.clinic_name,
+                ...legacyExtras,
             };
             const estimatedCost = Math.round((patients.length * this.getPerRecipientCost(channels)) * 100) / 100;
             await this.prisma.campaign.update({
@@ -286,7 +346,7 @@ let CampaignService = class CampaignService {
             const stats = await this.dispatchMessages(clinicId, patients, channels, campaign.template_id, {
                 campaign_id: campaign.id,
                 ...(buttonUrlSuffix ? { button_url_suffix: buttonUrlSuffix } : {}),
-            }, extraVariables);
+            }, extraVariables, suppliedMappings, clinicContext);
             const sentCount = stats.queued_count + stats.scheduled_count;
             const unsentCount = stats.failed_count + stats.skipped_count;
             const actualCost = this.calculateActualCost(stats.accepted_by_channel);

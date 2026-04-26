@@ -38,9 +38,9 @@ export class UpdateCampaignDto {
   scheduled_at?: string;
 
   @ApiPropertyOptional({
-    description: 'Values for custom (non-system) template variables. See CreateCampaignDto.',
+    description: 'Per-variable mapping for the selected template. See CreateCampaignDto.',
   })
   @IsOptional()
   @IsObject()
-  template_variables?: Record<string, string>;
+  template_variables?: Record<string, { type: 'system'; key: string } | { type: 'custom'; value: string } | string>;
 }

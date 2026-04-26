@@ -20,6 +20,8 @@ export declare class CampaignService {
     private getPerRecipientCost;
     private calculateActualCost;
     private buildPatientVariables;
+    private buildSystemVariableValues;
+    private resolveMappingsForRecipient;
     private dispatchMessages;
     create(clinicId: string, userId: string, dto: CreateCampaignDto): Promise<{
         template: {

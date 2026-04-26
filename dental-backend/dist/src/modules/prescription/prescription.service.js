@@ -13,6 +13,7 @@ exports.PrescriptionService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const communication_service_js_1 = require("../communication/communication.service.js");
+const automation_service_js_1 = require("../automation/automation.service.js");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
 const prescription_pdf_service_js_1 = require("./prescription-pdf.service.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
@@ -28,11 +29,13 @@ let PrescriptionService = class PrescriptionService {
     pdfService;
     s3Service;
     communicationService;
-    constructor(prisma, pdfService, s3Service, communicationService) {
+    automationService;
+    constructor(prisma, pdfService, s3Service, communicationService, automationService) {
         this.prisma = prisma;
         this.pdfService = pdfService;
         this.s3Service = s3Service;
         this.communicationService = communicationService;
+        this.automationService = automationService;
     }
     async create(clinicId, dto) {
         const [branch, patient, dentist] = await Promise.all([
@@ -186,13 +189,13 @@ let PrescriptionService = class PrescriptionService {
                 state: branch?.state,
             },
             patient: {
+                id: patient.id,
                 first_name: patient.first_name,
                 last_name: patient.last_name,
                 phone: patient.phone,
                 email: patient.email,
                 date_of_birth: patient.date_of_birth,
                 gender: patient.gender,
-                mr_number: patient.mr_number,
             },
             dentist: {
                 name: dentist?.name ?? 'Unknown',
@@ -213,33 +216,49 @@ let PrescriptionService = class PrescriptionService {
         const prescription = await this.findOne(clinicId, id);
         await this.getPdfUrl(clinicId, id);
         const patient = prescription.patient;
-        const clinic = await this.prisma.clinic.findUnique({
-            where: { id: clinicId },
-            select: { name: true, phone: true },
-        });
+        const dentist = prescription.dentist;
+        const [clinic, rule] = await Promise.all([
+            this.prisma.clinic.findUnique({
+                where: { id: clinicId },
+                select: { name: true, phone: true },
+            }),
+            this.automationService.getRuleConfig(clinicId, 'prescription_ready'),
+        ]);
+        if (rule && !rule.is_enabled) {
+            return { message: 'Prescription send is disabled — enable it in Automation Rules.' };
+        }
         const patientName = `${patient.first_name} ${patient.last_name}`;
         const clinicName = clinic?.name ?? 'your clinic';
         const clinicPhone = clinic?.phone ?? '';
+        const doctorName = dentist?.name ? `Dr. ${dentist.name}` : 'your doctor';
         const apiBase = process.env['API_BASE_URL'] ?? 'http://localhost:3000/api/v1';
         const redirectUrl = `${apiBase}/public/prescription-redirect/${id}?clinic=${clinicId}`;
+        const channel = (rule?.channel && rule.channel !== 'preferred')
+            ? rule.channel
+            : 'whatsapp';
         await this.communicationService.sendMessage(clinicId, {
             patient_id: prescription.patient_id,
-            channel: 'whatsapp',
+            channel: channel,
             category: 'transactional',
-            body: `Hello ${patientName},\n\nYour prescription has been generated.\n\nClinic: ${clinicName}\n\nView & Download Prescription:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
+            template_id: rule?.template_id ?? undefined,
+            body: rule?.template_id
+                ? undefined
+                : `Hello ${patientName},\n\nYour prescription from ${doctorName} at ${clinicName} has been generated.\n\nView & Download:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
             variables: {
-                '1': patientName,
-                '2': clinicName,
-                '3': redirectUrl,
-                '4': clinicPhone,
+                patient_name: patientName,
+                patient_first_name: patient.first_name,
+                clinic_name: clinicName,
+                clinic_phone: clinicPhone,
+                doctor_name: doctorName,
+                link: redirectUrl,
             },
             metadata: {
-                automation: 'prescription_pdf',
+                automation: 'prescription_ready',
                 prescription_id: id,
-                whatsapp_template_name: 'dental_prescription_ready',
+                button_url_suffix: redirectUrl,
             },
         });
-        return { message: 'Prescription sent via WhatsApp' };
+        return { message: 'Prescription sent' };
     }
     async findByPatient(clinicId, patientId) {
         const patient = await this.prisma.patient.findUnique({ where: { id: patientId } });
@@ -259,6 +278,7 @@ exports.PrescriptionService = PrescriptionService = __decorate([
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         prescription_pdf_service_js_1.PrescriptionPdfService,
         s3_service_js_1.S3Service,
-        communication_service_js_1.CommunicationService])
+        communication_service_js_1.CommunicationService,
+        automation_service_js_1.AutomationService])
 ], PrescriptionService);
 //# sourceMappingURL=prescription.service.js.map

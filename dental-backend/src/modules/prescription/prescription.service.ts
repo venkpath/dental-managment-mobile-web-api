@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
+import { AutomationService } from '../automation/automation.service.js';
 import { CreatePrescriptionDto, UpdatePrescriptionDto, QueryPrescriptionDto } from './dto/index.js';
 import { Prescription, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
@@ -22,6 +23,7 @@ export class PrescriptionService {
     private readonly pdfService: PrescriptionPdfService,
     private readonly s3Service: S3Service,
     private readonly communicationService: CommunicationService,
+    private readonly automationService: AutomationService,
   ) {}
 
   async create(clinicId: string, dto: CreatePrescriptionDto): Promise<Prescription> {
@@ -204,13 +206,13 @@ export class PrescriptionService {
         state: branch?.state,
       },
       patient: {
+        id: patient.id,
         first_name: patient.first_name,
         last_name: patient.last_name,
         phone: patient.phone,
         email: patient.email,
         date_of_birth: patient.date_of_birth,
         gender: patient.gender,
-        mr_number: patient.mr_number,
       },
       dentist: {
         name: dentist?.name ?? 'Unknown',
@@ -234,36 +236,60 @@ export class PrescriptionService {
     await this.getPdfUrl(clinicId, id); // refresh PDF
 
     const patient = (prescription as any).patient;
-    const clinic = await this.prisma.clinic.findUnique({
-      where: { id: clinicId },
-      select: { name: true, phone: true },
-    });
+    const dentist = (prescription as any).dentist;
+
+    // Look up the configured automation rule (channel + template).
+    // Returns null if the rule was disabled or never configured.
+    const [clinic, rule] = await Promise.all([
+      this.prisma.clinic.findUnique({
+        where: { id: clinicId },
+        select: { name: true, phone: true },
+      }),
+      this.automationService.getRuleConfig(clinicId, 'prescription_ready' as any),
+    ]);
+
+    if (rule && !rule.is_enabled) {
+      return { message: 'Prescription send is disabled — enable it in Automation Rules.' };
+    }
 
     const patientName = `${patient.first_name} ${patient.last_name}`;
     const clinicName = clinic?.name ?? 'your clinic';
     const clinicPhone = clinic?.phone ?? '';
+    const doctorName = dentist?.name ? `Dr. ${dentist.name}` : 'your doctor';
     const apiBase = process.env['API_BASE_URL'] ?? 'http://localhost:3000/api/v1';
     const redirectUrl = `${apiBase}/public/prescription-redirect/${id}?clinic=${clinicId}`;
 
+    const channel = (rule?.channel && rule.channel !== 'preferred')
+      ? rule.channel
+      : 'whatsapp';
+
     await this.communicationService.sendMessage(clinicId, {
       patient_id: prescription.patient_id,
-      channel: 'whatsapp' as any,
+      channel: channel as any,
       category: 'transactional' as any,
-      body: `Hello ${patientName},\n\nYour prescription has been generated.\n\nClinic: ${clinicName}\n\nView & Download Prescription:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
+      template_id: rule?.template_id ?? undefined,
+      // Fallback body used only when no template is selected on the rule.
+      body: rule?.template_id
+        ? undefined
+        : `Hello ${patientName},\n\nYour prescription from ${doctorName} at ${clinicName} has been generated.\n\nView & Download:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
+      // Named variables — the renderer maps them onto the selected template's
+      // declared variable list (e.g. {{1}}, {{2}}, ...) by name.
       variables: {
-        '1': patientName,
-        '2': clinicName,
-        '3': redirectUrl,
-        '4': clinicPhone,
+        patient_name: patientName,
+        patient_first_name: patient.first_name,
+        clinic_name: clinicName,
+        clinic_phone: clinicPhone,
+        doctor_name: doctorName,
+        link: redirectUrl,
       },
       metadata: {
-        automation: 'prescription_pdf',
+        automation: 'prescription_ready',
         prescription_id: id,
-        whatsapp_template_name: 'dental_prescription_ready',
+        button_url_suffix: redirectUrl,
       },
     });
 
-    return { message: 'Prescription sent via WhatsApp' };
+    return { message: 'Prescription sent' };
   }
 
   async findByPatient(clinicId: string, patientId: string): Promise<Prescription[]> {

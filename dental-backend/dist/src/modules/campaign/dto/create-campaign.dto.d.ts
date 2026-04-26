@@ -6,5 +6,11 @@ export declare class CreateCampaignDto {
     segment_config?: Record<string, unknown>;
     scheduled_at?: string;
     button_url_suffix?: string;
-    template_variables?: Record<string, string>;
+    template_variables?: Record<string, {
+        type: 'system';
+        key: string;
+    } | {
+        type: 'custom';
+        value: string;
+    } | string>;
 }

@@ -71,7 +71,7 @@ __decorate([
 ], UpdateCampaignDto.prototype, "scheduled_at", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
-        description: 'Values for custom (non-system) template variables. See CreateCampaignDto.',
+        description: 'Per-variable mapping for the selected template. See CreateCampaignDto.',
     }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsObject)(),

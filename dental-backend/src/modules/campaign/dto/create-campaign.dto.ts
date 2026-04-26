@@ -47,11 +47,15 @@ export class CreateCampaignDto {
 
   @ApiPropertyOptional({
     description:
-      'Values for custom (non-system) template variables. Same value sent to every recipient. ' +
-      'System variables like patient_name and clinic_name are auto-filled and should NOT be included here.',
-    example: { festival_name: 'Ugadi', offer_details: 'Get 20% off cleaning this week!' },
+      'Per-variable mapping for the selected template. Each entry is either a system key resolved per recipient, ' +
+      'or a custom static text sent to everyone. A plain string is also accepted and treated as { type: "custom", value }.',
+    example: {
+      '1': { type: 'system', key: 'patient_name' },
+      '2': { type: 'system', key: 'clinic_name' },
+      '3': { type: 'custom', value: 'Get 20% off cleaning this week!' },
+    },
   })
   @IsOptional()
   @IsObject()
-  template_variables?: Record<string, string>;
+  template_variables?: Record<string, { type: 'system'; key: string } | { type: 'custom'; value: string } | string>;
 }
