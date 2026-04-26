@@ -250,4 +250,71 @@ export class AutomationController {
       ].filter(Boolean),
     };
   }
+
+  @Post('queues/appointment-reminders/schedule-now/:appointmentId')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Force-schedule reminders for an appointment NOW and return per-reminder enqueue results (success/failure with error)' })
+  async forceScheduleReminders(
+    @CurrentClinic() clinicId: string,
+    @Param('appointmentId') appointmentId: string,
+  ) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      select: { id: true, appointment_date: true, start_time: true, clinic_id: true },
+    });
+    if (!appointment) return { error: `Appointment ${appointmentId} not found` };
+    if (appointment.clinic_id !== clinicId) return { error: 'Appointment does not belong to this clinic' };
+
+    const rule = await this.prisma.automationRule.findUnique({
+      where: { clinic_id_rule_type: { clinic_id: clinicId, rule_type: 'appointment_reminder_patient' } },
+    });
+    if (!rule) return { overallStatus: 'no_rule', results: [] };
+    if (!rule.is_enabled) return { overallStatus: 'rule_disabled', results: [] };
+
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+    const dateStr = appointment.appointment_date.toISOString().split('T')[0];
+    const apptStartUtc = new Date(new Date(`${dateStr}T${appointment.start_time}:00Z`).getTime() - IST_OFFSET_MS);
+    const config = (rule.config as Record<string, unknown>) ?? {};
+    const reminders = getReminderDefinitions(config);
+
+    const results: Array<{
+      reminderIndex: number;
+      reminderHours: number;
+      status: 'scheduled' | 'already_scheduled' | 'disabled' | 'already_passed' | 'failed';
+      jobId?: string;
+      firesAt?: string;
+      error?: string;
+    }> = [];
+
+    for (const r of reminders) {
+      if (!r.enabled) {
+        results.push({ reminderIndex: r.index, reminderHours: r.hours, status: 'disabled' });
+        continue;
+      }
+      const sendAt = new Date(apptStartUtc.getTime() - r.hours * 60 * 60 * 1000);
+      const delay = sendAt.getTime() - Date.now();
+      if (delay <= 0) {
+        results.push({ reminderIndex: r.index, reminderHours: r.hours, status: 'already_passed', firesAt: sendAt.toISOString() });
+        continue;
+      }
+      const jobId = `appointment:${appointmentId}:reminder:${r.index}`;
+      const existing = await this.reminderQueue.getJob(jobId).catch(() => null);
+      if (existing) {
+        results.push({ reminderIndex: r.index, reminderHours: r.hours, status: 'already_scheduled', jobId, firesAt: sendAt.toISOString() });
+        continue;
+      }
+      try {
+        await this.reminderQueue.add(
+          'send-appointment-reminder',
+          { appointmentId, clinicId, reminderIndex: r.index, reminderHours: r.hours },
+          { jobId, delay, removeOnComplete: true, removeOnFail: 100 },
+        );
+        results.push({ reminderIndex: r.index, reminderHours: r.hours, status: 'scheduled', jobId, firesAt: sendAt.toISOString() });
+      } catch (e) {
+        results.push({ reminderIndex: r.index, reminderHours: r.hours, status: 'failed', error: (e as Error).message });
+      }
+    }
+
+    return { overallStatus: 'ok', appointmentId, results };
+  }
 }

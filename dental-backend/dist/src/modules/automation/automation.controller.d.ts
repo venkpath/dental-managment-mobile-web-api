@@ -156,4 +156,27 @@ export declare class AutomationController {
         } | null)[];
         error?: undefined;
     }>;
+    forceScheduleReminders(clinicId: string, appointmentId: string): Promise<{
+        error: string;
+        overallStatus?: undefined;
+        results?: undefined;
+        appointmentId?: undefined;
+    } | {
+        overallStatus: string;
+        results: never[];
+        error?: undefined;
+        appointmentId?: undefined;
+    } | {
+        overallStatus: string;
+        appointmentId: string;
+        results: {
+            reminderIndex: number;
+            reminderHours: number;
+            status: "scheduled" | "already_scheduled" | "disabled" | "already_passed" | "failed";
+            jobId?: string;
+            firesAt?: string;
+            error?: string;
+        }[];
+        error?: undefined;
+    }>;
 }

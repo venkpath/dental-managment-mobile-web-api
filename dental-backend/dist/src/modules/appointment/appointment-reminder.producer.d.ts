@@ -7,6 +7,17 @@ export declare class AppointmentReminderProducer {
     private readonly logger;
     constructor(reminderQueue: Queue, prisma: PrismaService);
     scheduleReminders(appointmentId: string, clinicId: string, appointmentDate: Date, startTime: string): Promise<void>;
+    scheduleRemindersWithResult(appointmentId: string, clinicId: string, appointmentDate: Date, startTime: string): Promise<{
+        overallStatus: 'ok' | 'no_rule' | 'rule_disabled';
+        results: Array<{
+            reminderIndex: number;
+            reminderHours: number;
+            status: 'scheduled' | 'already_scheduled' | 'disabled' | 'already_passed' | 'failed';
+            jobId?: string;
+            firesAt?: string;
+            error?: string;
+        }>;
+    }>;
     cancelReminders(appointmentId: string): Promise<void>;
     rescheduleReminders(appointmentId: string, clinicId: string, newAppointmentDate: Date, newStartTime: string): Promise<void>;
     previewReminders(appointmentId: string, clinicId: string, appointmentDate: Date, startTime: string): Promise<{

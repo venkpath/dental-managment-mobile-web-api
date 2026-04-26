@@ -68,14 +68,79 @@ let AppointmentReminderProducer = AppointmentReminderProducer_1 = class Appointm
                 reminderIndex: reminder.index,
                 reminderHours: reminder.hours,
             };
-            await this.reminderQueue.add(exports.APPOINTMENT_REMINDER_JOB, jobData, {
-                jobId,
-                delay,
-                removeOnComplete: true,
-                removeOnFail: 100,
-            });
-            this.logger.log(`Scheduled reminder ${reminder.index} (${reminder.hours}h before) for appointment ${appointmentId} at ${sendAt.toISOString()}`);
+            try {
+                await this.reminderQueue.add(exports.APPOINTMENT_REMINDER_JOB, jobData, {
+                    jobId,
+                    delay,
+                    removeOnComplete: true,
+                    removeOnFail: 100,
+                });
+                this.logger.log(`Scheduled reminder ${reminder.index} (${reminder.hours}h before) for appointment ${appointmentId} at ${sendAt.toISOString()} [jobId=${jobId}]`);
+            }
+            catch (e) {
+                this.logger.error(`FAILED to enqueue reminder ${reminder.index} for appointment ${appointmentId} (jobId=${jobId}): ${e.message}`, e.stack);
+                throw e;
+            }
         }
+    }
+    async scheduleRemindersWithResult(appointmentId, clinicId, appointmentDate, startTime) {
+        const rule = await this.prisma.automationRule.findUnique({
+            where: { clinic_id_rule_type: { clinic_id: clinicId, rule_type: 'appointment_reminder_patient' } },
+        });
+        if (!rule)
+            return { overallStatus: 'no_rule', results: [] };
+        if (!rule.is_enabled)
+            return { overallStatus: 'rule_disabled', results: [] };
+        const config = rule.config ?? {};
+        const reminders = (0, appointment_reminder_config_js_1.getReminderDefinitions)(config);
+        const apptStartUtc = appointmentStartUtc(appointmentDate, startTime);
+        const results = [];
+        for (const reminder of reminders) {
+            if (!reminder.enabled) {
+                results.push({ reminderIndex: reminder.index, reminderHours: reminder.hours, status: 'disabled' });
+                continue;
+            }
+            const sendAt = new Date(apptStartUtc.getTime() - reminder.hours * 60 * 60 * 1000);
+            const delay = sendAt.getTime() - Date.now();
+            if (delay <= 0) {
+                results.push({ reminderIndex: reminder.index, reminderHours: reminder.hours, status: 'already_passed', firesAt: sendAt.toISOString() });
+                continue;
+            }
+            const jobId = `appointment:${appointmentId}:reminder:${reminder.index}`;
+            const existing = await this.reminderQueue.getJob(jobId).catch(() => null);
+            if (existing) {
+                results.push({
+                    reminderIndex: reminder.index,
+                    reminderHours: reminder.hours,
+                    status: 'already_scheduled',
+                    jobId,
+                    firesAt: sendAt.toISOString(),
+                });
+                continue;
+            }
+            try {
+                await this.reminderQueue.add(exports.APPOINTMENT_REMINDER_JOB, { appointmentId, clinicId, reminderIndex: reminder.index, reminderHours: reminder.hours }, { jobId, delay, removeOnComplete: true, removeOnFail: 100 });
+                this.logger.log(`[force] Scheduled reminder ${reminder.index} for appointment ${appointmentId} [jobId=${jobId}]`);
+                results.push({
+                    reminderIndex: reminder.index,
+                    reminderHours: reminder.hours,
+                    status: 'scheduled',
+                    jobId,
+                    firesAt: sendAt.toISOString(),
+                });
+            }
+            catch (e) {
+                const msg = e.message;
+                this.logger.error(`[force] FAILED to enqueue reminder ${reminder.index} for appointment ${appointmentId}: ${msg}`, e.stack);
+                results.push({
+                    reminderIndex: reminder.index,
+                    reminderHours: reminder.hours,
+                    status: 'failed',
+                    error: msg,
+                });
+            }
+        }
+        return { overallStatus: 'ok', results };
     }
     async cancelReminders(appointmentId) {
         for (const idx of [1, 2]) {
