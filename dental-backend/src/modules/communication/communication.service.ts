@@ -176,22 +176,21 @@ export class CommunicationService {
           }
         }
 
-        // If template has URL buttons with dynamic params, inject button params into metadata
+        // Only attach button params when the template explicitly declares URL
+        // buttons with dynamic placeholders. Sending a button param to a
+        // template that has no button component (or has a static URL button)
+        // makes Meta reject with #132018 "Template does not contain button
+        // components, no parameters allowed". When a template's URL button is
+        // static, Meta uses its stored URL — we don't need to send anything.
         if (templateButtons.length > 0) {
+          const rawSuffix = (dto.metadata?.['button_url_suffix'] as string | undefined) || '';
+          const suffix = rawSuffix.replace(/&amp;/g, '&');
           const btnParams = templateButtons.map(btn => ({
             type: btn.type,
             index: btn.index,
-            parameters: [dto.variables?.[`button_${btn.index}`] || dto.metadata?.['button_url_suffix'] as string || ''],
+            parameters: [dto.variables?.[`button_${btn.index}`] || suffix || ''],
           }));
           dto.metadata = { ...(dto.metadata || {}), whatsapp_button_params: btnParams };
-        } else if (dto.metadata?.['button_url_suffix']) {
-          // DB template variables don't include button info — fall back to index 0 URL button
-          const rawSuffix = dto.metadata['button_url_suffix'] as string;
-          const suffix = rawSuffix.replace(/&amp;/g, '&');
-          dto.metadata = {
-            ...(dto.metadata || {}),
-            whatsapp_button_params: [{ type: 'url', index: 0, parameters: [suffix] }],
-          };
         }
 
         this.logger.debug(
