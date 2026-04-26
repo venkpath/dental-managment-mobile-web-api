@@ -313,6 +313,15 @@ export class AutomationCronService {
                       ? `in ${reminder.hours} hour${reminder.hours === 1 ? '' : 's'}`
                       : `in ${Math.round(reminder.hours * 60)} minutes`;
 
+                // For Meta templates: same-day reminders reuse {{2}} and {{3}} so the
+                // existing 6-variable approved template works for any reminder timing
+                // without producing identical messages when both reminders are same-day.
+                const isSameDay = reminder.hours < 12;
+                const dateForTemplate = isSameDay ? 'Today' : fmtDate;
+                const timeForTemplate = isSameDay
+                  ? `${fmtTime} (${timeUntilPhrase})`
+                  : fmtTime;
+
                 const channel = await this.resolveChannel(clinic.id, appt.patient_id, rule.channel);
                 await this.communicationService.sendMessage(clinic.id, {
                   patient_id: appt.patient_id,
@@ -335,10 +344,16 @@ export class AutomationCronService {
                     clinic_phone: clinicPhone,
                     phone: clinicPhone,
                     time_until: timeUntilPhrase,
-                    // numbered keys — {{1}} patient {{2}} date {{3}} time {{4}} clinic {{5}} doctor {{6}} phone
+                    // Numbered keys for Meta templates (max 6 vars):
+                    // {{1}} patient first_name
+                    // {{2}} date — "27 Apr 2026" for 24h reminders, "Today" for same-day
+                    // {{3}} time — "2:00 PM" for 24h, "2:00 PM (in 3 hours)" for same-day
+                    // {{4}} clinic name
+                    // {{5}} doctor name
+                    // {{6}} phone
                     '1': appt.patient.first_name,
-                    '2': fmtDate,
-                    '3': fmtTime,
+                    '2': dateForTemplate,
+                    '3': timeForTemplate,
                     '4': appt.clinic.name,
                     '5': appt.dentist.name,
                     '6': clinicPhone,

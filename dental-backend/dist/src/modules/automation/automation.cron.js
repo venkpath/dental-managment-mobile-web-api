@@ -278,6 +278,11 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                                     : reminder.hours >= 1
                                         ? `in ${reminder.hours} hour${reminder.hours === 1 ? '' : 's'}`
                                         : `in ${Math.round(reminder.hours * 60)} minutes`;
+                                const isSameDay = reminder.hours < 12;
+                                const dateForTemplate = isSameDay ? 'Today' : fmtDate;
+                                const timeForTemplate = isSameDay
+                                    ? `${fmtTime} (${timeUntilPhrase})`
+                                    : fmtTime;
                                 const channel = await this.resolveChannel(clinic.id, appt.patient_id, rule.channel);
                                 await this.communicationService.sendMessage(clinic.id, {
                                     patient_id: appt.patient_id,
@@ -301,8 +306,8 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                                         phone: clinicPhone,
                                         time_until: timeUntilPhrase,
                                         '1': appt.patient.first_name,
-                                        '2': fmtDate,
-                                        '3': fmtTime,
+                                        '2': dateForTemplate,
+                                        '3': timeForTemplate,
                                         '4': appt.clinic.name,
                                         '5': appt.dentist.name,
                                         '6': clinicPhone,
