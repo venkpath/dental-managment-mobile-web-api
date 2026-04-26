@@ -7,5 +7,6 @@ exports.QUEUE_NAMES = {
     COMMUNICATION_EMAIL: 'communication_email',
     COMMUNICATION_SMS: 'communication_sms',
     COMMUNICATION_WHATSAPP: 'communication_whatsapp',
+    APPOINTMENT_REMINDER: 'appointment_reminder',
 };
 //# sourceMappingURL=queue-names.js.map

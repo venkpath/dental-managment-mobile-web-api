@@ -15,6 +15,7 @@ const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
 const appointment_notification_service_js_1 = require("./appointment-notification.service.js");
+const appointment_reminder_producer_js_1 = require("./appointment-reminder.producer.js");
 const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
 const CLINIC_TIMEZONE = process.env.CLINIC_TIMEZONE || 'Asia/Kolkata';
 function getTodayDate(tz = CLINIC_TIMEZONE) {
@@ -32,11 +33,13 @@ function getIsoDay(dateStr) {
 let AppointmentService = AppointmentService_1 = class AppointmentService {
     prisma;
     notificationService;
+    reminderProducer;
     planLimit;
     logger = new common_1.Logger(AppointmentService_1.name);
-    constructor(prisma, notificationService, planLimit) {
+    constructor(prisma, notificationService, reminderProducer, planLimit) {
         this.prisma = prisma;
         this.notificationService = notificationService;
+        this.reminderProducer = reminderProducer;
         this.planLimit = planLimit;
     }
     async create(clinicId, dto) {
@@ -98,6 +101,11 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
         });
         this.notificationService.sendConfirmation(clinicId, appointment.id).catch((e) => {
             this.logger.warn(`Appointment confirmation notification failed: ${e.message}`);
+        });
+        this.reminderProducer
+            .scheduleReminders(appointment.id, clinicId, appointment.appointment_date, appointment.start_time)
+            .catch((e) => {
+            this.logger.warn(`Failed to schedule reminders for appointment ${appointment.id}: ${e.message}`);
         });
         return appointment;
     }
@@ -269,10 +277,18 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
             this.notificationService.sendCancellation(clinicId, id).catch((e) => {
                 this.logger.warn(`Cancellation notification failed: ${e.message}`);
             });
+            this.reminderProducer.cancelReminders(id).catch((e) => {
+                this.logger.warn(`Failed to cancel reminders for appointment ${id}: ${e.message}`);
+            });
         }
         else if (isRescheduled) {
             this.notificationService.sendReschedule(clinicId, id, oldDate, oldTime).catch((e) => {
                 this.logger.warn(`Reschedule notification failed: ${e.message}`);
+            });
+            this.reminderProducer
+                .rescheduleReminders(id, clinicId, updated.appointment_date, updated.start_time)
+                .catch((e) => {
+                this.logger.warn(`Failed to reschedule reminders for appointment ${id}: ${e.message}`);
             });
         }
         return updated;
@@ -398,6 +414,7 @@ exports.AppointmentService = AppointmentService = AppointmentService_1 = __decor
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         appointment_notification_service_js_1.AppointmentNotificationService,
+        appointment_reminder_producer_js_1.AppointmentReminderProducer,
         plan_limit_service_js_1.PlanLimitService])
 ], AppointmentService);
 //# sourceMappingURL=appointment.service.js.map

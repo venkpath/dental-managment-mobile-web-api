@@ -8,6 +8,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiHeader, ApiOkResponse } from '@nestjs/swagger';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -16,6 +18,7 @@ import { UserRole } from '../user/dto/index.js';
 import { AutomationService } from './automation.service.js';
 import { AutomationCronService } from './automation.cron.js';
 import { UpsertAutomationRuleDto } from './dto/index.js';
+import { QUEUE_NAMES } from '../../common/queue/queue-names.js';
 
 @ApiTags('Automation Rules')
 @ApiHeader({ name: 'x-clinic-id', required: true })
@@ -26,6 +29,7 @@ export class AutomationController {
   constructor(
     private readonly automationService: AutomationService,
     private readonly automationCronService: AutomationCronService,
+    @InjectQueue(QUEUE_NAMES.APPOINTMENT_REMINDER) private readonly reminderQueue: Queue,
   ) {}
 
   @Get()
@@ -110,5 +114,70 @@ export class AutomationController {
     } catch (e) {
       return { job: jobName, status: 'error', error: (e as Error).message };
     }
+  }
+
+  // ─── Appointment Reminder Queue Inspector ───
+
+  @Get('queues/appointment-reminders')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Inspect appointment reminder jobs in the BullMQ queue' })
+  async inspectReminderQueue() {
+    const now = Date.now();
+
+    const [delayed, waiting, active, failed, completed] = await Promise.all([
+      this.reminderQueue.getDelayed(),
+      this.reminderQueue.getWaiting(),
+      this.reminderQueue.getActive(),
+      this.reminderQueue.getFailed(),
+      this.reminderQueue.getCompleted(),
+    ]);
+
+    return {
+      counts: {
+        delayed: delayed.length,
+        waiting: waiting.length,
+        active: active.length,
+        failed: failed.length,
+        completed: completed.length,
+      },
+      delayed: delayed.map((j) => ({
+        jobId: j.id,
+        appointmentId: (j.data as Record<string, unknown>)['appointmentId'],
+        reminderIndex: (j.data as Record<string, unknown>)['reminderIndex'],
+        reminderHours: (j.data as Record<string, unknown>)['reminderHours'],
+        firesAt: new Date(now + (j.delay ?? 0)).toISOString(),
+        firesIn: `${Math.round((j.delay ?? 0) / 60000)} minutes`,
+      })),
+      active: active.map((j) => ({
+        jobId: j.id,
+        appointmentId: (j.data as Record<string, unknown>)['appointmentId'],
+        reminderIndex: (j.data as Record<string, unknown>)['reminderIndex'],
+        reminderHours: (j.data as Record<string, unknown>)['reminderHours'],
+      })),
+      failed: failed.map((j) => ({
+        jobId: j.id,
+        appointmentId: (j.data as Record<string, unknown>)['appointmentId'],
+        reminderIndex: (j.data as Record<string, unknown>)['reminderIndex'],
+        reminderHours: (j.data as Record<string, unknown>)['reminderHours'],
+        error: j.failedReason,
+        attemptsMade: j.attemptsMade,
+      })),
+      completed: completed.slice(0, 20).map((j) => ({
+        jobId: j.id,
+        appointmentId: (j.data as Record<string, unknown>)['appointmentId'],
+        reminderIndex: (j.data as Record<string, unknown>)['reminderIndex'],
+        reminderHours: (j.data as Record<string, unknown>)['reminderHours'],
+      })),
+    };
+  }
+
+  @Post('queues/appointment-reminders/:jobId/retry')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Retry a failed appointment reminder job' })
+  async retryReminderJob(@Param('jobId') jobId: string) {
+    const job = await this.reminderQueue.getJob(jobId);
+    if (!job) return { success: false, error: `Job ${jobId} not found` };
+    await job.retry();
+    return { success: true, jobId };
   }
 }

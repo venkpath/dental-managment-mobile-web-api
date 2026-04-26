@@ -12,7 +12,6 @@ export declare class AutomationCronService {
     refreshFestivalCalendar(): Promise<void>;
     birthdayGreetings(): Promise<void>;
     festivalGreetings(): Promise<void>;
-    appointmentRemindersToPatients(): Promise<void>;
     paymentReminders(): Promise<void>;
     dormantPatientDetection(): Promise<void>;
     treatmentPlanReminders(): Promise<void>;
@@ -25,7 +24,6 @@ export declare class AutomationCronService {
     prescriptionRefillReminder(): Promise<void>;
     private getActiveClinics;
     private formatDate;
-    private formatTime;
     private formatAmount;
     private resolveChannel;
     private toMessageChannel;

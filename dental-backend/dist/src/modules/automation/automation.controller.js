@@ -16,6 +16,8 @@ exports.AutomationController = void 0;
 const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
+const bullmq_1 = require("@nestjs/bullmq");
+const bullmq_2 = require("bullmq");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
 const roles_decorator_js_1 = require("../../common/decorators/roles.decorator.js");
@@ -24,12 +26,15 @@ const index_js_1 = require("../user/dto/index.js");
 const automation_service_js_1 = require("./automation.service.js");
 const automation_cron_js_1 = require("./automation.cron.js");
 const index_js_2 = require("./dto/index.js");
+const queue_names_js_1 = require("../../common/queue/queue-names.js");
 let AutomationController = class AutomationController {
     automationService;
     automationCronService;
-    constructor(automationService, automationCronService) {
+    reminderQueue;
+    constructor(automationService, automationCronService, reminderQueue) {
         this.automationService = automationService;
         this.automationCronService = automationCronService;
+        this.reminderQueue = reminderQueue;
     }
     async getAllRules(clinicId) {
         return this.automationService.getAllRules(clinicId);
@@ -45,7 +50,6 @@ let AutomationController = class AutomationController {
         const jobs = [
             { name: 'birthdayGreetings', fn: () => this.automationCronService.birthdayGreetings() },
             { name: 'festivalGreetings', fn: () => this.automationCronService.festivalGreetings() },
-            { name: 'appointmentRemindersToPatients', fn: () => this.automationCronService.appointmentRemindersToPatients() },
             { name: 'paymentReminders', fn: () => this.automationCronService.paymentReminders() },
             { name: 'dormantPatientDetection', fn: () => this.automationCronService.dormantPatientDetection() },
             { name: 'treatmentPlanReminders', fn: () => this.automationCronService.treatmentPlanReminders() },
@@ -65,7 +69,6 @@ let AutomationController = class AutomationController {
         const jobMap = {
             birthdayGreetings: () => this.automationCronService.birthdayGreetings(),
             festivalGreetings: () => this.automationCronService.festivalGreetings(),
-            appointmentRemindersToPatients: () => this.automationCronService.appointmentRemindersToPatients(),
             paymentReminders: () => this.automationCronService.paymentReminders(),
             dormantPatientDetection: () => this.automationCronService.dormantPatientDetection(),
             treatmentPlanReminders: () => this.automationCronService.treatmentPlanReminders(),
@@ -81,6 +84,60 @@ let AutomationController = class AutomationController {
         catch (e) {
             return { job: jobName, status: 'error', error: e.message };
         }
+    }
+    async inspectReminderQueue() {
+        const now = Date.now();
+        const [delayed, waiting, active, failed, completed] = await Promise.all([
+            this.reminderQueue.getDelayed(),
+            this.reminderQueue.getWaiting(),
+            this.reminderQueue.getActive(),
+            this.reminderQueue.getFailed(),
+            this.reminderQueue.getCompleted(),
+        ]);
+        return {
+            counts: {
+                delayed: delayed.length,
+                waiting: waiting.length,
+                active: active.length,
+                failed: failed.length,
+                completed: completed.length,
+            },
+            delayed: delayed.map((j) => ({
+                jobId: j.id,
+                appointmentId: j.data['appointmentId'],
+                reminderIndex: j.data['reminderIndex'],
+                reminderHours: j.data['reminderHours'],
+                firesAt: new Date(now + (j.delay ?? 0)).toISOString(),
+                firesIn: `${Math.round((j.delay ?? 0) / 60000)} minutes`,
+            })),
+            active: active.map((j) => ({
+                jobId: j.id,
+                appointmentId: j.data['appointmentId'],
+                reminderIndex: j.data['reminderIndex'],
+                reminderHours: j.data['reminderHours'],
+            })),
+            failed: failed.map((j) => ({
+                jobId: j.id,
+                appointmentId: j.data['appointmentId'],
+                reminderIndex: j.data['reminderIndex'],
+                reminderHours: j.data['reminderHours'],
+                error: j.failedReason,
+                attemptsMade: j.attemptsMade,
+            })),
+            completed: completed.slice(0, 20).map((j) => ({
+                jobId: j.id,
+                appointmentId: j.data['appointmentId'],
+                reminderIndex: j.data['reminderIndex'],
+                reminderHours: j.data['reminderHours'],
+            })),
+        };
+    }
+    async retryReminderJob(jobId) {
+        const job = await this.reminderQueue.getJob(jobId);
+        if (!job)
+            return { success: false, error: `Job ${jobId} not found` };
+        await job.retry();
+        return { success: true, jobId };
     }
 };
 exports.AutomationController = AutomationController;
@@ -137,13 +194,34 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AutomationController.prototype, "triggerSingleCron", null);
+__decorate([
+    (0, common_1.Get)('queues/appointment-reminders'),
+    (0, roles_decorator_js_1.Roles)(index_js_1.UserRole.ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Inspect appointment reminder jobs in the BullMQ queue' }),
+    openapi.ApiResponse({ status: 200 }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AutomationController.prototype, "inspectReminderQueue", null);
+__decorate([
+    (0, common_1.Post)('queues/appointment-reminders/:jobId/retry'),
+    (0, roles_decorator_js_1.Roles)(index_js_1.UserRole.ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Retry a failed appointment reminder job' }),
+    openapi.ApiResponse({ status: 201, type: Object }),
+    __param(0, (0, common_1.Param)('jobId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AutomationController.prototype, "retryReminderJob", null);
 exports.AutomationController = AutomationController = __decorate([
     (0, swagger_1.ApiTags)('Automation Rules'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true }),
     (0, common_1.UseGuards)(require_clinic_guard_js_1.RequireClinicGuard),
     (0, require_feature_decorator_js_1.RequireFeature)('AUTOMATION_RULES'),
     (0, common_1.Controller)('automation/rules'),
+    __param(2, (0, bullmq_1.InjectQueue)(queue_names_js_1.QUEUE_NAMES.APPOINTMENT_REMINDER)),
     __metadata("design:paramtypes", [automation_service_js_1.AutomationService,
-        automation_cron_js_1.AutomationCronService])
+        automation_cron_js_1.AutomationCronService,
+        bullmq_2.Queue])
 ], AutomationController);
 //# sourceMappingURL=automation.controller.js.map

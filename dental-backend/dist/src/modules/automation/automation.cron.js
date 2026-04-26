@@ -218,126 +218,6 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
         }
         this.logger.log(`Festival greeting automation completed. Total sent: ${totalSent}`);
     }
-    async appointmentRemindersToPatients() {
-        this.logger.log('Running patient appointment reminder automation...');
-        let sent = 0;
-        let skipped = 0;
-        let failed = 0;
-        try {
-            const now = new Date();
-            const clinics = await this.getActiveClinics();
-            for (const clinic of clinics) {
-                try {
-                    const rule = await this.automationService.getRuleConfig(clinic.id, 'appointment_reminder_patient');
-                    if (!rule?.is_enabled) {
-                        skipped++;
-                        continue;
-                    }
-                    const config = rule.config || {};
-                    const reminders = [
-                        {
-                            label: 'Reminder 1',
-                            enabled: config.reminder_1_enabled !== false,
-                            hours: config.reminder_1_hours ?? 24,
-                            templateId: config.reminder_1_template_id ?? rule.template_id ?? null,
-                        },
-                        {
-                            label: 'Reminder 2',
-                            enabled: config.reminder_2_enabled !== false,
-                            hours: config.reminder_2_hours ?? 2,
-                            templateId: config.reminder_2_template_id ?? rule.template_id ?? null,
-                        },
-                    ];
-                    for (const reminder of reminders) {
-                        if (!reminder.enabled)
-                            continue;
-                        if (typeof reminder.hours !== 'number' || reminder.hours <= 0 || reminder.hours > 24)
-                            continue;
-                        const windowStart = new Date(now.getTime() + reminder.hours * 3600000);
-                        const windowEnd = new Date(windowStart.getTime() + 60 * 60000);
-                        const appointments = await this.prisma.appointment.findMany({
-                            where: {
-                                clinic_id: clinic.id,
-                                appointment_date: { gte: windowStart, lt: windowEnd },
-                                status: 'scheduled',
-                            },
-                            include: {
-                                patient: true,
-                                dentist: { select: { name: true } },
-                                clinic: { select: { id: true, name: true, phone: true } },
-                                branch: { select: { name: true } },
-                            },
-                        });
-                        for (const appt of appointments) {
-                            try {
-                                const fmtDate = this.formatDate(appt.appointment_date);
-                                const fmtTime = this.formatTime(appt.start_time);
-                                const clinicPhone = appt.clinic.phone || '';
-                                const timeUntilPhrase = reminder.hours >= 24
-                                    ? 'tomorrow'
-                                    : reminder.hours >= 1
-                                        ? `in ${reminder.hours} hour${reminder.hours === 1 ? '' : 's'}`
-                                        : `in ${Math.round(reminder.hours * 60)} minutes`;
-                                const isSameDay = reminder.hours < 12;
-                                const dateForTemplate = isSameDay ? 'Today' : fmtDate;
-                                const timeForTemplate = isSameDay
-                                    ? `${fmtTime} (${timeUntilPhrase})`
-                                    : fmtTime;
-                                const channel = await this.resolveChannel(clinic.id, appt.patient_id, rule.channel);
-                                await this.communicationService.sendMessage(clinic.id, {
-                                    patient_id: appt.patient_id,
-                                    channel,
-                                    category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
-                                    template_id: reminder.templateId ?? undefined,
-                                    body: reminder.templateId
-                                        ? undefined
-                                        : `Reminder: You have an appointment ${timeUntilPhrase} at ${fmtTime} with Dr. ${appt.dentist.name} at ${appt.clinic.name}.`,
-                                    variables: {
-                                        patient_name: `${appt.patient.first_name} ${appt.patient.last_name}`,
-                                        patient_first_name: appt.patient.first_name,
-                                        appointment_date: fmtDate,
-                                        date: fmtDate,
-                                        appointment_time: fmtTime,
-                                        time: fmtTime,
-                                        dentist_name: appt.dentist.name,
-                                        doctor_name: appt.dentist.name,
-                                        clinic_name: appt.clinic.name,
-                                        clinic_phone: clinicPhone,
-                                        phone: clinicPhone,
-                                        time_until: timeUntilPhrase,
-                                        '1': appt.patient.first_name,
-                                        '2': dateForTemplate,
-                                        '3': timeForTemplate,
-                                        '4': appt.clinic.name,
-                                        '5': appt.dentist.name,
-                                        '6': clinicPhone,
-                                    },
-                                    metadata: {
-                                        automation: 'appointment_reminder_patient',
-                                        appointment_id: appt.id,
-                                        reminder_label: reminder.label,
-                                        reminder_hours: reminder.hours,
-                                    },
-                                });
-                                sent++;
-                            }
-                            catch (e) {
-                                failed++;
-                                this.logger.warn(`${reminder.label} (${reminder.hours}h) failed for patient ${appt.patient_id}: ${e.message}`);
-                            }
-                        }
-                    }
-                }
-                catch (e) {
-                    this.logger.error(`Appointment reminder error for clinic ${clinic.id}: ${e.message}`);
-                }
-            }
-        }
-        catch (e) {
-            this.logger.error(`Appointment reminder cron failed: ${e.message}`, e.stack);
-        }
-        this.logger.log(`Appointment reminder automation completed. Sent: ${sent}, Skipped: ${skipped}, Failed: ${failed}`);
-    }
     async paymentReminders() {
         this.logger.log('Running payment reminder automation...');
         let sent = 0;
@@ -1022,12 +902,6 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
             timeZone: 'Asia/Kolkata',
         });
     }
-    formatTime(time) {
-        const [hours, minutes] = time.split(':').map(Number);
-        const period = hours >= 12 ? 'PM' : 'AM';
-        const h = hours % 12 || 12;
-        return `${h}:${String(minutes).padStart(2, '0')} ${period}`;
-    }
     formatAmount(amount) {
         const num = typeof amount === 'number' ? amount : Number(amount);
         return `Rs.${num.toLocaleString('en-IN')}`;
@@ -1102,12 +976,6 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], AutomationCronService.prototype, "festivalGreetings", null);
-__decorate([
-    (0, schedule_1.Cron)('0 * * * * *'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
-], AutomationCronService.prototype, "appointmentRemindersToPatients", null);
 __decorate([
     (0, schedule_1.Cron)('0 30 9 * * *'),
     __metadata("design:type", Function),

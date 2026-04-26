@@ -193,7 +193,7 @@ let CommunicationService = class CommunicationService {
         else {
             body = this.sanitizeTextBody(body);
         }
-        const isDuplicate = await this.checkDeduplication(dto.patient_id, dto.template_id || null, dto.channel);
+        const isDuplicate = await this.checkDeduplication(dto.patient_id, dto.template_id || null, dto.channel, dto.metadata);
         if (isDuplicate) {
             return this.createSkippedMessage(clinicId, dto, patient, 'dedup_duplicate');
         }
@@ -810,8 +810,10 @@ let CommunicationService = class CommunicationService {
         }
         return next;
     }
-    async checkDeduplication(patientId, templateId, channel) {
+    async checkDeduplication(patientId, templateId, channel, metadata) {
         if (!templateId)
+            return false;
+        if (metadata?.['automation'] === 'appointment_reminder_patient')
             return false;
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const existing = await this.prisma.communicationMessage.findFirst({

@@ -1,10 +1,12 @@
+import { Queue } from 'bullmq';
 import { AutomationService } from './automation.service.js';
 import { AutomationCronService } from './automation.cron.js';
 import { UpsertAutomationRuleDto } from './dto/index.js';
 export declare class AutomationController {
     private readonly automationService;
     private readonly automationCronService;
-    constructor(automationService: AutomationService, automationCronService: AutomationCronService);
+    private readonly reminderQueue;
+    constructor(automationService: AutomationService, automationCronService: AutomationCronService, reminderQueue: Queue);
     getAllRules(clinicId: string): Promise<({
         template: {
             id: string;
@@ -68,5 +70,51 @@ export declare class AutomationController {
         job: string;
         status: string;
         error: string;
+    }>;
+    inspectReminderQueue(): Promise<{
+        counts: {
+            delayed: number;
+            waiting: number;
+            active: number;
+            failed: number;
+            completed: number;
+        };
+        delayed: {
+            jobId: string | undefined;
+            appointmentId: unknown;
+            reminderIndex: unknown;
+            reminderHours: unknown;
+            firesAt: string;
+            firesIn: string;
+        }[];
+        active: {
+            jobId: string | undefined;
+            appointmentId: unknown;
+            reminderIndex: unknown;
+            reminderHours: unknown;
+        }[];
+        failed: {
+            jobId: string | undefined;
+            appointmentId: unknown;
+            reminderIndex: unknown;
+            reminderHours: unknown;
+            error: string;
+            attemptsMade: number;
+        }[];
+        completed: {
+            jobId: string | undefined;
+            appointmentId: unknown;
+            reminderIndex: unknown;
+            reminderHours: unknown;
+        }[];
+    }>;
+    retryReminderJob(jobId: string): Promise<{
+        success: boolean;
+        error: string;
+        jobId?: undefined;
+    } | {
+        success: boolean;
+        jobId: string;
+        error?: undefined;
     }>;
 }
