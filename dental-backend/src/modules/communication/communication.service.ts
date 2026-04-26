@@ -318,10 +318,24 @@ export class CommunicationService {
       this.logger.warn(`Failed to increment ${dto.channel} usage counter for clinic ${clinicId}: ${err instanceof Error ? err.message : String(err)}`),
     );
 
-    // Global mirror rule: whenever a WhatsApp message is sent, also send an email
-    // if the patient has an email address. Email channel settings and patient
-    // preferences are still enforced by sendMessage() itself.
-    if (dto.channel === 'whatsapp' && patient.email) {
+    // WhatsApp → Email mirror: whenever a transactional WhatsApp message is
+    // sent, also send an email to the same patient as a backup channel.
+    //
+    // We DO NOT mirror in these cases (each would just create noise):
+    //   • Promotional / campaign sends — patients shouldn't get duplicate marketing
+    //   • Email channel disabled at the clinic — every mirror would just be skipped
+    //   • Patient has no email on file
+    //   • This call is itself a mirror (avoid recursion)
+    const isPromotional = (dto.category || 'transactional') === 'promotional';
+    const isAlreadyMirrored = dto.metadata?.['mirrored_from_channel'] === 'whatsapp';
+    const emailEnabledAtClinic = this.isChannelEnabled(clinicSettings, 'email');
+    if (
+      dto.channel === 'whatsapp'
+      && patient.email
+      && !isPromotional
+      && !isAlreadyMirrored
+      && emailEnabledAtClinic
+    ) {
       try {
         await this.sendMessage(clinicId, {
           patient_id: dto.patient_id,

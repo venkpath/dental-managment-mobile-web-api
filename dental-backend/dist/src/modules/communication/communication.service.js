@@ -233,7 +233,14 @@ let CommunicationService = class CommunicationService {
             scheduledAt: dto.scheduled_at,
         });
         this.incrementUsageCounter(clinicId, dto.channel).catch((err) => this.logger.warn(`Failed to increment ${dto.channel} usage counter for clinic ${clinicId}: ${err instanceof Error ? err.message : String(err)}`));
-        if (dto.channel === 'whatsapp' && patient.email) {
+        const isPromotional = (dto.category || 'transactional') === 'promotional';
+        const isAlreadyMirrored = dto.metadata?.['mirrored_from_channel'] === 'whatsapp';
+        const emailEnabledAtClinic = this.isChannelEnabled(clinicSettings, 'email');
+        if (dto.channel === 'whatsapp'
+            && patient.email
+            && !isPromotional
+            && !isAlreadyMirrored
+            && emailEnabledAtClinic) {
             try {
                 await this.sendMessage(clinicId, {
                     patient_id: dto.patient_id,
