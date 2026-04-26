@@ -6,6 +6,7 @@ import { CommunicationService } from '../communication/communication.service.js'
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
 import { QUEUE_NAMES } from '../../common/queue/queue-names.js';
 import type { AppointmentReminderJobData } from './appointment-reminder.types.js';
+import { isReminderEnabled } from './appointment-reminder.config.js';
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString('en-IN', {
@@ -107,10 +108,9 @@ export class AppointmentReminderProcessor extends WorkerHost {
     }
 
     const config = (rule.config as Record<string, unknown>) ?? {};
-    const enabledKey = `reminder_${reminderIndex}_enabled`;
     const templateKey = `reminder_${reminderIndex}_template_id`;
 
-    if (config[enabledKey] === false) {
+    if (!isReminderEnabled(config, reminderIndex, true)) {
       this.logger.log(`Reminder ${reminderIndex} disabled for clinic ${clinicId} — skipping`);
       return;
     }

@@ -27,13 +27,17 @@ const automation_service_js_1 = require("./automation.service.js");
 const automation_cron_js_1 = require("./automation.cron.js");
 const index_js_2 = require("./dto/index.js");
 const queue_names_js_1 = require("../../common/queue/queue-names.js");
+const prisma_service_js_1 = require("../../database/prisma.service.js");
+const appointment_reminder_config_js_1 = require("../appointment/appointment-reminder.config.js");
 let AutomationController = class AutomationController {
     automationService;
     automationCronService;
+    prisma;
     reminderQueue;
-    constructor(automationService, automationCronService, reminderQueue) {
+    constructor(automationService, automationCronService, prisma, reminderQueue) {
         this.automationService = automationService;
         this.automationCronService = automationCronService;
+        this.prisma = prisma;
         this.reminderQueue = reminderQueue;
     }
     async getAllRules(clinicId) {
@@ -139,6 +143,63 @@ let AutomationController = class AutomationController {
         await job.retry();
         return { success: true, jobId };
     }
+    async debugReminderSchedule(clinicId, appointmentId) {
+        const appointment = await this.prisma.appointment.findUnique({
+            where: { id: appointmentId },
+            select: { id: true, appointment_date: true, start_time: true, status: true, clinic_id: true },
+        });
+        if (!appointment)
+            return { error: `Appointment ${appointmentId} not found` };
+        if (appointment.clinic_id !== clinicId)
+            return { error: 'Appointment does not belong to this clinic' };
+        const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+        const dateStr = appointment.appointment_date.toISOString().split('T')[0];
+        const naiveUtc = new Date(`${dateStr}T${appointment.start_time}:00Z`);
+        const apptStartUtc = new Date(naiveUtc.getTime() - IST_OFFSET_MS);
+        const now = Date.now();
+        const rule = await this.prisma.automationRule.findUnique({
+            where: { clinic_id_rule_type: { clinic_id: clinicId, rule_type: 'appointment_reminder_patient' } },
+        });
+        const config = rule?.config ?? {};
+        const preview = !rule
+            ? { status: 'no_rule', reminders: [] }
+            : !rule.is_enabled
+                ? { status: 'rule_disabled', reminders: [] }
+                : {
+                    status: 'ok',
+                    appointmentStartUtc: apptStartUtc.toISOString(),
+                    nowUtc: new Date(now).toISOString(),
+                    reminders: (0, appointment_reminder_config_js_1.getReminderDefinitions)(config).map((r) => {
+                        const sendAt = new Date(apptStartUtc.getTime() - r.hours * 60 * 60 * 1000);
+                        const delay = sendAt.getTime() - now;
+                        return {
+                            reminderIndex: r.index,
+                            reminderHours: r.hours,
+                            enabled: r.enabled,
+                            wouldFireAt: sendAt.toISOString(),
+                            wouldFireIn: delay > 0 ? `${Math.round(delay / 60000)} minutes` : null,
+                            status: !r.enabled ? 'disabled' : delay <= 0 ? 'already_passed' : 'would_schedule',
+                        };
+                    }),
+                };
+        const [queuedJob1, queuedJob2] = await Promise.all([
+            this.reminderQueue.getJob(`appointment:${appointmentId}:reminder:1`),
+            this.reminderQueue.getJob(`appointment:${appointmentId}:reminder:2`),
+        ]);
+        return {
+            appointment: {
+                id: appointment.id,
+                date: appointment.appointment_date,
+                startTime: appointment.start_time,
+                status: appointment.status,
+            },
+            preview,
+            actualQueuedJobs: [
+                queuedJob1 ? { jobId: queuedJob1.id, state: await queuedJob1.getState(), firesAt: new Date(Date.now() + (queuedJob1.delay ?? 0)).toISOString() } : null,
+                queuedJob2 ? { jobId: queuedJob2.id, state: await queuedJob2.getState(), firesAt: new Date(Date.now() + (queuedJob2.delay ?? 0)).toISOString() } : null,
+            ].filter(Boolean),
+        };
+    }
 };
 exports.AutomationController = AutomationController;
 __decorate([
@@ -213,15 +274,27 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AutomationController.prototype, "retryReminderJob", null);
+__decorate([
+    (0, common_1.Get)('queues/appointment-reminders/debug/:appointmentId'),
+    (0, roles_decorator_js_1.Roles)(index_js_1.UserRole.ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Preview what reminders would be/were scheduled for a specific appointment' }),
+    openapi.ApiResponse({ status: 200, type: Object }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('appointmentId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], AutomationController.prototype, "debugReminderSchedule", null);
 exports.AutomationController = AutomationController = __decorate([
     (0, swagger_1.ApiTags)('Automation Rules'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true }),
     (0, common_1.UseGuards)(require_clinic_guard_js_1.RequireClinicGuard),
     (0, require_feature_decorator_js_1.RequireFeature)('AUTOMATION_RULES'),
     (0, common_1.Controller)('automation/rules'),
-    __param(2, (0, bullmq_1.InjectQueue)(queue_names_js_1.QUEUE_NAMES.APPOINTMENT_REMINDER)),
+    __param(3, (0, bullmq_1.InjectQueue)(queue_names_js_1.QUEUE_NAMES.APPOINTMENT_REMINDER)),
     __metadata("design:paramtypes", [automation_service_js_1.AutomationService,
         automation_cron_js_1.AutomationCronService,
+        prisma_service_js_1.PrismaService,
         bullmq_2.Queue])
 ], AutomationController);
 //# sourceMappingURL=automation.controller.js.map

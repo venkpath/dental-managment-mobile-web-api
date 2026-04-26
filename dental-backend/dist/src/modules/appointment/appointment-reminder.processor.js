@@ -17,6 +17,7 @@ const prisma_service_js_1 = require("../../database/prisma.service.js");
 const communication_service_js_1 = require("../communication/communication.service.js");
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
 const queue_names_js_1 = require("../../common/queue/queue-names.js");
+const appointment_reminder_config_js_1 = require("./appointment-reminder.config.js");
 function formatDate(date) {
     return date.toLocaleDateString('en-IN', {
         day: '2-digit',
@@ -95,9 +96,8 @@ let AppointmentReminderProcessor = AppointmentReminderProcessor_1 = class Appoin
             return;
         }
         const config = rule.config ?? {};
-        const enabledKey = `reminder_${reminderIndex}_enabled`;
         const templateKey = `reminder_${reminderIndex}_template_id`;
-        if (config[enabledKey] === false) {
+        if (!(0, appointment_reminder_config_js_1.isReminderEnabled)(config, reminderIndex, true)) {
             this.logger.log(`Reminder ${reminderIndex} disabled for clinic ${clinicId} — skipping`);
             return;
         }

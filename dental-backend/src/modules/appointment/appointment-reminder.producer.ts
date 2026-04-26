@@ -4,6 +4,7 @@ import { Queue } from 'bullmq';
 import { PrismaService } from '../../database/prisma.service.js';
 import { QUEUE_NAMES } from '../../common/queue/queue-names.js';
 import type { AppointmentReminderJobData } from './appointment-reminder.types.js';
+import { getReminderDefinitions } from './appointment-reminder.config.js';
 
 /** IST offset = UTC+5:30 = 330 minutes */
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
@@ -47,34 +48,32 @@ export class AppointmentReminderProducer {
       where: { clinic_id_rule_type: { clinic_id: clinicId, rule_type: 'appointment_reminder_patient' } },
     });
 
-    if (!rule?.is_enabled) return;
+    if (!rule) {
+      this.logger.warn(`No automation rule found for clinic ${clinicId} — appointment reminders skipped`);
+      return;
+    }
+    if (!rule.is_enabled) {
+      this.logger.warn(`Appointment reminder rule is DISABLED for clinic ${clinicId} — reminders skipped`);
+      return;
+    }
 
     const config = (rule.config as Record<string, unknown>) ?? {};
-    const reminders: Array<{ index: 1 | 2; hours: number; enabled: boolean }> = [
-      {
-        index: 1,
-        hours: (config['reminder_1_hours'] as number) ?? 24,
-        enabled: config['reminder_1_enabled'] !== false,
-      },
-      {
-        index: 2,
-        hours: (config['reminder_2_hours'] as number) ?? 2,
-        enabled: config['reminder_2_enabled'] !== false,
-      },
-    ];
+    const reminders = getReminderDefinitions(config);
 
     const apptStartUtc = appointmentStartUtc(appointmentDate, startTime);
 
     for (const reminder of reminders) {
-      if (!reminder.enabled) continue;
-      if (typeof reminder.hours !== 'number' || reminder.hours <= 0) continue;
+      if (!reminder.enabled) {
+        this.logger.log(`Reminder ${reminder.index} is disabled in config for clinic ${clinicId}`);
+        continue;
+      }
 
       const sendAt = new Date(apptStartUtc.getTime() - reminder.hours * 60 * 60 * 1000);
       const delay = sendAt.getTime() - Date.now();
 
       if (delay <= 0) {
-        this.logger.debug(
-          `Skipping reminder ${reminder.index} for appointment ${appointmentId} — send time already passed`,
+        this.logger.warn(
+          `Skipping reminder ${reminder.index} for appointment ${appointmentId} — fire time ${sendAt.toISOString()} already passed (${reminder.hours}h before appointment). Create appointment further in advance.`,
         );
         continue;
       }
@@ -125,5 +124,48 @@ export class AppointmentReminderProducer {
   ): Promise<void> {
     await this.cancelReminders(appointmentId);
     await this.scheduleReminders(appointmentId, clinicId, newAppointmentDate, newStartTime);
+  }
+
+  /**
+   * Preview what reminders WOULD be scheduled — does NOT add any jobs to the queue.
+   * Used by the debug endpoint.
+   */
+  async previewReminders(
+    appointmentId: string,
+    clinicId: string,
+    appointmentDate: Date,
+    startTime: string,
+  ) {
+    const now = Date.now();
+    const rule = await this.prisma.automationRule.findUnique({
+      where: { clinic_id_rule_type: { clinic_id: clinicId, rule_type: 'appointment_reminder_patient' } },
+    });
+
+    if (!rule) return { status: 'no_rule', reminders: [] };
+    if (!rule.is_enabled) return { status: 'rule_disabled', reminders: [] };
+
+    const config = (rule.config as Record<string, unknown>) ?? {};
+    const apptStartUtc = appointmentStartUtc(appointmentDate, startTime);
+
+    const reminders = getReminderDefinitions(config).map((r) => {
+      const sendAt = new Date(apptStartUtc.getTime() - r.hours * 60 * 60 * 1000);
+      const delay = sendAt.getTime() - now;
+      return {
+        reminderIndex: r.index,
+        reminderHours: r.hours,
+        enabled: r.enabled,
+        wouldFireAt: sendAt.toISOString(),
+        wouldFireIn: delay > 0 ? `${Math.round(delay / 60000)} minutes` : null,
+        status: !r.enabled ? 'disabled' : delay <= 0 ? 'already_passed' : 'would_schedule',
+      };
+    });
+
+    return {
+      status: 'ok',
+      appointmentId,
+      appointmentStartUtc: apptStartUtc.toISOString(),
+      nowUtc: new Date(now).toISOString(),
+      reminders,
+    };
   }
 }

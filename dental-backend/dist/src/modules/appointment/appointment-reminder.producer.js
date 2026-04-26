@@ -19,6 +19,7 @@ const bullmq_1 = require("@nestjs/bullmq");
 const bullmq_2 = require("bullmq");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const queue_names_js_1 = require("../../common/queue/queue-names.js");
+const appointment_reminder_config_js_1 = require("./appointment-reminder.config.js");
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 function appointmentStartUtc(appointmentDate, startTime) {
     const dateStr = appointmentDate.toISOString().split('T')[0];
@@ -38,31 +39,26 @@ let AppointmentReminderProducer = AppointmentReminderProducer_1 = class Appointm
         const rule = await this.prisma.automationRule.findUnique({
             where: { clinic_id_rule_type: { clinic_id: clinicId, rule_type: 'appointment_reminder_patient' } },
         });
-        if (!rule?.is_enabled)
+        if (!rule) {
+            this.logger.warn(`No automation rule found for clinic ${clinicId} — appointment reminders skipped`);
             return;
+        }
+        if (!rule.is_enabled) {
+            this.logger.warn(`Appointment reminder rule is DISABLED for clinic ${clinicId} — reminders skipped`);
+            return;
+        }
         const config = rule.config ?? {};
-        const reminders = [
-            {
-                index: 1,
-                hours: config['reminder_1_hours'] ?? 24,
-                enabled: config['reminder_1_enabled'] !== false,
-            },
-            {
-                index: 2,
-                hours: config['reminder_2_hours'] ?? 2,
-                enabled: config['reminder_2_enabled'] !== false,
-            },
-        ];
+        const reminders = (0, appointment_reminder_config_js_1.getReminderDefinitions)(config);
         const apptStartUtc = appointmentStartUtc(appointmentDate, startTime);
         for (const reminder of reminders) {
-            if (!reminder.enabled)
+            if (!reminder.enabled) {
+                this.logger.log(`Reminder ${reminder.index} is disabled in config for clinic ${clinicId}`);
                 continue;
-            if (typeof reminder.hours !== 'number' || reminder.hours <= 0)
-                continue;
+            }
             const sendAt = new Date(apptStartUtc.getTime() - reminder.hours * 60 * 60 * 1000);
             const delay = sendAt.getTime() - Date.now();
             if (delay <= 0) {
-                this.logger.debug(`Skipping reminder ${reminder.index} for appointment ${appointmentId} — send time already passed`);
+                this.logger.warn(`Skipping reminder ${reminder.index} for appointment ${appointmentId} — fire time ${sendAt.toISOString()} already passed (${reminder.hours}h before appointment). Create appointment further in advance.`);
                 continue;
             }
             const jobId = `appointment:${appointmentId}:reminder:${reminder.index}`;
@@ -94,6 +90,37 @@ let AppointmentReminderProducer = AppointmentReminderProducer_1 = class Appointm
     async rescheduleReminders(appointmentId, clinicId, newAppointmentDate, newStartTime) {
         await this.cancelReminders(appointmentId);
         await this.scheduleReminders(appointmentId, clinicId, newAppointmentDate, newStartTime);
+    }
+    async previewReminders(appointmentId, clinicId, appointmentDate, startTime) {
+        const now = Date.now();
+        const rule = await this.prisma.automationRule.findUnique({
+            where: { clinic_id_rule_type: { clinic_id: clinicId, rule_type: 'appointment_reminder_patient' } },
+        });
+        if (!rule)
+            return { status: 'no_rule', reminders: [] };
+        if (!rule.is_enabled)
+            return { status: 'rule_disabled', reminders: [] };
+        const config = rule.config ?? {};
+        const apptStartUtc = appointmentStartUtc(appointmentDate, startTime);
+        const reminders = (0, appointment_reminder_config_js_1.getReminderDefinitions)(config).map((r) => {
+            const sendAt = new Date(apptStartUtc.getTime() - r.hours * 60 * 60 * 1000);
+            const delay = sendAt.getTime() - now;
+            return {
+                reminderIndex: r.index,
+                reminderHours: r.hours,
+                enabled: r.enabled,
+                wouldFireAt: sendAt.toISOString(),
+                wouldFireIn: delay > 0 ? `${Math.round(delay / 60000)} minutes` : null,
+                status: !r.enabled ? 'disabled' : delay <= 0 ? 'already_passed' : 'would_schedule',
+            };
+        });
+        return {
+            status: 'ok',
+            appointmentId,
+            appointmentStartUtc: apptStartUtc.toISOString(),
+            nowUtc: new Date(now).toISOString(),
+            reminders,
+        };
     }
 };
 exports.AppointmentReminderProducer = AppointmentReminderProducer;

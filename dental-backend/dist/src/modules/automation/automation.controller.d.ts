@@ -2,11 +2,13 @@ import { Queue } from 'bullmq';
 import { AutomationService } from './automation.service.js';
 import { AutomationCronService } from './automation.cron.js';
 import { UpsertAutomationRuleDto } from './dto/index.js';
+import { PrismaService } from '../../database/prisma.service.js';
 export declare class AutomationController {
     private readonly automationService;
     private readonly automationCronService;
+    private readonly prisma;
     private readonly reminderQueue;
-    constructor(automationService: AutomationService, automationCronService: AutomationCronService, reminderQueue: Queue);
+    constructor(automationService: AutomationService, automationCronService: AutomationCronService, prisma: PrismaService, reminderQueue: Queue);
     getAllRules(clinicId: string): Promise<({
         template: {
             id: string;
@@ -115,6 +117,43 @@ export declare class AutomationController {
     } | {
         success: boolean;
         jobId: string;
+        error?: undefined;
+    }>;
+    debugReminderSchedule(clinicId: string, appointmentId: string): Promise<{
+        error: string;
+        appointment?: undefined;
+        preview?: undefined;
+        actualQueuedJobs?: undefined;
+    } | {
+        appointment: {
+            id: string;
+            date: Date;
+            startTime: string;
+            status: string;
+        };
+        preview: {
+            status: string;
+            reminders: never[];
+            appointmentStartUtc?: undefined;
+            nowUtc?: undefined;
+        } | {
+            status: string;
+            appointmentStartUtc: string;
+            nowUtc: string;
+            reminders: {
+                reminderIndex: 1 | 2;
+                reminderHours: number;
+                enabled: boolean;
+                wouldFireAt: string;
+                wouldFireIn: string | null;
+                status: string;
+            }[];
+        };
+        actualQueuedJobs: ({
+            jobId: string | undefined;
+            state: "unknown" | import("bullmq").JobState;
+            firesAt: string;
+        } | null)[];
         error?: undefined;
     }>;
 }

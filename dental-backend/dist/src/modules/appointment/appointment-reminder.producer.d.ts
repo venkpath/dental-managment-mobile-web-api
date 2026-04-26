@@ -9,4 +9,24 @@ export declare class AppointmentReminderProducer {
     scheduleReminders(appointmentId: string, clinicId: string, appointmentDate: Date, startTime: string): Promise<void>;
     cancelReminders(appointmentId: string): Promise<void>;
     rescheduleReminders(appointmentId: string, clinicId: string, newAppointmentDate: Date, newStartTime: string): Promise<void>;
+    previewReminders(appointmentId: string, clinicId: string, appointmentDate: Date, startTime: string): Promise<{
+        status: string;
+        reminders: never[];
+        appointmentId?: undefined;
+        appointmentStartUtc?: undefined;
+        nowUtc?: undefined;
+    } | {
+        status: string;
+        appointmentId: string;
+        appointmentStartUtc: string;
+        nowUtc: string;
+        reminders: {
+            reminderIndex: 1 | 2;
+            reminderHours: number;
+            enabled: boolean;
+            wouldFireAt: string;
+            wouldFireIn: string | null;
+            status: string;
+        }[];
+    }>;
 }
