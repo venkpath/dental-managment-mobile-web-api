@@ -102,11 +102,7 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
         this.notificationService.sendConfirmation(clinicId, appointment.id).catch((e) => {
             this.logger.warn(`Appointment confirmation notification failed: ${e.message}`);
         });
-        this.reminderProducer
-            .scheduleReminders(appointment.id, clinicId, appointment.appointment_date, appointment.start_time)
-            .catch((e) => {
-            this.logger.warn(`Failed to schedule reminders for appointment ${appointment.id}: ${e.message}`);
-        });
+        await this.tryScheduleReminders(clinicId, appointment.id, appointment.appointment_date, appointment.start_time);
         return appointment;
     }
     async getAvailableSlots(clinicId, query) {
@@ -375,6 +371,13 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
             },
             include: { patient: true, dentist: true, branch: true },
         })));
+        const reminderResults = await Promise.allSettled(appointments.map((appt) => this.reminderProducer.scheduleReminders(appt.id, clinicId, appt.appointment_date, appt.start_time)));
+        reminderResults.forEach((r, idx) => {
+            if (r.status === 'rejected') {
+                const appt = appointments[idx];
+                this.logger.warn(`Failed to schedule reminders for recurring appointment ${appt.id}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
+            }
+        });
         return appointments;
     }
     async remove(clinicId, id) {
@@ -407,6 +410,14 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
         const h = Math.floor(minutes / 60).toString().padStart(2, '0');
         const m = (minutes % 60).toString().padStart(2, '0');
         return `${h}:${m}`;
+    }
+    async tryScheduleReminders(clinicId, appointmentId, appointmentDate, startTime) {
+        try {
+            await this.reminderProducer.scheduleReminders(appointmentId, clinicId, appointmentDate, startTime);
+        }
+        catch (e) {
+            this.logger.warn(`Failed to schedule reminders for appointment ${appointmentId}: ${e.message}`);
+        }
     }
 };
 exports.AppointmentService = AppointmentService;

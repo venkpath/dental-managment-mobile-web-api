@@ -27,4 +27,5 @@ export declare class AppointmentService {
     private checkTimeConflict;
     private timeToMinutes;
     private minutesToTime;
+    private tryScheduleReminders;
 }

@@ -121,12 +121,9 @@ export class AppointmentService {
       this.logger.warn(`Appointment confirmation notification failed: ${(e as Error).message}`);
     });
 
-    // Schedule BullMQ reminder jobs at exact times (fire-and-forget)
-    this.reminderProducer
-      .scheduleReminders(appointment.id, clinicId, appointment.appointment_date, appointment.start_time)
-      .catch((e) => {
-        this.logger.warn(`Failed to schedule reminders for appointment ${appointment.id}: ${(e as Error).message}`);
-      });
+    // Schedule BullMQ reminder jobs at exact times.
+    // Awaiting here makes internal booking behavior deterministic in normal flow.
+    await this.tryScheduleReminders(clinicId, appointment.id, appointment.appointment_date, appointment.start_time);
 
     return appointment;
   }
@@ -459,6 +456,23 @@ export class AppointmentService {
       ),
     );
 
+    // Schedule reminders for every appointment in the recurring series.
+    // Use allSettled so one scheduling failure doesn't block the full series creation.
+    const reminderResults = await Promise.allSettled(
+      appointments.map((appt) =>
+        this.reminderProducer.scheduleReminders(appt.id, clinicId, appt.appointment_date, appt.start_time),
+      ),
+    );
+
+    reminderResults.forEach((r, idx) => {
+      if (r.status === 'rejected') {
+        const appt = appointments[idx];
+        this.logger.warn(
+          `Failed to schedule reminders for recurring appointment ${appt.id}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`,
+        );
+      }
+    });
+
     return appointments;
   }
 
@@ -505,5 +519,20 @@ export class AppointmentService {
     const h = Math.floor(minutes / 60).toString().padStart(2, '0');
     const m = (minutes % 60).toString().padStart(2, '0');
     return `${h}:${m}`;
+  }
+
+  private async tryScheduleReminders(
+    clinicId: string,
+    appointmentId: string,
+    appointmentDate: Date,
+    startTime: string,
+  ): Promise<void> {
+    try {
+      await this.reminderProducer.scheduleReminders(appointmentId, clinicId, appointmentDate, startTime);
+    } catch (e) {
+      this.logger.warn(
+        `Failed to schedule reminders for appointment ${appointmentId}: ${(e as Error).message}`,
+      );
+    }
   }
 }

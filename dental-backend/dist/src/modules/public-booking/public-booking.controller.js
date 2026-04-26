@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var PublicBookingController_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PublicBookingController = void 0;
 const openapi = require("@nestjs/swagger");
@@ -21,6 +22,7 @@ const swagger_2 = require("@nestjs/swagger");
 const public_decorator_js_1 = require("../../common/decorators/public.decorator.js");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const booking_url_util_js_1 = require("../../common/utils/booking-url.util.js");
+const appointment_reminder_producer_js_1 = require("../appointment/appointment-reminder.producer.js");
 class BookAppointmentDto {
     first_name;
     last_name;
@@ -108,10 +110,13 @@ function getNowMinutesIST() {
     const ist = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     return ist.getHours() * 60 + ist.getMinutes();
 }
-let PublicBookingController = class PublicBookingController {
+let PublicBookingController = PublicBookingController_1 = class PublicBookingController {
     prisma;
-    constructor(prisma) {
+    reminderProducer;
+    logger = new common_1.Logger(PublicBookingController_1.name);
+    constructor(prisma, reminderProducer) {
         this.prisma = prisma;
+        this.reminderProducer = reminderProducer;
     }
     async getBranchBookingInfo(clinicId, branchId) {
         const branch = await this.prisma.branch.findUnique({
@@ -270,6 +275,11 @@ let PublicBookingController = class PublicBookingController {
                 dentist: { select: { name: true } },
             },
         });
+        this.reminderProducer
+            .scheduleReminders(appointment.id, clinicId, appointment.appointment_date, appointment.start_time)
+            .catch((e) => {
+            this.logger.warn(`Failed to schedule reminders for public booking appointment ${appointment.id}: ${e.message}`);
+        });
         return {
             success: true,
             message: 'Appointment booked successfully!',
@@ -333,9 +343,10 @@ __decorate([
     __metadata("design:paramtypes", [String, String, BookAppointmentDto]),
     __metadata("design:returntype", Promise)
 ], PublicBookingController.prototype, "bookAppointment", null);
-exports.PublicBookingController = PublicBookingController = __decorate([
+exports.PublicBookingController = PublicBookingController = PublicBookingController_1 = __decorate([
     (0, swagger_1.ApiTags)('Public Booking'),
     (0, common_1.Controller)('public/booking'),
-    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
+        appointment_reminder_producer_js_1.AppointmentReminderProducer])
 ], PublicBookingController);
 //# sourceMappingURL=public-booking.controller.js.map

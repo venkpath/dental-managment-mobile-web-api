@@ -1,4 +1,5 @@
 import { PrismaService } from '../../database/prisma.service.js';
+import { AppointmentReminderProducer } from '../appointment/appointment-reminder.producer.js';
 declare class BookAppointmentDto {
     first_name: string;
     last_name: string;
@@ -13,7 +14,9 @@ declare class BookAppointmentDto {
 }
 export declare class PublicBookingController {
     private readonly prisma;
-    constructor(prisma: PrismaService);
+    private readonly reminderProducer;
+    private readonly logger;
+    constructor(prisma: PrismaService, reminderProducer: AppointmentReminderProducer);
     getBranchBookingInfo(clinicId: string, branchId: string): Promise<{
         clinic: {
             id: string;

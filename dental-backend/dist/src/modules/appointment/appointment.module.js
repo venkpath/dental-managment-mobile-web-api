@@ -14,6 +14,7 @@ const appointment_service_js_1 = require("./appointment.service.js");
 const appointment_notification_service_js_1 = require("./appointment-notification.service.js");
 const appointment_reminder_producer_js_1 = require("./appointment-reminder.producer.js");
 const appointment_reminder_processor_js_1 = require("./appointment-reminder.processor.js");
+const appointment_reminder_reconciler_js_1 = require("./appointment-reminder.reconciler.js");
 const automation_module_js_1 = require("../automation/automation.module.js");
 const communication_module_js_1 = require("../communication/communication.module.js");
 const queue_names_js_1 = require("../../common/queue/queue-names.js");
@@ -33,6 +34,7 @@ exports.AppointmentModule = AppointmentModule = __decorate([
             appointment_notification_service_js_1.AppointmentNotificationService,
             appointment_reminder_producer_js_1.AppointmentReminderProducer,
             appointment_reminder_processor_js_1.AppointmentReminderProcessor,
+            appointment_reminder_reconciler_js_1.AppointmentReminderReconciler,
         ],
         exports: [appointment_service_js_1.AppointmentService],
     })

@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Param, Body, Query,
-  ParseUUIDPipe, NotFoundException, BadRequestException,
+  ParseUUIDPipe, NotFoundException, BadRequestException, Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { IsString, IsEmail, IsOptional, IsEnum, IsDateString, IsUUID, Matches, MaxLength } from 'class-validator';
@@ -8,6 +8,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { getBookingUrl } from '../../common/utils/booking-url.util.js';
+import { AppointmentReminderProducer } from '../appointment/appointment-reminder.producer.js';
 
 // ─── DTOs ───
 
@@ -89,7 +90,12 @@ function getNowMinutesIST(): number {
 @ApiTags('Public Booking')
 @Controller('public/booking')
 export class PublicBookingController {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(PublicBookingController.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reminderProducer: AppointmentReminderProducer,
+  ) {}
 
   /** Branch info + clinic info for booking page */
   @Get(':clinicId/:branchId')
@@ -297,6 +303,15 @@ export class PublicBookingController {
         dentist: { select: { name: true } },
       },
     });
+
+    // Schedule appointment reminders for public-booked appointments as well.
+    this.reminderProducer
+      .scheduleReminders(appointment.id, clinicId, appointment.appointment_date, appointment.start_time)
+      .catch((e) => {
+        this.logger.warn(
+          `Failed to schedule reminders for public booking appointment ${appointment.id}: ${(e as Error).message}`,
+        );
+      });
 
     return {
       success: true,
