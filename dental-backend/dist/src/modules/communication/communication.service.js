@@ -139,20 +139,14 @@ let CommunicationService = class CommunicationService {
                     }
                 }
                 if (templateButtons.length > 0) {
+                    const rawSuffix = dto.metadata?.['button_url_suffix'] || '';
+                    const suffix = rawSuffix.replace(/&amp;/g, '&');
                     const btnParams = templateButtons.map(btn => ({
                         type: btn.type,
                         index: btn.index,
-                        parameters: [dto.variables?.[`button_${btn.index}`] || dto.metadata?.['button_url_suffix'] || ''],
+                        parameters: [dto.variables?.[`button_${btn.index}`] || suffix || ''],
                     }));
                     dto.metadata = { ...(dto.metadata || {}), whatsapp_button_params: btnParams };
-                }
-                else if (dto.metadata?.['button_url_suffix']) {
-                    const rawSuffix = dto.metadata['button_url_suffix'];
-                    const suffix = rawSuffix.replace(/&amp;/g, '&');
-                    dto.metadata = {
-                        ...(dto.metadata || {}),
-                        whatsapp_button_params: [{ type: 'url', index: 0, parameters: [suffix] }],
-                    };
                 }
                 this.logger.debug(`[WhatsApp] template="${whatsappTemplateName}" lang="${whatsappLanguage}" vars=${whatsappOrderedVars?.length ?? 0} (db_vars=${templateVarNames.length}, dto_vars=${dto.variables ? Object.keys(dto.variables).length : 0}, buttons=${templateButtons.length})`);
             }
