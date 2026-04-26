@@ -78,7 +78,7 @@ export class AppointmentReminderProducer {
         continue;
       }
 
-      const jobId = `appointment:${appointmentId}:reminder:${reminder.index}`;
+      const jobId = `appointment-${appointmentId}-reminder-${reminder.index}`;
       const jobData: AppointmentReminderJobData = {
         appointmentId,
         clinicId,
@@ -159,7 +159,7 @@ export class AppointmentReminderProducer {
         continue;
       }
 
-      const jobId = `appointment:${appointmentId}:reminder:${reminder.index}`;
+      const jobId = `appointment-${appointmentId}-reminder-${reminder.index}`;
 
       // Check if already exists (deterministic ID = idempotent)
       const existing = await this.reminderQueue.getJob(jobId).catch(() => null);
@@ -208,7 +208,7 @@ export class AppointmentReminderProducer {
    */
   async cancelReminders(appointmentId: string): Promise<void> {
     for (const idx of [1, 2] as const) {
-      const jobId = `appointment:${appointmentId}:reminder:${idx}`;
+      const jobId = `appointment-${appointmentId}-reminder-${idx}`;
       const job = await this.reminderQueue.getJob(jobId);
       if (job) {
         await job.remove();

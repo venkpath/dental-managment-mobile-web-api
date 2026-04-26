@@ -232,8 +232,8 @@ export class AutomationController {
           };
 
     const [queuedJob1, queuedJob2] = await Promise.all([
-      this.reminderQueue.getJob(`appointment:${appointmentId}:reminder:1`),
-      this.reminderQueue.getJob(`appointment:${appointmentId}:reminder:2`),
+      this.reminderQueue.getJob(`appointment-${appointmentId}-reminder-1`),
+      this.reminderQueue.getJob(`appointment-${appointmentId}-reminder-2`),
     ]);
 
     return {
@@ -297,7 +297,7 @@ export class AutomationController {
         results.push({ reminderIndex: r.index, reminderHours: r.hours, status: 'already_passed', firesAt: sendAt.toISOString() });
         continue;
       }
-      const jobId = `appointment:${appointmentId}:reminder:${r.index}`;
+      const jobId = `appointment-${appointmentId}-reminder-${r.index}`;
       const existing = await this.reminderQueue.getJob(jobId).catch(() => null);
       if (existing) {
         results.push({ reminderIndex: r.index, reminderHours: r.hours, status: 'already_scheduled', jobId, firesAt: sendAt.toISOString() });

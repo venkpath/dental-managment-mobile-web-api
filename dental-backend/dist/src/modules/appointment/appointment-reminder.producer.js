@@ -61,7 +61,7 @@ let AppointmentReminderProducer = AppointmentReminderProducer_1 = class Appointm
                 this.logger.warn(`Skipping reminder ${reminder.index} for appointment ${appointmentId} — fire time ${sendAt.toISOString()} already passed (${reminder.hours}h before appointment). Create appointment further in advance.`);
                 continue;
             }
-            const jobId = `appointment:${appointmentId}:reminder:${reminder.index}`;
+            const jobId = `appointment-${appointmentId}-reminder-${reminder.index}`;
             const jobData = {
                 appointmentId,
                 clinicId,
@@ -106,7 +106,7 @@ let AppointmentReminderProducer = AppointmentReminderProducer_1 = class Appointm
                 results.push({ reminderIndex: reminder.index, reminderHours: reminder.hours, status: 'already_passed', firesAt: sendAt.toISOString() });
                 continue;
             }
-            const jobId = `appointment:${appointmentId}:reminder:${reminder.index}`;
+            const jobId = `appointment-${appointmentId}-reminder-${reminder.index}`;
             const existing = await this.reminderQueue.getJob(jobId).catch(() => null);
             if (existing) {
                 results.push({
@@ -144,7 +144,7 @@ let AppointmentReminderProducer = AppointmentReminderProducer_1 = class Appointm
     }
     async cancelReminders(appointmentId) {
         for (const idx of [1, 2]) {
-            const jobId = `appointment:${appointmentId}:reminder:${idx}`;
+            const jobId = `appointment-${appointmentId}-reminder-${idx}`;
             const job = await this.reminderQueue.getJob(jobId);
             if (job) {
                 await job.remove();
