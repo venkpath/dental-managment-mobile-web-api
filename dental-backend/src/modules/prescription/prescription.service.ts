@@ -7,6 +7,7 @@ import { Prescription, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
 import { PrescriptionPdfService } from './prescription-pdf.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
+import { formatDoctorName } from '../../common/utils/name.util.js';
 
 const PRESCRIPTION_INCLUDE = {
   items: true,
@@ -77,6 +78,9 @@ export class PrescriptionService {
 
     if (query.branch_id) {
       where.branch_id = query.branch_id;
+    }
+    if (query.dentist_id) {
+      where.dentist_id = query.dentist_id;
     }
     if (query.search) {
       where.patient = {
@@ -257,9 +261,9 @@ export class PrescriptionService {
     const patientName = `${patient.first_name} ${patient.last_name}`;
     const clinicName = clinic?.name ?? 'your clinic';
     const clinicPhone = clinic?.phone ?? '';
-    // Bare doctor name — the WhatsApp template usually already has a "Dr. " prefix
-    // (e.g. "from Dr. {{2}}"), so we don't double it up.
-    const doctorName = dentist?.name || 'your doctor';
+    // Always render exactly one "Dr." prefix even if the user stored the
+    // name as "Dr. Priya" or just "Priya".
+    const doctorName = dentist?.name ? formatDoctorName(dentist.name) : 'your doctor';
     const apiBase = process.env['API_BASE_URL'] ?? 'http://localhost:3000/api/v1';
     const redirectUrl = `${apiBase}/public/prescription-redirect/${id}?clinic=${clinicId}`;
 
@@ -308,7 +312,7 @@ export class PrescriptionService {
       // Fallback body used only when no template is selected on the rule.
       body: rule?.template_id
         ? undefined
-        : `Hello ${patientName},\n\nYour prescription from Dr. ${doctorName} at ${clinicName} has been generated.\n\nView & Download:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
+        : `Hello ${patientName},\n\nYour prescription from ${formatDoctorName(doctorName)} at ${clinicName} has been generated.\n\nView & Download:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
       variables,
       metadata: {
         automation: 'prescription_ready',

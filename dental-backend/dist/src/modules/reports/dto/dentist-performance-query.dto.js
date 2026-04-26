@@ -17,8 +17,9 @@ class DentistPerformanceQueryDto {
     start_date;
     end_date;
     branch_id;
+    dentist_id;
     static _OPENAPI_METADATA_FACTORY() {
-        return { start_date: { required: true, type: () => String }, end_date: { required: true, type: () => String }, branch_id: { required: false, type: () => String, format: "uuid" } };
+        return { start_date: { required: true, type: () => String }, end_date: { required: true, type: () => String }, branch_id: { required: false, type: () => String, format: "uuid" }, dentist_id: { required: false, type: () => String, format: "uuid" } };
     }
 }
 exports.DentistPerformanceQueryDto = DentistPerformanceQueryDto;
@@ -38,4 +39,10 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], DentistPerformanceQueryDto.prototype, "branch_id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Filter to a single dentist UUID' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], DentistPerformanceQueryDto.prototype, "dentist_id", void 0);
 //# sourceMappingURL=dentist-performance-query.dto.js.map

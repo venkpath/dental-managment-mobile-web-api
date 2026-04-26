@@ -5,6 +5,7 @@ import { CommunicationService } from '../communication/communication.service.js'
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
 import { AutomationService } from './automation.service.js';
 import { ClinicEventsService } from '../clinic-events/clinic-events.service.js';
+import { formatDoctorName } from '../../common/utils/name.util.js';
 
 @Injectable()
 export class AutomationCronService {
@@ -590,8 +591,8 @@ export class AutomationCronService {
                   patient_name: `${treatment.patient.first_name} ${treatment.patient.last_name}`,
                   patient_first_name: treatment.patient.first_name,
                   procedure: treatment.procedure,
-                  dentist_name: treatment.dentist.name,
-                  doctor_name: treatment.dentist.name,
+                  dentist_name: formatDoctorName(treatment.dentist.name),
+                  doctor_name: formatDoctorName(treatment.dentist.name),
                   clinic_name: clinic.name,
                   phone: clinic.phone || '',
                   // numbered keys — {{1}} patient {{2}} procedure {{3}} clinic {{4}} dentist {{5}} phone

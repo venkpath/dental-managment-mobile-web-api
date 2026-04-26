@@ -23,7 +23,10 @@ import {
 import { AppointmentService } from './appointment.service.js';
 import { CreateAppointmentDto, UpdateAppointmentDto, QueryAppointmentDto, QueryAvailableSlotsDto, CreateRecurringAppointmentDto } from './dto/index.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
+import { applyDentistScope } from '../../common/utils/dentist-scope.util.js';
+import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 
 @ApiTags('Appointments')
 @ApiHeader({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' })
@@ -60,8 +63,10 @@ export class AppointmentController {
   @ApiOkResponse({ description: 'List of appointments' })
   async findAll(
     @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
     @Query() query: QueryAppointmentDto,
   ) {
+    applyDentistScope(query, user);
     return this.appointmentService.findAll(clinicId, query);
   }
 

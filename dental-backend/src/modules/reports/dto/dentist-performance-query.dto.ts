@@ -14,4 +14,9 @@ export class DentistPerformanceQueryDto {
   @IsOptional()
   @IsUUID()
   branch_id?: string;
+
+  @ApiPropertyOptional({ description: 'Filter to a single dentist UUID' })
+  @IsOptional()
+  @IsUUID()
+  dentist_id?: string;
 }

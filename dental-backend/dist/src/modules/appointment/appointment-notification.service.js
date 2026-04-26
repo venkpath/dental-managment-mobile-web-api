@@ -16,6 +16,7 @@ const prisma_service_js_1 = require("../../database/prisma.service.js");
 const communication_service_js_1 = require("../communication/communication.service.js");
 const automation_service_js_1 = require("../automation/automation.service.js");
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
+const name_util_js_1 = require("../../common/utils/name.util.js");
 const WHATSAPP_TEMPLATE_VARS = {
     dental_appointment_confirmation: ['patient_name', 'doctor_name', 'date', 'time', 'clinic_name', 'phone'],
     dental_appointment_reminder: ['patient_name', 'date', 'time', 'clinic_name', 'doctor_name', 'phone'],
@@ -142,7 +143,7 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
         const date = this.formatDate(appt.appointment_date);
         const time = this.formatTime(appt.start_time);
         const clinicName = appt.clinic.name;
-        const doctorName = appt.dentist.name;
+        const doctorName = (0, name_util_js_1.formatDoctorName)(appt.dentist.name);
         const phone = appt.clinic.phone || '';
         const previousTime = extra?.oldDate && extra?.oldTime
             ? `${extra.oldDate} ${this.formatTime(extra.oldTime)}`

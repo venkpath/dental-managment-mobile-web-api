@@ -74,7 +74,7 @@ export interface RevenueReport {
 export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getDashboardSummary(clinicId: string, branchId?: string): Promise<DashboardSummary> {
+  async getDashboardSummary(clinicId: string, branchId?: string, dentistId?: string): Promise<DashboardSummary> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -85,6 +85,12 @@ export class ReportsService {
     const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
 
     const branchFilter = branchId || null;
+    const dentistFilter = dentistId || null;
+
+    // When scoped to a single dentist, financial widgets use the invoice's
+    // dentist_id (the treating doctor on the bill). Inventory and expenses
+    // are clinic-wide and remain unfiltered by dentist.
+    const invoiceDentistFilter = dentistFilter ? { dentist_id: dentistFilter } : {};
 
     const [todayAppointments, todayRevenue, pendingInvoices, lowInventoryItems, monthExpenses, monthRevenue] =
       await Promise.all([
@@ -93,6 +99,7 @@ export class ReportsService {
             clinic_id: clinicId,
             appointment_date: { gte: today, lt: tomorrow },
             ...(branchFilter && { branch_id: branchFilter }),
+            ...(dentistFilter && { dentist_id: dentistFilter }),
           },
         }),
 
@@ -102,6 +109,7 @@ export class ReportsService {
             invoice: {
               clinic_id: clinicId,
               ...(branchFilter && { branch_id: branchFilter }),
+              ...invoiceDentistFilter,
             },
             paid_at: { gte: today, lt: tomorrow },
           },
@@ -112,6 +120,7 @@ export class ReportsService {
             clinic_id: clinicId,
             status: { in: ['pending', 'partially_paid'] },
             ...(branchFilter && { branch_id: branchFilter }),
+            ...invoiceDentistFilter,
           },
         }),
 
@@ -138,6 +147,7 @@ export class ReportsService {
             invoice: {
               clinic_id: clinicId,
               ...(branchFilter && { branch_id: branchFilter }),
+              ...invoiceDentistFilter,
             },
             paid_at: { gte: monthStart, lte: monthEnd },
           },
@@ -271,6 +281,7 @@ export class ReportsService {
     endDate.setHours(23, 59, 59, 999);
 
     const branchFilter = query.branch_id ? query.branch_id : null;
+    const dentistFilter = query.dentist_id ? query.dentist_id : null;
 
     const results = await this.prisma.$queryRaw<
       {
@@ -315,6 +326,7 @@ export class ReportsService {
       WHERE u.clinic_id = ${clinicId}::uuid
         AND u.role = 'Dentist'
         AND u.status = 'active'
+        ${dentistFilter ? Prisma.sql`AND u.id = ${dentistFilter}::uuid` : Prisma.empty}
         ${branchFilter ? Prisma.sql`AND (u.branch_id = ${branchFilter}::uuid OR u.branch_id IS NULL)` : Prisma.empty}
       ORDER BY revenue_generated DESC
     `;

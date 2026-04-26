@@ -1,6 +1,7 @@
 import { InvoiceService } from './invoice.service.js';
 import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto.js';
+import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 export declare class InvoicePublicController {
     private readonly invoiceService;
     constructor(invoiceService: InvoiceService);
@@ -29,7 +30,7 @@ export declare class InvoiceController {
         gst_number: string | null;
         tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
-    findAll(clinicId: string, query: QueryInvoiceDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
+    findAll(clinicId: string, user: JwtPayload, query: QueryInvoiceDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         id: string;
         status: string;
         created_at: Date;

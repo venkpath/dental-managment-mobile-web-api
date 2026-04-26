@@ -5,6 +5,7 @@ import { AutomationService } from '../automation/automation.service.js';
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
 import type { AutomationRuleType } from '../automation/dto/upsert-automation-rule.dto.js';
 import type { Appointment, Patient, User, Branch } from '@prisma/client';
+import { formatDoctorName } from '../../common/utils/name.util.js';
 
 /**
  * Maps WhatsApp Meta template names to their variable order.
@@ -202,7 +203,7 @@ export class AppointmentNotificationService {
     const date = this.formatDate(appt.appointment_date);
     const time = this.formatTime(appt.start_time);
     const clinicName = appt.clinic.name;
-    const doctorName = appt.dentist.name;
+    const doctorName = formatDoctorName(appt.dentist.name);
     const phone = appt.clinic.phone || '';
 
     const previousTime = extra?.oldDate && extra?.oldTime

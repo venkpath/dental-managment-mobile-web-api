@@ -18,6 +18,7 @@ const communication_service_js_1 = require("../communication/communication.servi
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
 const automation_service_js_1 = require("./automation.service.js");
 const clinic_events_service_js_1 = require("../clinic-events/clinic-events.service.js");
+const name_util_js_1 = require("../../common/utils/name.util.js");
 let AutomationCronService = AutomationCronService_1 = class AutomationCronService {
     prisma;
     communicationService;
@@ -522,8 +523,8 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                                     patient_name: `${treatment.patient.first_name} ${treatment.patient.last_name}`,
                                     patient_first_name: treatment.patient.first_name,
                                     procedure: treatment.procedure,
-                                    dentist_name: treatment.dentist.name,
-                                    doctor_name: treatment.dentist.name,
+                                    dentist_name: (0, name_util_js_1.formatDoctorName)(treatment.dentist.name),
+                                    doctor_name: (0, name_util_js_1.formatDoctorName)(treatment.dentist.name),
                                     clinic_name: clinic.name,
                                     phone: clinic.phone || '',
                                     '1': treatment.patient.first_name,

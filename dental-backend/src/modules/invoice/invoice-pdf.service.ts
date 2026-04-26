@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import { formatCurrencyAmountPdfSafe, getCurrencyLocale } from '../../common/utils/currency.util.js';
+import { formatDoctorName } from '../../common/utils/name.util.js';
 
 // Monochrome palette — single thin accent line, hairlines, tinted patient card.
 // Mirrors the prescription PDF styling for a consistent clinic identity.
@@ -46,6 +47,7 @@ interface InvoiceData {
     phone: string;
     email?: string | null;
     date_of_birth?: string | null;
+    age?: number | null;
   };
   dentist?: {
     name: string;
@@ -177,18 +179,28 @@ export class InvoicePdfService {
       const r2 = cardY + 30;
       const r3 = cardY + 48;
       const patName = `${data.patient.first_name} ${data.patient.last_name}`;
-      const dob = data.patient.date_of_birth
-        ? new Date(data.patient.date_of_birth).toLocaleDateString(currencyLocale)
-        : '';
+      // Prefer age computed from DOB; fall back to stored age. Append DOB in parentheses when available.
+      let ageDisplay = '';
+      if (data.patient.date_of_birth) {
+        const dob = new Date(data.patient.date_of_birth);
+        const today = new Date();
+        let years = today.getFullYear() - dob.getFullYear();
+        const m = today.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) years--;
+        const dobStr = dob.toLocaleDateString(currencyLocale);
+        ageDisplay = `${years} yrs (${dobStr})`;
+      } else if (data.patient.age != null) {
+        ageDisplay = `${data.patient.age} yrs`;
+      }
 
       // Left column: Patient details
       drawKV('Patient',  patName, leftX, r1);
       drawKV('Mobile',   data.patient.phone || '—', leftX, r2);
       drawKV('Email',    data.patient.email || '—', leftX, r3);
 
-      // Right column: Doctor + DOB + Branch
-      drawKV('Doctor',   data.dentist ? `Dr. ${data.dentist.name}` : '—', rightX, r1);
-      drawKV('DOB',      dob || '—', rightX, r2);
+      // Right column: Doctor + Age + Branch
+      drawKV('Doctor',   data.dentist ? formatDoctorName(data.dentist.name) : '—', rightX, r1);
+      drawKV('Age',      ageDisplay || '—', rightX, r2);
       drawKV('Branch',   data.branch.name || '—', rightX, r3);
 
       // ─── ITEMS TABLE ───

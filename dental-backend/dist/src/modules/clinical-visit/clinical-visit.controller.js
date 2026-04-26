@@ -19,7 +19,9 @@ const swagger_1 = require("@nestjs/swagger");
 const clinical_visit_service_js_1 = require("./clinical-visit.service.js");
 const index_js_1 = require("./dto/index.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
+const current_user_decorator_js_1 = require("../../common/decorators/current-user.decorator.js");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
+const dentist_scope_util_js_1 = require("../../common/utils/dentist-scope.util.js");
 let ClinicalVisitController = class ClinicalVisitController {
     service;
     constructor(service) {
@@ -28,7 +30,8 @@ let ClinicalVisitController = class ClinicalVisitController {
     create(clinicId, dto) {
         return this.service.create(clinicId, dto);
     }
-    findAll(clinicId, query) {
+    findAll(clinicId, user, query) {
+        (0, dentist_scope_util_js_1.applyDentistScope)(query, user);
         return this.service.findAll(clinicId, query);
     }
     findByPatient(clinicId, patientId) {
@@ -83,9 +86,10 @@ __decorate([
     (0, swagger_1.ApiOkResponse)({ description: 'List of clinical visits' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
-    __param(1, (0, common_1.Query)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, index_js_1.QueryClinicalVisitDto]),
+    __metadata("design:paramtypes", [String, Object, index_js_1.QueryClinicalVisitDto]),
     __metadata("design:returntype", void 0)
 ], ClinicalVisitController.prototype, "findAll", null);
 __decorate([

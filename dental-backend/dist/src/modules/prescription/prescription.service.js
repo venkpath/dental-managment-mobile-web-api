@@ -17,6 +17,7 @@ const automation_service_js_1 = require("../automation/automation.service.js");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
 const prescription_pdf_service_js_1 = require("./prescription-pdf.service.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
+const name_util_js_1 = require("../../common/utils/name.util.js");
 const PRESCRIPTION_INCLUDE = {
     items: true,
     patient: true,
@@ -78,6 +79,9 @@ let PrescriptionService = class PrescriptionService {
         const where = { clinic_id: clinicId };
         if (query.branch_id) {
             where.branch_id = query.branch_id;
+        }
+        if (query.dentist_id) {
+            where.dentist_id = query.dentist_id;
         }
         if (query.search) {
             where.patient = {
@@ -230,7 +234,7 @@ let PrescriptionService = class PrescriptionService {
         const patientName = `${patient.first_name} ${patient.last_name}`;
         const clinicName = clinic?.name ?? 'your clinic';
         const clinicPhone = clinic?.phone ?? '';
-        const doctorName = dentist?.name || 'your doctor';
+        const doctorName = dentist?.name ? (0, name_util_js_1.formatDoctorName)(dentist.name) : 'your doctor';
         const apiBase = process.env['API_BASE_URL'] ?? 'http://localhost:3000/api/v1';
         const redirectUrl = `${apiBase}/public/prescription-redirect/${id}?clinic=${clinicId}`;
         const channel = (rule?.channel && rule.channel !== 'preferred')
@@ -264,7 +268,7 @@ let PrescriptionService = class PrescriptionService {
             template_id: rule?.template_id ?? undefined,
             body: rule?.template_id
                 ? undefined
-                : `Hello ${patientName},\n\nYour prescription from Dr. ${doctorName} at ${clinicName} has been generated.\n\nView & Download:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
+                : `Hello ${patientName},\n\nYour prescription from ${(0, name_util_js_1.formatDoctorName)(doctorName)} at ${clinicName} has been generated.\n\nView & Download:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
             variables,
             metadata: {
                 automation: 'prescription_ready',

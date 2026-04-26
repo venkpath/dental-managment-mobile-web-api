@@ -27,6 +27,7 @@ interface InvoiceData {
         phone: string;
         email?: string | null;
         date_of_birth?: string | null;
+        age?: number | null;
     };
     dentist?: {
         name: string;

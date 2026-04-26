@@ -1,5 +1,6 @@
 import { PrescriptionService } from './prescription.service.js';
 import { CreatePrescriptionDto, UpdatePrescriptionDto, QueryPrescriptionDto } from './dto/index.js';
+import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 export declare class PrescriptionPublicController {
     private readonly prescriptionService;
     constructor(prescriptionService: PrescriptionService);
@@ -11,7 +12,7 @@ export declare class PrescriptionPublicController {
 export declare class PrescriptionController {
     private readonly prescriptionService;
     constructor(prescriptionService: PrescriptionService);
-    findAll(clinicId: string, query: QueryPrescriptionDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
+    findAll(clinicId: string, user: JwtPayload, query: QueryPrescriptionDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         id: string;
         created_at: Date;
         clinic_id: string;

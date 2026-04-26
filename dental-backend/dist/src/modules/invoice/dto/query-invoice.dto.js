@@ -18,9 +18,10 @@ const pagination_query_dto_js_1 = require("../../../common/dto/pagination-query.
 class QueryInvoiceDto extends pagination_query_dto_js_1.PaginationQueryDto {
     patient_id;
     branch_id;
+    dentist_id;
     status;
     static _OPENAPI_METADATA_FACTORY() {
-        return { patient_id: { required: false, type: () => String, format: "uuid" }, branch_id: { required: false, type: () => String, format: "uuid" }, status: { required: false, enum: require("./create-invoice.dto").InvoiceStatus } };
+        return { patient_id: { required: false, type: () => String, format: "uuid" }, branch_id: { required: false, type: () => String, format: "uuid" }, dentist_id: { required: false, type: () => String, format: "uuid" }, status: { required: false, enum: require("./create-invoice.dto").InvoiceStatus } };
     }
 }
 exports.QueryInvoiceDto = QueryInvoiceDto;
@@ -36,6 +37,12 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], QueryInvoiceDto.prototype, "branch_id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Filter by treating dentist UUID' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], QueryInvoiceDto.prototype, "dentist_id", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Filter by status', enum: create_invoice_dto_js_1.InvoiceStatus }),
     (0, class_validator_1.IsOptional)(),

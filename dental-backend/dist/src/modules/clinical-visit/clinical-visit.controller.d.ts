@@ -1,5 +1,6 @@
 import { ClinicalVisitService } from './clinical-visit.service.js';
 import { CreateClinicalVisitDto, UpdateClinicalVisitDto, QueryClinicalVisitDto, CreateTreatmentPlanDto, UpdateTreatmentPlanDto } from './dto/index.js';
+import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 export declare class ClinicalVisitController {
     private readonly service;
     constructor(service: ClinicalVisitService);
@@ -24,7 +25,7 @@ export declare class ClinicalVisitController {
         soap_notes: import("@prisma/client/runtime/client").JsonValue | null;
         finalized_at: Date | null;
     }>;
-    findAll(clinicId: string, query: QueryClinicalVisitDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
+    findAll(clinicId: string, user: JwtPayload, query: QueryClinicalVisitDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         id: string;
         status: string;
         created_at: Date;

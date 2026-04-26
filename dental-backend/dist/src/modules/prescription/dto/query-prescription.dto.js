@@ -16,9 +16,10 @@ const swagger_1 = require("@nestjs/swagger");
 const pagination_query_dto_js_1 = require("../../../common/dto/pagination-query.dto.js");
 class QueryPrescriptionDto extends pagination_query_dto_js_1.PaginationQueryDto {
     branch_id;
+    dentist_id;
     search;
     static _OPENAPI_METADATA_FACTORY() {
-        return { branch_id: { required: false, type: () => String, format: "uuid" }, search: { required: false, type: () => String } };
+        return { branch_id: { required: false, type: () => String, format: "uuid" }, dentist_id: { required: false, type: () => String, format: "uuid" }, search: { required: false, type: () => String } };
     }
 }
 exports.QueryPrescriptionDto = QueryPrescriptionDto;
@@ -28,6 +29,12 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], QueryPrescriptionDto.prototype, "branch_id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Filter by prescribing dentist UUID' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], QueryPrescriptionDto.prototype, "dentist_id", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Search by patient name' }),
     (0, class_validator_1.IsOptional)(),

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
+import { formatDoctorName } from '../../common/utils/name.util.js';
 
 // Monochrome palette — single thin accent line, the rest is black on white
 // with hairlines and a tinted patient card. Mirrors the Medicover sample.
@@ -211,7 +212,7 @@ export class PrescriptionPdfService {
       doc.rect(rightX, cardY + 24, 24, 1).fill(ACCENT);
 
       const drR0 = cardY + 32;
-      drawKV('Name',   `Dr. ${data.dentist.name}`,       rightX, drR0 + rowGap * 0, rightLabelW, rightValueW);
+      drawKV('Name',   formatDoctorName(data.dentist.name),       rightX, drR0 + rowGap * 0, rightLabelW, rightValueW);
       drawKV('Reg ID', data.dentist.license_number || '—', rightX, drR0 + rowGap * 1, rightLabelW, rightValueW);
 
       // ─── HELPERS for section heading + body text ───
@@ -465,7 +466,7 @@ export class PrescriptionPdfService {
 
       // Doctor name
       doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(10)
-        .text(`Dr. ${data.dentist.name}`, sigX, baselineY + 6, { width: sigBoxW, align: 'center' });
+        .text(formatDoctorName(data.dentist.name), sigX, baselineY + 6, { width: sigBoxW, align: 'center' });
 
       // Reg No. (printed BELOW the name, per requested layout)
       let metaY = baselineY + 20;

@@ -18,7 +18,7 @@ let ReportsService = class ReportsService {
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async getDashboardSummary(clinicId, branchId) {
+    async getDashboardSummary(clinicId, branchId, dentistId) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const tomorrow = new Date(today);
@@ -26,12 +26,15 @@ let ReportsService = class ReportsService {
         const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
         const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
         const branchFilter = branchId || null;
+        const dentistFilter = dentistId || null;
+        const invoiceDentistFilter = dentistFilter ? { dentist_id: dentistFilter } : {};
         const [todayAppointments, todayRevenue, pendingInvoices, lowInventoryItems, monthExpenses, monthRevenue] = await Promise.all([
             this.prisma.appointment.count({
                 where: {
                     clinic_id: clinicId,
                     appointment_date: { gte: today, lt: tomorrow },
                     ...(branchFilter && { branch_id: branchFilter }),
+                    ...(dentistFilter && { dentist_id: dentistFilter }),
                 },
             }),
             this.prisma.payment.aggregate({
@@ -40,6 +43,7 @@ let ReportsService = class ReportsService {
                     invoice: {
                         clinic_id: clinicId,
                         ...(branchFilter && { branch_id: branchFilter }),
+                        ...invoiceDentistFilter,
                     },
                     paid_at: { gte: today, lt: tomorrow },
                 },
@@ -49,6 +53,7 @@ let ReportsService = class ReportsService {
                     clinic_id: clinicId,
                     status: { in: ['pending', 'partially_paid'] },
                     ...(branchFilter && { branch_id: branchFilter }),
+                    ...invoiceDentistFilter,
                 },
             }),
             this.prisma.$queryRaw `
@@ -72,6 +77,7 @@ let ReportsService = class ReportsService {
                     invoice: {
                         clinic_id: clinicId,
                         ...(branchFilter && { branch_id: branchFilter }),
+                        ...invoiceDentistFilter,
                     },
                     paid_at: { gte: monthStart, lte: monthEnd },
                 },
@@ -180,6 +186,7 @@ let ReportsService = class ReportsService {
         const endDate = new Date(query.end_date);
         endDate.setHours(23, 59, 59, 999);
         const branchFilter = query.branch_id ? query.branch_id : null;
+        const dentistFilter = query.dentist_id ? query.dentist_id : null;
         const results = await this.prisma.$queryRaw `
       SELECT
         u.id AS dentist_id,
@@ -215,6 +222,7 @@ let ReportsService = class ReportsService {
       WHERE u.clinic_id = ${clinicId}::uuid
         AND u.role = 'Dentist'
         AND u.status = 'active'
+        ${dentistFilter ? client_1.Prisma.sql `AND u.id = ${dentistFilter}::uuid` : client_1.Prisma.empty}
         ${branchFilter ? client_1.Prisma.sql `AND (u.branch_id = ${branchFilter}::uuid OR u.branch_id IS NULL)` : client_1.Prisma.empty}
       ORDER BY revenue_generated DESC
     `;

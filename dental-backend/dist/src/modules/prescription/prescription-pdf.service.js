@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PrescriptionPdfService = void 0;
 const common_1 = require("@nestjs/common");
 const pdfkit_1 = __importDefault(require("pdfkit"));
+const name_util_js_1 = require("../../common/utils/name.util.js");
 const ACCENT = '#0d6efd';
 const TEXT_HEAD = '#0d1b2a';
 const TEXT_BODY = '#1f2937';
@@ -116,7 +117,7 @@ let PrescriptionPdfService = class PrescriptionPdfService {
                 .text('DOCTOR', rightX, cardY + 12, { characterSpacing: 1 });
             doc.rect(rightX, cardY + 24, 24, 1).fill(ACCENT);
             const drR0 = cardY + 32;
-            drawKV('Name', `Dr. ${data.dentist.name}`, rightX, drR0 + rowGap * 0, rightLabelW, rightValueW);
+            drawKV('Name', (0, name_util_js_1.formatDoctorName)(data.dentist.name), rightX, drR0 + rowGap * 0, rightLabelW, rightValueW);
             drawKV('Reg ID', data.dentist.license_number || '—', rightX, drR0 + rowGap * 1, rightLabelW, rightValueW);
             let cursorY = cardY + cardH + 16;
             const sectionHeading = (label, y) => {
@@ -305,7 +306,7 @@ let PrescriptionPdfService = class PrescriptionPdfService {
             }
             doc.rect(sigX, baselineY, sigBoxW, 0.5).fill(ACCENT);
             doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(10)
-                .text(`Dr. ${data.dentist.name}`, sigX, baselineY + 6, { width: sigBoxW, align: 'center' });
+                .text((0, name_util_js_1.formatDoctorName)(data.dentist.name), sigX, baselineY + 6, { width: sigBoxW, align: 'center' });
             let metaY = baselineY + 20;
             if (data.dentist.license_number) {
                 doc.fillColor(TEXT_MUTED).font('Helvetica').fontSize(8)

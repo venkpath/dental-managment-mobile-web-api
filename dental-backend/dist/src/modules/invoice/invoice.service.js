@@ -117,6 +117,9 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         if (query.branch_id) {
             where.branch_id = query.branch_id;
         }
+        if (query.dentist_id) {
+            where.dentist_id = query.dentist_id;
+        }
         if (query.status) {
             where.status = query.status;
         }
@@ -316,6 +319,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                 phone: invoice.patient.phone,
                 email: invoice.patient.email,
                 date_of_birth: invoice.patient.date_of_birth,
+                age: invoice.patient.age ?? null,
             },
             dentist: (() => {
                 const topLevelDentist = invoice.dentist;

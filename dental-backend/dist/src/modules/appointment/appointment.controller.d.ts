@@ -1,5 +1,6 @@
 import { AppointmentService } from './appointment.service.js';
 import { CreateAppointmentDto, UpdateAppointmentDto, QueryAppointmentDto, QueryAvailableSlotsDto, CreateRecurringAppointmentDto } from './dto/index.js';
+import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 export declare class AppointmentController {
     private readonly appointmentService;
     constructor(appointmentService: AppointmentService);
@@ -33,7 +34,7 @@ export declare class AppointmentController {
         end_time: string;
         recurrence_group_id: string | null;
     }[]>;
-    findAll(clinicId: string, query: QueryAppointmentDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
+    findAll(clinicId: string, user: JwtPayload, query: QueryAppointmentDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         id: string;
         status: string;
         created_at: Date;

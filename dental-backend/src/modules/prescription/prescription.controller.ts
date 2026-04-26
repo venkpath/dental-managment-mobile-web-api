@@ -22,7 +22,10 @@ import {
 import { PrescriptionService } from './prescription.service.js';
 import { CreatePrescriptionDto, UpdatePrescriptionDto, QueryPrescriptionDto } from './dto/index.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
+import { applyDentistScope } from '../../common/utils/dentist-scope.util.js';
+import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 
 /** Public — no auth guard. Used for WhatsApp prescription link redirect. */
 @ApiTags('Prescriptions')
@@ -55,8 +58,10 @@ export class PrescriptionController {
   @ApiOkResponse({ description: 'Paginated list of prescriptions' })
   async findAll(
     @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
     @Query() query: QueryPrescriptionDto,
   ) {
+    applyDentistScope(query, user);
     return this.prescriptionService.findAll(clinicId, query);
   }
 

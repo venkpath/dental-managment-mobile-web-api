@@ -24,8 +24,11 @@ import { InvoiceService } from './invoice.service.js';
 import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
+import { applyDentistScope } from '../../common/utils/dentist-scope.util.js';
+import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 
 /**
  * Public controller — no auth guard.
@@ -77,8 +80,10 @@ export class InvoiceController {
   @ApiOkResponse({ description: 'List of invoices' })
   async findAll(
     @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
     @Query() query: QueryInvoiceDto,
   ) {
+    applyDentistScope(query, user);
     return this.invoiceService.findAll(clinicId, query);
   }
 

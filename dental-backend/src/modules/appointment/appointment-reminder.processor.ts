@@ -7,6 +7,7 @@ import { MessageChannel, MessageCategory } from '../communication/dto/send-messa
 import { QUEUE_NAMES } from '../../common/queue/queue-names.js';
 import type { AppointmentReminderJobData } from './appointment-reminder.types.js';
 import { isReminderEnabled } from './appointment-reminder.config.js';
+import { formatDoctorName } from '../../common/utils/name.util.js';
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString('en-IN', {
@@ -159,7 +160,7 @@ export class AppointmentReminderProcessor extends WorkerHost {
       template_id: templateId,
       body: templateId
         ? undefined
-        : `Reminder: You have an appointment ${timeUntilPhrase} at ${fmtTime} with Dr. ${appt.dentist.name} at ${appt.clinic.name}.`,
+        : `Reminder: You have an appointment ${timeUntilPhrase} at ${fmtTime} with ${formatDoctorName(appt.dentist.name)} at ${appt.clinic.name}.`,
       variables: {
         patient_name: `${appt.patient.first_name} ${appt.patient.last_name}`,
         patient_first_name: appt.patient.first_name,
@@ -167,8 +168,8 @@ export class AppointmentReminderProcessor extends WorkerHost {
         date: fmtDate,
         appointment_time: fmtTime,
         time: fmtTime,
-        dentist_name: appt.dentist.name,
-        doctor_name: appt.dentist.name,
+        dentist_name: formatDoctorName(appt.dentist.name),
+        doctor_name: formatDoctorName(appt.dentist.name),
         clinic_name: appt.clinic.name,
         clinic_phone: clinicPhone,
         phone: clinicPhone,

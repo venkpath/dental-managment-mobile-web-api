@@ -19,7 +19,9 @@ const swagger_1 = require("@nestjs/swagger");
 const prescription_service_js_1 = require("./prescription.service.js");
 const index_js_1 = require("./dto/index.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
+const current_user_decorator_js_1 = require("../../common/decorators/current-user.decorator.js");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
+const dentist_scope_util_js_1 = require("../../common/utils/dentist-scope.util.js");
 let PrescriptionPublicController = class PrescriptionPublicController {
     prescriptionService;
     constructor(prescriptionService) {
@@ -52,7 +54,8 @@ let PrescriptionController = class PrescriptionController {
     constructor(prescriptionService) {
         this.prescriptionService = prescriptionService;
     }
-    async findAll(clinicId, query) {
+    async findAll(clinicId, user, query) {
+        (0, dentist_scope_util_js_1.applyDentistScope)(query, user);
         return this.prescriptionService.findAll(clinicId, query);
     }
     async create(clinicId, dto) {
@@ -81,9 +84,10 @@ __decorate([
     (0, swagger_1.ApiOkResponse)({ description: 'Paginated list of prescriptions' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
-    __param(1, (0, common_1.Query)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, index_js_1.QueryPrescriptionDto]),
+    __metadata("design:paramtypes", [String, Object, index_js_1.QueryPrescriptionDto]),
     __metadata("design:returntype", Promise)
 ], PrescriptionController.prototype, "findAll", null);
 __decorate([

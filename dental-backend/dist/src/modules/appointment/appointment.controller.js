@@ -19,7 +19,9 @@ const swagger_1 = require("@nestjs/swagger");
 const appointment_service_js_1 = require("./appointment.service.js");
 const index_js_1 = require("./dto/index.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
+const current_user_decorator_js_1 = require("../../common/decorators/current-user.decorator.js");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
+const dentist_scope_util_js_1 = require("../../common/utils/dentist-scope.util.js");
 let AppointmentController = class AppointmentController {
     appointmentService;
     constructor(appointmentService) {
@@ -31,7 +33,8 @@ let AppointmentController = class AppointmentController {
     async createRecurring(clinicId, dto) {
         return this.appointmentService.createRecurring(clinicId, dto);
     }
-    async findAll(clinicId, query) {
+    async findAll(clinicId, user, query) {
+        (0, dentist_scope_util_js_1.applyDentistScope)(query, user);
         return this.appointmentService.findAll(clinicId, query);
     }
     async getAvailableSlots(clinicId, query) {
@@ -78,9 +81,10 @@ __decorate([
     (0, swagger_1.ApiOkResponse)({ description: 'List of appointments' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
-    __param(1, (0, common_1.Query)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, index_js_1.QueryAppointmentDto]),
+    __metadata("design:paramtypes", [String, Object, index_js_1.QueryAppointmentDto]),
     __metadata("design:returntype", Promise)
 ], AppointmentController.prototype, "findAll", null);
 __decorate([

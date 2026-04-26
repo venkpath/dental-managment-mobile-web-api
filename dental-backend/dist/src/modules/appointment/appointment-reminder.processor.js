@@ -18,6 +18,7 @@ const communication_service_js_1 = require("../communication/communication.servi
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
 const queue_names_js_1 = require("../../common/queue/queue-names.js");
 const appointment_reminder_config_js_1 = require("./appointment-reminder.config.js");
+const name_util_js_1 = require("../../common/utils/name.util.js");
 function formatDate(date) {
     return date.toLocaleDateString('en-IN', {
         day: '2-digit',
@@ -130,7 +131,7 @@ let AppointmentReminderProcessor = AppointmentReminderProcessor_1 = class Appoin
             template_id: templateId,
             body: templateId
                 ? undefined
-                : `Reminder: You have an appointment ${timeUntilPhrase} at ${fmtTime} with Dr. ${appt.dentist.name} at ${appt.clinic.name}.`,
+                : `Reminder: You have an appointment ${timeUntilPhrase} at ${fmtTime} with ${(0, name_util_js_1.formatDoctorName)(appt.dentist.name)} at ${appt.clinic.name}.`,
             variables: {
                 patient_name: `${appt.patient.first_name} ${appt.patient.last_name}`,
                 patient_first_name: appt.patient.first_name,
@@ -138,8 +139,8 @@ let AppointmentReminderProcessor = AppointmentReminderProcessor_1 = class Appoin
                 date: fmtDate,
                 appointment_time: fmtTime,
                 time: fmtTime,
-                dentist_name: appt.dentist.name,
-                doctor_name: appt.dentist.name,
+                dentist_name: (0, name_util_js_1.formatDoctorName)(appt.dentist.name),
+                doctor_name: (0, name_util_js_1.formatDoctorName)(appt.dentist.name),
                 clinic_name: appt.clinic.name,
                 clinic_phone: clinicPhone,
                 phone: clinicPhone,

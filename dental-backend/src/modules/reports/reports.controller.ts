@@ -15,7 +15,10 @@ import {
   TreatmentAnalyticsQueryDto,
 } from './dto/index.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
+import { applyDentistScope, isDentistUser } from '../../common/utils/dentist-scope.util.js';
+import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 
 @ApiTags('Reports')
 @ApiHeader({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' })
@@ -30,9 +33,11 @@ export class ReportsController {
   @ApiOkResponse({ description: 'Dashboard summary with today\'s metrics' })
   async getDashboardSummary(
     @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
     @Query('branch_id') branchId?: string,
   ) {
-    return this.reportsService.getDashboardSummary(clinicId, branchId);
+    const dentistId = isDentistUser(user) ? user.sub : undefined;
+    return this.reportsService.getDashboardSummary(clinicId, branchId, dentistId);
   }
 
   @Get('revenue')
@@ -40,8 +45,10 @@ export class ReportsController {
   @ApiOkResponse({ description: 'Revenue report with financial metrics' })
   async getRevenueReport(
     @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
     @Query() query: RevenueQueryDto,
   ) {
+    applyDentistScope(query, user);
     return this.reportsService.getRevenueReport(clinicId, query);
   }
 
@@ -50,8 +57,10 @@ export class ReportsController {
   @ApiOkResponse({ description: 'Appointment analytics with status counts' })
   async getAppointmentAnalytics(
     @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
     @Query() query: AppointmentAnalyticsQueryDto,
   ) {
+    applyDentistScope(query, user);
     return this.reportsService.getAppointmentAnalytics(clinicId, query);
   }
 
@@ -60,8 +69,10 @@ export class ReportsController {
   @ApiOkResponse({ description: 'List of dentists with their performance metrics' })
   async getDentistPerformance(
     @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
     @Query() query: DentistPerformanceQueryDto,
   ) {
+    applyDentistScope(query, user);
     return this.reportsService.getDentistPerformance(clinicId, query);
   }
 
@@ -80,8 +91,10 @@ export class ReportsController {
   @ApiOkResponse({ description: 'Treatment analytics with most common procedures' })
   async getTreatmentAnalytics(
     @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
     @Query() query: TreatmentAnalyticsQueryDto,
   ) {
+    applyDentistScope(query, user);
     return this.reportsService.getTreatmentAnalytics(clinicId, query);
   }
 
@@ -100,8 +113,10 @@ export class ReportsController {
   @ApiOkResponse({ description: 'Profit & loss with expense breakdown by category' })
   async getProfitLoss(
     @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
     @Query() query: RevenueQueryDto,
   ) {
+    applyDentistScope(query, user);
     return this.reportsService.getProfitLoss(clinicId, query);
   }
 
@@ -110,8 +125,10 @@ export class ReportsController {
   @ApiOkResponse({ description: 'Array of monthly P&L entries with revenue, expenses, net profit' })
   async getProfitLossMonthly(
     @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
     @Query() query: RevenueQueryDto,
   ) {
+    applyDentistScope(query, user);
     return this.reportsService.getProfitLossMonthly(clinicId, query);
   }
 }

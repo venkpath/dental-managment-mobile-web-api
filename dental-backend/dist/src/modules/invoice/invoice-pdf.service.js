@@ -13,6 +13,7 @@ exports.InvoicePdfService = void 0;
 const common_1 = require("@nestjs/common");
 const pdfkit_1 = __importDefault(require("pdfkit"));
 const currency_util_js_1 = require("../../common/utils/currency.util.js");
+const name_util_js_1 = require("../../common/utils/name.util.js");
 const ACCENT = '#0d6efd';
 const ACCENT_SOFT = '#dbeafe';
 const TEXT_HEAD = '#0d1b2a';
@@ -119,14 +120,25 @@ let InvoicePdfService = class InvoicePdfService {
             const r2 = cardY + 30;
             const r3 = cardY + 48;
             const patName = `${data.patient.first_name} ${data.patient.last_name}`;
-            const dob = data.patient.date_of_birth
-                ? new Date(data.patient.date_of_birth).toLocaleDateString(currencyLocale)
-                : '';
+            let ageDisplay = '';
+            if (data.patient.date_of_birth) {
+                const dob = new Date(data.patient.date_of_birth);
+                const today = new Date();
+                let years = today.getFullYear() - dob.getFullYear();
+                const m = today.getMonth() - dob.getMonth();
+                if (m < 0 || (m === 0 && today.getDate() < dob.getDate()))
+                    years--;
+                const dobStr = dob.toLocaleDateString(currencyLocale);
+                ageDisplay = `${years} yrs (${dobStr})`;
+            }
+            else if (data.patient.age != null) {
+                ageDisplay = `${data.patient.age} yrs`;
+            }
             drawKV('Patient', patName, leftX, r1);
             drawKV('Mobile', data.patient.phone || '—', leftX, r2);
             drawKV('Email', data.patient.email || '—', leftX, r3);
-            drawKV('Doctor', data.dentist ? `Dr. ${data.dentist.name}` : '—', rightX, r1);
-            drawKV('DOB', dob || '—', rightX, r2);
+            drawKV('Doctor', data.dentist ? (0, name_util_js_1.formatDoctorName)(data.dentist.name) : '—', rightX, r1);
+            drawKV('Age', ageDisplay || '—', rightX, r2);
             drawKV('Branch', data.branch.name || '—', rightX, r3);
             let cursorY = cardY + cardH + 22;
             const colDef = [

@@ -125,6 +125,9 @@ export class InvoiceService {
     if (query.branch_id) {
       where.branch_id = query.branch_id;
     }
+    if (query.dentist_id) {
+      where.dentist_id = query.dentist_id;
+    }
     if (query.status) {
       where.status = query.status;
     }
@@ -370,6 +373,7 @@ export class InvoiceService {
         phone: (invoice as any).patient.phone,
         email: (invoice as any).patient.email,
         date_of_birth: (invoice as any).patient.date_of_birth,
+        age: (invoice as any).patient.age ?? null,
       },
       dentist: (() => {
         const topLevelDentist = (invoice as any).dentist;

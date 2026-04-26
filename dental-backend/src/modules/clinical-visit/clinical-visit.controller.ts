@@ -29,7 +29,10 @@ import {
   UpdateTreatmentPlanDto,
 } from './dto/index.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
+import { applyDentistScope } from '../../common/utils/dentist-scope.util.js';
+import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 
 @ApiTags('Clinical Visits')
 @ApiHeader({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' })
@@ -51,7 +54,12 @@ export class ClinicalVisitController {
   @Get('clinical-visits')
   @ApiOperation({ summary: 'List clinical visits' })
   @ApiOkResponse({ description: 'List of clinical visits' })
-  findAll(@CurrentClinic() clinicId: string, @Query() query: QueryClinicalVisitDto) {
+  findAll(
+    @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
+    @Query() query: QueryClinicalVisitDto,
+  ) {
+    applyDentistScope(query, user);
     return this.service.findAll(clinicId, query);
   }
 

@@ -8,6 +8,11 @@ export class QueryPrescriptionDto extends PaginationQueryDto {
   @IsUUID()
   branch_id?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by prescribing dentist UUID' })
+  @IsOptional()
+  @IsUUID()
+  dentist_id?: string;
+
   @ApiPropertyOptional({ description: 'Search by patient name' })
   @IsOptional()
   @IsString()

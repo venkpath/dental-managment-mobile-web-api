@@ -1,5 +1,6 @@
 import { TreatmentService } from './treatment.service.js';
 import { CreateTreatmentDto, UpdateTreatmentDto, QueryTreatmentDto } from './dto/index.js';
+import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 export declare class TreatmentController {
     private readonly treatmentService;
     constructor(treatmentService: TreatmentService);
@@ -20,7 +21,7 @@ export declare class TreatmentController {
         treatment_plan_id: string | null;
         diagnosis: string;
     }>;
-    findAll(clinicId: string, query: QueryTreatmentDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
+    findAll(clinicId: string, user: JwtPayload, query: QueryTreatmentDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         id: string;
         status: string;
         created_at: Date;

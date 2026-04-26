@@ -14,6 +14,11 @@ export class QueryInvoiceDto extends PaginationQueryDto {
   @IsUUID()
   branch_id?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by treating dentist UUID' })
+  @IsOptional()
+  @IsUUID()
+  dentist_id?: string;
+
   @ApiPropertyOptional({ description: 'Filter by status', enum: InvoiceStatus })
   @IsOptional()
   @IsEnum(InvoiceStatus)

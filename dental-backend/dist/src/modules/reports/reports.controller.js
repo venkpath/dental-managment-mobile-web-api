@@ -19,37 +19,46 @@ const swagger_1 = require("@nestjs/swagger");
 const reports_service_js_1 = require("./reports.service.js");
 const index_js_1 = require("./dto/index.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
+const current_user_decorator_js_1 = require("../../common/decorators/current-user.decorator.js");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
+const dentist_scope_util_js_1 = require("../../common/utils/dentist-scope.util.js");
 let ReportsController = class ReportsController {
     reportsService;
     constructor(reportsService) {
         this.reportsService = reportsService;
     }
-    async getDashboardSummary(clinicId, branchId) {
-        return this.reportsService.getDashboardSummary(clinicId, branchId);
+    async getDashboardSummary(clinicId, user, branchId) {
+        const dentistId = (0, dentist_scope_util_js_1.isDentistUser)(user) ? user.sub : undefined;
+        return this.reportsService.getDashboardSummary(clinicId, branchId, dentistId);
     }
-    async getRevenueReport(clinicId, query) {
+    async getRevenueReport(clinicId, user, query) {
+        (0, dentist_scope_util_js_1.applyDentistScope)(query, user);
         return this.reportsService.getRevenueReport(clinicId, query);
     }
-    async getAppointmentAnalytics(clinicId, query) {
+    async getAppointmentAnalytics(clinicId, user, query) {
+        (0, dentist_scope_util_js_1.applyDentistScope)(query, user);
         return this.reportsService.getAppointmentAnalytics(clinicId, query);
     }
-    async getDentistPerformance(clinicId, query) {
+    async getDentistPerformance(clinicId, user, query) {
+        (0, dentist_scope_util_js_1.applyDentistScope)(query, user);
         return this.reportsService.getDentistPerformance(clinicId, query);
     }
     async getPatientAnalytics(clinicId, query) {
         return this.reportsService.getPatientAnalytics(clinicId, query);
     }
-    async getTreatmentAnalytics(clinicId, query) {
+    async getTreatmentAnalytics(clinicId, user, query) {
+        (0, dentist_scope_util_js_1.applyDentistScope)(query, user);
         return this.reportsService.getTreatmentAnalytics(clinicId, query);
     }
     async getInventoryAlerts(clinicId, branchId) {
         return this.reportsService.getInventoryAlerts(clinicId, branchId);
     }
-    async getProfitLoss(clinicId, query) {
+    async getProfitLoss(clinicId, user, query) {
+        (0, dentist_scope_util_js_1.applyDentistScope)(query, user);
         return this.reportsService.getProfitLoss(clinicId, query);
     }
-    async getProfitLossMonthly(clinicId, query) {
+    async getProfitLossMonthly(clinicId, user, query) {
+        (0, dentist_scope_util_js_1.applyDentistScope)(query, user);
         return this.reportsService.getProfitLossMonthly(clinicId, query);
     }
 };
@@ -60,9 +69,10 @@ __decorate([
     (0, swagger_1.ApiOkResponse)({ description: 'Dashboard summary with today\'s metrics' }),
     openapi.ApiResponse({ status: 200, type: Object }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
-    __param(1, (0, common_1.Query)('branch_id')),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Query)('branch_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, Object, String]),
     __metadata("design:returntype", Promise)
 ], ReportsController.prototype, "getDashboardSummary", null);
 __decorate([
@@ -71,9 +81,10 @@ __decorate([
     (0, swagger_1.ApiOkResponse)({ description: 'Revenue report with financial metrics' }),
     openapi.ApiResponse({ status: 200, type: Object }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
-    __param(1, (0, common_1.Query)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, index_js_1.RevenueQueryDto]),
+    __metadata("design:paramtypes", [String, Object, index_js_1.RevenueQueryDto]),
     __metadata("design:returntype", Promise)
 ], ReportsController.prototype, "getRevenueReport", null);
 __decorate([
@@ -82,9 +93,10 @@ __decorate([
     (0, swagger_1.ApiOkResponse)({ description: 'Appointment analytics with status counts' }),
     openapi.ApiResponse({ status: 200, type: Object }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
-    __param(1, (0, common_1.Query)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, index_js_1.AppointmentAnalyticsQueryDto]),
+    __metadata("design:paramtypes", [String, Object, index_js_1.AppointmentAnalyticsQueryDto]),
     __metadata("design:returntype", Promise)
 ], ReportsController.prototype, "getAppointmentAnalytics", null);
 __decorate([
@@ -93,9 +105,10 @@ __decorate([
     (0, swagger_1.ApiOkResponse)({ description: 'List of dentists with their performance metrics' }),
     openapi.ApiResponse({ status: 200, type: [Object] }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
-    __param(1, (0, common_1.Query)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, index_js_1.DentistPerformanceQueryDto]),
+    __metadata("design:paramtypes", [String, Object, index_js_1.DentistPerformanceQueryDto]),
     __metadata("design:returntype", Promise)
 ], ReportsController.prototype, "getDentistPerformance", null);
 __decorate([
@@ -115,9 +128,10 @@ __decorate([
     (0, swagger_1.ApiOkResponse)({ description: 'Treatment analytics with most common procedures' }),
     openapi.ApiResponse({ status: 200, type: Object }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
-    __param(1, (0, common_1.Query)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, index_js_1.TreatmentAnalyticsQueryDto]),
+    __metadata("design:paramtypes", [String, Object, index_js_1.TreatmentAnalyticsQueryDto]),
     __metadata("design:returntype", Promise)
 ], ReportsController.prototype, "getTreatmentAnalytics", null);
 __decorate([
@@ -137,9 +151,10 @@ __decorate([
     (0, swagger_1.ApiOkResponse)({ description: 'Profit & loss with expense breakdown by category' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
-    __param(1, (0, common_1.Query)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, index_js_1.RevenueQueryDto]),
+    __metadata("design:paramtypes", [String, Object, index_js_1.RevenueQueryDto]),
     __metadata("design:returntype", Promise)
 ], ReportsController.prototype, "getProfitLoss", null);
 __decorate([
@@ -148,9 +163,10 @@ __decorate([
     (0, swagger_1.ApiOkResponse)({ description: 'Array of monthly P&L entries with revenue, expenses, net profit' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
-    __param(1, (0, common_1.Query)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, index_js_1.RevenueQueryDto]),
+    __metadata("design:paramtypes", [String, Object, index_js_1.RevenueQueryDto]),
     __metadata("design:returntype", Promise)
 ], ReportsController.prototype, "getProfitLossMonthly", null);
 exports.ReportsController = ReportsController = __decorate([
