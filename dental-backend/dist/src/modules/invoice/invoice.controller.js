@@ -18,6 +18,7 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const invoice_service_js_1 = require("./invoice.service.js");
 const index_js_1 = require("./dto/index.js");
+const update_invoice_dto_js_1 = require("./dto/update-invoice.dto.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
 const public_decorator_js_1 = require("../../common/decorators/public.decorator.js");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
@@ -62,6 +63,9 @@ let InvoiceController = class InvoiceController {
     }
     async findOne(clinicId, id) {
         return this.invoiceService.findOne(clinicId, id);
+    }
+    async updateInvoice(clinicId, id, dto) {
+        return this.invoiceService.update(clinicId, id, dto);
     }
     async createPayment(clinicId, dto) {
         return this.invoiceService.addPayment(clinicId, dto);
@@ -115,6 +119,19 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], InvoiceController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Patch)('invoices/:id'),
+    (0, swagger_1.ApiOperation)({ summary: 'Update an invoice (e.g. assign treating dentist, GST number)' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Invoice updated' }),
+    (0, swagger_1.ApiNotFoundResponse)({ description: 'Invoice not found' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, update_invoice_dto_js_1.UpdateInvoiceDto]),
+    __metadata("design:returntype", Promise)
+], InvoiceController.prototype, "updateInvoice", null);
 __decorate([
     (0, common_1.Post)('payments'),
     (0, swagger_1.ApiOperation)({ summary: 'Record a payment against an invoice (supports installments)' }),

@@ -18,6 +18,7 @@ export declare class InvoiceItemDto {
 export declare class CreateInvoiceDto {
     branch_id: string;
     patient_id: string;
+    dentist_id?: string;
     tax_percentage?: number;
     discount_amount?: number;
     gst_number?: string;

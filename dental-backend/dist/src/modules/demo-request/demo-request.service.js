@@ -155,11 +155,13 @@ let DemoRequestService = DemoRequestService_1 = class DemoRequestService {
             day: 'numeric',
             month: 'long',
             year: 'numeric',
+            timeZone: 'Asia/Kolkata',
         });
         const time = demo.scheduled_at.toLocaleTimeString('en-IN', {
             hour: '2-digit',
             minute: '2-digit',
             hour12: true,
+            timeZone: 'Asia/Kolkata',
         });
         return this.whatsapp.send({
             to,
@@ -233,7 +235,7 @@ let DemoRequestService = DemoRequestService_1 = class DemoRequestService {
             <tr><td style="padding: 8px 0; color: #6b7280;">Clinic Name</td><td style="padding: 8px 0;">${demo.clinic_name || 'Not specified'}</td></tr>
             <tr><td style="padding: 8px 0; color: #6b7280;">Chairs</td><td style="padding: 8px 0;">${demo.chairs || 'Not specified'}</td></tr>
             <tr><td style="padding: 8px 0; color: #6b7280;">Source</td><td style="padding: 8px 0;">${demo.source || 'website'}</td></tr>
-            <tr><td style="padding: 8px 0; color: #6b7280;">Submitted</td><td style="padding: 8px 0;">${demo.created_at.toLocaleString('en-IN')}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Submitted</td><td style="padding: 8px 0;">${demo.created_at.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST</td></tr>
           </table>
           <div style="margin-top: 24px; text-align: center;">
             <a href="https://smartdentaldesk.com/super-admin/demo-requests" style="background: #6366f1; color: #fff; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600;">View in Dashboard</a>
@@ -257,11 +259,13 @@ let DemoRequestService = DemoRequestService_1 = class DemoRequestService {
             day: 'numeric',
             month: 'long',
             year: 'numeric',
+            timeZone: 'Asia/Kolkata',
         });
         const time = demo.scheduled_at.toLocaleTimeString('en-IN', {
             hour: '2-digit',
             minute: '2-digit',
             hour12: true,
+            timeZone: 'Asia/Kolkata',
         });
         const html = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto;">

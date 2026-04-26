@@ -71,13 +71,14 @@ __decorate([
 class CreateInvoiceDto {
     branch_id;
     patient_id;
+    dentist_id;
     tax_percentage;
     discount_amount;
     gst_number;
     tax_breakdown;
     items;
     static _OPENAPI_METADATA_FACTORY() {
-        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, tax_percentage: { required: false, type: () => Number, minimum: 0 }, discount_amount: { required: false, type: () => Number, minimum: 0 }, gst_number: { required: false, type: () => String, maxLength: 20, pattern: "/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/" }, tax_breakdown: { required: false, type: () => Object }, items: { required: true, type: () => [require("./create-invoice.dto").InvoiceItemDto], minItems: 1 } };
+        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: false, type: () => String, format: "uuid" }, tax_percentage: { required: false, type: () => Number, minimum: 0 }, discount_amount: { required: false, type: () => Number, minimum: 0 }, gst_number: { required: false, type: () => String, maxLength: 20, pattern: "/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/" }, tax_breakdown: { required: false, type: () => Object }, items: { required: true, type: () => [require("./create-invoice.dto").InvoiceItemDto], minItems: 1 } };
     }
 }
 exports.CreateInvoiceDto = CreateInvoiceDto;
@@ -91,6 +92,12 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], CreateInvoiceDto.prototype, "patient_id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Treating dentist (User) UUID' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], CreateInvoiceDto.prototype, "dentist_id", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         example: '18%',

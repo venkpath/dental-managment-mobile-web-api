@@ -254,6 +254,7 @@ export declare class MembershipController {
                 branch_id: string;
                 patient_id: string;
                 total_amount: import("@prisma/client-runtime-utils").Decimal;
+                dentist_id: string | null;
                 invoice_number: string;
                 tax_amount: import("@prisma/client-runtime-utils").Decimal;
                 discount_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -464,6 +465,7 @@ export declare class MembershipController {
                 branch_id: string;
                 patient_id: string;
                 total_amount: import("@prisma/client-runtime-utils").Decimal;
+                dentist_id: string | null;
                 invoice_number: string;
                 tax_amount: import("@prisma/client-runtime-utils").Decimal;
                 discount_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -674,6 +676,7 @@ export declare class MembershipController {
                 branch_id: string;
                 patient_id: string;
                 total_amount: import("@prisma/client-runtime-utils").Decimal;
+                dentist_id: string | null;
                 invoice_number: string;
                 tax_amount: import("@prisma/client-runtime-utils").Decimal;
                 discount_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -774,6 +777,7 @@ export declare class MembershipController {
             branch_id: string;
             patient_id: string;
             total_amount: import("@prisma/client-runtime-utils").Decimal;
+            dentist_id: string | null;
             invoice_number: string;
             tax_amount: import("@prisma/client-runtime-utils").Decimal;
             discount_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -963,6 +967,7 @@ export declare class MembershipController {
                     branch_id: string;
                     patient_id: string;
                     total_amount: import("@prisma/client-runtime-utils").Decimal;
+                    dentist_id: string | null;
                     invoice_number: string;
                     tax_amount: import("@prisma/client-runtime-utils").Decimal;
                     discount_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -1133,6 +1138,7 @@ export declare class MembershipController {
                     branch_id: string;
                     patient_id: string;
                     total_amount: import("@prisma/client-runtime-utils").Decimal;
+                    dentist_id: string | null;
                     invoice_number: string;
                     tax_amount: import("@prisma/client-runtime-utils").Decimal;
                     discount_amount: import("@prisma/client-runtime-utils").Decimal;

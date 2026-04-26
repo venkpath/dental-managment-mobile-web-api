@@ -1,5 +1,6 @@
 import { InvoiceService } from './invoice.service.js';
 import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
+import { UpdateInvoiceDto } from './dto/update-invoice.dto.js';
 export declare class InvoicePublicController {
     private readonly invoiceService;
     constructor(invoiceService: InvoiceService);
@@ -20,6 +21,7 @@ export declare class InvoiceController {
         branch_id: string;
         patient_id: string;
         total_amount: import("@prisma/client-runtime-utils").Decimal;
+        dentist_id: string | null;
         invoice_number: string;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -36,6 +38,7 @@ export declare class InvoiceController {
         branch_id: string;
         patient_id: string;
         total_amount: import("@prisma/client-runtime-utils").Decimal;
+        dentist_id: string | null;
         invoice_number: string;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -52,6 +55,24 @@ export declare class InvoiceController {
         branch_id: string;
         patient_id: string;
         total_amount: import("@prisma/client-runtime-utils").Decimal;
+        dentist_id: string | null;
+        invoice_number: string;
+        tax_amount: import("@prisma/client-runtime-utils").Decimal;
+        discount_amount: import("@prisma/client-runtime-utils").Decimal;
+        net_amount: import("@prisma/client-runtime-utils").Decimal;
+        gst_number: string | null;
+        tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
+    }>;
+    updateInvoice(clinicId: string, id: string, dto: UpdateInvoiceDto): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        branch_id: string;
+        patient_id: string;
+        total_amount: import("@prisma/client-runtime-utils").Decimal;
+        dentist_id: string | null;
         invoice_number: string;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;

@@ -2,6 +2,7 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { AutomationService } from '../automation/automation.service.js';
 import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
+import { UpdateInvoiceDto } from './dto/update-invoice.dto.js';
 import { Invoice, Payment, Prisma } from '@prisma/client';
 import { PaginatedResult } from '../../common/interfaces/paginated-result.interface.js';
 import { InvoicePdfService } from './invoice-pdf.service.js';
@@ -17,6 +18,7 @@ export declare class InvoiceService {
     create(clinicId: string, dto: CreateInvoiceDto): Promise<Invoice>;
     findAll(clinicId: string, query: QueryInvoiceDto): Promise<PaginatedResult<Invoice>>;
     findOne(clinicId: string, id: string): Promise<Invoice>;
+    update(clinicId: string, id: string, dto: UpdateInvoiceDto): Promise<Invoice>;
     addPayment(clinicId: string, dto: CreatePaymentDto): Promise<Payment>;
     createInstallmentPlan(clinicId: string, dto: CreateInstallmentPlanDto): Promise<{
         items: {

@@ -27,6 +27,7 @@ const INVOICE_INCLUDE = {
     patient: true,
     branch: true,
     clinic: true,
+    dentist: true,
     installment_plan: { include: { items: { orderBy: { installment_number: 'asc' } } } },
 };
 let InvoiceService = InvoiceService_1 = class InvoiceService {
@@ -54,6 +55,12 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         if (!patient || patient.clinic_id !== clinicId) {
             throw new common_1.NotFoundException(`Patient with ID "${dto.patient_id}" not found in this clinic`);
         }
+        if (dto.dentist_id) {
+            const dentist = await this.prisma.user.findUnique({ where: { id: dto.dentist_id } });
+            if (!dentist || dentist.clinic_id !== clinicId) {
+                throw new common_1.NotFoundException(`Dentist with ID "${dto.dentist_id}" not found in this clinic`);
+            }
+        }
         const treatmentIds = dto.items
             .map((item) => item.treatment_id)
             .filter((id) => id !== undefined);
@@ -79,6 +86,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                     clinic_id: clinicId,
                     branch_id: rest.branch_id,
                     patient_id: rest.patient_id,
+                    dentist_id: rest.dentist_id ?? null,
                     invoice_number: invoiceNumber,
                     total_amount: new client_1.Prisma.Decimal(totalAmount),
                     tax_amount: new client_1.Prisma.Decimal(taxAmount),
@@ -135,6 +143,33 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
             throw new common_1.NotFoundException(`Invoice with ID "${id}" not found`);
         }
         return invoice;
+    }
+    async update(clinicId, id, dto) {
+        await this.findOne(clinicId, id);
+        const data = {};
+        if (dto.dentist_id !== undefined) {
+            if (dto.dentist_id === null || dto.dentist_id === '') {
+                data.dentist = { disconnect: true };
+            }
+            else {
+                const dentist = await this.prisma.user.findUnique({ where: { id: dto.dentist_id } });
+                if (!dentist || dentist.clinic_id !== clinicId) {
+                    throw new common_1.NotFoundException(`Dentist with ID "${dto.dentist_id}" not found in this clinic`);
+                }
+                data.dentist = { connect: { id: dto.dentist_id } };
+            }
+        }
+        if (dto.gst_number !== undefined) {
+            data.gst_number = dto.gst_number;
+        }
+        if (Object.keys(data).length === 0) {
+            return this.findOne(clinicId, id);
+        }
+        return this.prisma.invoice.update({
+            where: { id },
+            data,
+            include: INVOICE_INCLUDE,
+        });
     }
     async addPayment(clinicId, dto) {
         const invoice = await this.findOne(clinicId, dto.invoice_id);
@@ -283,15 +318,17 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                 date_of_birth: invoice.patient.date_of_birth,
             },
             dentist: (() => {
-                const firstDentist = invoice.items
-                    .map((i) => i.treatment?.dentist)
-                    .find((d) => d != null);
+                const topLevelDentist = invoice.dentist;
+                const firstDentist = topLevelDentist ??
+                    invoice.items
+                        .map((i) => i.treatment?.dentist)
+                        .find((d) => d != null);
                 if (!firstDentist)
                     return null;
                 return {
                     name: firstDentist.name,
                     specialization: firstDentist.role === 'dentist' ? 'General Dentistry' : firstDentist.role,
-                    license_number: null,
+                    license_number: firstDentist.license_number ?? null,
                 };
             })(),
             items: invoice.items.map((item) => ({

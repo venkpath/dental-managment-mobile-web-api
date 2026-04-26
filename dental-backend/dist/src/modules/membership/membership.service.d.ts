@@ -239,6 +239,7 @@ export declare class MembershipService {
                 branch_id: string;
                 patient_id: string;
                 total_amount: Prisma.Decimal;
+                dentist_id: string | null;
                 invoice_number: string;
                 tax_amount: Prisma.Decimal;
                 discount_amount: Prisma.Decimal;
@@ -449,6 +450,7 @@ export declare class MembershipService {
                 branch_id: string;
                 patient_id: string;
                 total_amount: Prisma.Decimal;
+                dentist_id: string | null;
                 invoice_number: string;
                 tax_amount: Prisma.Decimal;
                 discount_amount: Prisma.Decimal;
@@ -659,6 +661,7 @@ export declare class MembershipService {
                 branch_id: string;
                 patient_id: string;
                 total_amount: Prisma.Decimal;
+                dentist_id: string | null;
                 invoice_number: string;
                 tax_amount: Prisma.Decimal;
                 discount_amount: Prisma.Decimal;
@@ -759,6 +762,7 @@ export declare class MembershipService {
             branch_id: string;
             patient_id: string;
             total_amount: Prisma.Decimal;
+            dentist_id: string | null;
             invoice_number: string;
             tax_amount: Prisma.Decimal;
             discount_amount: Prisma.Decimal;
@@ -948,6 +952,7 @@ export declare class MembershipService {
                     branch_id: string;
                     patient_id: string;
                     total_amount: Prisma.Decimal;
+                    dentist_id: string | null;
                     invoice_number: string;
                     tax_amount: Prisma.Decimal;
                     discount_amount: Prisma.Decimal;
@@ -1118,6 +1123,7 @@ export declare class MembershipService {
                     branch_id: string;
                     patient_id: string;
                     total_amount: Prisma.Decimal;
+                    dentist_id: string | null;
                     invoice_number: string;
                     tax_amount: Prisma.Decimal;
                     discount_amount: Prisma.Decimal;
