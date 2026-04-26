@@ -237,6 +237,7 @@ model User {
   expenses         Expense[]
   clinical_visits  ClinicalVisit[]         @relation("VisitDentist")
   treatment_plans  TreatmentPlan[]         @relation("PlanDentist")
+  invoices_as_dentist Invoice[]            @relation("InvoiceDentist")
 
   @@unique([email, clinic_id])
   @@index([clinic_id])
@@ -416,6 +417,7 @@ model Invoice {
   clinic_id       String   @db.Uuid
   branch_id       String   @db.Uuid
   patient_id      String   @db.Uuid
+  dentist_id      String?  @db.Uuid
   invoice_number  String   @db.VarChar(50)
   total_amount    Decimal  @db.Decimal(10, 2)
   tax_amount      Decimal  @default(0) @db.Decimal(10, 2)
@@ -430,6 +432,7 @@ model Invoice {
   clinic           Clinic           @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   branch           Branch           @relation(fields: [branch_id], references: [id], onDelete: Cascade)
   patient          Patient          @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  dentist          User?            @relation("InvoiceDentist", fields: [dentist_id], references: [id], onDelete: SetNull)
   items            InvoiceItem[]
   payments         Payment[]
   installment_plan InstallmentPlan?
@@ -439,6 +442,7 @@ model Invoice {
   @@index([clinic_id])
   @@index([branch_id])
   @@index([patient_id])
+  @@index([dentist_id])
   @@index([status])
   @@map("invoices")
 }

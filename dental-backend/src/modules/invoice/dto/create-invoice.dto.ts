@@ -64,6 +64,11 @@ export class CreateInvoiceDto {
   @IsUUID()
   patient_id!: string;
 
+  @ApiPropertyOptional({ description: 'Treating dentist (User) UUID' })
+  @IsOptional()
+  @IsUUID()
+  dentist_id?: string;
+
   @ApiPropertyOptional({
     example: '18%',
     description: 'Tax percentage to apply (e.g. 18 for 18% GST). 0 or omit for no tax.',

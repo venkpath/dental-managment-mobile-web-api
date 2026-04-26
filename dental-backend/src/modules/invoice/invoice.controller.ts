@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Param,
   Body,
@@ -21,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import { InvoiceService } from './invoice.service.js';
 import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
+import { UpdateInvoiceDto } from './dto/update-invoice.dto.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
@@ -89,6 +91,18 @@ export class InvoiceController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.invoiceService.findOne(clinicId, id);
+  }
+
+  @Patch('invoices/:id')
+  @ApiOperation({ summary: 'Update an invoice (e.g. assign treating dentist, GST number)' })
+  @ApiOkResponse({ description: 'Invoice updated' })
+  @ApiNotFoundResponse({ description: 'Invoice not found' })
+  async updateInvoice(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateInvoiceDto,
+  ) {
+    return this.invoiceService.update(clinicId, id, dto);
   }
 
   @Post('payments')

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
-import { formatCurrencyAmount, getCurrencyLocale } from '../../common/utils/currency.util.js';
+import { formatCurrencyAmountPdfSafe, getCurrencyLocale } from '../../common/utils/currency.util.js';
 
 // Monochrome palette — single thin accent line, hairlines, tinted patient card.
 // Mirrors the prescription PDF styling for a consistent clinic identity.
@@ -94,7 +94,7 @@ export class InvoicePdfService {
 
       const currencyCode = data.currency_code ?? 'INR';
       const currencyLocale = getCurrencyLocale(currencyCode);
-      const fmt = (n: number) => formatCurrencyAmount(n, currencyCode);
+      const fmt = (n: number) => formatCurrencyAmountPdfSafe(n, currencyCode);
 
       // ─── HEADER ───
       doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(20)

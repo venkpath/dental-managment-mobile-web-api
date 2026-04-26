@@ -46,7 +46,7 @@ let InvoicePdfService = class InvoicePdfService {
             const CW = W - M * 2;
             const currencyCode = data.currency_code ?? 'INR';
             const currencyLocale = (0, currency_util_js_1.getCurrencyLocale)(currencyCode);
-            const fmt = (n) => (0, currency_util_js_1.formatCurrencyAmount)(n, currencyCode);
+            const fmt = (n) => (0, currency_util_js_1.formatCurrencyAmountPdfSafe)(n, currencyCode);
             doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(20)
                 .text(data.clinic.name, M, 36, { width: CW * 0.7, lineBreak: false });
             const subLine = data.branch.city ?? data.clinic.city ?? '';

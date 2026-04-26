@@ -4,6 +4,7 @@ import { CommunicationService } from '../communication/communication.service.js'
 import { AutomationService } from '../automation/automation.service.js';
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
 import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
+import { UpdateInvoiceDto } from './dto/update-invoice.dto.js';
 import { Invoice, Payment, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
 import { InvoicePdfService } from './invoice-pdf.service.js';
@@ -16,6 +17,7 @@ const INVOICE_INCLUDE = {
   patient: true,
   branch: true,
   clinic: true,
+  dentist: true,
   installment_plan: { include: { items: { orderBy: { installment_number: 'asc' as const } } } },
 } as const;
 
@@ -42,6 +44,14 @@ export class InvoiceService {
     }
     if (!patient || patient.clinic_id !== clinicId) {
       throw new NotFoundException(`Patient with ID "${dto.patient_id}" not found in this clinic`);
+    }
+
+    // Validate dentist (if provided) belongs to this clinic and is a dentist
+    if (dto.dentist_id) {
+      const dentist = await this.prisma.user.findUnique({ where: { id: dto.dentist_id } });
+      if (!dentist || dentist.clinic_id !== clinicId) {
+        throw new NotFoundException(`Dentist with ID "${dto.dentist_id}" not found in this clinic`);
+      }
     }
 
     // Validate treatment_ids belong to this clinic
@@ -80,6 +90,7 @@ export class InvoiceService {
           clinic_id: clinicId,
           branch_id: rest.branch_id,
           patient_id: rest.patient_id,
+          dentist_id: rest.dentist_id ?? null,
           invoice_number: invoiceNumber,
           total_amount: new Prisma.Decimal(totalAmount),
           tax_amount: new Prisma.Decimal(taxAmount),
@@ -144,6 +155,39 @@ export class InvoiceService {
       throw new NotFoundException(`Invoice with ID "${id}" not found`);
     }
     return invoice;
+  }
+
+  async update(clinicId: string, id: string, dto: UpdateInvoiceDto): Promise<Invoice> {
+    // Ensure invoice belongs to clinic
+    await this.findOne(clinicId, id);
+
+    const data: Prisma.InvoiceUpdateInput = {};
+
+    if (dto.dentist_id !== undefined) {
+      if (dto.dentist_id === null || dto.dentist_id === '') {
+        data.dentist = { disconnect: true };
+      } else {
+        const dentist = await this.prisma.user.findUnique({ where: { id: dto.dentist_id } });
+        if (!dentist || dentist.clinic_id !== clinicId) {
+          throw new NotFoundException(`Dentist with ID "${dto.dentist_id}" not found in this clinic`);
+        }
+        data.dentist = { connect: { id: dto.dentist_id } };
+      }
+    }
+
+    if (dto.gst_number !== undefined) {
+      data.gst_number = dto.gst_number;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return this.findOne(clinicId, id);
+    }
+
+    return this.prisma.invoice.update({
+      where: { id },
+      data,
+      include: INVOICE_INCLUDE,
+    });
   }
 
   async addPayment(clinicId: string, dto: CreatePaymentDto): Promise<Payment> {
@@ -328,14 +372,17 @@ export class InvoiceService {
         date_of_birth: (invoice as any).patient.date_of_birth,
       },
       dentist: (() => {
-        const firstDentist = (invoice as any).items
-          .map((i: any) => i.treatment?.dentist)
-          .find((d: any) => d != null);
+        const topLevelDentist = (invoice as any).dentist;
+        const firstDentist =
+          topLevelDentist ??
+          (invoice as any).items
+            .map((i: any) => i.treatment?.dentist)
+            .find((d: any) => d != null);
         if (!firstDentist) return null;
         return {
           name: firstDentist.name,
           specialization: firstDentist.role === 'dentist' ? 'General Dentistry' : firstDentist.role,
-          license_number: null,
+          license_number: firstDentist.license_number ?? null,
         };
       })(),
       items: (invoice as any).items.map((item: any) => ({
