@@ -25,9 +25,9 @@ export declare class InvoiceService {
             created_at: Date;
             amount: Prisma.Decimal;
             due_date: Date;
+            paid_at: Date | null;
             installment_plan_id: string;
             installment_number: number;
-            paid_at: Date | null;
         }[];
     } & {
         id: string;

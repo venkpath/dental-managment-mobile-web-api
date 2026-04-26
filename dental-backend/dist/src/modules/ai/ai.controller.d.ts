@@ -1,9 +1,11 @@
 import type { Request } from 'express';
 import { AiService } from './ai.service.js';
-import { GenerateClinicalNotesDto, GeneratePrescriptionDto, GenerateTreatmentPlanDto, GenerateRevenueInsightsDto, GenerateChartAnalysisDto, GenerateAppointmentSummaryDto, GenerateCampaignContentDto } from './dto/index.js';
+import { AiUsageService } from './ai-usage.service.js';
+import { GenerateClinicalNotesDto, GeneratePrescriptionDto, GenerateTreatmentPlanDto, GenerateRevenueInsightsDto, GenerateChartAnalysisDto, GenerateAppointmentSummaryDto, GenerateCampaignContentDto, UpdateAiSettingsDto, CreateAiQuotaApprovalRequestDto } from './dto/index.js';
 export declare class AiController {
     private readonly aiService;
-    constructor(aiService: AiService);
+    private readonly aiUsageService;
+    constructor(aiService: AiService, aiUsageService: AiUsageService);
     generateClinicalNotes(req: Request, dto: GenerateClinicalNotesDto): Promise<{
         insight_id: string | undefined;
         patient_id: string;
@@ -54,11 +56,38 @@ export declare class AiController {
         generated_at: string;
     }>;
     getUsageStats(req: Request): Promise<{
+        base_quota: number;
+        overage_cap: number;
+        overage_enabled: boolean;
+        approved_extra: number;
         used: number;
-        quota: number;
+        used_base: number;
+        used_overage: number;
+        effective_quota: number;
+        remaining: number;
+        cycle_start: Date;
+        cycle_end: Date;
+        is_blocked_unpaid: boolean;
+        pending_charge: {
+            id: string;
+            status: string;
+            created_at: Date;
+            updated_at: Date;
+            clinic_id: string;
+            notes: string | null;
+            cycle_start: Date;
+            cycle_end: Date;
+            base_quota: number;
+            overage_requests_count: number;
+            approved_requests_count: number;
+            total_cost_inr: import("@prisma/client-runtime-utils").Decimal;
+            paid_at: Date | null;
+            paid_by_super_admin_id: string | null;
+            payment_reference: string | null;
+        } | null;
         plan_name: string | null;
-        is_unlimited: boolean;
-        quota_source: string;
+        current_cycle_overage_cost_inr: number;
+        current_cycle_overage_count: number;
         by_type: {
             type: string;
             count: number;
@@ -70,6 +99,45 @@ export declare class AiController {
             count: number;
         }[];
     }>;
+    updateAiSettings(req: Request, dto: UpdateAiSettingsDto): Promise<{
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        overage_enabled: boolean;
+        current_cycle_start: Date;
+        current_cycle_end: Date;
+        used_in_cycle: number;
+        approved_extra: number;
+        approved_extra_reason: string | null;
+    }>;
+    createApprovalRequest(req: Request, dto: CreateAiQuotaApprovalRequestDto): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        clinic_id: string;
+        cycle_start: Date;
+        requested_by: string | null;
+        requested_amount: number;
+        reason: string;
+        approved_amount: number | null;
+        approved_by: string | null;
+        decision_note: string | null;
+        decided_at: Date | null;
+    }>;
+    listMyApprovalRequests(req: Request): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        clinic_id: string;
+        cycle_start: Date;
+        requested_by: string | null;
+        requested_amount: number;
+        reason: string;
+        approved_amount: number | null;
+        approved_by: string | null;
+        decision_note: string | null;
+        decided_at: Date | null;
+    }[]>;
     listInsights(req: Request, type?: string, limit?: string, offset?: string): Promise<{
         items: {
             id: string;

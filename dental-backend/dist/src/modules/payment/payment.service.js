@@ -18,16 +18,19 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const schedule_1 = require("@nestjs/schedule");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
+const ai_usage_service_js_1 = require("../ai/ai-usage.service.js");
 const razorpay_1 = __importDefault(require("razorpay"));
 const crypto_1 = require("crypto");
 let PaymentService = PaymentService_1 = class PaymentService {
     configService;
     prisma;
+    aiUsage;
     logger = new common_1.Logger(PaymentService_1.name);
     razorpay;
-    constructor(configService, prisma) {
+    constructor(configService, prisma, aiUsage) {
         this.configService = configService;
         this.prisma = prisma;
+        this.aiUsage = aiUsage;
     }
     onModuleInit() {
         const keyId = this.configService.get('razorpay.keyId');
@@ -75,6 +78,11 @@ let PaymentService = PaymentService_1 = class PaymentService {
                     started_at: sub.start_at ? new Date(Number(sub.start_at) * 1000).toISOString() : null,
                     ended_at: sub.ended_at ? new Date(Number(sub.ended_at) * 1000).toISOString() : null,
                 };
+                if (sub.current_start && sub.current_end) {
+                    await this.aiUsage
+                        .syncCycleWithSubscription(clinicId, new Date(Number(sub.current_start) * 1000), new Date(Number(sub.current_end) * 1000))
+                        .catch((err) => this.logger.warn(`AI cycle sync failed for ${clinicId}: ${err.message}`));
+                }
             }
             catch (e) {
                 this.logger.warn(`Failed to fetch Razorpay subscription ${clinic.subscription_id}: ${e.message}`);
@@ -196,6 +204,12 @@ let PaymentService = PaymentService_1 = class PaymentService {
                 where: { id: clinicId },
                 data: { subscription_status: 'active' },
             });
+            const paymentRef = payment['id'] ?? '';
+            if (paymentRef) {
+                await this.aiUsage
+                    .settleOldestPendingFromPayment(clinicId, paymentRef)
+                    .catch((err) => this.logger.warn(`AI overage settle failed for clinic ${clinicId}: ${err.message}`));
+            }
         }
     }
     async handleSubscriptionCancelled(subscription) {
@@ -243,6 +257,17 @@ let PaymentService = PaymentService_1 = class PaymentService {
             this.logger.log(`Expired ${expiredTrials.count} trial(s)`);
         }
     }
+    async closeAiBillingCycles() {
+        try {
+            const closed = await this.aiUsage.closeEndedCycles();
+            if (closed > 0) {
+                this.logger.log(`Closed ${closed} AI billing cycle(s)`);
+            }
+        }
+        catch (err) {
+            this.logger.error(`Failed to close AI billing cycles: ${err.message}`);
+        }
+    }
 };
 exports.PaymentService = PaymentService;
 __decorate([
@@ -251,9 +276,16 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], PaymentService.prototype, "handleTrialExpiry", null);
+__decorate([
+    (0, schedule_1.Cron)(schedule_1.CronExpression.EVERY_HOUR),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], PaymentService.prototype, "closeAiBillingCycles", null);
 exports.PaymentService = PaymentService = PaymentService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [config_1.ConfigService,
-        prisma_service_js_1.PrismaService])
+        prisma_service_js_1.PrismaService,
+        ai_usage_service_js_1.AiUsageService])
 ], PaymentService);
 //# sourceMappingURL=payment.service.js.map

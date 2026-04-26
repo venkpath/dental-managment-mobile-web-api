@@ -7,6 +7,7 @@ import { UpdateSubscriptionDto } from '../clinic/dto/index.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { AutomationService } from '../automation/automation.service.js';
 import { BranchService } from '../branch/branch.service.js';
+import { AiUsageService } from '../ai/ai-usage.service.js';
 import { UpdateClinicSettingsDto } from '../communication/dto/update-clinic-settings.dto.js';
 import { UpsertAutomationRuleDto } from '../automation/dto/upsert-automation-rule.dto.js';
 import { CreateBranchDto } from '../branch/dto/create-branch.dto.js';
@@ -20,7 +21,8 @@ export declare class SuperAdminController {
     private readonly automationService;
     private readonly branchService;
     private readonly whatsAppService;
-    constructor(superAdminService: SuperAdminService, superAdminAuthService: SuperAdminAuthService, clinicService: ClinicService, communicationService: CommunicationService, automationService: AutomationService, branchService: BranchService, whatsAppService: SuperAdminWhatsAppService);
+    private readonly aiUsageService;
+    constructor(superAdminService: SuperAdminService, superAdminAuthService: SuperAdminAuthService, clinicService: ClinicService, communicationService: CommunicationService, automationService: AutomationService, branchService: BranchService, whatsAppService: SuperAdminWhatsAppService, aiUsageService: AiUsageService);
     login(dto: LoginSuperAdminDto): Promise<import("./super-admin-auth.service.js").SuperAdminLoginResponse>;
     create(dto: CreateSuperAdminDto): Promise<Omit<{
         id: string;
@@ -149,6 +151,7 @@ export declare class SuperAdminController {
             max_branches: number;
             max_staff: number;
             ai_quota: number;
+            ai_overage_cap: number;
             max_patients_per_month: number | null;
             max_appointments_per_month: number | null;
             whatsapp_included_monthly: number | null;
@@ -651,5 +654,111 @@ export declare class SuperAdminController {
         success: boolean;
         message_id: string;
         error: string | undefined;
+    }>;
+    listAiApprovalRequests(status?: string): Promise<({
+        clinic: {
+            id: string;
+            email: string;
+            name: string;
+        };
+    } & {
+        id: string;
+        status: string;
+        created_at: Date;
+        clinic_id: string;
+        cycle_start: Date;
+        requested_by: string | null;
+        requested_amount: number;
+        reason: string;
+        approved_amount: number | null;
+        approved_by: string | null;
+        decision_note: string | null;
+        decided_at: Date | null;
+    })[]>;
+    decideAiApprovalRequest(admin: {
+        id: string;
+    }, id: string, body: {
+        status: 'approved' | 'rejected';
+        approved_amount?: number;
+        note?: string;
+    }): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        clinic_id: string;
+        cycle_start: Date;
+        requested_by: string | null;
+        requested_amount: number;
+        reason: string;
+        approved_amount: number | null;
+        approved_by: string | null;
+        decision_note: string | null;
+        decided_at: Date | null;
+    } | null>;
+    listOverageCharges(status?: string): Promise<({
+        clinic: {
+            id: string;
+            email: string;
+            name: string;
+        };
+    } & {
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        notes: string | null;
+        cycle_start: Date;
+        cycle_end: Date;
+        base_quota: number;
+        overage_requests_count: number;
+        approved_requests_count: number;
+        total_cost_inr: import("@prisma/client-runtime-utils").Decimal;
+        paid_at: Date | null;
+        paid_by_super_admin_id: string | null;
+        payment_reference: string | null;
+    })[]>;
+    markOverageChargePaid(admin: {
+        id: string;
+    }, id: string, body: {
+        payment_reference?: string;
+        note?: string;
+    }): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        notes: string | null;
+        cycle_start: Date;
+        cycle_end: Date;
+        base_quota: number;
+        overage_requests_count: number;
+        approved_requests_count: number;
+        total_cost_inr: import("@prisma/client-runtime-utils").Decimal;
+        paid_at: Date | null;
+        paid_by_super_admin_id: string | null;
+        payment_reference: string | null;
+    }>;
+    waiveOverageCharge(admin: {
+        id: string;
+    }, id: string, body: {
+        note?: string;
+    }): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        notes: string | null;
+        cycle_start: Date;
+        cycle_end: Date;
+        base_quota: number;
+        overage_requests_count: number;
+        approved_requests_count: number;
+        total_cost_inr: import("@prisma/client-runtime-utils").Decimal;
+        paid_at: Date | null;
+        paid_by_super_admin_id: string | null;
+        payment_reference: string | null;
     }>;
 }

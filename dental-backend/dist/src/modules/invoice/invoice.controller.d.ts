@@ -75,9 +75,9 @@ export declare class InvoiceController {
             created_at: Date;
             amount: import("@prisma/client-runtime-utils").Decimal;
             due_date: Date;
+            paid_at: Date | null;
             installment_plan_id: string;
             installment_number: number;
-            paid_at: Date | null;
         }[];
     } & {
         id: string;

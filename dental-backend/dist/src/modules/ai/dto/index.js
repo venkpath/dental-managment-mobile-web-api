@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GenerateCampaignContentDto = exports.GenerateAppointmentSummaryDto = exports.GenerateChartAnalysisDto = exports.GenerateRevenueInsightsDto = exports.GenerateTreatmentPlanDto = exports.GeneratePrescriptionDto = exports.GenerateClinicalNotesDto = void 0;
+exports.MarkOverageChargePaidDto = exports.DecideAiQuotaApprovalRequestDto = exports.CreateAiQuotaApprovalRequestDto = exports.UpdateAiSettingsDto = exports.GenerateCampaignContentDto = exports.GenerateAppointmentSummaryDto = exports.GenerateChartAnalysisDto = exports.GenerateRevenueInsightsDto = exports.GenerateTreatmentPlanDto = exports.GeneratePrescriptionDto = exports.GenerateClinicalNotesDto = void 0;
 var generate_clinical_notes_dto_js_1 = require("./generate-clinical-notes.dto.js");
 Object.defineProperty(exports, "GenerateClinicalNotesDto", { enumerable: true, get: function () { return generate_clinical_notes_dto_js_1.GenerateClinicalNotesDto; } });
 var generate_prescription_dto_js_1 = require("./generate-prescription.dto.js");
@@ -15,4 +15,9 @@ var generate_appointment_summary_dto_js_1 = require("./generate-appointment-summ
 Object.defineProperty(exports, "GenerateAppointmentSummaryDto", { enumerable: true, get: function () { return generate_appointment_summary_dto_js_1.GenerateAppointmentSummaryDto; } });
 var generate_campaign_content_dto_js_1 = require("./generate-campaign-content.dto.js");
 Object.defineProperty(exports, "GenerateCampaignContentDto", { enumerable: true, get: function () { return generate_campaign_content_dto_js_1.GenerateCampaignContentDto; } });
+var ai_quota_dto_js_1 = require("./ai-quota.dto.js");
+Object.defineProperty(exports, "UpdateAiSettingsDto", { enumerable: true, get: function () { return ai_quota_dto_js_1.UpdateAiSettingsDto; } });
+Object.defineProperty(exports, "CreateAiQuotaApprovalRequestDto", { enumerable: true, get: function () { return ai_quota_dto_js_1.CreateAiQuotaApprovalRequestDto; } });
+Object.defineProperty(exports, "DecideAiQuotaApprovalRequestDto", { enumerable: true, get: function () { return ai_quota_dto_js_1.DecideAiQuotaApprovalRequestDto; } });
+Object.defineProperty(exports, "MarkOverageChargePaidDto", { enumerable: true, get: function () { return ai_quota_dto_js_1.MarkOverageChargePaidDto; } });
 //# sourceMappingURL=index.js.map

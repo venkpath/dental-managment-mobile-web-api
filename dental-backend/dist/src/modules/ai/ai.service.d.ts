@@ -1,13 +1,15 @@
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service.js';
+import { AiUsageService } from './ai-usage.service.js';
 import { GenerateClinicalNotesDto, GeneratePrescriptionDto, GenerateTreatmentPlanDto, GenerateRevenueInsightsDto, GenerateChartAnalysisDto, GenerateAppointmentSummaryDto, GenerateCampaignContentDto } from './dto/index.js';
 export declare class AiService {
     private readonly prisma;
     private readonly config;
+    private readonly aiUsage;
     private readonly logger;
     private readonly openai;
     private readonly model;
-    constructor(prisma: PrismaService, config: ConfigService);
+    constructor(prisma: PrismaService, config: ConfigService, aiUsage: AiUsageService);
     private getClinicCurrencySymbol;
     private saveInsight;
     listInsights(clinicId: string, params: {
@@ -38,11 +40,38 @@ export declare class AiService {
         generated_by: string | null;
     }>;
     getUsageStats(clinicId: string): Promise<{
+        base_quota: number;
+        overage_cap: number;
+        overage_enabled: boolean;
+        approved_extra: number;
         used: number;
-        quota: number;
+        used_base: number;
+        used_overage: number;
+        effective_quota: number;
+        remaining: number;
+        cycle_start: Date;
+        cycle_end: Date;
+        is_blocked_unpaid: boolean;
+        pending_charge: {
+            id: string;
+            status: string;
+            created_at: Date;
+            updated_at: Date;
+            clinic_id: string;
+            notes: string | null;
+            cycle_start: Date;
+            cycle_end: Date;
+            base_quota: number;
+            overage_requests_count: number;
+            approved_requests_count: number;
+            total_cost_inr: import("@prisma/client-runtime-utils").Decimal;
+            paid_at: Date | null;
+            paid_by_super_admin_id: string | null;
+            payment_reference: string | null;
+        } | null;
         plan_name: string | null;
-        is_unlimited: boolean;
-        quota_source: string;
+        current_cycle_overage_cost_inr: number;
+        current_cycle_overage_count: number;
         by_type: {
             type: string;
             count: number;
@@ -60,42 +89,42 @@ export declare class AiService {
     private callVisionLLM;
     private callLLM;
     private getPatientContext;
-    generateClinicalNotes(clinicId: string, dto: GenerateClinicalNotesDto): Promise<{
+    generateClinicalNotes(clinicId: string, dto: GenerateClinicalNotesDto, userId?: string): Promise<{
         insight_id: string | undefined;
         patient_id: string;
         patient_name: string;
         generated_at: string;
     }>;
-    generatePrescription(clinicId: string, dto: GeneratePrescriptionDto): Promise<{
+    generatePrescription(clinicId: string, dto: GeneratePrescriptionDto, userId?: string): Promise<{
         insight_id: string | undefined;
         patient_id: string;
         patient_name: string;
         generated_at: string;
     }>;
-    generateTreatmentPlan(clinicId: string, dto: GenerateTreatmentPlanDto): Promise<{
+    generateTreatmentPlan(clinicId: string, dto: GenerateTreatmentPlanDto, userId?: string): Promise<{
         insight_id: string | undefined;
         patient_id: string;
         patient_name: string;
         generated_at: string;
     }>;
-    generateRevenueInsights(clinicId: string, dto: GenerateRevenueInsightsDto): Promise<{
+    generateRevenueInsights(clinicId: string, dto: GenerateRevenueInsightsDto, userId?: string): Promise<{
         insight_id: string | undefined;
         generated_at: string;
     }>;
-    generateChartAnalysis(clinicId: string, dto: GenerateChartAnalysisDto): Promise<{
+    generateChartAnalysis(clinicId: string, dto: GenerateChartAnalysisDto, userId?: string): Promise<{
         insight_id: string | undefined;
         patient_id: string;
         patient_name: string;
         generated_at: string;
     }>;
-    generateAppointmentSummary(clinicId: string, dto: GenerateAppointmentSummaryDto): Promise<{
+    generateAppointmentSummary(clinicId: string, dto: GenerateAppointmentSummaryDto, userId?: string): Promise<{
         insight_id: string | undefined;
         appointment_id: string;
         patient_name: string;
         dentist_name: string;
         generated_at: string;
     }>;
-    generateCampaignContent(clinicId: string, dto: GenerateCampaignContentDto): Promise<{
+    generateCampaignContent(clinicId: string, dto: GenerateCampaignContentDto, userId?: string): Promise<{
         insight_id: string | undefined;
         generated_at: string;
     }>;

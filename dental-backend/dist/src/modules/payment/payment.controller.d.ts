@@ -50,6 +50,7 @@ export declare class PaymentController {
         max_branches: number;
         max_staff: number;
         ai_quota: number;
+        ai_overage_cap: number;
         max_patients_per_month: number | null;
         max_appointments_per_month: number | null;
         whatsapp_included_monthly: number | null;

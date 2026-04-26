@@ -1,6 +1,7 @@
 import { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service.js';
+import { AiUsageService } from '../ai/ai-usage.service.js';
 interface CreateSubscriptionDto {
     clinicId: string;
     planKey: string;
@@ -19,9 +20,10 @@ interface RazorpayWebhookPayload {
 export declare class PaymentService implements OnModuleInit {
     private readonly configService;
     private readonly prisma;
+    private readonly aiUsage;
     private readonly logger;
     private razorpay;
-    constructor(configService: ConfigService, prisma: PrismaService);
+    constructor(configService: ConfigService, prisma: PrismaService, aiUsage: AiUsageService);
     onModuleInit(): void;
     getSubscriptionStatus(clinicId: string): Promise<{
         current_period_start: string | null;
@@ -68,6 +70,7 @@ export declare class PaymentService implements OnModuleInit {
         max_branches: number;
         max_staff: number;
         ai_quota: number;
+        ai_overage_cap: number;
         max_patients_per_month: number | null;
         max_appointments_per_month: number | null;
         whatsapp_included_monthly: number | null;
@@ -87,5 +90,6 @@ export declare class PaymentService implements OnModuleInit {
     private handlePaymentFailed;
     cancelSubscription(clinicId: string): Promise<void>;
     handleTrialExpiry(): Promise<void>;
+    closeAiBillingCycles(): Promise<void>;
 }
 export {};

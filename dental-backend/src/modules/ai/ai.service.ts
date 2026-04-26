@@ -3,6 +3,13 @@ import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { PrismaService } from '../../database/prisma.service.js';
 import { getCurrencySymbol } from '../../common/utils/currency.util.js';
+import { AiUsageService } from './ai-usage.service.js';
+
+interface AiCallMeta {
+  clinicId: string;
+  userId?: string;
+  type: string;
+}
 import {
   GenerateClinicalNotesDto,
   GeneratePrescriptionDto,
@@ -54,6 +61,7 @@ export class AiService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly aiUsage: AiUsageService,
   ) {
     this.openai = new OpenAI({
       apiKey: this.config.get<string>('OPENAI_API_KEY'),
@@ -128,39 +136,46 @@ export class AiService {
 
   // ─── Usage Stats ───────────────────────────────────────────
   async getUsageStats(clinicId: string) {
-    const [clinic, byType, byUser, globalSetting] = await Promise.all([
-      // Clinic usage + plan quota + override
-      this.prisma.clinic.findUnique({
-        where: { id: clinicId },
-        select: { ai_usage_count: true, ai_quota_override: true, plan: { select: { ai_quota: true, name: true } } },
-      }),
-      // Breakdown by type
-      this.prisma.aiInsight.groupBy({
+    const snapshot = await this.aiUsage.snapshot(clinicId);
+
+    const [byType, byUser, costAgg, pendingCharge] = await Promise.all([
+      this.prisma.aiUsageRecord.groupBy({
         by: ['type'],
-        where: { clinic_id: clinicId },
+        where: {
+          clinic_id: clinicId,
+          cycle_start: snapshot.cycle_start,
+        },
         _count: true,
         orderBy: { _count: { type: 'desc' } },
       }),
-      // Breakdown by user
-      this.prisma.aiInsight.groupBy({
-        by: ['generated_by'],
-        where: { clinic_id: clinicId, generated_by: { not: null } },
+      this.prisma.aiUsageRecord.groupBy({
+        by: ['user_id'],
+        where: {
+          clinic_id: clinicId,
+          cycle_start: snapshot.cycle_start,
+          user_id: { not: null },
+        },
         _count: true,
-        orderBy: { _count: { generated_by: 'desc' } },
+        orderBy: { _count: { user_id: 'desc' } },
       }),
-      // Global AI quota setting
-      this.prisma.globalSetting.findUnique({ where: { key: 'global_ai_quota' } }).catch(() => null),
+      this.prisma.aiUsageRecord.aggregate({
+        where: {
+          clinic_id: clinicId,
+          cycle_start: snapshot.cycle_start,
+          is_overage: true,
+        },
+        _sum: { cost_inr: true },
+        _count: true,
+      }),
+      snapshot.pending_charge_id
+        ? this.prisma.aiOverageCharge.findUnique({
+            where: { id: snapshot.pending_charge_id },
+          })
+        : Promise.resolve(null),
     ]);
 
-    // Resolve effective quota: clinic override > global > default 500
-    const globalQuota = globalSetting?.value ? parseInt(globalSetting.value, 10) : NaN;
-    const effectiveQuota = clinic?.ai_quota_override !== null && clinic?.ai_quota_override !== undefined
-      ? clinic.ai_quota_override
-      : !isNaN(globalQuota) ? globalQuota : 500;
-
-    // Resolve user names
-    const userIds = byUser.map((u) => u.generated_by).filter(Boolean) as string[];
-    const users = userIds.length > 0
+    const userIds = byUser.map((u) => u.user_id).filter(Boolean) as string[];
+    const users = userIds.length
       ? await this.prisma.user.findMany({
           where: { id: { in: userIds } },
           select: { id: true, name: true, role: true },
@@ -168,21 +183,31 @@ export class AiService {
       : [];
     const userMap = new Map(users.map((u) => [u.id, u]));
 
+    const usedBase = Math.min(snapshot.used_in_cycle, snapshot.base_quota);
+    const usedOverage = Math.max(0, snapshot.used_in_cycle - snapshot.base_quota);
+
     return {
-      used: clinic?.ai_usage_count ?? 0,
-      quota: effectiveQuota,
-      plan_name: clinic?.plan?.name ?? null,
-      is_unlimited: effectiveQuota === 0,
-      quota_source: clinic?.ai_quota_override !== null && clinic?.ai_quota_override !== undefined
-        ? 'clinic' : !isNaN(globalQuota) ? 'global' : 'default',
-      by_type: byType.map((t) => ({
-        type: t.type,
-        count: t._count,
-      })),
+      base_quota: snapshot.base_quota,
+      overage_cap: snapshot.overage_cap,
+      overage_enabled: snapshot.overage_enabled,
+      approved_extra: snapshot.approved_extra,
+      used: snapshot.used_in_cycle,
+      used_base: usedBase,
+      used_overage: usedOverage,
+      effective_quota: snapshot.effective_quota,
+      remaining: Math.max(0, snapshot.effective_quota - snapshot.used_in_cycle),
+      cycle_start: snapshot.cycle_start,
+      cycle_end: snapshot.cycle_end,
+      is_blocked_unpaid: snapshot.is_blocked_unpaid,
+      pending_charge: pendingCharge,
+      plan_name: snapshot.plan_name,
+      current_cycle_overage_cost_inr: Number(costAgg._sum?.cost_inr ?? 0),
+      current_cycle_overage_count: costAgg._count,
+      by_type: byType.map((t) => ({ type: t.type, count: t._count })),
       by_user: byUser.map((u) => ({
-        user_id: u.generated_by,
-        name: userMap.get(u.generated_by!)?.name ?? 'Unknown',
-        role: userMap.get(u.generated_by!)?.role ?? '',
+        user_id: u.user_id,
+        name: userMap.get(u.user_id!)?.name ?? 'Unknown',
+        role: userMap.get(u.user_id!)?.role ?? '',
         count: u._count,
       })),
     };
@@ -200,10 +225,17 @@ export class AiService {
     return { deleted: true };
   }
 
-  private async callVisionLLM(systemPrompt: string, userPrompt: string, imageBase64: string, mimeType: string): Promise<Record<string, unknown>> {
+  private async callVisionLLM(
+    systemPrompt: string,
+    userPrompt: string,
+    imageBase64: string,
+    mimeType: string,
+    meta: AiCallMeta,
+  ): Promise<Record<string, unknown>> {
+    const model = 'gpt-4o';
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
+        model,
         messages: [
           { role: 'system', content: systemPrompt },
           {
@@ -221,15 +253,30 @@ export class AiService {
 
       const content = response.choices[0]?.message?.content;
       if (!content) throw new BadRequestException('AI returned empty response');
+
+      await this.aiUsage.recordUsage({
+        clinicId: meta.clinicId,
+        userId: meta.userId,
+        type: meta.type,
+        model,
+        promptTokens: response.usage?.prompt_tokens ?? 0,
+        completionTokens: response.usage?.completion_tokens ?? 0,
+      }).catch((e) => this.logger.warn(`recordUsage failed: ${(e as Error).message}`));
+
       return JSON.parse(content) as Record<string, unknown>;
     } catch (error) {
+      await this.aiUsage.releaseReservation(meta.clinicId).catch(() => undefined);
       if (error instanceof BadRequestException) throw error;
       this.logger.error('Vision LLM call failed', (error as Error).stack);
       throw new BadRequestException('AI X-ray analysis temporarily unavailable. Please try again.');
     }
   }
 
-  private async callLLM(systemPrompt: string, userPrompt: string): Promise<Record<string, unknown>> {
+  private async callLLM(
+    systemPrompt: string,
+    userPrompt: string,
+    meta: AiCallMeta,
+  ): Promise<Record<string, unknown>> {
     try {
       const response = await this.openai.chat.completions.create({
         model: this.model,
@@ -247,8 +294,18 @@ export class AiService {
         throw new BadRequestException('AI returned empty response');
       }
 
+      await this.aiUsage.recordUsage({
+        clinicId: meta.clinicId,
+        userId: meta.userId,
+        type: meta.type,
+        model: this.model,
+        promptTokens: response.usage?.prompt_tokens ?? 0,
+        completionTokens: response.usage?.completion_tokens ?? 0,
+      }).catch((e) => this.logger.warn(`recordUsage failed: ${(e as Error).message}`));
+
       return JSON.parse(content) as Record<string, unknown>;
     } catch (error) {
+      await this.aiUsage.releaseReservation(meta.clinicId).catch(() => undefined);
       if (error instanceof BadRequestException) throw error;
       this.logger.error('LLM call failed', (error as Error).stack);
       throw new BadRequestException('AI service temporarily unavailable. Please try again.');
@@ -287,7 +344,7 @@ export class AiService {
 
   // ─── 1. Clinical Notes ──────────────────────────────────────────
 
-  async generateClinicalNotes(clinicId: string, dto: GenerateClinicalNotesDto) {
+  async generateClinicalNotes(clinicId: string, dto: GenerateClinicalNotesDto, userId?: string) {
     const { patient, age, toothChart } = await this.getPatientContext(clinicId, dto.patient_id);
 
     const userPrompt = buildClinicalNotesUserPrompt({
@@ -306,7 +363,11 @@ export class AiService {
     });
 
     this.logger.log(`Generating clinical notes for patient ${dto.patient_id}`);
-    const result = await this.callLLM(CLINICAL_NOTES_SYSTEM_PROMPT, userPrompt);
+    const result = await this.callLLM(CLINICAL_NOTES_SYSTEM_PROMPT, userPrompt, {
+      clinicId,
+      userId,
+      type: 'clinical_notes',
+    });
 
     const response = {
       ...result,
@@ -321,6 +382,7 @@ export class AiService {
       title: `Clinical Notes: ${patient.first_name} ${patient.last_name}`,
       data: response as Record<string, unknown>,
       context: { patient_id: dto.patient_id, chief_complaint: dto.chief_complaint },
+      userId,
     });
 
     return { ...response, insight_id: saved?.id };
@@ -328,7 +390,7 @@ export class AiService {
 
   // ─── 2. Prescription ───────────────────────────────────────────
 
-  async generatePrescription(clinicId: string, dto: GeneratePrescriptionDto) {
+  async generatePrescription(clinicId: string, dto: GeneratePrescriptionDto, userId?: string) {
     const { patient, age } = await this.getPatientContext(clinicId, dto.patient_id);
 
     const userPrompt = buildPrescriptionUserPrompt({
@@ -344,7 +406,11 @@ export class AiService {
     });
 
     this.logger.log(`Generating prescription for patient ${dto.patient_id}`);
-    const result = await this.callLLM(PRESCRIPTION_SYSTEM_PROMPT, userPrompt);
+    const result = await this.callLLM(PRESCRIPTION_SYSTEM_PROMPT, userPrompt, {
+      clinicId,
+      userId,
+      type: 'prescription',
+    });
 
     const response = {
       ...result,
@@ -359,6 +425,7 @@ export class AiService {
       title: `Prescription: ${patient.first_name} ${patient.last_name}`,
       data: response as Record<string, unknown>,
       context: { patient_id: dto.patient_id, diagnosis: dto.diagnosis },
+      userId,
     });
 
     return { ...response, insight_id: saved?.id };
@@ -366,7 +433,7 @@ export class AiService {
 
   // ─── 3. Treatment Plan ─────────────────────────────────────────
 
-  async generateTreatmentPlan(clinicId: string, dto: GenerateTreatmentPlanDto) {
+  async generateTreatmentPlan(clinicId: string, dto: GenerateTreatmentPlanDto, userId?: string) {
     const { patient, age, toothChart } = await this.getPatientContext(clinicId, dto.patient_id);
 
     // Fetch existing treatments for context
@@ -415,7 +482,11 @@ export class AiService {
     });
 
     this.logger.log(`Generating treatment plan for patient ${dto.patient_id}`);
-    const result = await this.callLLM(TREATMENT_PLAN_SYSTEM_PROMPT, userPrompt);
+    const result = await this.callLLM(TREATMENT_PLAN_SYSTEM_PROMPT, userPrompt, {
+      clinicId,
+      userId,
+      type: 'treatment_plan',
+    });
 
     const response = {
       ...result,
@@ -430,6 +501,7 @@ export class AiService {
       title: `Treatment Plan: ${patient.first_name} ${patient.last_name}`,
       data: response as Record<string, unknown>,
       context: { patient_id: dto.patient_id, chief_complaint: dto.chief_complaint },
+      userId,
     });
 
     return { ...response, insight_id: saved?.id };
@@ -437,7 +509,7 @@ export class AiService {
 
   // ─── 4. Revenue Insights ───────────────────────────────────────
 
-  async generateRevenueInsights(clinicId: string, dto: GenerateRevenueInsightsDto) {
+  async generateRevenueInsights(clinicId: string, dto: GenerateRevenueInsightsDto, userId?: string) {
     const dateFilter = {
       gte: new Date(dto.start_date),
       lte: new Date(dto.end_date),
@@ -540,7 +612,11 @@ export class AiService {
     });
 
     this.logger.log(`Generating revenue insights for clinic ${clinicId}`);
-    const result = await this.callLLM(REVENUE_INSIGHTS_SYSTEM_PROMPT, userPrompt);
+    const result = await this.callLLM(REVENUE_INSIGHTS_SYSTEM_PROMPT, userPrompt, {
+      clinicId,
+      userId,
+      type: 'revenue_insights',
+    });
 
     const response = {
       ...result,
@@ -554,6 +630,7 @@ export class AiService {
       title: `Revenue Insights: ${dto.start_date} to ${dto.end_date}`,
       data: response as Record<string, unknown>,
       context: { start_date: dto.start_date, end_date: dto.end_date, branch_id: dto.branch_id },
+      userId,
     });
 
     return { ...response, insight_id: saved?.id };
@@ -561,7 +638,7 @@ export class AiService {
 
   // ─── 5. Dental Chart Analysis ──────────────────────────────────
 
-  async generateChartAnalysis(clinicId: string, dto: GenerateChartAnalysisDto) {
+  async generateChartAnalysis(clinicId: string, dto: GenerateChartAnalysisDto, userId?: string) {
     const { patient, age } = await this.getPatientContext(clinicId, dto.patient_id);
 
     const conditions = await this.prisma.patientToothCondition.findMany({
@@ -588,7 +665,11 @@ export class AiService {
     });
 
     this.logger.log(`Generating chart analysis for patient ${dto.patient_id}`);
-    const result = await this.callLLM(DENTAL_CHART_ANALYSIS_SYSTEM_PROMPT, userPrompt);
+    const result = await this.callLLM(DENTAL_CHART_ANALYSIS_SYSTEM_PROMPT, userPrompt, {
+      clinicId,
+      userId,
+      type: 'chart_analysis',
+    });
 
     const response = {
       ...result,
@@ -603,6 +684,7 @@ export class AiService {
       title: `Chart Analysis: ${patient.first_name} ${patient.last_name}`,
       data: response as Record<string, unknown>,
       context: { patient_id: dto.patient_id },
+      userId,
     });
 
     return { ...response, insight_id: saved?.id };
@@ -610,7 +692,7 @@ export class AiService {
 
   // ─── 6. Appointment Summary ────────────────────────────────────
 
-  async generateAppointmentSummary(clinicId: string, dto: GenerateAppointmentSummaryDto) {
+  async generateAppointmentSummary(clinicId: string, dto: GenerateAppointmentSummaryDto, userId?: string) {
     const appointment = await this.prisma.appointment.findUnique({
       where: { id: dto.appointment_id },
       include: {
@@ -682,7 +764,11 @@ export class AiService {
     });
 
     this.logger.log(`Generating appointment summary for ${dto.appointment_id}`);
-    const result = await this.callLLM(APPOINTMENT_SUMMARY_SYSTEM_PROMPT, userPrompt);
+    const result = await this.callLLM(APPOINTMENT_SUMMARY_SYSTEM_PROMPT, userPrompt, {
+      clinicId,
+      userId,
+      type: 'appointment_summary',
+    });
 
     const response = {
       ...result,
@@ -698,6 +784,7 @@ export class AiService {
       title: `Appointment Summary: ${appointment.patient.first_name} ${appointment.patient.last_name}`,
       data: response as Record<string, unknown>,
       context: { appointment_id: dto.appointment_id },
+      userId,
     });
 
     return { ...response, insight_id: saved?.id };
@@ -705,7 +792,7 @@ export class AiService {
 
   // ─── 7. Campaign Content Generator ─────────────────────────────
 
-  async generateCampaignContent(clinicId: string, dto: GenerateCampaignContentDto) {
+  async generateCampaignContent(clinicId: string, dto: GenerateCampaignContentDto, userId?: string) {
     const clinic = await this.prisma.clinic.findUnique({
       where: { id: clinicId },
       select: { name: true },
@@ -723,7 +810,11 @@ export class AiService {
     });
 
     this.logger.log(`Generating campaign content for clinic ${clinicId}`);
-    const result = await this.callLLM(CAMPAIGN_CONTENT_SYSTEM_PROMPT, userPrompt);
+    const result = await this.callLLM(CAMPAIGN_CONTENT_SYSTEM_PROMPT, userPrompt, {
+      clinicId,
+      userId,
+      type: 'campaign_content',
+    });
 
     const response = {
       ...result,
@@ -736,6 +827,7 @@ export class AiService {
       title: `Campaign: ${dto.campaign_name}`,
       data: response as Record<string, unknown>,
       context: { campaign_name: dto.campaign_name, campaign_type: dto.campaign_type, channel: dto.channel },
+      userId,
     });
 
     return { ...response, insight_id: saved?.id };
@@ -785,6 +877,7 @@ export class AiService {
       userPrompt,
       imageBase64,
       attachment.mime_type || 'image/jpeg',
+      { clinicId, userId: params.userId, type: 'xray_analysis' },
     );
 
     const response = {

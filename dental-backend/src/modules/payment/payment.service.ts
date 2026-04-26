@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException, OnModuleInit } from '@nestjs/c
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../database/prisma.service.js';
+import { AiUsageService } from '../ai/ai-usage.service.js';
 import Razorpay from 'razorpay';
 import { createHmac } from 'crypto';
 
@@ -26,6 +27,7 @@ export class PaymentService implements OnModuleInit {
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly aiUsage: AiUsageService,
   ) {}
 
   onModuleInit() {
@@ -89,6 +91,19 @@ export class PaymentService implements OnModuleInit {
           started_at: sub.start_at ? new Date(Number(sub.start_at) * 1000).toISOString() : null,
           ended_at: sub.ended_at ? new Date(Number(sub.ended_at) * 1000).toISOString() : null,
         };
+
+        // Realign AI billing cycle to Razorpay subscription period
+        if (sub.current_start && sub.current_end) {
+          await this.aiUsage
+            .syncCycleWithSubscription(
+              clinicId,
+              new Date(Number(sub.current_start) * 1000),
+              new Date(Number(sub.current_end) * 1000),
+            )
+            .catch((err) =>
+              this.logger.warn(`AI cycle sync failed for ${clinicId}: ${(err as Error).message}`),
+            );
+        }
       } catch (e) {
         this.logger.warn(`Failed to fetch Razorpay subscription ${clinic.subscription_id}: ${(e as Error).message}`);
       }
@@ -234,6 +249,18 @@ export class PaymentService implements OnModuleInit {
         where: { id: clinicId },
         data: { subscription_status: 'active' },
       });
+
+      // Settle the oldest pending AI overage charge using this payment
+      const paymentRef = (payment['id'] as string) ?? '';
+      if (paymentRef) {
+        await this.aiUsage
+          .settleOldestPendingFromPayment(clinicId, paymentRef)
+          .catch((err) =>
+            this.logger.warn(
+              `AI overage settle failed for clinic ${clinicId}: ${(err as Error).message}`,
+            ),
+          );
+      }
     }
   }
 
@@ -292,6 +319,22 @@ export class PaymentService implements OnModuleInit {
 
     if (expiredTrials.count > 0) {
       this.logger.log(`Expired ${expiredTrials.count} trial(s)`);
+    }
+  }
+
+  /**
+   * Cron: Close any AI billing cycles that have ended.
+   * Aggregates overage usage into AiOverageCharge rows and resets per-cycle state.
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async closeAiBillingCycles(): Promise<void> {
+    try {
+      const closed = await this.aiUsage.closeEndedCycles();
+      if (closed > 0) {
+        this.logger.log(`Closed ${closed} AI billing cycle(s)`);
+      }
+    } catch (err) {
+      this.logger.error(`Failed to close AI billing cycles: ${(err as Error).message}`);
     }
   }
 }

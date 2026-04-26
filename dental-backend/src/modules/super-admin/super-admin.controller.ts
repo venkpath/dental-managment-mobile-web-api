@@ -13,6 +13,7 @@ import { UpdateSubscriptionDto } from '../clinic/dto/index.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { AutomationService } from '../automation/automation.service.js';
 import { BranchService } from '../branch/branch.service.js';
+import { AiUsageService } from '../ai/ai-usage.service.js';
 import { UpdateClinicSettingsDto } from '../communication/dto/update-clinic-settings.dto.js';
 import { UpsertAutomationRuleDto } from '../automation/dto/upsert-automation-rule.dto.js';
 import { CreateBranchDto } from '../branch/dto/create-branch.dto.js';
@@ -30,6 +31,7 @@ export class SuperAdminController {
     private readonly automationService: AutomationService,
     private readonly branchService: BranchService,
     private readonly whatsAppService: SuperAdminWhatsAppService,
+    private readonly aiUsageService: AiUsageService,
   ) {}
 
   // ─── Auth ───
@@ -358,6 +360,72 @@ export class SuperAdminController {
       languageCode: body.language_code,
       bodyParams: body.body_params,
       contactName: body.contact_name,
+    });
+  }
+
+  // ─── AI quota approval requests ───────────────────────────────
+
+  @Get('super-admins/ai/approval-requests')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'List AI quota approval requests across clinics' })
+  async listAiApprovalRequests(@Query('status') status?: string) {
+    return this.aiUsageService.listApprovalRequests({ status });
+  }
+
+  @Post('super-admins/ai/approval-requests/:id/decide')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Approve or reject an AI quota approval request' })
+  async decideAiApprovalRequest(
+    @CurrentSuperAdmin() admin: { id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { status: 'approved' | 'rejected'; approved_amount?: number; note?: string },
+  ) {
+    return this.aiUsageService.decideApprovalRequest({
+      requestId: id,
+      superAdminId: admin.id,
+      status: body.status,
+      approvedAmount: body.approved_amount,
+      note: body.note,
+    });
+  }
+
+  // ─── AI overage charges ───────────────────────────────────────
+
+  @Get('super-admins/ai/overage-charges')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'List AI overage charges across clinics' })
+  async listOverageCharges(@Query('status') status?: string) {
+    return this.aiUsageService.listOverageCharges({ status });
+  }
+
+  @Post('super-admins/ai/overage-charges/:id/mark-paid')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Manually mark an AI overage charge as paid (offline payment)' })
+  async markOverageChargePaid(
+    @CurrentSuperAdmin() admin: { id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { payment_reference?: string; note?: string },
+  ) {
+    return this.aiUsageService.markChargePaid({
+      chargeId: id,
+      superAdminId: admin.id,
+      paymentReference: body.payment_reference || '',
+      note: body.note,
+    });
+  }
+
+  @Post('super-admins/ai/overage-charges/:id/waive')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Waive an AI overage charge' })
+  async waiveOverageCharge(
+    @CurrentSuperAdmin() admin: { id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { note?: string },
+  ) {
+    return this.aiUsageService.waiveCharge({
+      chargeId: id,
+      superAdminId: admin.id,
+      note: body.note,
     });
   }
 }

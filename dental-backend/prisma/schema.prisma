@@ -31,6 +31,10 @@ model Clinic {
   created_at          DateTime  @default(now())
   updated_at          DateTime  @updatedAt
 
+  ai_settings                ClinicAiSettings?
+  ai_usage_records           AiUsageRecord[]
+  ai_overage_charges         AiOverageCharge[]
+  ai_quota_approval_requests AiQuotaApprovalRequest[]
   plan                   Plan?                        @relation(fields: [plan_id], references: [id], onDelete: SetNull)
   users                  User[]
   branches               Branch[]
@@ -126,7 +130,8 @@ model Plan {
   price_yearly               Decimal? @db.Decimal(10, 2) // null for free plan
   max_branches               Int
   max_staff                  Int
-  ai_quota                   Int      @default(0)
+  ai_quota                   Int      @default(0) // base AI requests included per cycle (0 = unlimited)
+  ai_overage_cap             Int      @default(0) // max requests allowed during a cycle when clinic enables overage (0 = no overage)
   max_patients_per_month     Int? // null = unlimited
   max_appointments_per_month Int? // null = unlimited
   razorpay_plan_id           String?  @db.VarChar(100)
@@ -228,6 +233,7 @@ model User {
   attachments      Attachment[]
   tooth_conditions PatientToothCondition[] @relation("ToothConditionDentist")
   ai_insights      AiInsight[]
+  ai_usage_records AiUsageRecord[]
   expenses         Expense[]
   clinical_visits  ClinicalVisit[]         @relation("VisitDentist")
   treatment_plans  TreatmentPlan[]         @relation("PlanDentist")
@@ -1211,6 +1217,96 @@ model Expense {
   @@index([branch_id])
   @@index([created_by])
   @@map("expenses")
+}
+
+// ─── AI quota: per-clinic cycle settings, per-request usage log,
+//     overage charges and quota-approval requests ───
+
+model ClinicAiSettings {
+  clinic_id             String   @id @db.Uuid
+  overage_enabled       Boolean  @default(false) // clinic admin opt-in to billable overage
+  current_cycle_start   DateTime
+  current_cycle_end     DateTime
+  used_in_cycle         Int      @default(0) // atomic counter across base + overage + approved
+  approved_extra        Int      @default(0) // super-admin-granted extra for current cycle (one-shot, reset at cycle close)
+  approved_extra_reason String?  @db.VarChar(500)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+
+  @@map("clinic_ai_settings")
+}
+
+model AiUsageRecord {
+  id                String   @id @default(uuid()) @db.Uuid
+  clinic_id         String   @db.Uuid
+  user_id           String?  @db.Uuid
+  type              String   @db.VarChar(50) // clinical_notes | prescription | treatment_plan | ...
+  model             String   @db.VarChar(50)
+  prompt_tokens     Int      @default(0)
+  completion_tokens Int      @default(0)
+  total_tokens      Int      @default(0)
+  cost_inr          Decimal  @default(0) @db.Decimal(12, 6)
+  is_overage        Boolean  @default(false)
+  cycle_start       DateTime
+  cycle_end         DateTime
+  created_at        DateTime @default(now())
+
+  clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([clinic_id])
+  @@index([clinic_id, cycle_start])
+  @@index([clinic_id, type])
+  @@index([user_id])
+  @@map("ai_usage_records")
+}
+
+model AiOverageCharge {
+  id                     String    @id @default(uuid()) @db.Uuid
+  clinic_id              String    @db.Uuid
+  cycle_start            DateTime
+  cycle_end              DateTime
+  base_quota             Int       @default(0)
+  overage_requests_count Int       @default(0)
+  approved_requests_count Int      @default(0)
+  total_cost_inr         Decimal   @default(0) @db.Decimal(12, 2)
+  status                 String    @default("pending") @db.VarChar(20) // pending | invoiced | paid | waived
+  paid_at                DateTime?
+  paid_by_super_admin_id String?   @db.Uuid
+  payment_reference      String?   @db.VarChar(255)
+  notes                  String?   @db.VarChar(1000)
+  created_at             DateTime  @default(now())
+  updated_at             DateTime  @updatedAt
+
+  clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+
+  @@unique([clinic_id, cycle_start])
+  @@index([clinic_id])
+  @@index([status])
+  @@map("ai_overage_charges")
+}
+
+model AiQuotaApprovalRequest {
+  id               String    @id @default(uuid()) @db.Uuid
+  clinic_id        String    @db.Uuid
+  requested_by     String?   @db.Uuid
+  requested_amount Int
+  reason           String    @db.VarChar(1000)
+  cycle_start      DateTime
+  status           String    @default("pending") @db.VarChar(20) // pending | approved | rejected
+  approved_amount  Int?
+  approved_by      String?   @db.Uuid
+  decision_note    String?   @db.VarChar(500)
+  decided_at       DateTime?
+  created_at       DateTime  @default(now())
+
+  clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+
+  @@index([clinic_id])
+  @@index([status])
+  @@map("ai_quota_approval_requests")
 }
 
 // ─── Global Settings (key-value store for platform-wide config) ───

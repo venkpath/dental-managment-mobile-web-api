@@ -1,7 +1,8 @@
-import { Controller, Post, Get, Delete, Body, Req, Param, Query } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Delete, Body, Req, Param, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { AiService } from './ai.service.js';
+import { AiUsageService } from './ai-usage.service.js';
 import {
   GenerateClinicalNotesDto,
   GeneratePrescriptionDto,
@@ -10,6 +11,8 @@ import {
   GenerateChartAnalysisDto,
   GenerateAppointmentSummaryDto,
   GenerateCampaignContentDto,
+  UpdateAiSettingsDto,
+  CreateAiQuotaApprovalRequestDto,
 } from './dto/index.js';
 import { UserRole } from '../user/dto/create-user.dto.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -20,7 +23,10 @@ import { RequireFeature } from '../../common/decorators/require-feature.decorato
 @ApiBearerAuth()
 @Controller('ai')
 export class AiController {
-  constructor(private readonly aiService: AiService) {}
+  constructor(
+    private readonly aiService: AiService,
+    private readonly aiUsageService: AiUsageService,
+  ) {}
 
   @Post('clinical-notes')
   @Roles(UserRole.ADMIN, UserRole.DENTIST)
@@ -31,7 +37,7 @@ export class AiController {
     @Req() req: Request,
     @Body() dto: GenerateClinicalNotesDto,
   ) {
-    return this.aiService.generateClinicalNotes(req.user!.clinicId, dto);
+    return this.aiService.generateClinicalNotes(req.user!.clinicId, dto, req.user!.userId);
   }
 
   @Post('prescription')
@@ -43,7 +49,7 @@ export class AiController {
     @Req() req: Request,
     @Body() dto: GeneratePrescriptionDto,
   ) {
-    return this.aiService.generatePrescription(req.user!.clinicId, dto);
+    return this.aiService.generatePrescription(req.user!.clinicId, dto, req.user!.userId);
   }
 
   @Post('treatment-plan')
@@ -55,7 +61,7 @@ export class AiController {
     @Req() req: Request,
     @Body() dto: GenerateTreatmentPlanDto,
   ) {
-    return this.aiService.generateTreatmentPlan(req.user!.clinicId, dto);
+    return this.aiService.generateTreatmentPlan(req.user!.clinicId, dto, req.user!.userId);
   }
 
   @Post('revenue-insights')
@@ -67,7 +73,7 @@ export class AiController {
     @Req() req: Request,
     @Body() dto: GenerateRevenueInsightsDto,
   ) {
-    return this.aiService.generateRevenueInsights(req.user!.clinicId, dto);
+    return this.aiService.generateRevenueInsights(req.user!.clinicId, dto, req.user!.userId);
   }
 
   @Post('chart-analysis')
@@ -79,7 +85,7 @@ export class AiController {
     @Req() req: Request,
     @Body() dto: GenerateChartAnalysisDto,
   ) {
-    return this.aiService.generateChartAnalysis(req.user!.clinicId, dto);
+    return this.aiService.generateChartAnalysis(req.user!.clinicId, dto, req.user!.userId);
   }
 
   @Post('appointment-summary')
@@ -91,7 +97,7 @@ export class AiController {
     @Req() req: Request,
     @Body() dto: GenerateAppointmentSummaryDto,
   ) {
-    return this.aiService.generateAppointmentSummary(req.user!.clinicId, dto);
+    return this.aiService.generateAppointmentSummary(req.user!.clinicId, dto, req.user!.userId);
   }
 
   @Post('campaign-content')
@@ -103,7 +109,7 @@ export class AiController {
     @Req() req: Request,
     @Body() dto: GenerateCampaignContentDto,
   ) {
-    return this.aiService.generateCampaignContent(req.user!.clinicId, dto);
+    return this.aiService.generateCampaignContent(req.user!.clinicId, dto, req.user!.userId);
   }
 
   // ─── 8. X-ray Analysis ──────────────────────────────────────
@@ -131,6 +137,39 @@ export class AiController {
   @ApiOperation({ summary: 'Get AI usage stats for the clinic with per-user and per-type breakdown' })
   async getUsageStats(@Req() req: Request) {
     return this.aiService.getUsageStats(req.user!.clinicId);
+  }
+
+  // ─── Clinic AI settings (overage toggle) ─────────────────────
+
+  @Patch('settings')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Toggle paid-plan overage on/off for the clinic' })
+  async updateAiSettings(@Req() req: Request, @Body() dto: UpdateAiSettingsDto) {
+    return this.aiUsageService.setOverageEnabled(req.user!.clinicId, dto.overage_enabled);
+  }
+
+  // ─── Quota approval requests ─────────────────────────────────
+
+  @Post('quota-approval-requests')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Request additional AI quota for the current cycle (super-admin approval)' })
+  async createApprovalRequest(
+    @Req() req: Request,
+    @Body() dto: CreateAiQuotaApprovalRequestDto,
+  ) {
+    return this.aiUsageService.createApprovalRequest({
+      clinicId: req.user!.clinicId,
+      userId: req.user!.userId,
+      requestedAmount: dto.requested_amount,
+      reason: dto.reason || '',
+    });
+  }
+
+  @Get('quota-approval-requests')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'List own AI quota approval requests' })
+  async listMyApprovalRequests(@Req() req: Request) {
+    return this.aiUsageService.listMyApprovalRequests(req.user!.clinicId);
   }
 
   // ─── Stored Insights CRUD ───────────────────────────────────
@@ -174,3 +213,4 @@ export class AiController {
     return this.aiService.deleteInsight(req.user!.clinicId, id);
   }
 }
+

@@ -29,6 +29,7 @@ const index_js_2 = require("../clinic/dto/index.js");
 const communication_service_js_1 = require("../communication/communication.service.js");
 const automation_service_js_1 = require("../automation/automation.service.js");
 const branch_service_js_1 = require("../branch/branch.service.js");
+const ai_usage_service_js_1 = require("../ai/ai-usage.service.js");
 const update_clinic_settings_dto_js_1 = require("../communication/dto/update-clinic-settings.dto.js");
 const upsert_automation_rule_dto_js_1 = require("../automation/dto/upsert-automation-rule.dto.js");
 const create_branch_dto_js_1 = require("../branch/dto/create-branch.dto.js");
@@ -42,7 +43,8 @@ let SuperAdminController = class SuperAdminController {
     automationService;
     branchService;
     whatsAppService;
-    constructor(superAdminService, superAdminAuthService, clinicService, communicationService, automationService, branchService, whatsAppService) {
+    aiUsageService;
+    constructor(superAdminService, superAdminAuthService, clinicService, communicationService, automationService, branchService, whatsAppService, aiUsageService) {
         this.superAdminService = superAdminService;
         this.superAdminAuthService = superAdminAuthService;
         this.clinicService = clinicService;
@@ -50,6 +52,7 @@ let SuperAdminController = class SuperAdminController {
         this.automationService = automationService;
         this.branchService = branchService;
         this.whatsAppService = whatsAppService;
+        this.aiUsageService = aiUsageService;
     }
     async login(dto) {
         return this.superAdminAuthService.login(dto);
@@ -158,6 +161,36 @@ let SuperAdminController = class SuperAdminController {
             languageCode: body.language_code,
             bodyParams: body.body_params,
             contactName: body.contact_name,
+        });
+    }
+    async listAiApprovalRequests(status) {
+        return this.aiUsageService.listApprovalRequests({ status });
+    }
+    async decideAiApprovalRequest(admin, id, body) {
+        return this.aiUsageService.decideApprovalRequest({
+            requestId: id,
+            superAdminId: admin.id,
+            status: body.status,
+            approvedAmount: body.approved_amount,
+            note: body.note,
+        });
+    }
+    async listOverageCharges(status) {
+        return this.aiUsageService.listOverageCharges({ status });
+    }
+    async markOverageChargePaid(admin, id, body) {
+        return this.aiUsageService.markChargePaid({
+            chargeId: id,
+            superAdminId: admin.id,
+            paymentReference: body.payment_reference || '',
+            note: body.note,
+        });
+    }
+    async waiveOverageCharge(admin, id, body) {
+        return this.aiUsageService.waiveCharge({
+            chargeId: id,
+            superAdminId: admin.id,
+            note: body.note,
         });
     }
 };
@@ -503,6 +536,62 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], SuperAdminController.prototype, "sendTemplate", null);
+__decorate([
+    (0, common_1.Get)('super-admins/ai/approval-requests'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List AI quota approval requests across clinics' }),
+    openapi.ApiResponse({ status: 200, type: [Object] }),
+    __param(0, (0, common_1.Query)('status')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "listAiApprovalRequests", null);
+__decorate([
+    (0, common_1.Post)('super-admins/ai/approval-requests/:id/decide'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Approve or reject an AI quota approval request' }),
+    openapi.ApiResponse({ status: 201, type: Object }),
+    __param(0, (0, current_super_admin_decorator_js_1.CurrentSuperAdmin)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "decideAiApprovalRequest", null);
+__decorate([
+    (0, common_1.Get)('super-admins/ai/overage-charges'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List AI overage charges across clinics' }),
+    openapi.ApiResponse({ status: 200, type: [Object] }),
+    __param(0, (0, common_1.Query)('status')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "listOverageCharges", null);
+__decorate([
+    (0, common_1.Post)('super-admins/ai/overage-charges/:id/mark-paid'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Manually mark an AI overage charge as paid (offline payment)' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_super_admin_decorator_js_1.CurrentSuperAdmin)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "markOverageChargePaid", null);
+__decorate([
+    (0, common_1.Post)('super-admins/ai/overage-charges/:id/waive'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Waive an AI overage charge' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_super_admin_decorator_js_1.CurrentSuperAdmin)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "waiveOverageCharge", null);
 exports.SuperAdminController = SuperAdminController = __decorate([
     (0, swagger_1.ApiTags)('Super Admin'),
     (0, common_1.Controller)(),
@@ -512,6 +601,7 @@ exports.SuperAdminController = SuperAdminController = __decorate([
         communication_service_js_1.CommunicationService,
         automation_service_js_1.AutomationService,
         branch_service_js_1.BranchService,
-        super_admin_whatsapp_service_js_1.SuperAdminWhatsAppService])
+        super_admin_whatsapp_service_js_1.SuperAdminWhatsAppService,
+        ai_usage_service_js_1.AiUsageService])
 ], SuperAdminController);
 //# sourceMappingURL=super-admin.controller.js.map

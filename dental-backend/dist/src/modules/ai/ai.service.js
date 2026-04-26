@@ -19,6 +19,7 @@ const config_1 = require("@nestjs/config");
 const openai_1 = __importDefault(require("openai"));
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const currency_util_js_1 = require("../../common/utils/currency.util.js");
+const ai_usage_service_js_1 = require("./ai-usage.service.js");
 const clinical_notes_prompt_js_1 = require("./prompts/clinical-notes.prompt.js");
 const prescription_prompt_js_1 = require("./prompts/prescription.prompt.js");
 const treatment_plan_prompt_js_1 = require("./prompts/treatment-plan.prompt.js");
@@ -30,12 +31,14 @@ const xray_analysis_prompt_js_1 = require("./prompts/xray-analysis.prompt.js");
 let AiService = AiService_1 = class AiService {
     prisma;
     config;
+    aiUsage;
     logger = new common_1.Logger(AiService_1.name);
     openai;
     model;
-    constructor(prisma, config) {
+    constructor(prisma, config, aiUsage) {
         this.prisma = prisma;
         this.config = config;
+        this.aiUsage = aiUsage;
         this.openai = new openai_1.default({
             apiKey: this.config.get('OPENAI_API_KEY'),
         });
@@ -91,52 +94,74 @@ let AiService = AiService_1 = class AiService {
         return insight;
     }
     async getUsageStats(clinicId) {
-        const [clinic, byType, byUser, globalSetting] = await Promise.all([
-            this.prisma.clinic.findUnique({
-                where: { id: clinicId },
-                select: { ai_usage_count: true, ai_quota_override: true, plan: { select: { ai_quota: true, name: true } } },
-            }),
-            this.prisma.aiInsight.groupBy({
+        const snapshot = await this.aiUsage.snapshot(clinicId);
+        const [byType, byUser, costAgg, pendingCharge] = await Promise.all([
+            this.prisma.aiUsageRecord.groupBy({
                 by: ['type'],
-                where: { clinic_id: clinicId },
+                where: {
+                    clinic_id: clinicId,
+                    cycle_start: snapshot.cycle_start,
+                },
                 _count: true,
                 orderBy: { _count: { type: 'desc' } },
             }),
-            this.prisma.aiInsight.groupBy({
-                by: ['generated_by'],
-                where: { clinic_id: clinicId, generated_by: { not: null } },
+            this.prisma.aiUsageRecord.groupBy({
+                by: ['user_id'],
+                where: {
+                    clinic_id: clinicId,
+                    cycle_start: snapshot.cycle_start,
+                    user_id: { not: null },
+                },
                 _count: true,
-                orderBy: { _count: { generated_by: 'desc' } },
+                orderBy: { _count: { user_id: 'desc' } },
             }),
-            this.prisma.globalSetting.findUnique({ where: { key: 'global_ai_quota' } }).catch(() => null),
+            this.prisma.aiUsageRecord.aggregate({
+                where: {
+                    clinic_id: clinicId,
+                    cycle_start: snapshot.cycle_start,
+                    is_overage: true,
+                },
+                _sum: { cost_inr: true },
+                _count: true,
+            }),
+            snapshot.pending_charge_id
+                ? this.prisma.aiOverageCharge.findUnique({
+                    where: { id: snapshot.pending_charge_id },
+                })
+                : Promise.resolve(null),
         ]);
-        const globalQuota = globalSetting?.value ? parseInt(globalSetting.value, 10) : NaN;
-        const effectiveQuota = clinic?.ai_quota_override !== null && clinic?.ai_quota_override !== undefined
-            ? clinic.ai_quota_override
-            : !isNaN(globalQuota) ? globalQuota : 500;
-        const userIds = byUser.map((u) => u.generated_by).filter(Boolean);
-        const users = userIds.length > 0
+        const userIds = byUser.map((u) => u.user_id).filter(Boolean);
+        const users = userIds.length
             ? await this.prisma.user.findMany({
                 where: { id: { in: userIds } },
                 select: { id: true, name: true, role: true },
             })
             : [];
         const userMap = new Map(users.map((u) => [u.id, u]));
+        const usedBase = Math.min(snapshot.used_in_cycle, snapshot.base_quota);
+        const usedOverage = Math.max(0, snapshot.used_in_cycle - snapshot.base_quota);
         return {
-            used: clinic?.ai_usage_count ?? 0,
-            quota: effectiveQuota,
-            plan_name: clinic?.plan?.name ?? null,
-            is_unlimited: effectiveQuota === 0,
-            quota_source: clinic?.ai_quota_override !== null && clinic?.ai_quota_override !== undefined
-                ? 'clinic' : !isNaN(globalQuota) ? 'global' : 'default',
-            by_type: byType.map((t) => ({
-                type: t.type,
-                count: t._count,
-            })),
+            base_quota: snapshot.base_quota,
+            overage_cap: snapshot.overage_cap,
+            overage_enabled: snapshot.overage_enabled,
+            approved_extra: snapshot.approved_extra,
+            used: snapshot.used_in_cycle,
+            used_base: usedBase,
+            used_overage: usedOverage,
+            effective_quota: snapshot.effective_quota,
+            remaining: Math.max(0, snapshot.effective_quota - snapshot.used_in_cycle),
+            cycle_start: snapshot.cycle_start,
+            cycle_end: snapshot.cycle_end,
+            is_blocked_unpaid: snapshot.is_blocked_unpaid,
+            pending_charge: pendingCharge,
+            plan_name: snapshot.plan_name,
+            current_cycle_overage_cost_inr: Number(costAgg._sum?.cost_inr ?? 0),
+            current_cycle_overage_count: costAgg._count,
+            by_type: byType.map((t) => ({ type: t.type, count: t._count })),
             by_user: byUser.map((u) => ({
-                user_id: u.generated_by,
-                name: userMap.get(u.generated_by)?.name ?? 'Unknown',
-                role: userMap.get(u.generated_by)?.role ?? '',
+                user_id: u.user_id,
+                name: userMap.get(u.user_id)?.name ?? 'Unknown',
+                role: userMap.get(u.user_id)?.role ?? '',
                 count: u._count,
             })),
         };
@@ -151,10 +176,11 @@ let AiService = AiService_1 = class AiService {
         await this.prisma.aiInsight.delete({ where: { id: insightId } });
         return { deleted: true };
     }
-    async callVisionLLM(systemPrompt, userPrompt, imageBase64, mimeType) {
+    async callVisionLLM(systemPrompt, userPrompt, imageBase64, mimeType, meta) {
+        const model = 'gpt-4o';
         try {
             const response = await this.openai.chat.completions.create({
-                model: 'gpt-4o',
+                model,
                 messages: [
                     { role: 'system', content: systemPrompt },
                     {
@@ -172,16 +198,25 @@ let AiService = AiService_1 = class AiService {
             const content = response.choices[0]?.message?.content;
             if (!content)
                 throw new common_1.BadRequestException('AI returned empty response');
+            await this.aiUsage.recordUsage({
+                clinicId: meta.clinicId,
+                userId: meta.userId,
+                type: meta.type,
+                model,
+                promptTokens: response.usage?.prompt_tokens ?? 0,
+                completionTokens: response.usage?.completion_tokens ?? 0,
+            }).catch((e) => this.logger.warn(`recordUsage failed: ${e.message}`));
             return JSON.parse(content);
         }
         catch (error) {
+            await this.aiUsage.releaseReservation(meta.clinicId).catch(() => undefined);
             if (error instanceof common_1.BadRequestException)
                 throw error;
             this.logger.error('Vision LLM call failed', error.stack);
             throw new common_1.BadRequestException('AI X-ray analysis temporarily unavailable. Please try again.');
         }
     }
-    async callLLM(systemPrompt, userPrompt) {
+    async callLLM(systemPrompt, userPrompt, meta) {
         try {
             const response = await this.openai.chat.completions.create({
                 model: this.model,
@@ -197,9 +232,18 @@ let AiService = AiService_1 = class AiService {
             if (!content) {
                 throw new common_1.BadRequestException('AI returned empty response');
             }
+            await this.aiUsage.recordUsage({
+                clinicId: meta.clinicId,
+                userId: meta.userId,
+                type: meta.type,
+                model: this.model,
+                promptTokens: response.usage?.prompt_tokens ?? 0,
+                completionTokens: response.usage?.completion_tokens ?? 0,
+            }).catch((e) => this.logger.warn(`recordUsage failed: ${e.message}`));
             return JSON.parse(content);
         }
         catch (error) {
+            await this.aiUsage.releaseReservation(meta.clinicId).catch(() => undefined);
             if (error instanceof common_1.BadRequestException)
                 throw error;
             this.logger.error('LLM call failed', error.stack);
@@ -229,7 +273,7 @@ let AiService = AiService_1 = class AiService {
         }));
         return { patient, age, toothChart };
     }
-    async generateClinicalNotes(clinicId, dto) {
+    async generateClinicalNotes(clinicId, dto, userId) {
         const { patient, age, toothChart } = await this.getPatientContext(clinicId, dto.patient_id);
         const userPrompt = (0, clinical_notes_prompt_js_1.buildClinicalNotesUserPrompt)({
             dentist_notes: dto.dentist_notes,
@@ -246,7 +290,11 @@ let AiService = AiService_1 = class AiService {
             tooth_chart: toothChart,
         });
         this.logger.log(`Generating clinical notes for patient ${dto.patient_id}`);
-        const result = await this.callLLM(clinical_notes_prompt_js_1.CLINICAL_NOTES_SYSTEM_PROMPT, userPrompt);
+        const result = await this.callLLM(clinical_notes_prompt_js_1.CLINICAL_NOTES_SYSTEM_PROMPT, userPrompt, {
+            clinicId,
+            userId,
+            type: 'clinical_notes',
+        });
         const response = {
             ...result,
             patient_id: dto.patient_id,
@@ -259,10 +307,11 @@ let AiService = AiService_1 = class AiService {
             title: `Clinical Notes: ${patient.first_name} ${patient.last_name}`,
             data: response,
             context: { patient_id: dto.patient_id, chief_complaint: dto.chief_complaint },
+            userId,
         });
         return { ...response, insight_id: saved?.id };
     }
-    async generatePrescription(clinicId, dto) {
+    async generatePrescription(clinicId, dto, userId) {
         const { patient, age } = await this.getPatientContext(clinicId, dto.patient_id);
         const userPrompt = (0, prescription_prompt_js_1.buildPrescriptionUserPrompt)({
             diagnosis: dto.diagnosis,
@@ -276,7 +325,11 @@ let AiService = AiService_1 = class AiService {
             tooth_numbers: dto.tooth_numbers,
         });
         this.logger.log(`Generating prescription for patient ${dto.patient_id}`);
-        const result = await this.callLLM(prescription_prompt_js_1.PRESCRIPTION_SYSTEM_PROMPT, userPrompt);
+        const result = await this.callLLM(prescription_prompt_js_1.PRESCRIPTION_SYSTEM_PROMPT, userPrompt, {
+            clinicId,
+            userId,
+            type: 'prescription',
+        });
         const response = {
             ...result,
             patient_id: dto.patient_id,
@@ -289,10 +342,11 @@ let AiService = AiService_1 = class AiService {
             title: `Prescription: ${patient.first_name} ${patient.last_name}`,
             data: response,
             context: { patient_id: dto.patient_id, diagnosis: dto.diagnosis },
+            userId,
         });
         return { ...response, insight_id: saved?.id };
     }
-    async generateTreatmentPlan(clinicId, dto) {
+    async generateTreatmentPlan(clinicId, dto, userId) {
         const { patient, age, toothChart } = await this.getPatientContext(clinicId, dto.patient_id);
         const treatments = await this.prisma.treatment.findMany({
             where: { patient_id: dto.patient_id, clinic_id: clinicId },
@@ -334,7 +388,11 @@ let AiService = AiService_1 = class AiService {
             currency_symbol: await this.getClinicCurrencySymbol(clinicId),
         });
         this.logger.log(`Generating treatment plan for patient ${dto.patient_id}`);
-        const result = await this.callLLM(treatment_plan_prompt_js_1.TREATMENT_PLAN_SYSTEM_PROMPT, userPrompt);
+        const result = await this.callLLM(treatment_plan_prompt_js_1.TREATMENT_PLAN_SYSTEM_PROMPT, userPrompt, {
+            clinicId,
+            userId,
+            type: 'treatment_plan',
+        });
         const response = {
             ...result,
             patient_id: dto.patient_id,
@@ -347,10 +405,11 @@ let AiService = AiService_1 = class AiService {
             title: `Treatment Plan: ${patient.first_name} ${patient.last_name}`,
             data: response,
             context: { patient_id: dto.patient_id, chief_complaint: dto.chief_complaint },
+            userId,
         });
         return { ...response, insight_id: saved?.id };
     }
-    async generateRevenueInsights(clinicId, dto) {
+    async generateRevenueInsights(clinicId, dto, userId) {
         const dateFilter = {
             gte: new Date(dto.start_date),
             lte: new Date(dto.end_date),
@@ -435,7 +494,11 @@ let AiService = AiService_1 = class AiService {
             currency_symbol: await this.getClinicCurrencySymbol(clinicId),
         });
         this.logger.log(`Generating revenue insights for clinic ${clinicId}`);
-        const result = await this.callLLM(revenue_insights_prompt_js_1.REVENUE_INSIGHTS_SYSTEM_PROMPT, userPrompt);
+        const result = await this.callLLM(revenue_insights_prompt_js_1.REVENUE_INSIGHTS_SYSTEM_PROMPT, userPrompt, {
+            clinicId,
+            userId,
+            type: 'revenue_insights',
+        });
         const response = {
             ...result,
             generated_at: new Date().toISOString(),
@@ -446,10 +509,11 @@ let AiService = AiService_1 = class AiService {
             title: `Revenue Insights: ${dto.start_date} to ${dto.end_date}`,
             data: response,
             context: { start_date: dto.start_date, end_date: dto.end_date, branch_id: dto.branch_id },
+            userId,
         });
         return { ...response, insight_id: saved?.id };
     }
-    async generateChartAnalysis(clinicId, dto) {
+    async generateChartAnalysis(clinicId, dto, userId) {
         const { patient, age } = await this.getPatientContext(clinicId, dto.patient_id);
         const conditions = await this.prisma.patientToothCondition.findMany({
             where: { patient_id: dto.patient_id, clinic_id: clinicId },
@@ -472,7 +536,11 @@ let AiService = AiService_1 = class AiService {
             total_teeth: totalTeeth,
         });
         this.logger.log(`Generating chart analysis for patient ${dto.patient_id}`);
-        const result = await this.callLLM(dental_chart_analysis_prompt_js_1.DENTAL_CHART_ANALYSIS_SYSTEM_PROMPT, userPrompt);
+        const result = await this.callLLM(dental_chart_analysis_prompt_js_1.DENTAL_CHART_ANALYSIS_SYSTEM_PROMPT, userPrompt, {
+            clinicId,
+            userId,
+            type: 'chart_analysis',
+        });
         const response = {
             ...result,
             patient_id: dto.patient_id,
@@ -485,10 +553,11 @@ let AiService = AiService_1 = class AiService {
             title: `Chart Analysis: ${patient.first_name} ${patient.last_name}`,
             data: response,
             context: { patient_id: dto.patient_id },
+            userId,
         });
         return { ...response, insight_id: saved?.id };
     }
-    async generateAppointmentSummary(clinicId, dto) {
+    async generateAppointmentSummary(clinicId, dto, userId) {
         const appointment = await this.prisma.appointment.findUnique({
             where: { id: dto.appointment_id },
             include: {
@@ -549,7 +618,11 @@ let AiService = AiService_1 = class AiService {
             })),
         });
         this.logger.log(`Generating appointment summary for ${dto.appointment_id}`);
-        const result = await this.callLLM(appointment_summary_prompt_js_1.APPOINTMENT_SUMMARY_SYSTEM_PROMPT, userPrompt);
+        const result = await this.callLLM(appointment_summary_prompt_js_1.APPOINTMENT_SUMMARY_SYSTEM_PROMPT, userPrompt, {
+            clinicId,
+            userId,
+            type: 'appointment_summary',
+        });
         const response = {
             ...result,
             appointment_id: dto.appointment_id,
@@ -563,10 +636,11 @@ let AiService = AiService_1 = class AiService {
             title: `Appointment Summary: ${appointment.patient.first_name} ${appointment.patient.last_name}`,
             data: response,
             context: { appointment_id: dto.appointment_id },
+            userId,
         });
         return { ...response, insight_id: saved?.id };
     }
-    async generateCampaignContent(clinicId, dto) {
+    async generateCampaignContent(clinicId, dto, userId) {
         const clinic = await this.prisma.clinic.findUnique({
             where: { id: clinicId },
             select: { name: true },
@@ -582,7 +656,11 @@ let AiService = AiService_1 = class AiService {
             additional_context: dto.additional_context,
         });
         this.logger.log(`Generating campaign content for clinic ${clinicId}`);
-        const result = await this.callLLM(campaign_content_prompt_js_1.CAMPAIGN_CONTENT_SYSTEM_PROMPT, userPrompt);
+        const result = await this.callLLM(campaign_content_prompt_js_1.CAMPAIGN_CONTENT_SYSTEM_PROMPT, userPrompt, {
+            clinicId,
+            userId,
+            type: 'campaign_content',
+        });
         const response = {
             ...result,
             generated_at: new Date().toISOString(),
@@ -593,6 +671,7 @@ let AiService = AiService_1 = class AiService {
             title: `Campaign: ${dto.campaign_name}`,
             data: response,
             context: { campaign_name: dto.campaign_name, campaign_type: dto.campaign_type, channel: dto.channel },
+            userId,
         });
         return { ...response, insight_id: saved?.id };
     }
@@ -623,7 +702,7 @@ let AiService = AiService_1 = class AiService {
             notes: params.notes,
         });
         this.logger.log(`Analyzing X-ray for patient ${patient.id}, attachment ${params.attachmentId}`);
-        const result = await this.callVisionLLM(xray_analysis_prompt_js_1.XRAY_ANALYSIS_SYSTEM_PROMPT, userPrompt, imageBase64, attachment.mime_type || 'image/jpeg');
+        const result = await this.callVisionLLM(xray_analysis_prompt_js_1.XRAY_ANALYSIS_SYSTEM_PROMPT, userPrompt, imageBase64, attachment.mime_type || 'image/jpeg', { clinicId, userId: params.userId, type: 'xray_analysis' });
         const response = {
             ...result,
             attachment_id: params.attachmentId,
@@ -650,6 +729,7 @@ exports.AiService = AiService;
 exports.AiService = AiService = AiService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
-        config_1.ConfigService])
+        config_1.ConfigService,
+        ai_usage_service_js_1.AiUsageService])
 ], AiService);
 //# sourceMappingURL=ai.service.js.map

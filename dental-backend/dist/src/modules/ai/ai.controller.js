@@ -17,6 +17,7 @@ const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const ai_service_js_1 = require("./ai.service.js");
+const ai_usage_service_js_1 = require("./ai-usage.service.js");
 const index_js_1 = require("./dto/index.js");
 const create_user_dto_js_1 = require("../user/dto/create-user.dto.js");
 const roles_decorator_js_1 = require("../../common/decorators/roles.decorator.js");
@@ -24,29 +25,31 @@ const track_ai_usage_decorator_js_1 = require("../../common/decorators/track-ai-
 const require_feature_decorator_js_1 = require("../../common/decorators/require-feature.decorator.js");
 let AiController = class AiController {
     aiService;
-    constructor(aiService) {
+    aiUsageService;
+    constructor(aiService, aiUsageService) {
         this.aiService = aiService;
+        this.aiUsageService = aiUsageService;
     }
     async generateClinicalNotes(req, dto) {
-        return this.aiService.generateClinicalNotes(req.user.clinicId, dto);
+        return this.aiService.generateClinicalNotes(req.user.clinicId, dto, req.user.userId);
     }
     async generatePrescription(req, dto) {
-        return this.aiService.generatePrescription(req.user.clinicId, dto);
+        return this.aiService.generatePrescription(req.user.clinicId, dto, req.user.userId);
     }
     async generateTreatmentPlan(req, dto) {
-        return this.aiService.generateTreatmentPlan(req.user.clinicId, dto);
+        return this.aiService.generateTreatmentPlan(req.user.clinicId, dto, req.user.userId);
     }
     async generateRevenueInsights(req, dto) {
-        return this.aiService.generateRevenueInsights(req.user.clinicId, dto);
+        return this.aiService.generateRevenueInsights(req.user.clinicId, dto, req.user.userId);
     }
     async generateChartAnalysis(req, dto) {
-        return this.aiService.generateChartAnalysis(req.user.clinicId, dto);
+        return this.aiService.generateChartAnalysis(req.user.clinicId, dto, req.user.userId);
     }
     async generateAppointmentSummary(req, dto) {
-        return this.aiService.generateAppointmentSummary(req.user.clinicId, dto);
+        return this.aiService.generateAppointmentSummary(req.user.clinicId, dto, req.user.userId);
     }
     async generateCampaignContent(req, dto) {
-        return this.aiService.generateCampaignContent(req.user.clinicId, dto);
+        return this.aiService.generateCampaignContent(req.user.clinicId, dto, req.user.userId);
     }
     async analyzeXray(req, body) {
         return this.aiService.analyzeXray(req.user.clinicId, {
@@ -57,6 +60,20 @@ let AiController = class AiController {
     }
     async getUsageStats(req) {
         return this.aiService.getUsageStats(req.user.clinicId);
+    }
+    async updateAiSettings(req, dto) {
+        return this.aiUsageService.setOverageEnabled(req.user.clinicId, dto.overage_enabled);
+    }
+    async createApprovalRequest(req, dto) {
+        return this.aiUsageService.createApprovalRequest({
+            clinicId: req.user.clinicId,
+            userId: req.user.userId,
+            requestedAmount: dto.requested_amount,
+            reason: dto.reason || '',
+        });
+    }
+    async listMyApprovalRequests(req) {
+        return this.aiUsageService.listMyApprovalRequests(req.user.clinicId);
     }
     async listInsights(req, type, limit, offset) {
         return this.aiService.listInsights(req.user.clinicId, {
@@ -188,6 +205,38 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AiController.prototype, "getUsageStats", null);
 __decorate([
+    (0, common_1.Patch)('settings'),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Toggle paid-plan overage on/off for the clinic' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, index_js_1.UpdateAiSettingsDto]),
+    __metadata("design:returntype", Promise)
+], AiController.prototype, "updateAiSettings", null);
+__decorate([
+    (0, common_1.Post)('quota-approval-requests'),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Request additional AI quota for the current cycle (super-admin approval)' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, index_js_1.CreateAiQuotaApprovalRequestDto]),
+    __metadata("design:returntype", Promise)
+], AiController.prototype, "createApprovalRequest", null);
+__decorate([
+    (0, common_1.Get)('quota-approval-requests'),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'List own AI quota approval requests' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AiController.prototype, "listMyApprovalRequests", null);
+__decorate([
     (0, common_1.Get)('insights'),
     (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST),
     (0, swagger_1.ApiOperation)({ summary: 'List stored AI insights with optional type filter' }),
@@ -229,6 +278,7 @@ exports.AiController = AiController = __decorate([
     (0, swagger_1.ApiTags)('AI'),
     (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.Controller)('ai'),
-    __metadata("design:paramtypes", [ai_service_js_1.AiService])
+    __metadata("design:paramtypes", [ai_service_js_1.AiService,
+        ai_usage_service_js_1.AiUsageService])
 ], AiController);
 //# sourceMappingURL=ai.controller.js.map
