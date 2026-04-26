@@ -105,6 +105,13 @@ export class CampaignController {
     return this.campaignService.getAudiencePreview(clinicId, body.segment_type, body.segment_config);
   }
 
+  @Get('treatment-procedures')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'List distinct treatment procedures performed at this clinic, with patient counts (for the By Treatment campaign segment dropdown)' })
+  async listTreatmentProcedures(@CurrentClinic() clinicId: string) {
+    return this.campaignService.listTreatmentProcedures(clinicId);
+  }
+
   @Get(':id/analytics')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get campaign analytics (delivery stats + attribution)' })

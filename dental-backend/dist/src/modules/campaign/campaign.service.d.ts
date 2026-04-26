@@ -172,6 +172,10 @@ export declare class CampaignService {
         read_count: number;
         actual_cost: Prisma.Decimal | null;
     }>;
+    listTreatmentProcedures(clinicId: string): Promise<Array<{
+        procedure: string;
+        patient_count: number;
+    }>>;
     getAudiencePreview(clinicId: string, segmentType: string, segmentConfig?: Record<string, unknown>): Promise<{
         total_count: number;
         sample: {

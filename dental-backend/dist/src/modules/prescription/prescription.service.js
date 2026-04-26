@@ -214,7 +214,7 @@ let PrescriptionService = class PrescriptionService {
     }
     async sendWhatsApp(clinicId, id) {
         const prescription = await this.findOne(clinicId, id);
-        await this.getPdfUrl(clinicId, id);
+        const { url: pdfUrl } = await this.getPdfUrl(clinicId, id);
         const patient = prescription.patient;
         const dentist = prescription.dentist;
         const [clinic, rule] = await Promise.all([
@@ -230,12 +230,33 @@ let PrescriptionService = class PrescriptionService {
         const patientName = `${patient.first_name} ${patient.last_name}`;
         const clinicName = clinic?.name ?? 'your clinic';
         const clinicPhone = clinic?.phone ?? '';
-        const doctorName = dentist?.name ? `Dr. ${dentist.name}` : 'your doctor';
+        const doctorName = dentist?.name || 'your doctor';
         const apiBase = process.env['API_BASE_URL'] ?? 'http://localhost:3000/api/v1';
         const redirectUrl = `${apiBase}/public/prescription-redirect/${id}?clinic=${clinicId}`;
         const channel = (rule?.channel && rule.channel !== 'preferred')
             ? rule.channel
             : 'whatsapp';
+        const variables = {
+            '1': patientName,
+            '2': doctorName,
+            '3': clinicName,
+            '4': clinicPhone,
+            patient_name: patientName,
+            patient_first_name: patient.first_name,
+            clinic_name: clinicName,
+            clinic_phone: clinicPhone,
+            doctor_name: doctorName,
+            link: redirectUrl,
+        };
+        const templateName = rule?.template?.template_name || '';
+        const isPdfTemplate = /_pdf$/i.test(templateName);
+        const headerMedia = isPdfTemplate
+            ? {
+                type: 'document',
+                url: pdfUrl,
+                filename: `Prescription-${patient.first_name}-${patient.last_name}.pdf`.replace(/\s+/g, '-'),
+            }
+            : undefined;
         await this.communicationService.sendMessage(clinicId, {
             patient_id: prescription.patient_id,
             channel: channel,
@@ -243,19 +264,13 @@ let PrescriptionService = class PrescriptionService {
             template_id: rule?.template_id ?? undefined,
             body: rule?.template_id
                 ? undefined
-                : `Hello ${patientName},\n\nYour prescription from ${doctorName} at ${clinicName} has been generated.\n\nView & Download:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
-            variables: {
-                patient_name: patientName,
-                patient_first_name: patient.first_name,
-                clinic_name: clinicName,
-                clinic_phone: clinicPhone,
-                doctor_name: doctorName,
-                link: redirectUrl,
-            },
+                : `Hello ${patientName},\n\nYour prescription from Dr. ${doctorName} at ${clinicName} has been generated.\n\nView & Download:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
+            variables,
             metadata: {
                 automation: 'prescription_ready',
                 prescription_id: id,
                 button_url_suffix: redirectUrl,
+                ...(headerMedia ? { whatsapp_header_media: headerMedia } : {}),
             },
         });
         return { message: 'Prescription sent' };

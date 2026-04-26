@@ -135,7 +135,8 @@ export class WhatsAppProvider implements ChannelProvider {
         messagePayload = this.buildInteractivePayload(destination, options.body, interactiveButtons);
       } else if (options.templateId) {
         const buttonParams = options.metadata?.['whatsapp_button_params'] as Array<{ type: string; index: number; parameters: string[] }> | undefined;
-        messagePayload = this.buildTemplatePayload(destination, options.templateId, options.variables, options.language, buttonParams);
+        const headerMedia = options.metadata?.['whatsapp_header_media'] as { type: 'document' | 'image' | 'video'; url: string; filename?: string } | undefined;
+        messagePayload = this.buildTemplatePayload(destination, options.templateId, options.variables, options.language, buttonParams, headerMedia);
       } else {
         // Session/Text Message — check if session window is open
         const sessionOpen = this.isSessionOpen(clinicId, destination);
@@ -492,8 +493,27 @@ export class WhatsAppProvider implements ChannelProvider {
     variables?: Record<string, string>,
     language?: string,
     buttonParams?: Array<{ type: string; index: number; parameters: string[] }>,
+    /** Optional header media — set when the approved template has an
+     *  IMAGE / VIDEO / DOCUMENT header component. */
+    headerMedia?: { type: 'document' | 'image' | 'video'; url: string; filename?: string },
   ): Record<string, unknown> {
     const components: Array<Record<string, unknown>> = [];
+
+    // Header media (e.g. PDF document for prescription / invoice templates)
+    if (headerMedia?.url) {
+      const param: Record<string, unknown> = { type: headerMedia.type };
+      if (headerMedia.type === 'document') {
+        param.document = { link: headerMedia.url, filename: headerMedia.filename || 'document.pdf' };
+      } else if (headerMedia.type === 'image') {
+        param.image = { link: headerMedia.url };
+      } else if (headerMedia.type === 'video') {
+        param.video = { link: headerMedia.url };
+      }
+      components.push({
+        type: 'header',
+        parameters: [param],
+      });
+    }
 
     if (variables && Object.keys(variables).length > 0) {
       // Sort by numeric key to guarantee order: "1","2","3",...

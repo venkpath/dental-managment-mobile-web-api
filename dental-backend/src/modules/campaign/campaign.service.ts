@@ -323,6 +323,26 @@ export class CampaignService {
     return this.prisma.campaign.delete({ where: { id } });
   }
 
+  // ─── Treatment Procedures (for "By Treatment" segment dropdown) ───
+
+  /**
+   * Distinct procedure names recorded against this clinic's treatments,
+   * with the count of unique patients who got each one. Sorted by patient
+   * count desc so the most-treated procedures bubble up.
+   */
+  async listTreatmentProcedures(clinicId: string): Promise<Array<{ procedure: string; patient_count: number }>> {
+    const rows = await this.prisma.$queryRaw<Array<{ procedure: string; patient_count: bigint }>>`
+      SELECT procedure, COUNT(DISTINCT patient_id)::bigint AS patient_count
+      FROM treatments
+      WHERE clinic_id = ${clinicId}::uuid
+        AND procedure IS NOT NULL
+        AND procedure <> ''
+      GROUP BY procedure
+      ORDER BY patient_count DESC, procedure ASC
+    `;
+    return rows.map((r) => ({ procedure: r.procedure, patient_count: Number(r.patient_count) }));
+  }
+
   // ─── Audience Preview ───
 
   async getAudiencePreview(clinicId: string, segmentType: string, segmentConfig?: Record<string, unknown>) {

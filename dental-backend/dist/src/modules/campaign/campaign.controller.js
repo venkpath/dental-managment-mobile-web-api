@@ -52,6 +52,9 @@ let CampaignController = class CampaignController {
     async audiencePreview(clinicId, body) {
         return this.campaignService.getAudiencePreview(clinicId, body.segment_type, body.segment_config);
     }
+    async listTreatmentProcedures(clinicId) {
+        return this.campaignService.listTreatmentProcedures(clinicId);
+    }
     async analytics(clinicId, id) {
         return this.campaignService.getAnalytics(clinicId, id);
     }
@@ -156,6 +159,16 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], CampaignController.prototype, "audiencePreview", null);
+__decorate([
+    (0, common_1.Get)('treatment-procedures'),
+    (0, roles_decorator_js_1.Roles)(index_js_1.UserRole.ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'List distinct treatment procedures performed at this clinic, with patient counts (for the By Treatment campaign segment dropdown)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], CampaignController.prototype, "listTreatmentProcedures", null);
 __decorate([
     (0, common_1.Get)(':id/analytics'),
     (0, roles_decorator_js_1.Roles)(index_js_1.UserRole.ADMIN),

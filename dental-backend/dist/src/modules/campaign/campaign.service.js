@@ -236,6 +236,18 @@ let CampaignService = class CampaignService {
         }
         return this.prisma.campaign.delete({ where: { id } });
     }
+    async listTreatmentProcedures(clinicId) {
+        const rows = await this.prisma.$queryRaw `
+      SELECT procedure, COUNT(DISTINCT patient_id)::bigint AS patient_count
+      FROM treatments
+      WHERE clinic_id = ${clinicId}::uuid
+        AND procedure IS NOT NULL
+        AND procedure <> ''
+      GROUP BY procedure
+      ORDER BY patient_count DESC, procedure ASC
+    `;
+        return rows.map((r) => ({ procedure: r.procedure, patient_count: Number(r.patient_count) }));
+    }
     async getAudiencePreview(clinicId, segmentType, segmentConfig) {
         const patients = await this.resolveSegment(clinicId, segmentType, segmentConfig || {});
         return {

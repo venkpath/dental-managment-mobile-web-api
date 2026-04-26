@@ -233,7 +233,9 @@ export class PrescriptionService {
 
   async sendWhatsApp(clinicId: string, id: string): Promise<{ message: string }> {
     const prescription = await this.findOne(clinicId, id);
-    await this.getPdfUrl(clinicId, id); // refresh PDF
+    // Refresh the PDF and grab the signed URL — we attach it as the
+    // template's HEADER document for templates that have a PDF header.
+    const { url: pdfUrl } = await this.getPdfUrl(clinicId, id);
 
     const patient = (prescription as any).patient;
     const dentist = (prescription as any).dentist;
@@ -255,13 +257,48 @@ export class PrescriptionService {
     const patientName = `${patient.first_name} ${patient.last_name}`;
     const clinicName = clinic?.name ?? 'your clinic';
     const clinicPhone = clinic?.phone ?? '';
-    const doctorName = dentist?.name ? `Dr. ${dentist.name}` : 'your doctor';
+    // Bare doctor name — the WhatsApp template usually already has a "Dr. " prefix
+    // (e.g. "from Dr. {{2}}"), so we don't double it up.
+    const doctorName = dentist?.name || 'your doctor';
     const apiBase = process.env['API_BASE_URL'] ?? 'http://localhost:3000/api/v1';
     const redirectUrl = `${apiBase}/public/prescription-redirect/${id}?clinic=${clinicId}`;
 
     const channel = (rule?.channel && rule.channel !== 'preferred')
       ? rule.channel
       : 'whatsapp';
+
+    // Templates synced from Meta usually store body vars as numeric ('1', '2', '3', '4').
+    // We pass BOTH numbered and named keys so the renderer fills correctly no matter
+    // how the DB row was written. The body order matches the conventional mapping
+    // we use for prescription templates: 1=patient, 2=doctor, 3=clinic, 4=phone.
+    const variables: Record<string, string> = {
+      // Numbered (Meta-style)
+      '1': patientName,
+      '2': doctorName,
+      '3': clinicName,
+      '4': clinicPhone,
+      // Named (custom DB templates)
+      patient_name: patientName,
+      patient_first_name: patient.first_name,
+      clinic_name: clinicName,
+      clinic_phone: clinicPhone,
+      doctor_name: doctorName,
+      link: redirectUrl,
+    };
+
+    // Attach the prescription PDF as a HEADER:DOCUMENT parameter — only for
+    // templates that were created with a PDF header. We key off the template
+    // name suffix `_pdf` since DB doesn't currently store the header type.
+    // Sending a header param to a template without a header makes Meta reject.
+    const templateName = rule?.template?.template_name || '';
+    const isPdfTemplate = /_pdf$/i.test(templateName);
+    const headerMedia = isPdfTemplate
+      ? {
+          type: 'document' as const,
+          url: pdfUrl,
+          filename: `Prescription-${patient.first_name}-${patient.last_name}.pdf`.replace(/\s+/g, '-'),
+        }
+      : undefined;
 
     await this.communicationService.sendMessage(clinicId, {
       patient_id: prescription.patient_id,
@@ -271,21 +308,13 @@ export class PrescriptionService {
       // Fallback body used only when no template is selected on the rule.
       body: rule?.template_id
         ? undefined
-        : `Hello ${patientName},\n\nYour prescription from ${doctorName} at ${clinicName} has been generated.\n\nView & Download:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
-      // Named variables — the renderer maps them onto the selected template's
-      // declared variable list (e.g. {{1}}, {{2}}, ...) by name.
-      variables: {
-        patient_name: patientName,
-        patient_first_name: patient.first_name,
-        clinic_name: clinicName,
-        clinic_phone: clinicPhone,
-        doctor_name: doctorName,
-        link: redirectUrl,
-      },
+        : `Hello ${patientName},\n\nYour prescription from Dr. ${doctorName} at ${clinicName} has been generated.\n\nView & Download:\n${redirectUrl}\n\nFor any queries, please reach us at ${clinicPhone} during clinic hours.`,
+      variables,
       metadata: {
         automation: 'prescription_ready',
         prescription_id: id,
         button_url_suffix: redirectUrl,
+        ...(headerMedia ? { whatsapp_header_media: headerMedia } : {}),
       },
     });
 

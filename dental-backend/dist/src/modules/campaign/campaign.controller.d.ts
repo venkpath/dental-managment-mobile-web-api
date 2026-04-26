@@ -177,6 +177,10 @@ export declare class CampaignController {
             email: string | null;
         }[];
     }>;
+    listTreatmentProcedures(clinicId: string): Promise<{
+        procedure: string;
+        patient_count: number;
+    }[]>;
     analytics(clinicId: string, id: string): Promise<{
         campaign_id: string;
         status: string;
