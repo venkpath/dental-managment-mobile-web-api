@@ -1,1 +1,1 @@
-{"version":3,"file":"platform-templates.js","sourceRoot":"","sources":["../../../../src/modules/communication/platform-templates.ts"],"names":[],"mappings":";;;AAKa,QAAA,uBAAuB,GAAG;IACrC,2BAA2B;IAC3B,0BAA0B;IAC1B,6BAA6B;CACrB,CAAC"}
+{"version":3,"file":"platform-templates.js","sourceRoot":"","sources":["../../../../src/modules/communication/platform-templates.ts"],"names":[],"mappings":";;;AAMa,QAAA,uBAAuB,GAAG;IACrC,2BAA2B;IAC3B,0BAA0B;IAC1B,6BAA6B;IAC7B,+BAA+B;CACvB,CAAC"}
