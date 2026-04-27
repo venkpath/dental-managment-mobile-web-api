@@ -5,38 +5,60 @@ CRITICAL SAFETY RULES:
 - Adjust dosages for patient age (pediatric/geriatric) and weight if provided
 - Flag known drug interactions if patient has existing medications or medical conditions
 - For pregnant/lactating patients, only suggest pregnancy-safe medications
-- Include standard dental medications: analgesics, antibiotics, anti-inflammatory, antiseptic mouthwash
+- Include standard dental medications only when clinically indicated: analgesics, antibiotics, anti-inflammatory, antiseptic mouthwash
 - Use generic drug names with common brand names in parentheses where helpful
 - Follow standard dental prescribing guidelines
 
-OUTPUT FORMAT (JSON):
+OUTPUT FORMAT (strict JSON, no markdown):
 {
   "medications": [
-    {
-      "drug_name": "Amoxicillin 500mg",
-      "dosage": "1 capsule",
-      "frequency": "3 times daily",
-      "duration": "5 days",
-      "route": "Oral",
-      "instructions": "Take after meals. Complete the full course.",
-      "purpose": "Antibiotic for dental infection"
-    }
+    { "drug_name": "<generic (brand)>", "dosage": "<amount>", "frequency": "<TDS/BD/OD>", "duration": "<n days>", "route": "Oral", "instructions": "<short>", "purpose": "<why>" }
   ],
-  "warnings": ["Patient is allergic to Penicillin — Amoxicillin avoided, Azithromycin used as alternative"],
-  "interactions": ["No significant interactions detected"],
-  "post_procedure_instructions": [
-    "Avoid hot food/drinks for 2 hours",
-    "Do not spit or use straw for 24 hours",
-    "Apply ice pack externally if swelling occurs"
-  ],
-  "dietary_advice": "Soft diet for 24-48 hours. Avoid spicy and hard foods.",
-  "follow_up": "Review after 5 days if symptoms persist"
+  "warnings": ["<allergy or contraindication warnings; empty array if none>"],
+  "interactions": ["<drug-drug or drug-condition concerns; empty array if none>"],
+  "post_procedure_instructions": ["<3-4 bullets, MUST match the diagnosis and procedure performed today>"],
+  "dietary_advice": "<one short sentence specific to this case>",
+  "follow_up": "<when and why to return>"
 }
+
+CRITICAL — INSTRUCTION TAILORING:
+The post_procedure_instructions and dietary_advice MUST be specific to the diagnosis and procedure performed today. Do NOT default to extraction/surgical advice unless the case is actually surgical. Use this guidance:
+
+- Scaling / polishing / gingivitis / periodontitis maintenance:
+  Soft-bristled toothbrush, gentle brushing twice daily, floss daily, antiseptic mouthwash (Chlorhexidine 0.12%) for 5-7 days, mild cold/hot sensitivity for 1-2 days is normal, avoid smoking/tobacco, recall in 6 months. NO "don't spit", NO "ice pack", NO "soft diet 24-48h".
+
+- Composite / GIC filling:
+  Avoid chewing hard food on the filled side for 24 hours, mild sensitivity normal for a few days, maintain oral hygiene, return if pain persists beyond a week. NO surgical post-op advice.
+
+- Root canal (RCT) — single or multi-visit:
+  Avoid chewing on the treated tooth until permanent crown is placed, complete antibiotic course, mild discomfort for 2-3 days normal, schedule crown within 1-2 weeks, report severe pain/swelling/fever.
+
+- Crown / bridge cementation:
+  Avoid sticky/hard food for 24 hours, mild sensitivity normal, maintain hygiene around margins, return if crown feels high or loose.
+
+- Simple or surgical extraction (including wisdom teeth):
+  Bite on gauze for 30-45 min, do NOT spit/rinse/use straw for 24 hours, apply ice pack externally for swelling, soft cool diet for 24-48 hours, warm salt-water rinses from day 2, complete antibiotics, report excessive bleeding or dry-socket pain.
+
+- Pericoronitis / abscess (no extraction yet):
+  Warm salt-water rinses 4-5 times daily, complete antibiotics fully, soft diet while symptomatic, return if swelling/fever worsens or trismus increases.
+
+- Implant placement (surgical):
+  Same as surgical extraction post-op PLUS no smoking for 2 weeks (impairs osseointegration), avoid pressure on the site, sutures removed in 7-10 days.
+
+- Orthodontic adjustment / band placement:
+  Soft diet for 1-2 days after tightening, orthodontic wax for bracket irritation, avoid sticky/hard/sugary food, brush carefully around brackets, return for next adjustment as scheduled.
+
+- Routine check-up with no procedure today:
+  Reinforce hygiene practices relevant to findings, schedule any recommended treatment, recall in 6 months.
+
+Never copy the example bullets above verbatim — adapt wording to the specific diagnosis. If the case clearly does not match any category, generate instructions reasoned from the diagnosis itself.
 
 Respond ONLY with valid JSON. No markdown, no explanation.`;
 
 export function buildPrescriptionUserPrompt(input: {
   diagnosis: string;
+  chief_complaint?: string;
+  past_dental_history?: string;
   procedures_performed?: string;
   patient_name: string;
   patient_age?: number | null;
@@ -52,14 +74,22 @@ export function buildPrescriptionUserPrompt(input: {
   if (input.patient_gender) prompt += `, Gender: ${input.patient_gender}`;
   prompt += `\n`;
 
+  if (input.chief_complaint) {
+    prompt += `Chief Complaint: ${input.chief_complaint}\n`;
+  }
+
   prompt += `Diagnosis: ${input.diagnosis}\n`;
 
   if (input.procedures_performed) {
-    prompt += `Procedures Performed: ${input.procedures_performed}\n`;
+    prompt += `Procedure Performed Today: ${input.procedures_performed}\n`;
   }
 
   if (input.tooth_numbers && input.tooth_numbers.length > 0) {
     prompt += `Teeth Involved: ${input.tooth_numbers.join(', ')}\n`;
+  }
+
+  if (input.past_dental_history) {
+    prompt += `Past Dental History: ${input.past_dental_history}\n`;
   }
 
   if (input.allergies) {

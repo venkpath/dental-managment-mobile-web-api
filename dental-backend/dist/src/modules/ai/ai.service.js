@@ -313,13 +313,18 @@ let AiService = AiService_1 = class AiService {
     }
     async generatePrescription(clinicId, dto, userId) {
         const { patient, age } = await this.getPatientContext(clinicId, dto.patient_id);
+        const mergedAllergies = [patient.allergies, dto.allergies_medical_history]
+            .filter((s) => !!s && s.trim().length > 0)
+            .join(' | ') || undefined;
         const userPrompt = (0, prescription_prompt_js_1.buildPrescriptionUserPrompt)({
             diagnosis: dto.diagnosis,
+            chief_complaint: dto.chief_complaint,
+            past_dental_history: dto.past_dental_history,
             procedures_performed: dto.procedures_performed,
             patient_name: `${patient.first_name} ${patient.last_name}`,
             patient_age: age,
             patient_gender: patient.gender,
-            allergies: patient.allergies ?? undefined,
+            allergies: mergedAllergies,
             medical_history: patient.medical_history ?? undefined,
             existing_medications: dto.existing_medications,
             tooth_numbers: dto.tooth_numbers,

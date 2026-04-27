@@ -17,10 +17,13 @@ class GeneratePrescriptionDto {
     patient_id;
     diagnosis;
     procedures_performed;
+    chief_complaint;
+    past_dental_history;
+    allergies_medical_history;
     tooth_numbers;
     existing_medications;
     static _OPENAPI_METADATA_FACTORY() {
-        return { patient_id: { required: true, type: () => String, format: "uuid" }, diagnosis: { required: true, type: () => String, minLength: 5 }, procedures_performed: { required: false, type: () => String }, tooth_numbers: { required: false, type: () => [String] }, existing_medications: { required: false, type: () => String } };
+        return { patient_id: { required: true, type: () => String, format: "uuid" }, diagnosis: { required: true, type: () => String, minLength: 5 }, procedures_performed: { required: false, type: () => String }, chief_complaint: { required: false, type: () => String }, past_dental_history: { required: false, type: () => String }, allergies_medical_history: { required: false, type: () => String }, tooth_numbers: { required: false, type: () => [String] }, existing_medications: { required: false, type: () => String } };
     }
 }
 exports.GeneratePrescriptionDto = GeneratePrescriptionDto;
@@ -44,6 +47,27 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], GeneratePrescriptionDto.prototype, "procedures_performed", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Sharp pain on lower left while drinking cold water' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], GeneratePrescriptionDto.prototype, "chief_complaint", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Composite filling on 16 (2019), extraction of 18 (2015)' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], GeneratePrescriptionDto.prototype, "past_dental_history", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Allergies and medical history typed in the prescription form. Merged with patient.allergies.',
+        example: 'Penicillin allergy (rash)',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], GeneratePrescriptionDto.prototype, "allergies_medical_history", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: ['36', '47'] }),
     (0, class_validator_1.IsOptional)(),
