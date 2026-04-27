@@ -24,7 +24,7 @@ class UpdatePrescriptionDto {
     dentist_id;
     items;
     static _OPENAPI_METADATA_FACTORY() {
-        return { diagnosis: { required: false, type: () => String, maxLength: 500 }, instructions: { required: false, type: () => String }, chief_complaint: { required: false, type: () => String }, past_dental_history: { required: false, type: () => String }, allergies_medical_history: { required: false, type: () => String }, dentist_id: { required: false, type: () => String, format: "uuid" }, items: { required: false, type: () => [require("./create-prescription.dto").PrescriptionItemDto], minItems: 1 } };
+        return { diagnosis: { required: false, type: () => String, maxLength: 500 }, instructions: { required: false, type: () => String }, chief_complaint: { required: false, type: () => String }, past_dental_history: { required: false, type: () => String }, allergies_medical_history: { required: false, type: () => String }, dentist_id: { required: false, type: () => String, format: "uuid" }, items: { required: false, type: () => [require("./create-prescription.dto").PrescriptionItemDto] } };
     }
 }
 exports.UpdatePrescriptionDto = UpdatePrescriptionDto;
@@ -66,10 +66,12 @@ __decorate([
     __metadata("design:type", String)
 ], UpdatePrescriptionDto.prototype, "dentist_id", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ type: [create_prescription_dto_js_1.PrescriptionItemDto], description: 'Replaces all existing medicine items' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        type: [create_prescription_dto_js_1.PrescriptionItemDto],
+        description: 'Replaces all existing medicine items. Pass an empty array to remove all medicines.',
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),
-    (0, class_validator_1.ArrayMinSize)(1),
     (0, class_validator_1.ValidateNested)({ each: true }),
     (0, class_transformer_1.Type)(() => create_prescription_dto_js_1.PrescriptionItemDto),
     __metadata("design:type", Array)

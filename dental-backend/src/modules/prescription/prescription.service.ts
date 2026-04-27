@@ -58,15 +58,14 @@ export class PrescriptionService {
 
     const { items, ...rest } = dto;
 
-    // Transaction: create prescription with items atomically
+    // Transaction: create prescription with items atomically.
+    // Items are optional — a prescription may be saved with instructions only.
     return this.prisma.$transaction(async (tx) => {
       return tx.prescription.create({
         data: {
           ...rest,
           clinic_id: clinicId,
-          items: {
-            create: items,
-          },
+          ...(items && items.length > 0 ? { items: { create: items } } : {}),
         },
         include: PRESCRIPTION_INCLUDE,
       });

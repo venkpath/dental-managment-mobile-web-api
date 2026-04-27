@@ -103,7 +103,7 @@ class CreatePrescriptionDto {
     instructions;
     items;
     static _OPENAPI_METADATA_FACTORY() {
-        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: true, type: () => String, format: "uuid" }, clinical_visit_id: { required: false, type: () => String, format: "uuid" }, diagnosis: { required: true, type: () => String, maxLength: 500 }, chief_complaint: { required: false, type: () => String }, past_dental_history: { required: false, type: () => String }, allergies_medical_history: { required: false, type: () => String }, instructions: { required: false, type: () => String }, items: { required: true, type: () => [require("./create-prescription.dto").PrescriptionItemDto], minItems: 1 } };
+        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: true, type: () => String, format: "uuid" }, clinical_visit_id: { required: false, type: () => String, format: "uuid" }, diagnosis: { required: true, type: () => String, maxLength: 500 }, chief_complaint: { required: false, type: () => String }, past_dental_history: { required: false, type: () => String }, allergies_medical_history: { required: false, type: () => String }, instructions: { required: false, type: () => String }, items: { required: false, type: () => [require("./create-prescription.dto").PrescriptionItemDto] } };
     }
 }
 exports.CreatePrescriptionDto = CreatePrescriptionDto;
@@ -159,9 +159,12 @@ __decorate([
     __metadata("design:type", String)
 ], CreatePrescriptionDto.prototype, "instructions", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ type: [PrescriptionItemDto], description: 'List of prescribed medicines' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        type: [PrescriptionItemDto],
+        description: 'List of prescribed medicines. Optional — a prescription may be saved with instructions only.',
+    }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),
-    (0, class_validator_1.ArrayMinSize)(1),
     (0, class_validator_1.ValidateNested)({ each: true }),
     (0, class_transformer_1.Type)(() => PrescriptionItemDto),
     __metadata("design:type", Array)

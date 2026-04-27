@@ -4,7 +4,6 @@ import {
   IsOptional,
   IsArray,
   ValidateNested,
-  ArrayMinSize,
   MaxLength,
   IsInt,
   Min,
@@ -110,10 +109,13 @@ export class CreatePrescriptionDto {
   @IsString()
   instructions?: string;
 
-  @ApiProperty({ type: [PrescriptionItemDto], description: 'List of prescribed medicines' })
+  @ApiPropertyOptional({
+    type: [PrescriptionItemDto],
+    description: 'List of prescribed medicines. Optional — a prescription may be saved with instructions only.',
+  })
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => PrescriptionItemDto)
-  items!: PrescriptionItemDto[];
+  items?: PrescriptionItemDto[];
 }

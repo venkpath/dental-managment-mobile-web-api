@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsArray, ValidateNested, ArrayMinSize, MaxLength, IsUUID } from 'class-validator';
+import { IsOptional, IsString, IsArray, ValidateNested, MaxLength, IsUUID } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { PrescriptionItemDto } from './create-prescription.dto.js';
@@ -35,10 +35,12 @@ export class UpdatePrescriptionDto {
   @IsUUID()
   dentist_id?: string;
 
-  @ApiPropertyOptional({ type: [PrescriptionItemDto], description: 'Replaces all existing medicine items' })
+  @ApiPropertyOptional({
+    type: [PrescriptionItemDto],
+    description: 'Replaces all existing medicine items. Pass an empty array to remove all medicines.',
+  })
   @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => PrescriptionItemDto)
   items?: PrescriptionItemDto[];

@@ -67,9 +67,7 @@ let PrescriptionService = class PrescriptionService {
                 data: {
                     ...rest,
                     clinic_id: clinicId,
-                    items: {
-                        create: items,
-                    },
+                    ...(items && items.length > 0 ? { items: { create: items } } : {}),
                 },
                 include: PRESCRIPTION_INCLUDE,
             });
