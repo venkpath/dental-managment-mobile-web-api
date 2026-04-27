@@ -35,4 +35,10 @@ export default registerAs('app', () => ({
     appId: process.env['FACEBOOK_APP_ID'] || '',
     appSecret: process.env['FACEBOOK_APP_SECRET'] || '',
   },
+  google: {
+    // Google Business Profile OAuth (used by the clinic-side review auto-reply feature)
+    clientId: process.env['GOOGLE_CLIENT_ID'] || '',
+    clientSecret: process.env['GOOGLE_CLIENT_SECRET'] || '',
+    redirectUri: process.env['GOOGLE_REDIRECT_URI'] || 'http://localhost:3000/api/google-reviews/oauth/callback',
+  },
 }));

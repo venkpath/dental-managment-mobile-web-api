@@ -19,18 +19,21 @@ const config_1 = require("@nestjs/config");
 const schedule_1 = require("@nestjs/schedule");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const ai_usage_service_js_1 = require("../ai/ai-usage.service.js");
+const platform_billing_service_js_1 = require("../platform-billing/platform-billing.service.js");
 const razorpay_1 = __importDefault(require("razorpay"));
 const crypto_1 = require("crypto");
 let PaymentService = PaymentService_1 = class PaymentService {
     configService;
     prisma;
     aiUsage;
+    platformBilling;
     logger = new common_1.Logger(PaymentService_1.name);
     razorpay;
-    constructor(configService, prisma, aiUsage) {
+    constructor(configService, prisma, aiUsage, platformBilling) {
         this.configService = configService;
         this.prisma = prisma;
         this.aiUsage = aiUsage;
+        this.platformBilling = platformBilling;
     }
     onModuleInit() {
         const keyId = this.configService.get('razorpay.keyId');
@@ -210,6 +213,26 @@ let PaymentService = PaymentService_1 = class PaymentService {
                     .settleOldestPendingFromPayment(clinicId, paymentRef)
                     .catch((err) => this.logger.warn(`AI overage settle failed for clinic ${clinicId}: ${err.message}`));
             }
+            const amountInPaise = Number(payment['amount']) || 0;
+            if (paymentRef && amountInPaise > 0) {
+                const subscriptionId = subscription?.['id'] || null;
+                const periodStart = subscription?.['current_start']
+                    ? new Date(Number(subscription['current_start']) * 1000)
+                    : null;
+                const periodEnd = subscription?.['current_end']
+                    ? new Date(Number(subscription['current_end']) * 1000)
+                    : null;
+                await this.platformBilling
+                    .createInvoiceFromPayment({
+                    clinicId,
+                    razorpayPaymentId: paymentRef,
+                    razorpaySubscriptionId: subscriptionId,
+                    amountInPaise,
+                    periodStart,
+                    periodEnd,
+                })
+                    .catch((err) => this.logger.error(`Platform invoice creation failed for clinic ${clinicId} payment ${paymentRef}: ${err.message}`, err.stack));
+            }
         }
     }
     async handleSubscriptionCancelled(subscription) {
@@ -286,6 +309,7 @@ exports.PaymentService = PaymentService = PaymentService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [config_1.ConfigService,
         prisma_service_js_1.PrismaService,
-        ai_usage_service_js_1.AiUsageService])
+        ai_usage_service_js_1.AiUsageService,
+        platform_billing_service_js_1.PlatformBillingService])
 ], PaymentService);
 //# sourceMappingURL=payment.service.js.map

@@ -5,6 +5,7 @@ export { GenerateRevenueInsightsDto } from './generate-revenue-insights.dto.js';
 export { GenerateChartAnalysisDto } from './generate-chart-analysis.dto.js';
 export { GenerateAppointmentSummaryDto } from './generate-appointment-summary.dto.js';
 export { GenerateCampaignContentDto } from './generate-campaign-content.dto.js';
+export { GenerateReviewReplyDto } from './generate-review-reply.dto.js';
 export {
   UpdateAiSettingsDto,
   CreateAiQuotaApprovalRequestDto,

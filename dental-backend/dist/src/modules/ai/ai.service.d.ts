@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service.js';
 import { AiUsageService } from './ai-usage.service.js';
-import { GenerateClinicalNotesDto, GeneratePrescriptionDto, GenerateTreatmentPlanDto, GenerateRevenueInsightsDto, GenerateChartAnalysisDto, GenerateAppointmentSummaryDto, GenerateCampaignContentDto } from './dto/index.js';
+import { GenerateClinicalNotesDto, GeneratePrescriptionDto, GenerateTreatmentPlanDto, GenerateRevenueInsightsDto, GenerateChartAnalysisDto, GenerateAppointmentSummaryDto, GenerateCampaignContentDto, GenerateReviewReplyDto } from './dto/index.js';
 export declare class AiService {
     private readonly prisma;
     private readonly config;
@@ -138,5 +138,12 @@ export declare class AiService {
         patient_id: string;
         patient_name: string;
         generated_at: string;
+    }>;
+    generateReviewReply(clinicId: string, dto: GenerateReviewReplyDto, userId?: string): Promise<{
+        reply: string;
+        language: string;
+        sentiment: string;
+        is_safe_to_auto_post: boolean;
+        review_summary: string;
     }>;
 }

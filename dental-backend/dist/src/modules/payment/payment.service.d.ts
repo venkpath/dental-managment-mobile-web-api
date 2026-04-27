@@ -2,6 +2,7 @@ import { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service.js';
 import { AiUsageService } from '../ai/ai-usage.service.js';
+import { PlatformBillingService } from '../platform-billing/platform-billing.service.js';
 interface CreateSubscriptionDto {
     clinicId: string;
     planKey: string;
@@ -21,9 +22,10 @@ export declare class PaymentService implements OnModuleInit {
     private readonly configService;
     private readonly prisma;
     private readonly aiUsage;
+    private readonly platformBilling;
     private readonly logger;
     private razorpay;
-    constructor(configService: ConfigService, prisma: PrismaService, aiUsage: AiUsageService);
+    constructor(configService: ConfigService, prisma: PrismaService, aiUsage: AiUsageService, platformBilling: PlatformBillingService);
     onModuleInit(): void;
     getSubscriptionStatus(clinicId: string): Promise<{
         current_period_start: string | null;

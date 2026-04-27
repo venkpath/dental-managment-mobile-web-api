@@ -18,6 +18,7 @@ import {
   GenerateChartAnalysisDto,
   GenerateAppointmentSummaryDto,
   GenerateCampaignContentDto,
+  GenerateReviewReplyDto,
 } from './dto/index.js';
 import {
   CLINICAL_NOTES_SYSTEM_PROMPT,
@@ -51,6 +52,10 @@ import {
   XRAY_ANALYSIS_SYSTEM_PROMPT,
   buildXrayAnalysisUserPrompt,
 } from './prompts/xray-analysis.prompt.js';
+import {
+  REVIEW_REPLY_SYSTEM_PROMPT,
+  buildReviewReplyUserPrompt,
+} from './prompts/review-reply.prompt.js';
 
 @Injectable()
 export class AiService {
@@ -911,5 +916,61 @@ export class AiService {
     });
 
     return { ...response, insight_id: saved?.id };
+  }
+
+  // ─── 9. Google Review Reply ───────────────────────────────────
+
+  /**
+   * Generate a draft reply to a Google review. Returns structured output
+   * including the reply text, detected language, sentiment, and a safety
+   * flag for whether the reply is OK to auto-post without human review.
+   *
+   * The caller (GoogleReviewsService) is responsible for reserving the
+   * AI quota slot beforehand — same contract as the other generators.
+   */
+  async generateReviewReply(
+    clinicId: string,
+    dto: GenerateReviewReplyDto,
+    userId?: string,
+  ): Promise<{
+    reply: string;
+    language: string;
+    sentiment: string;
+    is_safe_to_auto_post: boolean;
+    review_summary: string;
+  }> {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { name: true, phone: true },
+    });
+    if (!clinic) {
+      throw new NotFoundException('Clinic not found');
+    }
+
+    const userPrompt = buildReviewReplyUserPrompt({
+      clinic_name: clinic.name,
+      clinic_phone: clinic.phone ?? undefined,
+      reviewer_name: dto.reviewer_name,
+      rating: dto.rating,
+      review_text: dto.review_text,
+      tone: dto.tone || 'warm',
+      custom_instructions: dto.custom_instructions,
+      signature: dto.signature,
+    });
+
+    this.logger.log(`Generating review reply for clinic ${clinicId} (rating=${dto.rating})`);
+    const result = await this.callLLM(REVIEW_REPLY_SYSTEM_PROMPT, userPrompt, {
+      clinicId,
+      userId,
+      type: 'review_reply',
+    });
+
+    return {
+      reply: String(result['reply'] ?? '').trim(),
+      language: String(result['language'] ?? 'en'),
+      sentiment: String(result['sentiment'] ?? 'neutral'),
+      is_safe_to_auto_post: Boolean(result['is_safe_to_auto_post'] ?? false),
+      review_summary: String(result['review_summary'] ?? ''),
+    };
   }
 }

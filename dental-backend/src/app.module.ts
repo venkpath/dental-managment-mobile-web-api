@@ -55,6 +55,10 @@ import { PublicBookingModule } from './modules/public-booking/public-booking.mod
 import { ExpenseModule } from './modules/expense/expense.module.js';
 import { MembershipModule } from './modules/membership/membership.module.js';
 import { DemoRequestModule } from './modules/demo-request/demo-request.module.js';
+import { PlatformBillingModule } from './modules/platform-billing/platform-billing.module.js';
+// DISABLED: Google review auto-reply — pending Google Business Profile API approval.
+// Code lives at src/modules/google-reviews/ (excluded from compile via tsconfig).
+// import { GoogleReviewsModule } from './modules/google-reviews/google-reviews.module.js';
 import { LoggerModule } from 'nestjs-pino';
 import razorpayConfig from './config/razorpay.config.js';
 
@@ -124,6 +128,8 @@ import razorpayConfig from './config/razorpay.config.js';
     ExpenseModule,
     MembershipModule,
     DemoRequestModule,
+    PlatformBillingModule,
+    // GoogleReviewsModule, // DISABLED — pending Google Business Profile API approval
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

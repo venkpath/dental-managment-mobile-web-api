@@ -28,6 +28,7 @@ const dental_chart_analysis_prompt_js_1 = require("./prompts/dental-chart-analys
 const appointment_summary_prompt_js_1 = require("./prompts/appointment-summary.prompt.js");
 const campaign_content_prompt_js_1 = require("./prompts/campaign-content.prompt.js");
 const xray_analysis_prompt_js_1 = require("./prompts/xray-analysis.prompt.js");
+const review_reply_prompt_js_1 = require("./prompts/review-reply.prompt.js");
 let AiService = AiService_1 = class AiService {
     prisma;
     config;
@@ -728,6 +729,38 @@ let AiService = AiService_1 = class AiService {
             userId: params.userId,
         });
         return { ...response, insight_id: saved?.id };
+    }
+    async generateReviewReply(clinicId, dto, userId) {
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: { name: true, phone: true },
+        });
+        if (!clinic) {
+            throw new common_1.NotFoundException('Clinic not found');
+        }
+        const userPrompt = (0, review_reply_prompt_js_1.buildReviewReplyUserPrompt)({
+            clinic_name: clinic.name,
+            clinic_phone: clinic.phone ?? undefined,
+            reviewer_name: dto.reviewer_name,
+            rating: dto.rating,
+            review_text: dto.review_text,
+            tone: dto.tone || 'warm',
+            custom_instructions: dto.custom_instructions,
+            signature: dto.signature,
+        });
+        this.logger.log(`Generating review reply for clinic ${clinicId} (rating=${dto.rating})`);
+        const result = await this.callLLM(review_reply_prompt_js_1.REVIEW_REPLY_SYSTEM_PROMPT, userPrompt, {
+            clinicId,
+            userId,
+            type: 'review_reply',
+        });
+        return {
+            reply: String(result['reply'] ?? '').trim(),
+            language: String(result['language'] ?? 'en'),
+            sentiment: String(result['sentiment'] ?? 'neutral'),
+            is_safe_to_auto_post: Boolean(result['is_safe_to_auto_post'] ?? false),
+            review_summary: String(result['review_summary'] ?? ''),
+        };
     }
 };
 exports.AiService = AiService;

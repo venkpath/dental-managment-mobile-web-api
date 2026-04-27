@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../database/prisma.service.js';
 import { AiUsageService } from '../ai/ai-usage.service.js';
+import { PlatformBillingService } from '../platform-billing/platform-billing.service.js';
 import Razorpay from 'razorpay';
 import { createHmac } from 'crypto';
 
@@ -28,6 +29,7 @@ export class PaymentService implements OnModuleInit {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly aiUsage: AiUsageService,
+    private readonly platformBilling: PlatformBillingService,
   ) {}
 
   onModuleInit() {
@@ -258,6 +260,36 @@ export class PaymentService implements OnModuleInit {
           .catch((err) =>
             this.logger.warn(
               `AI overage settle failed for clinic ${clinicId}: ${(err as Error).message}`,
+            ),
+          );
+      }
+
+      // Issue a platform tax invoice for this payment (Smart Dental Desk →
+      // clinic). Best-effort: failure here must not throw away the webhook,
+      // since Razorpay will retry on non-2xx responses.
+      const amountInPaise = Number(payment['amount']) || 0;
+      if (paymentRef && amountInPaise > 0) {
+        const subscriptionId = (subscription?.['id'] as string) || null;
+        const periodStart = subscription?.['current_start']
+          ? new Date(Number(subscription['current_start']) * 1000)
+          : null;
+        const periodEnd = subscription?.['current_end']
+          ? new Date(Number(subscription['current_end']) * 1000)
+          : null;
+
+        await this.platformBilling
+          .createInvoiceFromPayment({
+            clinicId,
+            razorpayPaymentId: paymentRef,
+            razorpaySubscriptionId: subscriptionId,
+            amountInPaise,
+            periodStart,
+            periodEnd,
+          })
+          .catch((err) =>
+            this.logger.error(
+              `Platform invoice creation failed for clinic ${clinicId} payment ${paymentRef}: ${(err as Error).message}`,
+              (err as Error).stack,
             ),
           );
       }

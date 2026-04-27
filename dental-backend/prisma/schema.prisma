@@ -66,6 +66,17 @@ model Clinic {
   membership_usages      MembershipBenefitUsage[]
   usage_counters         ClinicUsageCounter[]
 
+  // ─── DISABLED: Google Business Profile review auto-reply feature ───
+  // Re-enable these relations together with the GoogleBusinessConnection /
+  // GoogleReviewSettings / GoogleReview models below once Google grants
+  // Business Profile API access.
+  //
+  // google_business_connection GoogleBusinessConnection?
+  // google_review_settings     GoogleReviewSettings?
+  // google_reviews             GoogleReview[]
+
+  platform_invoices PlatformInvoice[]
+
   @@index([email])
   @@index([plan_id])
   @@map("clinics")
@@ -142,8 +153,9 @@ model Plan {
   created_at                 DateTime @default(now())
   updated_at                 DateTime @updatedAt
 
-  clinics       Clinic[]
-  plan_features PlanFeature[]
+  clinics           Clinic[]
+  plan_features     PlanFeature[]
+  platform_invoices PlatformInvoice[]
 
   @@map("plans")
 }
@@ -1455,3 +1467,167 @@ model DemoRequest {
   @@index([created_at])
   @@map("demo_requests")
 }
+
+// ─── Platform billing: SaaS invoices we issue to clinics for their
+//     subscription payments. Separate from the patient-side `Invoice` model
+//     which tracks treatment billing inside each clinic. ───────────────────
+
+/// One row per successful (or refunded) Razorpay charge against a clinic's
+/// subscription. The PDF is rendered on-demand from this row using the
+/// platform billing entity (Smart Dental Desk / Yeshika Enterprises) as the
+/// supplier and the clinic as the bill-to.
+model PlatformInvoice {
+  id             String   @id @default(uuid()) @db.Uuid
+  clinic_id      String   @db.Uuid
+  invoice_number String   @unique @db.VarChar(50)
+
+  // Plan + period covered by this charge
+  plan_id       String?  @db.Uuid
+  plan_name     String   @db.VarChar(100)
+  billing_cycle String   @db.VarChar(10) // monthly | yearly
+  period_start  DateTime
+  period_end    DateTime
+
+  // Money. Plan price is treated as INCLUSIVE of GST: subtotal is reverse-
+  // computed (total / (1 + tax_rate/100)), then tax_amount = total - subtotal.
+  subtotal     Decimal @db.Decimal(12, 2)
+  tax_rate     Decimal @default(18) @db.Decimal(5, 2)
+  tax_amount   Decimal @db.Decimal(12, 2)
+  total_amount Decimal @db.Decimal(12, 2)
+  currency     String  @default("INR") @db.VarChar(10)
+
+  // GST split — populated when the bill-to is intra-state (Karnataka),
+  // otherwise igst_amount carries the full tax (inter-state IGST treatment).
+  cgst_amount Decimal @default(0) @db.Decimal(12, 2)
+  sgst_amount Decimal @default(0) @db.Decimal(12, 2)
+  igst_amount Decimal @default(0) @db.Decimal(12, 2)
+
+  // Snapshot of bill-to at issue time so historical PDFs stay correct even
+  // if the clinic later edits its profile.
+  bill_to_name    String  @db.VarChar(255)
+  bill_to_email   String  @db.VarChar(255)
+  bill_to_phone   String? @db.VarChar(50)
+  bill_to_address String? @db.VarChar(500)
+  bill_to_city    String? @db.VarChar(100)
+  bill_to_state   String? @db.VarChar(100)
+  bill_to_pincode String? @db.VarChar(10)
+  bill_to_gstin   String? @db.VarChar(20) // optional: clinic's GSTIN if they provided one
+
+  // Razorpay refs
+  razorpay_payment_id      String? @db.VarChar(100)
+  razorpay_subscription_id String? @db.VarChar(100)
+
+  // Lifecycle
+  status         String  @default("paid") @db.VarChar(20) // paid | failed | refunded
+  pdf_s3_key     String? @db.VarChar(500) // S3 key once PDF has been rendered + uploaded
+
+  // Delivery tracking (we send via WhatsApp + Email)
+  delivery_status   String    @default("pending") @db.VarChar(30) // pending | sent | partial | failed
+  whatsapp_sent_at  DateTime?
+  whatsapp_error    String?   @db.Text
+  email_sent_at     DateTime?
+  email_error       String?   @db.Text
+
+  issued_at  DateTime @default(now())
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  plan   Plan?  @relation(fields: [plan_id], references: [id], onDelete: SetNull)
+
+  @@unique([razorpay_payment_id])
+  @@index([clinic_id])
+  @@index([clinic_id, issued_at])
+  @@index([status])
+  @@index([razorpay_subscription_id])
+  @@map("platform_invoices")
+}
+
+// ─── DISABLED: Google Business Profile integration ────────────────────────
+//
+// The Google review auto-reply feature is implemented end-to-end (see
+// src/modules/google-reviews/) but cannot be turned on until Google grants
+// us Business Profile API access. The models below are commented out so the
+// Prisma client stays clean; the matching relation fields on Clinic are also
+// commented out. The TypeScript module is excluded from compilation via
+// tsconfig.json. To re-enable: uncomment everything below, uncomment the
+// three relation fields on Clinic, remove the tsconfig exclude entry,
+// re-add `GoogleReviewsModule` to AppModule.imports, and run `prisma db push`.
+//
+// /// Per-clinic Google Business Profile OAuth connection.
+// /// Stores refresh + access tokens for the clinic's own GBP account, plus the
+// /// account/location IDs used to fetch reviews and post replies.
+// model GoogleBusinessConnection {
+//   clinic_id           String    @id @db.Uuid
+//   google_account_id   String    @db.VarChar(100)
+//   google_account_name String    @db.VarChar(255)
+//   location_id         String?   @db.VarChar(100)
+//   location_name       String?   @db.VarChar(255)
+//   access_token        String    @db.Text
+//   refresh_token       String    @db.Text
+//   token_expires_at    DateTime
+//   scope               String?   @db.VarChar(500)
+//   status              String    @default("active") @db.VarChar(20)
+//   last_synced_at      DateTime?
+//   last_sync_error     String?   @db.Text
+//   connected_by        String?   @db.Uuid
+//   created_at          DateTime  @default(now())
+//   updated_at          DateTime  @updatedAt
+//
+//   clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+//
+//   @@map("google_business_connections")
+// }
+//
+// /// Per-clinic settings for the Google review auto-reply feature.
+// model GoogleReviewSettings {
+//   clinic_id            String   @id @db.Uuid
+//   auto_reply_enabled   Boolean  @default(true)
+//   auto_post_min_rating Int      @default(4)
+//   tone                 String   @default("warm") @db.VarChar(20)
+//   custom_instructions  String?  @db.VarChar(2000)
+//   signature            String?  @db.VarChar(255)
+//   notify_admin_on_low  Boolean  @default(true)
+//   created_at           DateTime @default(now())
+//   updated_at           DateTime @updatedAt
+//
+//   clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+//
+//   @@map("google_review_settings")
+// }
+//
+// /// A Google review synced into our database. One row per Google review.
+// model GoogleReview {
+//   id                 String    @id @default(uuid()) @db.Uuid
+//   clinic_id          String    @db.Uuid
+//   google_review_id   String    @db.VarChar(255)
+//   location_id        String    @db.VarChar(100)
+//   reviewer_name      String?   @db.VarChar(255)
+//   reviewer_photo_url String?   @db.VarChar(1000)
+//   rating             Int
+//   comment            String?   @db.Text
+//   language           String?   @db.VarChar(10)
+//   review_created_at  DateTime
+//   review_updated_at  DateTime
+//
+//   reply_status String    @default("pending") @db.VarChar(30)
+//   ai_draft     String?   @db.Text
+//   posted_reply String?   @db.Text
+//   posted_at    DateTime?
+//   approved_by  String?   @db.Uuid
+//   approved_at  DateTime?
+//   last_error   String?   @db.Text
+//   retry_count  Int       @default(0)
+//
+//   created_at DateTime @default(now())
+//   updated_at DateTime @updatedAt
+//
+//   clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+//
+//   @@unique([clinic_id, google_review_id])
+//   @@index([clinic_id])
+//   @@index([clinic_id, reply_status])
+//   @@index([clinic_id, rating])
+//   @@index([review_created_at])
+//   @@map("google_reviews")
+// }

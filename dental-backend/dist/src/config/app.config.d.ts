@@ -33,6 +33,11 @@ declare const _default: (() => {
         appId: string;
         appSecret: string;
     };
+    google: {
+        clientId: string;
+        clientSecret: string;
+        redirectUri: string;
+    };
 }) & import("@nestjs/config").ConfigFactoryKeyHost<{
     port: number;
     nodeEnv: string;
@@ -67,6 +72,11 @@ declare const _default: (() => {
     facebook: {
         appId: string;
         appSecret: string;
+    };
+    google: {
+        clientId: string;
+        clientSecret: string;
+        redirectUri: string;
     };
 }>;
 export default _default;
