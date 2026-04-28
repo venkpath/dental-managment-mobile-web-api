@@ -18,6 +18,7 @@ var UserRole;
     UserRole["ADMIN"] = "Admin";
     UserRole["DENTIST"] = "Dentist";
     UserRole["RECEPTIONIST"] = "Receptionist";
+    UserRole["STAFF"] = "Staff";
     UserRole["CONSULTANT"] = "Consultant";
 })(UserRole || (exports.UserRole = UserRole = {}));
 class CreateUserDto {

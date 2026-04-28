@@ -5,6 +5,7 @@ export enum UserRole {
   ADMIN = 'Admin',
   DENTIST = 'Dentist',
   RECEPTIONIST = 'Receptionist',
+  STAFF = 'Staff',
   CONSULTANT = 'Consultant',
 }
 
