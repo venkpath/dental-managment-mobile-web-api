@@ -9,6 +9,7 @@ const mockPrismaService = {
   payment: { aggregate: jest.fn() },
   invoice: { count: jest.fn(), aggregate: jest.fn() },
   patient: { count: jest.fn() },
+  expense: { aggregate: jest.fn() },
   $queryRaw: jest.fn(),
 };
 
@@ -38,6 +39,12 @@ describe('ReportsService', () => {
         _sum: { amount: 15000.5 },
       });
       mockPrismaService.invoice.count.mockResolvedValue(3);
+      mockPrismaService.invoice.aggregate.mockResolvedValue({
+        _sum: { net_amount: 2000 },
+      });
+      mockPrismaService.expense.aggregate.mockResolvedValue({
+        _sum: { amount: 5000 },
+      });
       mockPrismaService.$queryRaw.mockResolvedValue([{ count: BigInt(2) }]);
     });
 
@@ -48,7 +55,11 @@ describe('ReportsService', () => {
         today_appointments: 5,
         today_revenue: 15000.5,
         pending_invoices: 3,
+        outstanding_amount: expect.any(Number),
         low_inventory_count: 2,
+        this_month_expenses: 5000,
+        this_month_revenue: 15000.5,
+        net_profit: 15000.5 - 5000,
       });
     });
 
@@ -87,7 +98,7 @@ describe('ReportsService', () => {
       expect(mockPrismaService.invoice.count).toHaveBeenCalledWith({
         where: {
           clinic_id: clinicId,
-          status: 'pending',
+          status: { in: ['pending', 'partially_paid'] },
         },
       });
     });
@@ -120,6 +131,8 @@ describe('ReportsService', () => {
       mockPrismaService.appointment.count.mockResolvedValue(0);
       mockPrismaService.payment.aggregate.mockResolvedValue({ _sum: { amount: null } });
       mockPrismaService.invoice.count.mockResolvedValue(0);
+      mockPrismaService.invoice.aggregate.mockResolvedValue({ _sum: { net_amount: null } });
+      mockPrismaService.expense.aggregate.mockResolvedValue({ _sum: { amount: null } });
       mockPrismaService.$queryRaw.mockResolvedValue([{ count: BigInt(0) }]);
 
       const result = await service.getDashboardSummary(clinicId);
@@ -128,7 +141,11 @@ describe('ReportsService', () => {
         today_appointments: 0,
         today_revenue: 0,
         pending_invoices: 0,
+        outstanding_amount: 0,
         low_inventory_count: 0,
+        this_month_expenses: 0,
+        this_month_revenue: 0,
+        net_profit: 0,
       });
     });
   });

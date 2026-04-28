@@ -1,7 +1,8 @@
 export declare enum UserRole {
     ADMIN = "Admin",
     DENTIST = "Dentist",
-    RECEPTIONIST = "Receptionist"
+    RECEPTIONIST = "Receptionist",
+    CONSULTANT = "Consultant"
 }
 export declare class CreateUserDto {
     branch_id?: string;

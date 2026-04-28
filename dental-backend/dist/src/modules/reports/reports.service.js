@@ -28,7 +28,7 @@ let ReportsService = class ReportsService {
         const branchFilter = branchId || null;
         const dentistFilter = dentistId || null;
         const invoiceDentistFilter = dentistFilter ? { dentist_id: dentistFilter } : {};
-        const [todayAppointments, todayRevenue, pendingInvoices, lowInventoryItems, monthExpenses, monthRevenue] = await Promise.all([
+        const [todayAppointments, todayRevenue, pendingInvoices, pendingInvoicesAgg, partiallyPaidAgg, partiallyPaidPaymentsAgg, lowInventoryItems, monthExpenses, monthRevenue] = await Promise.all([
             this.prisma.appointment.count({
                 where: {
                     clinic_id: clinicId,
@@ -54,6 +54,35 @@ let ReportsService = class ReportsService {
                     status: { in: ['pending', 'partially_paid'] },
                     ...(branchFilter && { branch_id: branchFilter }),
                     ...invoiceDentistFilter,
+                },
+            }),
+            this.prisma.invoice.aggregate({
+                _sum: { net_amount: true },
+                where: {
+                    clinic_id: clinicId,
+                    status: 'pending',
+                    ...(branchFilter && { branch_id: branchFilter }),
+                    ...invoiceDentistFilter,
+                },
+            }),
+            this.prisma.invoice.aggregate({
+                _sum: { net_amount: true },
+                where: {
+                    clinic_id: clinicId,
+                    status: 'partially_paid',
+                    ...(branchFilter && { branch_id: branchFilter }),
+                    ...invoiceDentistFilter,
+                },
+            }),
+            this.prisma.payment.aggregate({
+                _sum: { amount: true },
+                where: {
+                    invoice: {
+                        clinic_id: clinicId,
+                        status: 'partially_paid',
+                        ...(branchFilter && { branch_id: branchFilter }),
+                        ...invoiceDentistFilter,
+                    },
                 },
             }),
             this.prisma.$queryRaw `
@@ -85,10 +114,15 @@ let ReportsService = class ReportsService {
         ]);
         const thisMonthExpenses = Number(monthExpenses._sum.amount ?? 0);
         const thisMonthRevenue = Number(monthRevenue._sum.amount ?? 0);
+        const pendingNet = Number(pendingInvoicesAgg._sum.net_amount ?? 0);
+        const partiallyPaidNet = Number(partiallyPaidAgg._sum.net_amount ?? 0);
+        const partiallyPaidCollected = Number(partiallyPaidPaymentsAgg._sum.amount ?? 0);
+        const outstandingAmount = Math.max(0, pendingNet + (partiallyPaidNet - partiallyPaidCollected));
         return {
             today_appointments: todayAppointments,
             today_revenue: Number(todayRevenue._sum.amount ?? 0),
             pending_invoices: pendingInvoices,
+            outstanding_amount: outstandingAmount,
             low_inventory_count: Number(lowInventoryItems[0]?.count ?? 0),
             this_month_expenses: thisMonthExpenses,
             this_month_revenue: thisMonthRevenue,
@@ -108,7 +142,7 @@ let ReportsService = class ReportsService {
                 items: { some: { treatment: { dentist_id: query.dentist_id } } },
             }),
         };
-        const [paidAgg, partiallyPaidAgg, pendingCount, paidCount, partiallyPaidCount, paymentsAgg] = await Promise.all([
+        const [paidAgg, partiallyPaidAgg, pendingAgg, pendingCount, paidCount, partiallyPaidCount, paymentsAgg] = await Promise.all([
             this.prisma.invoice.aggregate({
                 _sum: {
                     net_amount: true,
@@ -124,6 +158,10 @@ let ReportsService = class ReportsService {
                     discount_amount: true,
                 },
                 where: { ...invoiceWhere, status: 'partially_paid' },
+            }),
+            this.prisma.invoice.aggregate({
+                _sum: { net_amount: true },
+                where: { ...invoiceWhere, status: 'pending' },
             }),
             this.prisma.invoice.count({
                 where: { ...invoiceWhere, status: 'pending' },
@@ -145,7 +183,8 @@ let ReportsService = class ReportsService {
         const partiallyPaidNetTotal = Number(partiallyPaidAgg._sum.net_amount ?? 0);
         const paidPayments = Number(paymentsAgg._sum.amount ?? 0);
         const paidNetTotal = Number(paidAgg._sum.net_amount ?? 0);
-        const outstandingAmount = (paidNetTotal + partiallyPaidNetTotal) - paidPayments;
+        const pendingNetTotal = Number(pendingAgg._sum.net_amount ?? 0);
+        const outstandingAmount = (paidNetTotal + partiallyPaidNetTotal + pendingNetTotal) - paidPayments;
         return {
             total_revenue: totalRevenue,
             paid_invoices: paidCount,
@@ -220,7 +259,7 @@ let ReportsService = class ReportsService {
         ) AS revenue_generated
       FROM users u
       WHERE u.clinic_id = ${clinicId}::uuid
-        AND u.role = 'Dentist'
+        AND u.role IN ('Dentist', 'Consultant')
         AND u.status = 'active'
         ${dentistFilter ? client_1.Prisma.sql `AND u.id = ${dentistFilter}::uuid` : client_1.Prisma.empty}
         ${branchFilter ? client_1.Prisma.sql `AND (u.branch_id = ${branchFilter}::uuid OR u.branch_id IS NULL)` : client_1.Prisma.empty}

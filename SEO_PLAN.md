@@ -122,6 +122,9 @@ Replaced the 8-city plan with data-driven content based on actual competitor gap
 - [ ] **Navbar `rel="nofollow"` on /login and /register** (~2 min edit, silences 2 cosmetic Bing errors, low priority)
 - [ ] **Weekly blog content** (Phase 5, starts once directory grind is done)
 - [ ] **Next city pages** — Bengaluru, Hyderabad, Mumbai (Phase 5, after Chennai shows GSC traction in 4-6 weeks)
+- [x] **Bengaluru city blog** — `/blog/best-dental-software-bengaluru-2026` shipped 2026-04-28 (listicle/comparison format, 7 competitors, 2,200 words). Pulled forward from Phase 5 to start ranking earlier.
+- [x] **Hyderabad city blog** — `/blog/best-dental-software-hyderabad-2026` shipped 2026-04-28. Differentiated angle: Banjara Hills cosmetic vs Kukatpally volume vs Hi-Tech corporate, cosmetic/therapeutic GST split, Telugu+Urdu+English language mix, GHMC + TSDC compliance, AP cross-state patient flow.
+- [ ] **Mumbai city blog** — biggest market. Same template, Maharashtra-specific (BMC, MSDC, Marathi+Hindi+English, suburban-line clinic clusters Bandra/Andheri/Powai/Thane). Planned next.
 
 ### Prasanth — pending work (what's on your plate)
 - [ ] **Set up work email** `prasanth@smartdentaldesk.com` (blocks G2)

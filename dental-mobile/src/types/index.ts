@@ -2,7 +2,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'ADMIN' | 'DENTIST' | 'RECEPTIONIST' | 'STAFF';
+  role: 'ADMIN' | 'DENTIST' | 'RECEPTIONIST' | 'STAFF' | 'CONSULTANT';
   branch_id?: string;
   clinic_id: string;
 }
@@ -122,6 +122,7 @@ export interface DashboardSummary {
   today_appointments: number;
   today_revenue: number;
   pending_invoices: number;
+  outstanding_amount: number;
   low_inventory_count: number;
 }
 

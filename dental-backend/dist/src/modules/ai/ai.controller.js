@@ -92,7 +92,7 @@ let AiController = class AiController {
 exports.AiController = AiController;
 __decorate([
     (0, common_1.Post)('clinical-notes'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST, create_user_dto_js_1.UserRole.CONSULTANT),
     (0, track_ai_usage_decorator_js_1.TrackAiUsage)(),
     (0, require_feature_decorator_js_1.RequireFeature)('AI_CLINICAL_NOTES'),
     (0, swagger_1.ApiOperation)({ summary: 'Generate SOAP clinical notes from brief dentist input' }),
@@ -105,7 +105,7 @@ __decorate([
 ], AiController.prototype, "generateClinicalNotes", null);
 __decorate([
     (0, common_1.Post)('prescription'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST, create_user_dto_js_1.UserRole.CONSULTANT),
     (0, track_ai_usage_decorator_js_1.TrackAiUsage)(),
     (0, require_feature_decorator_js_1.RequireFeature)('AI_PRESCRIPTION'),
     (0, swagger_1.ApiOperation)({ summary: 'Generate AI-powered dental prescription with safety checks' }),
@@ -118,7 +118,7 @@ __decorate([
 ], AiController.prototype, "generatePrescription", null);
 __decorate([
     (0, common_1.Post)('treatment-plan'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST, create_user_dto_js_1.UserRole.CONSULTANT),
     (0, track_ai_usage_decorator_js_1.TrackAiUsage)(),
     (0, require_feature_decorator_js_1.RequireFeature)('AI_TREATMENT_PLAN'),
     (0, swagger_1.ApiOperation)({ summary: 'Generate comprehensive treatment plan from dental chart' }),
@@ -144,7 +144,7 @@ __decorate([
 ], AiController.prototype, "generateRevenueInsights", null);
 __decorate([
     (0, common_1.Post)('chart-analysis'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST, create_user_dto_js_1.UserRole.CONSULTANT),
     (0, track_ai_usage_decorator_js_1.TrackAiUsage)(),
     (0, require_feature_decorator_js_1.RequireFeature)('AI_TREATMENT_PLAN'),
     (0, swagger_1.ApiOperation)({ summary: 'AI risk assessment from dental chart conditions' }),
@@ -157,7 +157,7 @@ __decorate([
 ], AiController.prototype, "generateChartAnalysis", null);
 __decorate([
     (0, common_1.Post)('appointment-summary'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST, create_user_dto_js_1.UserRole.CONSULTANT),
     (0, track_ai_usage_decorator_js_1.TrackAiUsage)(),
     (0, require_feature_decorator_js_1.RequireFeature)('AI_CLINICAL_NOTES'),
     (0, swagger_1.ApiOperation)({ summary: 'Generate post-visit appointment summary for handoff' }),
@@ -183,7 +183,7 @@ __decorate([
 ], AiController.prototype, "generateCampaignContent", null);
 __decorate([
     (0, common_1.Post)('xray-analysis'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST, create_user_dto_js_1.UserRole.CONSULTANT),
     (0, track_ai_usage_decorator_js_1.TrackAiUsage)(),
     (0, require_feature_decorator_js_1.RequireFeature)('AI_CLINICAL_NOTES'),
     (0, swagger_1.ApiOperation)({ summary: 'AI-powered dental X-ray analysis using vision model' }),
@@ -196,7 +196,7 @@ __decorate([
 ], AiController.prototype, "analyzeXray", null);
 __decorate([
     (0, common_1.Get)('usage'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST, create_user_dto_js_1.UserRole.CONSULTANT),
     (0, swagger_1.ApiOperation)({ summary: 'Get AI usage stats for the clinic with per-user and per-type breakdown' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, common_1.Req)()),
@@ -238,7 +238,7 @@ __decorate([
 ], AiController.prototype, "listMyApprovalRequests", null);
 __decorate([
     (0, common_1.Get)('insights'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST, create_user_dto_js_1.UserRole.CONSULTANT),
     (0, swagger_1.ApiOperation)({ summary: 'List stored AI insights with optional type filter' }),
     (0, swagger_1.ApiQuery)({ name: 'type', required: false }),
     (0, swagger_1.ApiQuery)({ name: 'limit', required: false }),
@@ -254,7 +254,7 @@ __decorate([
 ], AiController.prototype, "listInsights", null);
 __decorate([
     (0, common_1.Get)('insights/:id'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST, create_user_dto_js_1.UserRole.CONSULTANT),
     (0, swagger_1.ApiOperation)({ summary: 'Get a single stored AI insight' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, common_1.Req)()),

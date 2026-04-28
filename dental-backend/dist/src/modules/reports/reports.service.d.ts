@@ -4,6 +4,7 @@ export interface DashboardSummary {
     today_appointments: number;
     today_revenue: number;
     pending_invoices: number;
+    outstanding_amount: number;
     low_inventory_count: number;
     this_month_expenses: number;
     this_month_revenue: number;

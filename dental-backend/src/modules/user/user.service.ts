@@ -109,7 +109,11 @@ export class UserService {
 
   async findAll(clinicId: string, role?: string, search?: string, branchId?: string): Promise<Omit<User, 'password_hash'>[]> {
     const where: any = { clinic_id: clinicId };
-    if (role) where.role = role;
+    if (role) {
+      // Accept comma-separated roles, e.g. "Dentist,Consultant"
+      const roles = role.split(',').map((r) => r.trim()).filter(Boolean);
+      where.role = roles.length > 1 ? { in: roles } : roles[0];
+    }
     if (branchId) where.branch_id = branchId;
     if (search) {
       where.OR = [

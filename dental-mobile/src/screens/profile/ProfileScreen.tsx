@@ -71,6 +71,7 @@ export default function ProfileScreen() {
   const roleLabel: Record<string, string> = {
     ADMIN: 'Administrator',
     DENTIST: 'Dentist',
+    CONSULTANT: 'Consultant',
     RECEPTIONIST: 'Receptionist',
     STAFF: 'Staff',
   };

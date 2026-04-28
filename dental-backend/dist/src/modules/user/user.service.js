@@ -98,8 +98,10 @@ let UserService = class UserService {
     }
     async findAll(clinicId, role, search, branchId) {
         const where = { clinic_id: clinicId };
-        if (role)
-            where.role = role;
+        if (role) {
+            const roles = role.split(',').map((r) => r.trim()).filter(Boolean);
+            where.role = roles.length > 1 ? { in: roles } : roles[0];
+        }
         if (branchId)
             where.branch_id = branchId;
         if (search) {

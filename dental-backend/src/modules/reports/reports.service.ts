@@ -13,6 +13,7 @@ export interface DashboardSummary {
   today_appointments: number;
   today_revenue: number;
   pending_invoices: number;
+  outstanding_amount: number;
   low_inventory_count: number;
   this_month_expenses: number;
   this_month_revenue: number;
@@ -92,7 +93,7 @@ export class ReportsService {
     // are clinic-wide and remain unfiltered by dentist.
     const invoiceDentistFilter = dentistFilter ? { dentist_id: dentistFilter } : {};
 
-    const [todayAppointments, todayRevenue, pendingInvoices, lowInventoryItems, monthExpenses, monthRevenue] =
+    const [todayAppointments, todayRevenue, pendingInvoices, pendingInvoicesAgg, partiallyPaidAgg, partiallyPaidPaymentsAgg, lowInventoryItems, monthExpenses, monthRevenue] =
       await Promise.all([
         this.prisma.appointment.count({
           where: {
@@ -121,6 +122,41 @@ export class ReportsService {
             status: { in: ['pending', 'partially_paid'] },
             ...(branchFilter && { branch_id: branchFilter }),
             ...invoiceDentistFilter,
+          },
+        }),
+
+        // Sum net_amount on pending invoices (full balance is outstanding)
+        this.prisma.invoice.aggregate({
+          _sum: { net_amount: true },
+          where: {
+            clinic_id: clinicId,
+            status: 'pending',
+            ...(branchFilter && { branch_id: branchFilter }),
+            ...invoiceDentistFilter,
+          },
+        }),
+
+        // Sum net_amount on partially_paid invoices
+        this.prisma.invoice.aggregate({
+          _sum: { net_amount: true },
+          where: {
+            clinic_id: clinicId,
+            status: 'partially_paid',
+            ...(branchFilter && { branch_id: branchFilter }),
+            ...invoiceDentistFilter,
+          },
+        }),
+
+        // Sum of payments collected on partially_paid invoices (subtract from net)
+        this.prisma.payment.aggregate({
+          _sum: { amount: true },
+          where: {
+            invoice: {
+              clinic_id: clinicId,
+              status: 'partially_paid',
+              ...(branchFilter && { branch_id: branchFilter }),
+              ...invoiceDentistFilter,
+            },
           },
         }),
 
@@ -157,10 +193,16 @@ export class ReportsService {
     const thisMonthExpenses = Number(monthExpenses._sum.amount ?? 0);
     const thisMonthRevenue = Number(monthRevenue._sum.amount ?? 0);
 
+    const pendingNet = Number(pendingInvoicesAgg._sum.net_amount ?? 0);
+    const partiallyPaidNet = Number(partiallyPaidAgg._sum.net_amount ?? 0);
+    const partiallyPaidCollected = Number(partiallyPaidPaymentsAgg._sum.amount ?? 0);
+    const outstandingAmount = Math.max(0, pendingNet + (partiallyPaidNet - partiallyPaidCollected));
+
     return {
       today_appointments: todayAppointments,
       today_revenue: Number(todayRevenue._sum.amount ?? 0),
       pending_invoices: pendingInvoices,
+      outstanding_amount: outstandingAmount,
       low_inventory_count: Number(lowInventoryItems[0]?.count ?? 0),
       this_month_expenses: thisMonthExpenses,
       this_month_revenue: thisMonthRevenue,
@@ -183,7 +225,7 @@ export class ReportsService {
       }),
     };
 
-    const [paidAgg, partiallyPaidAgg, pendingCount, paidCount, partiallyPaidCount, paymentsAgg] = await Promise.all([
+    const [paidAgg, partiallyPaidAgg, pendingAgg, pendingCount, paidCount, partiallyPaidCount, paymentsAgg] = await Promise.all([
       this.prisma.invoice.aggregate({
         _sum: {
           net_amount: true,
@@ -200,6 +242,12 @@ export class ReportsService {
           discount_amount: true,
         },
         where: { ...invoiceWhere, status: 'partially_paid' },
+      }),
+
+      // Pending invoices (no payment yet) — full net_amount is outstanding
+      this.prisma.invoice.aggregate({
+        _sum: { net_amount: true },
+        where: { ...invoiceWhere, status: 'pending' },
       }),
 
       this.prisma.invoice.count({
@@ -227,7 +275,8 @@ export class ReportsService {
     const partiallyPaidNetTotal = Number(partiallyPaidAgg._sum.net_amount ?? 0);
     const paidPayments = Number(paymentsAgg._sum.amount ?? 0);
     const paidNetTotal = Number(paidAgg._sum.net_amount ?? 0);
-    const outstandingAmount = (paidNetTotal + partiallyPaidNetTotal) - paidPayments;
+    const pendingNetTotal = Number(pendingAgg._sum.net_amount ?? 0);
+    const outstandingAmount = (paidNetTotal + partiallyPaidNetTotal + pendingNetTotal) - paidPayments;
 
     return {
       total_revenue: totalRevenue,
@@ -324,7 +373,7 @@ export class ReportsService {
         ) AS revenue_generated
       FROM users u
       WHERE u.clinic_id = ${clinicId}::uuid
-        AND u.role = 'Dentist'
+        AND u.role IN ('Dentist', 'Consultant')
         AND u.status = 'active'
         ${dentistFilter ? Prisma.sql`AND u.id = ${dentistFilter}::uuid` : Prisma.empty}
         ${branchFilter ? Prisma.sql`AND (u.branch_id = ${branchFilter}::uuid OR u.branch_id IS NULL)` : Prisma.empty}

@@ -29,7 +29,7 @@ export class AiController {
   ) {}
 
   @Post('clinical-notes')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.CONSULTANT)
   @TrackAiUsage()
   @RequireFeature('AI_CLINICAL_NOTES')
   @ApiOperation({ summary: 'Generate SOAP clinical notes from brief dentist input' })
@@ -41,7 +41,7 @@ export class AiController {
   }
 
   @Post('prescription')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.CONSULTANT)
   @TrackAiUsage()
   @RequireFeature('AI_PRESCRIPTION')
   @ApiOperation({ summary: 'Generate AI-powered dental prescription with safety checks' })
@@ -53,7 +53,7 @@ export class AiController {
   }
 
   @Post('treatment-plan')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.CONSULTANT)
   @TrackAiUsage()
   @RequireFeature('AI_TREATMENT_PLAN')
   @ApiOperation({ summary: 'Generate comprehensive treatment plan from dental chart' })
@@ -77,7 +77,7 @@ export class AiController {
   }
 
   @Post('chart-analysis')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.CONSULTANT)
   @TrackAiUsage()
   @RequireFeature('AI_TREATMENT_PLAN')
   @ApiOperation({ summary: 'AI risk assessment from dental chart conditions' })
@@ -89,7 +89,7 @@ export class AiController {
   }
 
   @Post('appointment-summary')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.CONSULTANT)
   @TrackAiUsage()
   @RequireFeature('AI_CLINICAL_NOTES')
   @ApiOperation({ summary: 'Generate post-visit appointment summary for handoff' })
@@ -115,7 +115,7 @@ export class AiController {
   // ─── 8. X-ray Analysis ──────────────────────────────────────
 
   @Post('xray-analysis')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.CONSULTANT)
   @TrackAiUsage()
   @RequireFeature('AI_CLINICAL_NOTES')
   @ApiOperation({ summary: 'AI-powered dental X-ray analysis using vision model' })
@@ -133,7 +133,7 @@ export class AiController {
   // ─── Usage Stats ─────────────────────────────────────────────
 
   @Get('usage')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.CONSULTANT)
   @ApiOperation({ summary: 'Get AI usage stats for the clinic with per-user and per-type breakdown' })
   async getUsageStats(@Req() req: Request) {
     return this.aiService.getUsageStats(req.user!.clinicId);
@@ -175,7 +175,7 @@ export class AiController {
   // ─── Stored Insights CRUD ───────────────────────────────────
 
   @Get('insights')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.CONSULTANT)
   @ApiOperation({ summary: 'List stored AI insights with optional type filter' })
   @ApiQuery({ name: 'type', required: false })
   @ApiQuery({ name: 'limit', required: false })
@@ -194,7 +194,7 @@ export class AiController {
   }
 
   @Get('insights/:id')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.CONSULTANT)
   @ApiOperation({ summary: 'Get a single stored AI insight' })
   async getInsight(
     @Req() req: Request,

@@ -557,7 +557,7 @@ export class AiService {
         }),
         // Dentist performance
         this.prisma.user.findMany({
-          where: { clinic_id: clinicId, role: 'Dentist' },
+          where: { clinic_id: clinicId, role: { in: ['Dentist', 'Consultant'] } },
           select: {
             name: true,
             appointments: {

@@ -115,14 +115,14 @@ export class GoogleReviewsController {
   // ─── Reviews ──────────────────────────────────────────────────
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.CONSULTANT)
   @ApiOperation({ summary: 'List synced Google reviews with optional status / rating filters' })
   listReviews(@Req() req: Request, @Query() query: ListReviewsQueryDto) {
     return this.googleReviews.listReviews(req.user!.clinicId, query);
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN, UserRole.DENTIST)
+  @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.CONSULTANT)
   @ApiOperation({ summary: 'Get a single Google review with its AI draft reply' })
   getReview(@Req() req: Request, @Param('id') id: string) {
     return this.googleReviews.getReview(req.user!.clinicId, id);

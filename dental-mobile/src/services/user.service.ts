@@ -28,7 +28,7 @@ export const userService = {
   // Fetch dentists + admins (used to pick dentists for booking)
   listStaff: async (): Promise<StaffUser[]> => {
     const [dentistsRes, adminsRes] = await Promise.all([
-      api.get('/users', { params: { role: 'Dentist' } }),
+      api.get('/users', { params: { role: 'Dentist,Consultant' } }),
       api.get('/users', { params: { role: 'Admin' } }),
     ]);
     const dentists: StaffUser[] = Array.isArray(dentistsRes.data) ? dentistsRes.data : (dentistsRes.data as any)?.data ?? [];
