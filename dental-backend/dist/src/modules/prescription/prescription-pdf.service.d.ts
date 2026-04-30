@@ -60,6 +60,7 @@ export interface PrescriptionPdfData {
         phone?: string | null;
         email?: string | null;
         date_of_birth?: string | Date | null;
+        age?: number | null;
         gender?: string | null;
     };
     dentist: {

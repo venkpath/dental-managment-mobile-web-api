@@ -431,6 +431,9 @@ let PrescriptionPdfService = class PrescriptionPdfService {
                     (now < new Date(now.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0);
                 ageStr = `${age}`;
             }
+            else if (typeof data.patient.age === 'number' && data.patient.age > 0) {
+                ageStr = `${data.patient.age}`;
+            }
             const uhid = `P-${data.patient.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
             renderField('patient_name', config.zones.patient_name, patientName);
             renderField('age', config.zones.age, ageStr);
@@ -439,19 +442,19 @@ let PrescriptionPdfService = class PrescriptionPdfService {
             renderField('mobile', config.zones.mobile, data.patient.phone ?? '');
             renderField('patient_id', config.zones.patient_id, uhid);
             const blocks = [];
-            const assessmentLines = [];
-            if (data.chief_complaint)
-                assessmentLines.push(`Chief Complaint: ${data.chief_complaint}`);
-            if (data.diagnosis)
-                assessmentLines.push(`Diagnosis: ${data.diagnosis}`);
-            if (data.past_dental_history)
-                assessmentLines.push(`Past History: ${data.past_dental_history}`);
-            if (data.allergies_medical_history)
-                assessmentLines.push(`Allergies: ${data.allergies_medical_history}`);
-            if (assessmentLines.length) {
+            const pushAssessment = (label, value) => {
+                if (!value)
+                    return;
+                blocks.push({ kind: 'labeled', label: `${label}: `, text: value });
+            };
+            const hasAnyAssessment = !!(data.chief_complaint || data.diagnosis ||
+                data.past_dental_history || data.allergies_medical_history);
+            if (hasAnyAssessment) {
                 blocks.push({ kind: 'heading', text: 'Assessment' });
-                for (const line of assessmentLines)
-                    blocks.push({ kind: 'line', text: line });
+                pushAssessment('Chief Complaint', data.chief_complaint);
+                pushAssessment('Diagnosis', data.diagnosis);
+                pushAssessment('Past History', data.past_dental_history);
+                pushAssessment('Allergies', data.allergies_medical_history);
                 blocks.push({ kind: 'spacer', text: '' });
             }
             const treatments = data.treatments ?? [];
@@ -506,7 +509,7 @@ let PrescriptionPdfService = class PrescriptionPdfService {
             const bodyW = body.w * pgW;
             const bodyH = body.h * pgH;
             const fontSize = body.font_size ?? 10;
-            const headingSize = fontSize + 1;
+            const headingSize = Math.round(fontSize * 1.25) + 1;
             const lineGap = ((body.line_height ?? 1.3) - 1) * fontSize;
             const bodyBottom = bodyY + bodyH;
             const MAX_PAGES = 3;
@@ -517,16 +520,33 @@ let PrescriptionPdfService = class PrescriptionPdfService {
                     return Math.max(4, fontSize * 0.4);
                 const isHeading = b.kind === 'heading';
                 doc.font(isHeading ? 'Helvetica-Bold' : 'Helvetica').fontSize(isHeading ? headingSize : fontSize);
-                const measured = doc.heightOfString(b.text || ' ', { width: bodyW, lineGap });
-                return measured + (isHeading ? 4 : 2);
+                const measureText = b.kind === 'labeled' ? `${b.label}${b.text}` : b.text;
+                const measured = doc.heightOfString(measureText || ' ', { width: bodyW, lineGap });
+                return measured + (isHeading ? 8 : 2);
             };
             const drawBlock = (b, y) => {
                 if (b.kind === 'spacer')
                     return;
-                const isHeading = b.kind === 'heading';
-                doc.fillColor(isHeading ? '#000' : '#1f2937')
-                    .font(isHeading ? 'Helvetica-Bold' : 'Helvetica')
-                    .fontSize(isHeading ? headingSize : fontSize);
+                if (b.kind === 'heading') {
+                    doc.fillColor('#000').font('Helvetica-Bold').fontSize(headingSize);
+                    doc.text(b.text, bodyX, y + 4, { width: bodyW, lineGap });
+                    const textHeight = doc.heightOfString(b.text, { width: bodyW, lineGap });
+                    const underlineY = y + 4 + textHeight + 1;
+                    doc.moveTo(bodyX, underlineY)
+                        .lineTo(bodyX + Math.min(bodyW, 180), underlineY)
+                        .lineWidth(0.6)
+                        .strokeColor('#000')
+                        .stroke();
+                    return;
+                }
+                if (b.kind === 'labeled') {
+                    doc.fillColor('#000').font('Helvetica-Bold').fontSize(fontSize);
+                    doc.text(b.label, bodyX, y, { width: bodyW, lineGap, continued: true });
+                    doc.fillColor('#1f2937').font('Helvetica').fontSize(fontSize);
+                    doc.text(b.text, { width: bodyW, lineGap });
+                    return;
+                }
+                doc.fillColor('#1f2937').font('Helvetica').fontSize(fontSize);
                 doc.text(b.text, bodyX, y, { width: bodyW, lineGap });
             };
             for (const block of blocks) {

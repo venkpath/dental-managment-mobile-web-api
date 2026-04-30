@@ -216,6 +216,7 @@ let PrescriptionService = class PrescriptionService {
                 phone: patient.phone,
                 email: patient.email,
                 date_of_birth: patient.date_of_birth,
+                age: patient.age,
                 gender: patient.gender,
             },
             dentist: {
