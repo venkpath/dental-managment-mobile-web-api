@@ -16,10 +16,10 @@ export declare class ClinicalVisitService {
             updated_at: Date;
             clinic_id: string;
             branch_id: string;
+            patient_id: string;
             procedure: string;
             tooth_number: string | null;
             cost: Prisma.Decimal;
-            patient_id: string;
             notes: string | null;
             dentist_id: string;
             clinical_visit_id: string | null;
@@ -109,6 +109,9 @@ export declare class ClinicalVisitService {
             buffer_minutes: number | null;
             advance_booking_days: number | null;
             working_days: string | null;
+            prescription_template_url: string | null;
+            prescription_template_config: Prisma.JsonValue | null;
+            prescription_template_enabled: boolean;
             clinic_id: string;
         };
         dentist: {
@@ -136,11 +139,11 @@ export declare class ClinicalVisitService {
             phone: string;
             clinic_id: string;
             branch_id: string;
+            age: number | null;
+            gender: string;
             first_name: string;
             last_name: string;
-            gender: string;
             date_of_birth: Date | null;
-            age: number | null;
             blood_group: string | null;
             medical_history: Prisma.JsonValue | null;
             allergies: string | null;
@@ -196,10 +199,10 @@ export declare class ClinicalVisitService {
             updated_at: Date;
             clinic_id: string;
             branch_id: string;
+            patient_id: string;
             procedure: string;
             tooth_number: string | null;
             cost: Prisma.Decimal;
-            patient_id: string;
             notes: string | null;
             dentist_id: string;
             clinical_visit_id: string | null;
@@ -230,6 +233,9 @@ export declare class ClinicalVisitService {
             buffer_minutes: number | null;
             advance_booking_days: number | null;
             working_days: string | null;
+            prescription_template_url: string | null;
+            prescription_template_config: Prisma.JsonValue | null;
+            prescription_template_enabled: boolean;
             clinic_id: string;
         };
         dentist: {
@@ -257,11 +263,11 @@ export declare class ClinicalVisitService {
             phone: string;
             clinic_id: string;
             branch_id: string;
+            age: number | null;
+            gender: string;
             first_name: string;
             last_name: string;
-            gender: string;
             date_of_birth: Date | null;
-            age: number | null;
             blood_group: string | null;
             medical_history: Prisma.JsonValue | null;
             allergies: string | null;
@@ -377,10 +383,10 @@ export declare class ClinicalVisitService {
             updated_at: Date;
             clinic_id: string;
             branch_id: string;
+            patient_id: string;
             procedure: string;
             tooth_number: string | null;
             cost: Prisma.Decimal;
-            patient_id: string;
             notes: string | null;
             dentist_id: string;
             clinical_visit_id: string | null;

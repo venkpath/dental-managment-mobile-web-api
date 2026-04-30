@@ -112,6 +112,13 @@ model Branch {
   advance_booking_days  Int?    @default(30) // how far ahead patients can book
   working_days          String? @db.VarChar(20) // comma-separated: "1,2,3,4,5,6" (1=Mon, 7=Sun)
 
+  // Per-branch custom prescription notepad template — clinic uploads scan of
+  // their pre-printed pad and defines zones for where each field gets printed.
+  // enabled=false → use the default Smart Dental Desk layout.
+  prescription_template_url     String?  @db.VarChar(500)
+  prescription_template_config  Json?
+  prescription_template_enabled Boolean  @default(false)
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 

@@ -175,6 +175,9 @@ export declare class SuperAdminService {
             buffer_minutes: number | null;
             advance_booking_days: number | null;
             working_days: string | null;
+            prescription_template_url: string | null;
+            prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
+            prescription_template_enabled: boolean;
             clinic_id: string;
         }[];
     } & {
@@ -264,6 +267,9 @@ export declare class SuperAdminService {
             buffer_minutes: number | null;
             advance_booking_days: number | null;
             working_days: string | null;
+            prescription_template_url: string | null;
+            prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
+            prescription_template_enabled: boolean;
             clinic_id: string;
         };
         admin: {

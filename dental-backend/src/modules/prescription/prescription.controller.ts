@@ -40,7 +40,8 @@ export class PrescriptionPublicController {
     @Param('id', ParseUUIDPipe) id: string,
     @Query('clinic') clinicId: string,
   ) {
-    const { url } = await this.prescriptionService.getPdfUrl(clinicId, id);
+    // WhatsApp links always render the digital version (with letterhead bg).
+    const { url } = await this.prescriptionService.getPdfUrl(clinicId, id, { withBackground: true });
     return { url, statusCode: 302 };
   }
 }
@@ -99,13 +100,19 @@ export class PrescriptionController {
   }
 
   @Get('prescriptions/:id/pdf')
-  @ApiOperation({ summary: 'Generate prescription PDF and return a signed S3 URL' })
+  @ApiOperation({
+    summary: 'Generate prescription PDF and return a signed S3 URL',
+    description:
+      'Pass `bg=0` to render text-only output for printing on a clinic\'s pre-printed physical notepad (no letterhead overlay). Default is `bg=1` (digital, with letterhead). Only affects branches with a custom template configured.',
+  })
   @ApiOkResponse({ description: 'Signed URL to prescription PDF' })
   async getPdfUrl(
     @CurrentClinic() clinicId: string,
     @Param('id', ParseUUIDPipe) id: string,
+    @Query('bg') bg?: string,
   ) {
-    return this.prescriptionService.getPdfUrl(clinicId, id);
+    const withBackground = bg !== '0' && bg !== 'false';
+    return this.prescriptionService.getPdfUrl(clinicId, id, { withBackground });
   }
 
   @Post('prescriptions/:id/send-whatsapp')

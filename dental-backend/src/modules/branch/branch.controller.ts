@@ -1,4 +1,7 @@
-import { Controller, Get, Post, Patch, Param, Body, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseUUIDPipe,
+  UseGuards, UseInterceptors, UploadedFile, BadRequestException, Res,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -7,9 +10,19 @@ import {
   ApiNotFoundResponse,
   ApiHeader,
   ApiBadRequestResponse,
+  ApiConsumes,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import { BranchService } from './branch.service.js';
-import { CreateBranchDto, UpdateBranchDto, UpdateBranchSchedulingDto } from './dto/index.js';
+import { BranchPrescriptionTemplateService } from './branch-prescription-template.service.js';
+import {
+  CreateBranchDto,
+  UpdateBranchDto,
+  UpdateBranchSchedulingDto,
+  SaveTemplateConfigDto,
+  PreviewTemplateDto,
+} from './dto/index.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 
@@ -19,7 +32,10 @@ import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js'
 @UseGuards(RequireClinicGuard)
 @Controller('branches')
 export class BranchController {
-  constructor(private readonly branchService: BranchService) {}
+  constructor(
+    private readonly branchService: BranchService,
+    private readonly templateService: BranchPrescriptionTemplateService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new branch for the current clinic' })
@@ -83,5 +99,87 @@ export class BranchController {
     @Body() dto: UpdateBranchSchedulingDto,
   ) {
     return this.branchService.updateSchedulingSettings(clinicId, id, dto);
+  }
+
+  // ─────────── Prescription template (custom notepad) ───────────
+
+  @Get(':id/prescription-template')
+  @ApiOperation({ summary: 'Get the branch prescription notepad template (image + zone config)' })
+  async getTemplate(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.templateService.getTemplate(clinicId, id);
+  }
+
+  @Post(':id/prescription-template/image')
+  @ApiOperation({ summary: 'Upload the branch notepad scan (PNG or JPEG, ≤8MB)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiCreatedResponse({ description: 'Image uploaded; returns server-validated dimensions' })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 8 * 1024 * 1024 } }))
+  async uploadTemplateImage(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.templateService.uploadImage(clinicId, id, file);
+  }
+
+  @Patch(':id/prescription-template/config')
+  @ApiOperation({ summary: 'Save zone coordinates + enable the template' })
+  @ApiOkResponse({ description: 'Template config saved' })
+  async saveTemplateConfig(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SaveTemplateConfigDto,
+  ) {
+    return this.templateService.saveConfig(clinicId, id, dto.config, dto.enabled);
+  }
+
+  @Delete(':id/prescription-template')
+  @ApiOperation({ summary: 'Remove the custom template — branch falls back to default layout' })
+  async deleteTemplate(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.templateService.deleteTemplate(clinicId, id);
+  }
+
+  @Post(':id/prescription-template/preview')
+  @ApiOperation({ summary: 'Render a sample prescription PDF using the posted config (does not persist)' })
+  @ApiOkResponse({ description: 'application/pdf binary stream' })
+  async previewTemplate(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PreviewTemplateDto,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.templateService.generatePreview(
+      clinicId,
+      id,
+      dto.config,
+      dto.with_background ?? true,
+    );
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="prescription-preview.pdf"');
+    res.send(buffer);
+  }
+
+  @Get(':id/prescription-template/image/:filename')
+  @ApiOperation({ summary: 'Serve the raw notepad image for the designer canvas' })
+  async serveTemplateImage(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('filename') filename: string,
+    @Query('t') _cacheBuster: string | undefined,
+    @Res() res: Response,
+  ) {
+    // Verify the branch belongs to the requesting clinic before exposing the image.
+    await this.branchService.findOne(clinicId, id);
+    const filePath = this.templateService.resolveTemplateFile(id, filename);
+    if (!filePath) throw new BadRequestException('Template image not found');
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.sendFile(filePath);
   }
 }

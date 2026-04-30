@@ -28,7 +28,7 @@ let PrescriptionPublicController = class PrescriptionPublicController {
         this.prescriptionService = prescriptionService;
     }
     async prescriptionRedirect(id, clinicId) {
-        const { url } = await this.prescriptionService.getPdfUrl(clinicId, id);
+        const { url } = await this.prescriptionService.getPdfUrl(clinicId, id, { withBackground: true });
         return { url, statusCode: 302 };
     }
 };
@@ -67,8 +67,9 @@ let PrescriptionController = class PrescriptionController {
     async update(clinicId, id, dto) {
         return this.prescriptionService.update(clinicId, id, dto);
     }
-    async getPdfUrl(clinicId, id) {
-        return this.prescriptionService.getPdfUrl(clinicId, id);
+    async getPdfUrl(clinicId, id, bg) {
+        const withBackground = bg !== '0' && bg !== 'false';
+        return this.prescriptionService.getPdfUrl(clinicId, id, { withBackground });
     }
     async sendWhatsApp(clinicId, id) {
         return this.prescriptionService.sendWhatsApp(clinicId, id);
@@ -128,13 +129,17 @@ __decorate([
 ], PrescriptionController.prototype, "update", null);
 __decorate([
     (0, common_1.Get)('prescriptions/:id/pdf'),
-    (0, swagger_1.ApiOperation)({ summary: 'Generate prescription PDF and return a signed S3 URL' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Generate prescription PDF and return a signed S3 URL',
+        description: 'Pass `bg=0` to render text-only output for printing on a clinic\'s pre-printed physical notepad (no letterhead overlay). Default is `bg=1` (digital, with letterhead). Only affects branches with a custom template configured.',
+    }),
     (0, swagger_1.ApiOkResponse)({ description: 'Signed URL to prescription PDF' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.Query)('bg')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], PrescriptionController.prototype, "getPdfUrl", null);
 __decorate([

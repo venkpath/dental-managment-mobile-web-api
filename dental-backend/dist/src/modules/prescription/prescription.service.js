@@ -11,6 +11,9 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PrescriptionService = void 0;
 const common_1 = require("@nestjs/common");
+const path_1 = require("path");
+const fs_1 = require("fs");
+const promises_1 = require("fs/promises");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const communication_service_js_1 = require("../communication/communication.service.js");
 const automation_service_js_1 = require("../automation/automation.service.js");
@@ -139,7 +142,8 @@ let PrescriptionService = class PrescriptionService {
             });
         });
     }
-    async getPdfUrl(clinicId, id) {
+    async getPdfUrl(clinicId, id, options = {}) {
+        const withBackground = options.withBackground !== false;
         const prescription = await this.findOne(clinicId, id);
         const clinic = await this.prisma.clinic.findUnique({
             where: { id: clinicId },
@@ -165,6 +169,21 @@ let PrescriptionService = class PrescriptionService {
                 select: { procedure: true, tooth_number: true, notes: true, status: true },
                 orderBy: { created_at: 'asc' },
             });
+        }
+        let templatePayload;
+        if (branch?.prescription_template_enabled &&
+            branch.prescription_template_url &&
+            branch.prescription_template_config) {
+            const templatesRoot = (0, path_1.resolve)(process.cwd(), 'uploads/prescription-templates');
+            const absImagePath = (0, path_1.resolve)(process.cwd(), branch.prescription_template_url);
+            if (absImagePath.startsWith(templatesRoot) && (0, fs_1.existsSync)(absImagePath)) {
+                const imageBuffer = await (0, promises_1.readFile)(absImagePath);
+                templatePayload = {
+                    config: branch.prescription_template_config,
+                    imageBuffer,
+                    withBackground,
+                };
+            }
         }
         const pdfBuffer = await this.pdfService.generate({
             id: prescription.id,
@@ -208,8 +227,12 @@ let PrescriptionService = class PrescriptionService {
             },
             items: prescription.items ?? [],
             treatments: visitTreatments,
+            template: templatePayload,
         });
-        const key = `clinics/${clinicId}/prescriptions/${id}/prescription.pdf`;
+        const variant = templatePayload
+            ? (withBackground ? 'tmpl-bg' : 'tmpl-nobg')
+            : 'default';
+        const key = `clinics/${clinicId}/prescriptions/${id}/prescription-${variant}.pdf`;
         await this.s3Service.upload(key, pdfBuffer, 'application/pdf');
         const url = await this.s3Service.getSignedUrl(key);
         return { url };

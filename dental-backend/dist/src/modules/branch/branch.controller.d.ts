@@ -1,8 +1,11 @@
+import type { Response } from 'express';
 import { BranchService } from './branch.service.js';
-import { CreateBranchDto, UpdateBranchDto, UpdateBranchSchedulingDto } from './dto/index.js';
+import { BranchPrescriptionTemplateService } from './branch-prescription-template.service.js';
+import { CreateBranchDto, UpdateBranchDto, UpdateBranchSchedulingDto, SaveTemplateConfigDto, PreviewTemplateDto } from './dto/index.js';
 export declare class BranchController {
     private readonly branchService;
-    constructor(branchService: BranchService);
+    private readonly templateService;
+    constructor(branchService: BranchService, templateService: BranchPrescriptionTemplateService);
     create(clinicId: string, dto: CreateBranchDto): Promise<{
         id: string;
         name: string;
@@ -27,6 +30,9 @@ export declare class BranchController {
         buffer_minutes: number | null;
         advance_booking_days: number | null;
         working_days: string | null;
+        prescription_template_url: string | null;
+        prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
+        prescription_template_enabled: boolean;
         clinic_id: string;
     }>;
     findAll(clinicId: string): Promise<{
@@ -53,6 +59,9 @@ export declare class BranchController {
         buffer_minutes: number | null;
         advance_booking_days: number | null;
         working_days: string | null;
+        prescription_template_url: string | null;
+        prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
+        prescription_template_enabled: boolean;
         clinic_id: string;
     }[]>;
     findOne(clinicId: string, id: string): Promise<{
@@ -79,6 +88,9 @@ export declare class BranchController {
         buffer_minutes: number | null;
         advance_booking_days: number | null;
         working_days: string | null;
+        prescription_template_url: string | null;
+        prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
+        prescription_template_enabled: boolean;
         clinic_id: string;
     }>;
     update(clinicId: string, id: string, dto: UpdateBranchDto): Promise<{
@@ -105,6 +117,9 @@ export declare class BranchController {
         buffer_minutes: number | null;
         advance_booking_days: number | null;
         working_days: string | null;
+        prescription_template_url: string | null;
+        prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
+        prescription_template_enabled: boolean;
         clinic_id: string;
     }>;
     getSchedulingSettings(clinicId: string, id: string): Promise<{
@@ -142,6 +157,32 @@ export declare class BranchController {
         buffer_minutes: number | null;
         advance_booking_days: number | null;
         working_days: string | null;
+        prescription_template_url: string | null;
+        prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
+        prescription_template_enabled: boolean;
         clinic_id: string;
     }>;
+    getTemplate(clinicId: string, id: string): Promise<{
+        url: string | null;
+        config: import("@prisma/client/runtime/client").JsonValue;
+        enabled: boolean;
+    }>;
+    uploadTemplateImage(clinicId: string, id: string, file: Express.Multer.File): Promise<{
+        url: string;
+        width_px: number;
+        height_px: number;
+        format: "png" | "jpeg";
+    }>;
+    saveTemplateConfig(clinicId: string, id: string, dto: SaveTemplateConfigDto): Promise<{
+        prescription_template_url: string | null;
+        prescription_template_config: import("@prisma/client/runtime/client").JsonValue;
+        prescription_template_enabled: boolean;
+    }>;
+    deleteTemplate(clinicId: string, id: string): Promise<{
+        prescription_template_url: string | null;
+        prescription_template_config: import("@prisma/client/runtime/client").JsonValue;
+        prescription_template_enabled: boolean;
+    }>;
+    previewTemplate(clinicId: string, id: string, dto: PreviewTemplateDto, res: Response): Promise<void>;
+    serveTemplateImage(clinicId: string, id: string, filename: string, _cacheBuster: string | undefined, res: Response): Promise<void>;
 }

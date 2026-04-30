@@ -1,11 +1,17 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { resolve as pathResolve } from 'path';
+import { existsSync } from 'fs';
+import { readFile } from 'fs/promises';
 import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { AutomationService } from '../automation/automation.service.js';
 import { CreatePrescriptionDto, UpdatePrescriptionDto, QueryPrescriptionDto } from './dto/index.js';
 import { Prescription, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
-import { PrescriptionPdfService } from './prescription-pdf.service.js';
+import {
+  PrescriptionPdfService,
+  type PrescriptionTemplateConfig,
+} from './prescription-pdf.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 import { formatDoctorName } from '../../common/utils/name.util.js';
 
@@ -150,7 +156,16 @@ export class PrescriptionService {
     });
   }
 
-  async getPdfUrl(clinicId: string, id: string): Promise<{ url: string }> {
+  async getPdfUrl(
+    clinicId: string,
+    id: string,
+    options: { withBackground?: boolean } = {},
+  ): Promise<{ url: string }> {
+    // `withBackground` only matters for clinics on a custom notepad template.
+    // - true  (default): render letterhead image + text → for digital sharing (WhatsApp, email)
+    // - false: render text only → for clinics feeding their physical pre-printed pad
+    //          through the printer (don't double-print the letterhead).
+    const withBackground = options.withBackground !== false;
     const prescription = await this.findOne(clinicId, id);
     const clinic = await this.prisma.clinic.findUnique({
       where: { id: clinicId },
@@ -182,6 +197,28 @@ export class PrescriptionService {
         select: { procedure: true, tooth_number: true, notes: true, status: true },
         orderBy: { created_at: 'asc' },
       });
+    }
+
+    // If the branch has uploaded its own notepad and enabled the custom
+    // template, load the image bytes so PDFKit can stamp text onto it.
+    // We store the path relative to the backend cwd; reject anything that
+    // resolves outside the templates root to be safe.
+    let templatePayload: { config: PrescriptionTemplateConfig; imageBuffer: Buffer; withBackground: boolean } | undefined;
+    if (
+      branch?.prescription_template_enabled &&
+      branch.prescription_template_url &&
+      branch.prescription_template_config
+    ) {
+      const templatesRoot = pathResolve(process.cwd(), 'uploads/prescription-templates');
+      const absImagePath = pathResolve(process.cwd(), branch.prescription_template_url);
+      if (absImagePath.startsWith(templatesRoot) && existsSync(absImagePath)) {
+        const imageBuffer = await readFile(absImagePath);
+        templatePayload = {
+          config: branch.prescription_template_config as PrescriptionTemplateConfig,
+          imageBuffer,
+          withBackground,
+        };
+      }
     }
 
     const pdfBuffer = await this.pdfService.generate({
@@ -226,9 +263,16 @@ export class PrescriptionService {
       },
       items: (prescription as any).items ?? [],
       treatments: visitTreatments,
+      template: templatePayload,
     });
 
-    const key = `clinics/${clinicId}/prescriptions/${id}/prescription.pdf`;
+    // Key the S3 object by the bg mode AND whether a template is in use, so
+    // toggling either does not serve a stale cached PDF. Branches without a
+    // custom template share a single cache key (legacy behavior).
+    const variant = templatePayload
+      ? (withBackground ? 'tmpl-bg' : 'tmpl-nobg')
+      : 'default';
+    const key = `clinics/${clinicId}/prescriptions/${id}/prescription-${variant}.pdf`;
     await this.s3Service.upload(key, pdfBuffer, 'application/pdf');
     const url = await this.s3Service.getSignedUrl(key);
     return { url };

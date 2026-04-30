@@ -21,8 +21,19 @@ const TEXT_FAINT = '#9ca3af';
 const HAIRLINE = '#e5e7eb';
 const CARD_BG = '#f8fafc';
 const TABLE_HEAD_BG = '#f1f5f9';
+const PAGE_DIMS_PT = {
+    A4: [595, 842],
+    A5: [420, 595],
+    LETTER: [612, 792],
+};
 let PrescriptionPdfService = class PrescriptionPdfService {
     async generate(data) {
+        if (data.template?.config && data.template?.imageBuffer) {
+            return this.generateCustomTemplate(data, data.template);
+        }
+        return this.generateDefault(data);
+    }
+    async generateDefault(data) {
         return new Promise((resolve, reject) => {
             const doc = new pdfkit_1.default({
                 size: 'A4',
@@ -332,6 +343,219 @@ let PrescriptionPdfService = class PrescriptionPdfService {
             }
             if (email) {
                 doc.text(email, M + colWf * 2, footerY, { width: colWf, align: 'right' });
+            }
+            doc.end();
+        });
+    }
+    async generateCustomTemplate(data, template) {
+        return new Promise((resolve, reject) => {
+            const { config, imageBuffer, withBackground } = template;
+            const pageSize = config.page_size ?? 'A4';
+            const [basePageW, basePageH] = PAGE_DIMS_PT[pageSize];
+            const isLandscape = config.image.width_px > config.image.height_px;
+            const pgW = isLandscape ? basePageH : basePageW;
+            const pgH = isLandscape ? basePageW : basePageH;
+            const doc = new pdfkit_1.default({
+                size: pageSize,
+                layout: isLandscape ? 'landscape' : 'portrait',
+                margin: 0,
+                info: {
+                    Title: `Prescription — ${data.patient.first_name} ${data.patient.last_name}`,
+                    Author: data.clinic.name,
+                },
+            });
+            const chunks = [];
+            doc.on('data', (chunk) => chunks.push(chunk));
+            doc.on('end', () => resolve(Buffer.concat(chunks)));
+            doc.on('error', reject);
+            const drawBackground = () => {
+                if (!withBackground)
+                    return;
+                try {
+                    doc.image(imageBuffer, 0, 0, { width: pgW, height: pgH });
+                }
+                catch {
+                }
+            };
+            const fmtDate = (d) => d.toLocaleDateString('en-IN', {
+                day: '2-digit', month: 'short', year: 'numeric',
+            });
+            const renderField = (zone, value) => {
+                if (!zone || !value)
+                    return;
+                const x = zone.x * pgW;
+                const y = zone.y * pgH;
+                const w = zone.w * pgW;
+                const h = zone.h * pgH;
+                doc.fillColor('#000').font('Helvetica').fontSize(zone.font_size ?? 10);
+                doc.text(value, x, y, {
+                    width: w,
+                    height: h,
+                    lineBreak: false,
+                    ellipsis: true,
+                    align: zone.align ?? 'left',
+                });
+            };
+            drawBackground();
+            const patientName = `${data.patient.first_name} ${data.patient.last_name}`;
+            const dateStr = fmtDate(new Date(data.created_at));
+            let ageStr = '';
+            if (data.patient.date_of_birth) {
+                const dob = new Date(data.patient.date_of_birth);
+                const now = new Date(data.created_at);
+                const age = now.getFullYear() - dob.getFullYear() -
+                    (now < new Date(now.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0);
+                ageStr = `${age}`;
+            }
+            const uhid = `P-${data.patient.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+            renderField(config.zones.patient_name, patientName);
+            renderField(config.zones.age, ageStr);
+            renderField(config.zones.gender, data.patient.gender ?? '');
+            renderField(config.zones.date, dateStr);
+            renderField(config.zones.mobile, data.patient.phone ?? '');
+            renderField(config.zones.patient_id, uhid);
+            const blocks = [];
+            const assessmentLines = [];
+            if (data.chief_complaint)
+                assessmentLines.push(`Chief Complaint: ${data.chief_complaint}`);
+            if (data.diagnosis)
+                assessmentLines.push(`Diagnosis: ${data.diagnosis}`);
+            if (data.past_dental_history)
+                assessmentLines.push(`Past History: ${data.past_dental_history}`);
+            if (data.allergies_medical_history)
+                assessmentLines.push(`Allergies: ${data.allergies_medical_history}`);
+            if (assessmentLines.length) {
+                blocks.push({ kind: 'heading', text: 'Assessment' });
+                for (const line of assessmentLines)
+                    blocks.push({ kind: 'line', text: line });
+                blocks.push({ kind: 'spacer', text: '' });
+            }
+            const treatments = data.treatments ?? [];
+            if (treatments.length > 0) {
+                blocks.push({ kind: 'heading', text: 'Treatments Performed' });
+                for (const t of treatments) {
+                    const tooth = t.tooth_number ? ` (Tooth #${t.tooth_number})` : '';
+                    const notes = t.notes ? ` — ${t.notes}` : '';
+                    blocks.push({ kind: 'line', text: `• ${t.procedure}${tooth}${notes}` });
+                }
+                blocks.push({ kind: 'spacer', text: '' });
+            }
+            const items = data.items ?? [];
+            if (items.length > 0) {
+                blocks.push({ kind: 'heading', text: 'Rx' });
+                items.forEach((item, idx) => {
+                    const m = item.morning ?? 0;
+                    const af = item.afternoon ?? 0;
+                    const ev = item.evening ?? 0;
+                    const n = item.night ?? 0;
+                    const hasDosePattern = m || af || ev || n;
+                    const regime = hasDosePattern
+                        ? `${m}-${af}-${ev}${n ? '-' + n : ''}`
+                        : (item.frequency ?? '');
+                    const parts = [
+                        item.medicine_name,
+                        item.dosage,
+                        regime,
+                        item.duration,
+                    ].filter((s) => s && String(s).trim().length > 0);
+                    const notes = item.notes ? ` (${item.notes})` : '';
+                    blocks.push({ kind: 'line', text: `${idx + 1}. ${parts.join(', ')}${notes}` });
+                });
+                blocks.push({ kind: 'spacer', text: '' });
+            }
+            if (data.instructions) {
+                blocks.push({ kind: 'heading', text: 'General Instructions' });
+                const lines = data.instructions.split('\n').map((l) => l.trim()).filter(Boolean);
+                for (const line of lines)
+                    blocks.push({ kind: 'line', text: `• ${line}` });
+                blocks.push({ kind: 'spacer', text: '' });
+            }
+            if (data.review_after_date) {
+                blocks.push({
+                    kind: 'line',
+                    text: `Follow up on: ${fmtDate(new Date(data.review_after_date))}`,
+                });
+            }
+            const body = config.zones.body;
+            const bodyX = body.x * pgW;
+            const bodyY = body.y * pgH;
+            const bodyW = body.w * pgW;
+            const bodyH = body.h * pgH;
+            const fontSize = body.font_size ?? 10;
+            const headingSize = fontSize + 1;
+            const lineGap = ((body.line_height ?? 1.3) - 1) * fontSize;
+            const bodyBottom = bodyY + bodyH;
+            const MAX_PAGES = 3;
+            let pagesRendered = 1;
+            let cursorY = bodyY;
+            const measureBlock = (b) => {
+                if (b.kind === 'spacer')
+                    return Math.max(4, fontSize * 0.4);
+                const isHeading = b.kind === 'heading';
+                doc.font(isHeading ? 'Helvetica-Bold' : 'Helvetica').fontSize(isHeading ? headingSize : fontSize);
+                const measured = doc.heightOfString(b.text || ' ', { width: bodyW, lineGap });
+                return measured + (isHeading ? 4 : 2);
+            };
+            const drawBlock = (b, y) => {
+                if (b.kind === 'spacer')
+                    return;
+                const isHeading = b.kind === 'heading';
+                doc.fillColor(isHeading ? '#000' : '#1f2937')
+                    .font(isHeading ? 'Helvetica-Bold' : 'Helvetica')
+                    .fontSize(isHeading ? headingSize : fontSize);
+                doc.text(b.text, bodyX, y, { width: bodyW, lineGap });
+            };
+            for (const block of blocks) {
+                const blockH = measureBlock(block);
+                if (cursorY + blockH > bodyBottom) {
+                    if (pagesRendered >= MAX_PAGES)
+                        break;
+                    doc.addPage({
+                        size: pageSize,
+                        layout: isLandscape ? 'landscape' : 'portrait',
+                        margin: 0,
+                    });
+                    drawBackground();
+                    pagesRendered += 1;
+                    cursorY = bodyY;
+                }
+                drawBlock(block, cursorY);
+                cursorY += blockH;
+            }
+            const sig = config.zones.signature;
+            const docName = (0, name_util_js_1.formatDoctorName)(data.dentist.name);
+            if (sig) {
+                const sx = sig.x * pgW;
+                const sy = sig.y * pgH;
+                const sw = sig.w * pgW;
+                const sh = sig.h * pgH;
+                if (data.dentist.signature_image) {
+                    try {
+                        doc.image(data.dentist.signature_image, sx, sy, {
+                            fit: [sw, sh * 0.6],
+                            align: 'center',
+                        });
+                    }
+                    catch {
+                    }
+                }
+                const nameY = sy + sh * 0.6;
+                doc.fillColor('#000').font('Helvetica-Bold').fontSize(sig.font_size ?? 10)
+                    .text(docName, sx, nameY, { width: sw, align: sig.align ?? 'center' });
+                if (data.dentist.license_number) {
+                    doc.fillColor('#666').font('Helvetica').fontSize((sig.font_size ?? 10) - 2)
+                        .text(`Reg No. ${data.dentist.license_number}`, sx, nameY + (sig.font_size ?? 10) + 2, { width: sw, align: sig.align ?? 'center' });
+                }
+            }
+            else if (cursorY + fontSize * 3 < bodyBottom) {
+                cursorY += 6;
+                doc.fillColor('#000').font('Helvetica-Bold').fontSize(fontSize)
+                    .text(`— ${docName}`, bodyX, cursorY, { width: bodyW, align: 'right' });
+                if (data.dentist.license_number) {
+                    cursorY += fontSize + 2;
+                    doc.fillColor('#666').font('Helvetica').fontSize(fontSize - 1)
+                        .text(`Reg No. ${data.dentist.license_number}`, bodyX, cursorY, { width: bodyW, align: 'right' });
+                }
             }
             doc.end();
         });

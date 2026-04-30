@@ -68,7 +68,7 @@ export declare class PrescriptionController {
         allergies_medical_history: string | null;
         instructions: string | null;
     }>;
-    getPdfUrl(clinicId: string, id: string): Promise<{
+    getPdfUrl(clinicId: string, id: string, bg?: string): Promise<{
         url: string;
     }>;
     sendWhatsApp(clinicId: string, id: string): Promise<{

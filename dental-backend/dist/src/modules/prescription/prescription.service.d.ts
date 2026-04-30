@@ -17,7 +17,9 @@ export declare class PrescriptionService {
     findAll(clinicId: string, query: QueryPrescriptionDto): Promise<PaginatedResult<Prescription>>;
     findOne(clinicId: string, id: string): Promise<Prescription>;
     update(clinicId: string, id: string, dto: UpdatePrescriptionDto): Promise<Prescription>;
-    getPdfUrl(clinicId: string, id: string): Promise<{
+    getPdfUrl(clinicId: string, id: string, options?: {
+        withBackground?: boolean;
+    }): Promise<{
         url: string;
     }>;
     sendWhatsApp(clinicId: string, id: string): Promise<{

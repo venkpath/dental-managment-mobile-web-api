@@ -13,6 +13,43 @@ const HAIRLINE = '#e5e7eb';
 const CARD_BG = '#f8fafc';
 const TABLE_HEAD_BG = '#f1f5f9';
 
+/**
+ * Custom-template zone — coordinates are stored as fractions (0..1) of the
+ * notepad image's natural dimensions so re-uploading a higher-DPI scan does
+ * not silently break alignment. The renderer multiplies by page width/height.
+ */
+export interface PrescriptionTemplateZone {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  font_size?: number;
+  align?: 'left' | 'center' | 'right';
+  line_height?: number;
+}
+
+export interface PrescriptionTemplateConfig {
+  version: 1;
+  image: { width_px: number; height_px: number };
+  page_size?: 'A4' | 'A5' | 'LETTER';
+  zones: {
+    patient_name: PrescriptionTemplateZone;
+    age?: PrescriptionTemplateZone;
+    gender?: PrescriptionTemplateZone;
+    date: PrescriptionTemplateZone;
+    mobile?: PrescriptionTemplateZone;
+    patient_id?: PrescriptionTemplateZone;
+    body: PrescriptionTemplateZone;
+    signature?: PrescriptionTemplateZone;
+  };
+}
+
+const PAGE_DIMS_PT: Record<NonNullable<PrescriptionTemplateConfig['page_size']>, [number, number]> = {
+  A4: [595, 842],
+  A5: [420, 595],
+  LETTER: [612, 792],
+};
+
 export interface PrescriptionPdfData {
   id: string;
   created_at: Date;
@@ -75,11 +112,31 @@ export interface PrescriptionPdfData {
     notes?: string | null;
     status?: string | null;
   }>;
+  /** Optional custom-notepad rendering. When set the PDF is generated with
+   *  text overlaid onto the clinic's uploaded letterhead image instead of
+   *  the default Smart Dental Desk layout. `withBackground=false` produces
+   *  text-only output for clinics feeding their physical pre-printed pad
+   *  through the printer. */
+  template?: {
+    config: PrescriptionTemplateConfig;
+    imageBuffer: Buffer;
+    withBackground: boolean;
+  };
 }
 
 @Injectable()
 export class PrescriptionPdfService {
+  /** Top-level entry point — picks the custom-template renderer when a clinic
+   *  branch has uploaded its own notepad, otherwise renders the default
+   *  Smart Dental Desk layout. */
   async generate(data: PrescriptionPdfData): Promise<Buffer> {
+    if (data.template?.config && data.template?.imageBuffer) {
+      return this.generateCustomTemplate(data, data.template);
+    }
+    return this.generateDefault(data);
+  }
+
+  private async generateDefault(data: PrescriptionPdfData): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const doc = new PDFDocument({
         size: 'A4',
@@ -501,6 +558,255 @@ export class PrescriptionPdfService {
       // Right
       if (email) {
         doc.text(email, M + colWf * 2, footerY, { width: colWf, align: 'right' });
+      }
+
+      doc.end();
+    });
+  }
+
+  /**
+   * Render onto a clinic-specific notepad scan. Text is positioned at the
+   * fractional zone coordinates the clinic configured in the template
+   * designer. When the body content overflows the body zone, additional
+   * pages are added (capped at 3) and the background is redrawn so each
+   * page reads as a complete prescription sheet.
+   *
+   * `withBackground=false` produces text-only output for clinics that feed
+   * their pre-printed physical pad through the printer.
+   */
+  private async generateCustomTemplate(
+    data: PrescriptionPdfData,
+    template: { config: PrescriptionTemplateConfig; imageBuffer: Buffer; withBackground: boolean },
+  ): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const { config, imageBuffer, withBackground } = template;
+      const pageSize = config.page_size ?? 'A4';
+      const [basePageW, basePageH] = PAGE_DIMS_PT[pageSize];
+      const isLandscape = config.image.width_px > config.image.height_px;
+      const pgW = isLandscape ? basePageH : basePageW;
+      const pgH = isLandscape ? basePageW : basePageH;
+
+      const doc = new PDFDocument({
+        size: pageSize,
+        layout: isLandscape ? 'landscape' : 'portrait',
+        margin: 0,
+        info: {
+          Title: `Prescription — ${data.patient.first_name} ${data.patient.last_name}`,
+          Author: data.clinic.name,
+        },
+      });
+
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const drawBackground = () => {
+        if (!withBackground) return;
+        try {
+          doc.image(imageBuffer, 0, 0, { width: pgW, height: pgH });
+        } catch {
+          // Bad image bytes — render text-only rather than failing the PDF.
+        }
+      };
+
+      const fmtDate = (d: Date) => d.toLocaleDateString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+      });
+
+      const renderField = (zone: PrescriptionTemplateZone | undefined, value: string) => {
+        if (!zone || !value) return;
+        const x = zone.x * pgW;
+        const y = zone.y * pgH;
+        const w = zone.w * pgW;
+        const h = zone.h * pgH;
+        doc.fillColor('#000').font('Helvetica').fontSize(zone.font_size ?? 10);
+        doc.text(value, x, y, {
+          width: w,
+          height: h,
+          lineBreak: false,
+          ellipsis: true,
+          align: zone.align ?? 'left',
+        });
+      };
+
+      // ── Page 1 background ──
+      drawBackground();
+
+      // ── Header fields (single-line, top of pad) ──
+      const patientName = `${data.patient.first_name} ${data.patient.last_name}`;
+      const dateStr = fmtDate(new Date(data.created_at));
+
+      let ageStr = '';
+      if (data.patient.date_of_birth) {
+        const dob = new Date(data.patient.date_of_birth);
+        const now = new Date(data.created_at);
+        const age = now.getFullYear() - dob.getFullYear() -
+          (now < new Date(now.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0);
+        ageStr = `${age}`;
+      }
+      const uhid = `P-${data.patient.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+
+      renderField(config.zones.patient_name, patientName);
+      renderField(config.zones.age, ageStr);
+      renderField(config.zones.gender, data.patient.gender ?? '');
+      renderField(config.zones.date, dateStr);
+      renderField(config.zones.mobile, data.patient.phone ?? '');
+      renderField(config.zones.patient_id, uhid);
+
+      // ── Body zone: assessment + treatments + Rx + instructions ──
+      // Built as a queue of blocks so we can paginate cleanly when content
+      // overflows the configured body height.
+      type Block = { kind: 'heading' | 'line' | 'spacer'; text: string };
+      const blocks: Block[] = [];
+
+      const assessmentLines: string[] = [];
+      if (data.chief_complaint) assessmentLines.push(`Chief Complaint: ${data.chief_complaint}`);
+      if (data.diagnosis) assessmentLines.push(`Diagnosis: ${data.diagnosis}`);
+      if (data.past_dental_history) assessmentLines.push(`Past History: ${data.past_dental_history}`);
+      if (data.allergies_medical_history) assessmentLines.push(`Allergies: ${data.allergies_medical_history}`);
+      if (assessmentLines.length) {
+        blocks.push({ kind: 'heading', text: 'Assessment' });
+        for (const line of assessmentLines) blocks.push({ kind: 'line', text: line });
+        blocks.push({ kind: 'spacer', text: '' });
+      }
+
+      const treatments = data.treatments ?? [];
+      if (treatments.length > 0) {
+        blocks.push({ kind: 'heading', text: 'Treatments Performed' });
+        for (const t of treatments) {
+          const tooth = t.tooth_number ? ` (Tooth #${t.tooth_number})` : '';
+          const notes = t.notes ? ` — ${t.notes}` : '';
+          blocks.push({ kind: 'line', text: `• ${t.procedure}${tooth}${notes}` });
+        }
+        blocks.push({ kind: 'spacer', text: '' });
+      }
+
+      const items = data.items ?? [];
+      if (items.length > 0) {
+        blocks.push({ kind: 'heading', text: 'Rx' });
+        items.forEach((item, idx) => {
+          const m = item.morning ?? 0;
+          const af = item.afternoon ?? 0;
+          const ev = item.evening ?? 0;
+          const n = item.night ?? 0;
+          const hasDosePattern = m || af || ev || n;
+          const regime = hasDosePattern
+            ? `${m}-${af}-${ev}${n ? '-' + n : ''}`
+            : (item.frequency ?? '');
+          const parts = [
+            item.medicine_name,
+            item.dosage,
+            regime,
+            item.duration,
+          ].filter((s) => s && String(s).trim().length > 0);
+          const notes = item.notes ? ` (${item.notes})` : '';
+          blocks.push({ kind: 'line', text: `${idx + 1}. ${parts.join(', ')}${notes}` });
+        });
+        blocks.push({ kind: 'spacer', text: '' });
+      }
+
+      if (data.instructions) {
+        blocks.push({ kind: 'heading', text: 'General Instructions' });
+        const lines = data.instructions.split('\n').map((l) => l.trim()).filter(Boolean);
+        for (const line of lines) blocks.push({ kind: 'line', text: `• ${line}` });
+        blocks.push({ kind: 'spacer', text: '' });
+      }
+
+      if (data.review_after_date) {
+        blocks.push({
+          kind: 'line',
+          text: `Follow up on: ${fmtDate(new Date(data.review_after_date))}`,
+        });
+      }
+
+      // Layout body blocks with manual pagination
+      const body = config.zones.body;
+      const bodyX = body.x * pgW;
+      const bodyY = body.y * pgH;
+      const bodyW = body.w * pgW;
+      const bodyH = body.h * pgH;
+      const fontSize = body.font_size ?? 10;
+      const headingSize = fontSize + 1;
+      const lineGap = ((body.line_height ?? 1.3) - 1) * fontSize;
+
+      const bodyBottom = bodyY + bodyH;
+      const MAX_PAGES = 3;
+      let pagesRendered = 1;
+      let cursorY = bodyY;
+
+      const measureBlock = (b: Block): number => {
+        if (b.kind === 'spacer') return Math.max(4, fontSize * 0.4);
+        const isHeading = b.kind === 'heading';
+        doc.font(isHeading ? 'Helvetica-Bold' : 'Helvetica').fontSize(isHeading ? headingSize : fontSize);
+        const measured = doc.heightOfString(b.text || ' ', { width: bodyW, lineGap });
+        return measured + (isHeading ? 4 : 2);
+      };
+
+      const drawBlock = (b: Block, y: number) => {
+        if (b.kind === 'spacer') return;
+        const isHeading = b.kind === 'heading';
+        doc.fillColor(isHeading ? '#000' : '#1f2937')
+          .font(isHeading ? 'Helvetica-Bold' : 'Helvetica')
+          .fontSize(isHeading ? headingSize : fontSize);
+        doc.text(b.text, bodyX, y, { width: bodyW, lineGap });
+      };
+
+      for (const block of blocks) {
+        const blockH = measureBlock(block);
+        if (cursorY + blockH > bodyBottom) {
+          if (pagesRendered >= MAX_PAGES) break;
+          doc.addPage({
+            size: pageSize,
+            layout: isLandscape ? 'landscape' : 'portrait',
+            margin: 0,
+          });
+          drawBackground();
+          pagesRendered += 1;
+          cursorY = bodyY;
+        }
+        drawBlock(block, cursorY);
+        cursorY += blockH;
+      }
+
+      // ── Signature ──
+      const sig = config.zones.signature;
+      const docName = formatDoctorName(data.dentist.name);
+      if (sig) {
+        const sx = sig.x * pgW;
+        const sy = sig.y * pgH;
+        const sw = sig.w * pgW;
+        const sh = sig.h * pgH;
+        if (data.dentist.signature_image) {
+          try {
+            doc.image(data.dentist.signature_image, sx, sy, {
+              fit: [sw, sh * 0.6],
+              align: 'center',
+            });
+          } catch {
+            // Bad signature bytes — fall through and just print the name.
+          }
+        }
+        const nameY = sy + sh * 0.6;
+        doc.fillColor('#000').font('Helvetica-Bold').fontSize(sig.font_size ?? 10)
+          .text(docName, sx, nameY, { width: sw, align: sig.align ?? 'center' });
+        if (data.dentist.license_number) {
+          doc.fillColor('#666').font('Helvetica').fontSize((sig.font_size ?? 10) - 2)
+            .text(`Reg No. ${data.dentist.license_number}`, sx, nameY + (sig.font_size ?? 10) + 2,
+              { width: sw, align: sig.align ?? 'center' });
+        }
+      } else if (cursorY + fontSize * 3 < bodyBottom) {
+        // No signature zone configured — append doctor sign-off as the last
+        // line inside the body zone, right-aligned.
+        cursorY += 6;
+        doc.fillColor('#000').font('Helvetica-Bold').fontSize(fontSize)
+          .text(`— ${docName}`, bodyX, cursorY, { width: bodyW, align: 'right' });
+        if (data.dentist.license_number) {
+          cursorY += fontSize + 2;
+          doc.fillColor('#666').font('Helvetica').fontSize(fontSize - 1)
+            .text(`Reg No. ${data.dentist.license_number}`, bodyX, cursorY,
+              { width: bodyW, align: 'right' });
+        }
       }
 
       doc.end();

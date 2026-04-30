@@ -1,3 +1,30 @@
+export interface PrescriptionTemplateZone {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    font_size?: number;
+    align?: 'left' | 'center' | 'right';
+    line_height?: number;
+}
+export interface PrescriptionTemplateConfig {
+    version: 1;
+    image: {
+        width_px: number;
+        height_px: number;
+    };
+    page_size?: 'A4' | 'A5' | 'LETTER';
+    zones: {
+        patient_name: PrescriptionTemplateZone;
+        age?: PrescriptionTemplateZone;
+        gender?: PrescriptionTemplateZone;
+        date: PrescriptionTemplateZone;
+        mobile?: PrescriptionTemplateZone;
+        patient_id?: PrescriptionTemplateZone;
+        body: PrescriptionTemplateZone;
+        signature?: PrescriptionTemplateZone;
+    };
+}
 export interface PrescriptionPdfData {
     id: string;
     created_at: Date;
@@ -56,7 +83,14 @@ export interface PrescriptionPdfData {
         notes?: string | null;
         status?: string | null;
     }>;
+    template?: {
+        config: PrescriptionTemplateConfig;
+        imageBuffer: Buffer;
+        withBackground: boolean;
+    };
 }
 export declare class PrescriptionPdfService {
     generate(data: PrescriptionPdfData): Promise<Buffer>;
+    private generateDefault;
+    private generateCustomTemplate;
 }

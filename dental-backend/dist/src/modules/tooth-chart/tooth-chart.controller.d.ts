@@ -76,10 +76,10 @@ export declare class ToothChartController {
             updated_at: Date;
             clinic_id: string;
             branch_id: string;
+            patient_id: string;
             procedure: string;
             tooth_number: string | null;
             cost: import("@prisma/client-runtime-utils").Decimal;
-            patient_id: string;
             notes: string | null;
             dentist_id: string;
             clinical_visit_id: string | null;

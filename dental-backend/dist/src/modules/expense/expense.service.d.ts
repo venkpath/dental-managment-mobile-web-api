@@ -64,6 +64,9 @@ export declare class ExpenseService {
             buffer_minutes: number | null;
             advance_booking_days: number | null;
             working_days: string | null;
+            prescription_template_url: string | null;
+            prescription_template_config: Prisma.JsonValue | null;
+            prescription_template_enabled: boolean;
             clinic_id: string;
         } | null;
         user: {
@@ -124,6 +127,9 @@ export declare class ExpenseService {
             buffer_minutes: number | null;
             advance_booking_days: number | null;
             working_days: string | null;
+            prescription_template_url: string | null;
+            prescription_template_config: Prisma.JsonValue | null;
+            prescription_template_enabled: boolean;
             clinic_id: string;
         } | null;
         user: {
@@ -183,6 +189,9 @@ export declare class ExpenseService {
             buffer_minutes: number | null;
             advance_booking_days: number | null;
             working_days: string | null;
+            prescription_template_url: string | null;
+            prescription_template_config: Prisma.JsonValue | null;
+            prescription_template_enabled: boolean;
             clinic_id: string;
         } | null;
         user: {

@@ -31,11 +31,11 @@ export declare class ReferralService {
             phone: string;
             clinic_id: string;
             branch_id: string;
+            age: number | null;
+            gender: string;
             first_name: string;
             last_name: string;
-            gender: string;
             date_of_birth: Date | null;
-            age: number | null;
             blood_group: string | null;
             medical_history: import("@prisma/client/runtime/client").JsonValue | null;
             allergies: string | null;
@@ -50,11 +50,11 @@ export declare class ReferralService {
             phone: string;
             clinic_id: string;
             branch_id: string;
+            age: number | null;
+            gender: string;
             first_name: string;
             last_name: string;
-            gender: string;
             date_of_birth: Date | null;
-            age: number | null;
             blood_group: string | null;
             medical_history: import("@prisma/client/runtime/client").JsonValue | null;
             allergies: string | null;

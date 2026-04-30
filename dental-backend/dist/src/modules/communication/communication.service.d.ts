@@ -32,8 +32,8 @@ export declare class CommunicationService {
         category: string;
         subject: string | null;
         body: string;
-        metadata: Prisma.JsonValue | null;
         patient_id: string | null;
+        metadata: Prisma.JsonValue | null;
         template_id: string | null;
         scheduled_at: Date | null;
         recipient: string;
@@ -77,8 +77,8 @@ export declare class CommunicationService {
         category: string;
         subject: string | null;
         body: string;
-        metadata: Prisma.JsonValue | null;
         patient_id: string | null;
+        metadata: Prisma.JsonValue | null;
         template_id: string | null;
         scheduled_at: Date | null;
         recipient: string;
@@ -136,8 +136,8 @@ export declare class CommunicationService {
         category: string;
         subject: string | null;
         body: string;
-        metadata: Prisma.JsonValue | null;
         patient_id: string | null;
+        metadata: Prisma.JsonValue | null;
         template_id: string | null;
         scheduled_at: Date | null;
         recipient: string;
@@ -176,8 +176,8 @@ export declare class CommunicationService {
             category: string;
             subject: string | null;
             body: string;
-            metadata: Prisma.JsonValue | null;
             patient_id: string | null;
+            metadata: Prisma.JsonValue | null;
             template_id: string | null;
             scheduled_at: Date | null;
             recipient: string;
@@ -225,8 +225,8 @@ export declare class CommunicationService {
         category: string;
         subject: string | null;
         body: string;
-        metadata: Prisma.JsonValue | null;
         patient_id: string | null;
+        metadata: Prisma.JsonValue | null;
         template_id: string | null;
         scheduled_at: Date | null;
         recipient: string;
