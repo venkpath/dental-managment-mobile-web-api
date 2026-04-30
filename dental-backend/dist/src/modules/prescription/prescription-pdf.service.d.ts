@@ -6,6 +6,9 @@ export interface PrescriptionTemplateZone {
     font_size?: number;
     align?: 'left' | 'center' | 'right';
     line_height?: number;
+    prefix?: string;
+    suffix?: string;
+    show_label?: boolean;
 }
 export interface PrescriptionTemplateConfig {
     version: 1;

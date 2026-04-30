@@ -60,6 +60,9 @@ let BranchPrescriptionTemplateService = class BranchPrescriptionTemplateService 
             font_size: typeof zone['font_size'] === 'number' ? zone['font_size'] : undefined,
             align: zone['align'] === 'center' || zone['align'] === 'right' ? zone['align'] : 'left',
             line_height: typeof zone['line_height'] === 'number' ? zone['line_height'] : undefined,
+            prefix: typeof zone['prefix'] === 'string' ? String(zone['prefix']).slice(0, 60) : undefined,
+            suffix: typeof zone['suffix'] === 'string' ? String(zone['suffix']).slice(0, 60) : undefined,
+            show_label: typeof zone['show_label'] === 'boolean' ? zone['show_label'] : undefined,
         };
     }
     validateConfig(raw) {

@@ -26,6 +26,16 @@ export interface PrescriptionTemplateZone {
   font_size?: number;
   align?: 'left' | 'center' | 'right';
   line_height?: number;
+  /** Optional fixed text to print before the field value (e.g. "#", "+91 "). */
+  prefix?: string;
+  /** Optional fixed text to print after the field value (e.g. " yrs", " / M"). */
+  suffix?: string;
+  /**
+   * If true, prepend a built-in label like "Patient: " / "Age: " before the
+   * value. Defaults to **false** because most clinic pads already have those
+   * labels pre-printed and we don't want to double-print them.
+   */
+  show_label?: boolean;
 }
 
 export interface PrescriptionTemplateConfig {
@@ -614,20 +624,50 @@ export class PrescriptionPdfService {
         day: '2-digit', month: 'short', year: 'numeric',
       });
 
-      const renderField = (zone: PrescriptionTemplateZone | undefined, value: string) => {
-        if (!zone || !value) return;
+      // Built-in label per zone, used only when zone.show_label is true.
+      // Kept short so it fits inside narrow header zones on most pads.
+      const LABELS: Record<string, string> = {
+        patient_name: 'Name: ',
+        age: 'Age: ',
+        gender: 'Sex: ',
+        date: 'Date: ',
+        mobile: 'Mobile: ',
+        patient_id: 'ID: ',
+      };
+
+      const renderField = (
+        zoneKey: string,
+        zone: PrescriptionTemplateZone | undefined,
+        value: string,
+      ) => {
+        if (!zone) return;
+        const label = zone.show_label ? (LABELS[zoneKey] ?? '') : '';
+        const composed = `${label}${zone.prefix ?? ''}${value ?? ''}${zone.suffix ?? ''}`;
+        if (!composed.trim()) return;
         const x = zone.x * pgW;
         const y = zone.y * pgH;
         const w = zone.w * pgW;
         const h = zone.h * pgH;
         doc.fillColor('#000').font('Helvetica').fontSize(zone.font_size ?? 10);
-        doc.text(value, x, y, {
+        doc.text(composed, x, y, {
           width: w,
           height: h,
           lineBreak: false,
           ellipsis: true,
           align: zone.align ?? 'left',
         });
+      };
+
+      // Normalize gender to a single letter (M/F/O). Patient.gender is free
+      // text in the DB, so handle common variants — full words, single letters,
+      // and lowercase — without throwing on unexpected values.
+      const shortGender = (g: string | null | undefined): string => {
+        if (!g) return '';
+        const s = g.trim().toLowerCase();
+        if (s.startsWith('m')) return 'M';
+        if (s.startsWith('f')) return 'F';
+        if (s.startsWith('o')) return 'O';
+        return g.charAt(0).toUpperCase();
       };
 
       // ── Page 1 background ──
@@ -647,12 +687,12 @@ export class PrescriptionPdfService {
       }
       const uhid = `P-${data.patient.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
 
-      renderField(config.zones.patient_name, patientName);
-      renderField(config.zones.age, ageStr);
-      renderField(config.zones.gender, data.patient.gender ?? '');
-      renderField(config.zones.date, dateStr);
-      renderField(config.zones.mobile, data.patient.phone ?? '');
-      renderField(config.zones.patient_id, uhid);
+      renderField('patient_name', config.zones.patient_name, patientName);
+      renderField('age', config.zones.age, ageStr);
+      renderField('gender', config.zones.gender, shortGender(data.patient.gender));
+      renderField('date', config.zones.date, dateStr);
+      renderField('mobile', config.zones.mobile, data.patient.phone ?? '');
+      renderField('patient_id', config.zones.patient_id, uhid);
 
       // ── Body zone: assessment + treatments + Rx + instructions ──
       // Built as a queue of blocks so we can paginate cleanly when content

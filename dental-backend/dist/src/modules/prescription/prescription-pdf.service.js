@@ -380,21 +380,45 @@ let PrescriptionPdfService = class PrescriptionPdfService {
             const fmtDate = (d) => d.toLocaleDateString('en-IN', {
                 day: '2-digit', month: 'short', year: 'numeric',
             });
-            const renderField = (zone, value) => {
-                if (!zone || !value)
+            const LABELS = {
+                patient_name: 'Name: ',
+                age: 'Age: ',
+                gender: 'Sex: ',
+                date: 'Date: ',
+                mobile: 'Mobile: ',
+                patient_id: 'ID: ',
+            };
+            const renderField = (zoneKey, zone, value) => {
+                if (!zone)
+                    return;
+                const label = zone.show_label ? (LABELS[zoneKey] ?? '') : '';
+                const composed = `${label}${zone.prefix ?? ''}${value ?? ''}${zone.suffix ?? ''}`;
+                if (!composed.trim())
                     return;
                 const x = zone.x * pgW;
                 const y = zone.y * pgH;
                 const w = zone.w * pgW;
                 const h = zone.h * pgH;
                 doc.fillColor('#000').font('Helvetica').fontSize(zone.font_size ?? 10);
-                doc.text(value, x, y, {
+                doc.text(composed, x, y, {
                     width: w,
                     height: h,
                     lineBreak: false,
                     ellipsis: true,
                     align: zone.align ?? 'left',
                 });
+            };
+            const shortGender = (g) => {
+                if (!g)
+                    return '';
+                const s = g.trim().toLowerCase();
+                if (s.startsWith('m'))
+                    return 'M';
+                if (s.startsWith('f'))
+                    return 'F';
+                if (s.startsWith('o'))
+                    return 'O';
+                return g.charAt(0).toUpperCase();
             };
             drawBackground();
             const patientName = `${data.patient.first_name} ${data.patient.last_name}`;
@@ -408,12 +432,12 @@ let PrescriptionPdfService = class PrescriptionPdfService {
                 ageStr = `${age}`;
             }
             const uhid = `P-${data.patient.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
-            renderField(config.zones.patient_name, patientName);
-            renderField(config.zones.age, ageStr);
-            renderField(config.zones.gender, data.patient.gender ?? '');
-            renderField(config.zones.date, dateStr);
-            renderField(config.zones.mobile, data.patient.phone ?? '');
-            renderField(config.zones.patient_id, uhid);
+            renderField('patient_name', config.zones.patient_name, patientName);
+            renderField('age', config.zones.age, ageStr);
+            renderField('gender', config.zones.gender, shortGender(data.patient.gender));
+            renderField('date', config.zones.date, dateStr);
+            renderField('mobile', config.zones.mobile, data.patient.phone ?? '');
+            renderField('patient_id', config.zones.patient_id, uhid);
             const blocks = [];
             const assessmentLines = [];
             if (data.chief_complaint)
