@@ -42,6 +42,9 @@ interface InvoiceData {
     address?: string | null;
     city?: string | null;
     state?: string | null;
+    // Pre-fetched logo bytes from clinic.logo_url, embedded at the top-left
+    // of the header so the PDF stays self-contained.
+    logo_image?: Buffer | null;
   };
   branch: {
     name: string;
@@ -123,12 +126,25 @@ export class InvoicePdfService {
       const fmt = (n: number) => formatCurrencyAmountPdfSafe(n, currencyCode);
 
       // ─── HEADER ───
+      // Optional clinic logo at far-left, with the name shifted right when present.
+      const LOGO_BOX = 48;
+      let titleX = M;
+      if (data.clinic.logo_image) {
+        try {
+          doc.image(data.clinic.logo_image, M, 30, {
+            fit: [LOGO_BOX, LOGO_BOX],
+          });
+          titleX = M + LOGO_BOX + 12;
+        } catch {
+          // Bad image bytes — fall through and just print the name.
+        }
+      }
       doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(20)
-        .text(data.clinic.name, M, 36, { width: CW * 0.7, lineBreak: false });
+        .text(data.clinic.name, titleX, 36, { width: CW * 0.7 - (titleX - M), lineBreak: false });
       const subLine = data.branch.city ?? data.clinic.city ?? '';
       if (subLine) {
         doc.fillColor(TEXT_MUTED).font('Helvetica').fontSize(9)
-          .text(subLine, M, 60);
+          .text(subLine, titleX, 60);
       }
 
       // Right: clinic contact

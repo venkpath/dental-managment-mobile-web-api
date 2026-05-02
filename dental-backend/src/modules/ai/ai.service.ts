@@ -973,4 +973,36 @@ export class AiService {
       review_summary: String(result['review_summary'] ?? ''),
     };
   }
+
+  // ─── 10. Consent Template Generator ───────────────────────────
+
+  /**
+   * Generate a consent template body in the requested language.
+   *
+   * Quota reservation must be performed by the caller (ConsentService) via
+   * `@TrackAiUsage()` before invoking this method — same contract as the
+   * other generators. Returns the parsed body object only; the caller is
+   * responsible for persisting it as a `ConsentTemplate` row.
+   */
+  async generateConsentTemplate(
+    clinicId: string,
+    systemPrompt: string,
+    userPrompt: string,
+    userId?: string,
+  ): Promise<{ title: string; body: Record<string, unknown> }> {
+    const result = await this.callLLM(systemPrompt, userPrompt, {
+      clinicId,
+      userId,
+      type: 'consent_form',
+    });
+
+    const title = String(result['title'] ?? '').trim();
+    const body = (result['body'] && typeof result['body'] === 'object' ? result['body'] : null) as
+      | Record<string, unknown>
+      | null;
+    if (!title || !body) {
+      throw new BadRequestException('AI returned an invalid consent template');
+    }
+    return { title, body };
+  }
 }

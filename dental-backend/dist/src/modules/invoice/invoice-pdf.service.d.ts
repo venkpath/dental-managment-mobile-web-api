@@ -16,6 +16,7 @@ interface InvoiceData {
         address?: string | null;
         city?: string | null;
         state?: string | null;
+        logo_image?: Buffer | null;
     };
     branch: {
         name: string;

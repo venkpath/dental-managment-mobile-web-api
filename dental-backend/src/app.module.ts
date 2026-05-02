@@ -16,6 +16,7 @@ import { AppointmentModule } from './modules/appointment/appointment.module.js';
 import { TreatmentModule } from './modules/treatment/treatment.module.js';
 import { ClinicalVisitModule } from './modules/clinical-visit/clinical-visit.module.js';
 import { PrescriptionModule } from './modules/prescription/prescription.module.js';
+import { ConsentModule } from './modules/consent/consent.module.js';
 import { InvoiceModule } from './modules/invoice/invoice.module.js';
 import { InventoryModule } from './modules/inventory/inventory.module.js';
 import { AttachmentModule } from './modules/attachment/attachment.module.js';
@@ -105,6 +106,7 @@ import razorpayConfig from './config/razorpay.config.js';
     TreatmentModule,
     ClinicalVisitModule,
     PrescriptionModule,
+    ConsentModule,
     InvoiceModule,
     InventoryModule,
     AttachmentModule,

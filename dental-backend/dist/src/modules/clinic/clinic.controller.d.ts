@@ -1,4 +1,5 @@
 import type { Response } from 'express';
+import { S3Service } from '../../common/services/s3.service.js';
 interface RequestUser {
     userId: string;
     clinicId: string;
@@ -9,7 +10,8 @@ import { ClinicService } from './clinic.service.js';
 import { CreateClinicDto, UpdateClinicDto, UpdateSubscriptionDto } from './dto/index.js';
 export declare class ClinicController {
     private readonly clinicService;
-    constructor(clinicService: ClinicService);
+    private readonly s3Service;
+    constructor(clinicService: ClinicService, s3Service: S3Service);
     create(dto: CreateClinicDto): Promise<{
         id: string;
         email: string;

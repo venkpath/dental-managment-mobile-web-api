@@ -198,8 +198,8 @@ export declare class InvoiceController {
             description: string;
             invoice_id: string;
             treatment_id: string | null;
-            item_type: string;
             quantity: number;
+            item_type: string;
             unit_price: import("@prisma/client-runtime-utils").Decimal;
             total_price: import("@prisma/client-runtime-utils").Decimal;
         })[];

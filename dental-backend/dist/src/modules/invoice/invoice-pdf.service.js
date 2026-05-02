@@ -48,12 +48,24 @@ let InvoicePdfService = class InvoicePdfService {
             const currencyCode = data.currency_code ?? 'INR';
             const currencyLocale = (0, currency_util_js_1.getCurrencyLocale)(currencyCode);
             const fmt = (n) => (0, currency_util_js_1.formatCurrencyAmountPdfSafe)(n, currencyCode);
+            const LOGO_BOX = 48;
+            let titleX = M;
+            if (data.clinic.logo_image) {
+                try {
+                    doc.image(data.clinic.logo_image, M, 30, {
+                        fit: [LOGO_BOX, LOGO_BOX],
+                    });
+                    titleX = M + LOGO_BOX + 12;
+                }
+                catch {
+                }
+            }
             doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(20)
-                .text(data.clinic.name, M, 36, { width: CW * 0.7, lineBreak: false });
+                .text(data.clinic.name, titleX, 36, { width: CW * 0.7 - (titleX - M), lineBreak: false });
             const subLine = data.branch.city ?? data.clinic.city ?? '';
             if (subLine) {
                 doc.fillColor(TEXT_MUTED).font('Helvetica').fontSize(9)
-                    .text(subLine, M, 60);
+                    .text(subLine, titleX, 60);
             }
             doc.fillColor(TEXT_BODY).fontSize(8.5).font('Helvetica');
             const phone = data.clinic.phone || data.branch.phone || '';

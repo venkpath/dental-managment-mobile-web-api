@@ -779,6 +779,37 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
     language: 'en',
     sampleValues: { Dentist_Name: 'Anil Mehta' },
   },
+
+  // ── 25. Consent Signature Request (sent to the patient) ──
+  // Patient receives a secure link, opens it on their phone, reads the
+  // consent PDF, verifies an OTP, then signs digitally — no clinic tablet
+  // needed. The link is single-use and expires in 72 hours.
+  //
+  // Numbered placeholders (Meta-approved format):
+  //   {{1}} = patient_name, {{2}} = clinic_name, {{3}} = procedure,
+  //   {{4}} = link,         {{5}} = phone
+  {
+    channel: 'whatsapp',
+    category: 'transactional',
+    template_name: 'dental_consent_signature_request',
+    body: 'Hi {{1}}, {{2}} has shared a consent form for your upcoming {{3}}.\n\nPlease review and sign securely on your phone:\n{{4}}\n\nLink expires in 72 hours. For any questions, contact us at {{5}}.',
+    variables: { body: ['patient_name', 'clinic_name', 'procedure', 'link', 'phone'], buttons: [] },
+    language: 'en',
+    sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic', procedure: 'Root Canal Treatment', link: 'https://app.example.com/consent/sign/abc123', phone: '9876543210' },
+  },
+
+  // ── 26. Consent Signature OTP (sent to patient when verifying) ──
+  // Meta-approved Authentication template. Numbered placeholders:
+  //   {{1}} = otp, {{2}} = clinic_name
+  {
+    channel: 'whatsapp',
+    category: 'transactional',
+    template_name: 'dental_consent_otp',
+    body: 'OTP Code: {{1}}. This is your OTP code for {{2}}. For your security, do not share this code.',
+    variables: { body: ['otp', 'clinic_name'], buttons: [] },
+    language: 'en',
+    sampleValues: { otp: '482917', clinic_name: 'Smile Dental Clinic' },
+  },
 ];
 
 export async function seedDefaultTemplates(prisma: PrismaService): Promise<void> {

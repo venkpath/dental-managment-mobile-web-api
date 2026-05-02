@@ -13,14 +13,12 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
-import { resolve } from 'path';
-import { existsSync } from 'fs';
-import { writeFile, mkdir } from 'fs/promises';
 import { randomUUID } from 'crypto';
 import { extname } from 'path';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { SuperAdmin } from '../../common/decorators/super-admin.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
+import { S3Service } from '../../common/services/s3.service.js';
 // request.user is set by JwtAuthGuard with camelCase properties
 interface RequestUser {
   userId: string;
@@ -34,7 +32,10 @@ import { CreateClinicDto, UpdateClinicDto, UpdateSubscriptionDto } from './dto/i
 @ApiTags('Clinics')
 @Controller('clinics')
 export class ClinicController {
-  constructor(private readonly clinicService: ClinicService) {}
+  constructor(
+    private readonly clinicService: ClinicService,
+    private readonly s3Service: S3Service,
+  ) {}
 
   @Post()
   @Public()
@@ -124,14 +125,10 @@ export class ClinicController {
     if (!allowed.includes(file.mimetype)) {
       throw new BadRequestException('Only JPEG, PNG, WebP, or SVG images allowed');
     }
-    const ext = extname(file.originalname) || '.jpg';
-    const fileName = `${randomUUID()}${ext}`;
-    // Store per-clinic: uploads/logos/{clinicId}/filename
-    const dir = `uploads/logos/${user.clinicId}`;
-    await mkdir(resolve(process.cwd(), dir), { recursive: true });
-    const filePath = `${dir}/${fileName}`;
-    await writeFile(resolve(process.cwd(), filePath), file.buffer);
-    return this.clinicService.update(user.clinicId, { logo_url: filePath });
+    const ext = (extname(file.originalname) || '.jpg').toLowerCase();
+    const key = `clinics/${user.clinicId}/logos/${randomUUID()}${ext}`;
+    await this.s3Service.upload(key, file.buffer, file.mimetype);
+    return this.clinicService.update(user.clinicId, { logo_url: key });
   }
 
   @Get('logo/:clinicId/:filename')
@@ -142,16 +139,23 @@ export class ClinicController {
     @Param('filename') filename: string,
     @Res() res: Response,
   ) {
-    // Prevent path traversal
-    if (clinicId.includes('..') || filename.includes('..') || filename.includes('/')) {
+    // Tight whitelist on path components — these flow into an S3 Key,
+    // so reject anything that could escape the clinics/{id}/logos/ prefix.
+    if (!/^[A-Za-z0-9-]+$/.test(clinicId) || !/^[A-Za-z0-9._-]+$/.test(filename)) {
       throw new BadRequestException('Invalid path');
     }
-    const uploadsBase = resolve(process.cwd(), 'uploads/logos');
-    const filePath = resolve(process.cwd(), 'uploads/logos', clinicId, filename);
-    if (!filePath.startsWith(uploadsBase)) throw new BadRequestException('Invalid path');
-    if (!existsSync(filePath)) throw new BadRequestException('Logo not found');
+    const key = `clinics/${clinicId}/logos/${filename}`;
+    const buffer = await this.s3Service.getObject(key);
+    if (!buffer) throw new BadRequestException('Logo not found');
+    const ext = extname(filename).toLowerCase();
+    const contentType =
+      ext === '.png'  ? 'image/png'  :
+      ext === '.webp' ? 'image/webp' :
+      ext === '.svg'  ? 'image/svg+xml' :
+                        'image/jpeg';
+    res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.sendFile(filePath);
+    res.send(buffer);
   }
 }

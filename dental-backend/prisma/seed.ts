@@ -61,6 +61,7 @@ async function main() {
     { key: 'AI_PRESCRIPTION', description: 'AI-powered prescription generation' },
     { key: 'AI_TREATMENT_PLAN', description: 'AI-assisted treatment planning' },
     { key: 'AI_CAMPAIGN_CONTENT', description: 'AI-powered campaign message generation with A/B variants' },
+    { key: 'AI_CONSENT_FORM', description: 'AI-generated multi-language consent form templates' },
     { key: 'SMS_REMINDERS', description: 'SMS appointment reminders' },
     { key: 'WHATSAPP_INTEGRATION', description: 'WhatsApp messaging for patient communication' },
     { key: 'WHATSAPP_INBOX', description: 'WhatsApp inbox — receive and reply to patient messages (requires own WABA)' },
@@ -165,6 +166,7 @@ async function main() {
       { plan_id: freePlan.id, feature_id: featureMap['AI_PRESCRIPTION']!, is_enabled: true },
       { plan_id: freePlan.id, feature_id: featureMap['AI_TREATMENT_PLAN']!, is_enabled: true },
       { plan_id: freePlan.id, feature_id: featureMap['AI_CAMPAIGN_CONTENT']!, is_enabled: true },
+      { plan_id: freePlan.id, feature_id: featureMap['AI_CONSENT_FORM']!, is_enabled: true },
 
       // Starter: Free + confirmations + SMS reminders + AI
       { plan_id: starterPlan.id, feature_id: featureMap['INVENTORY_MANAGEMENT']!, is_enabled: true },
@@ -174,6 +176,7 @@ async function main() {
       { plan_id: starterPlan.id, feature_id: featureMap['AI_PRESCRIPTION']!, is_enabled: true },
       { plan_id: starterPlan.id, feature_id: featureMap['AI_TREATMENT_PLAN']!, is_enabled: true },
       { plan_id: starterPlan.id, feature_id: featureMap['AI_CAMPAIGN_CONTENT']!, is_enabled: true },
+      { plan_id: starterPlan.id, feature_id: featureMap['AI_CONSENT_FORM']!, is_enabled: true },
 
       // Professional: Starter + WhatsApp + marketing + AI
       { plan_id: professionalPlan.id, feature_id: featureMap['INVENTORY_MANAGEMENT']!, is_enabled: true },
@@ -189,6 +192,7 @@ async function main() {
       { plan_id: professionalPlan.id, feature_id: featureMap['MARKETING_CAMPAIGNS']!, is_enabled: true },
       { plan_id: professionalPlan.id, feature_id: featureMap['AUTOMATION_RULES']!, is_enabled: true },
       { plan_id: professionalPlan.id, feature_id: featureMap['AI_CAMPAIGN_CONTENT']!, is_enabled: true },
+      { plan_id: professionalPlan.id, feature_id: featureMap['AI_CONSENT_FORM']!, is_enabled: true },
 
       // Enterprise: everything
       { plan_id: enterprisePlan.id, feature_id: featureMap['INVENTORY_MANAGEMENT']!, is_enabled: true },
@@ -201,6 +205,7 @@ async function main() {
       { plan_id: enterprisePlan.id, feature_id: featureMap['AI_PRESCRIPTION']!, is_enabled: true },
       { plan_id: enterprisePlan.id, feature_id: featureMap['AI_TREATMENT_PLAN']!, is_enabled: true },
       { plan_id: enterprisePlan.id, feature_id: featureMap['AI_CAMPAIGN_CONTENT']!, is_enabled: true },
+      { plan_id: enterprisePlan.id, feature_id: featureMap['AI_CONSENT_FORM']!, is_enabled: true },
       { plan_id: enterprisePlan.id, feature_id: featureMap['CUSTOM_PROVIDER_CONFIG']!, is_enabled: true },
       { plan_id: enterprisePlan.id, feature_id: featureMap['PATIENT_IMPORT']!, is_enabled: true },
       { plan_id: enterprisePlan.id, feature_id: featureMap['MARKETING_CAMPAIGNS']!, is_enabled: true },

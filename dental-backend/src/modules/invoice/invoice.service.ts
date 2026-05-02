@@ -595,6 +595,17 @@ export class InvoiceService {
       }
     }
 
+    // Pre-fetch the clinic logo from S3 so the PDF header carries the
+    // brand mark, not just the clinic name text.
+    let clinicLogo: Buffer | null = null;
+    if (invoice.clinic.logo_url) {
+      try {
+        clinicLogo = await this.s3Service.getObject(invoice.clinic.logo_url);
+      } catch (e) {
+        this.logger.warn(`Could not load clinic logo: ${(e as Error).message}`);
+      }
+    }
+
     // Generate fresh PDF every time (reflects latest payment status)
     const pdfData = {
       invoice_number: invoice.invoice_number,
@@ -614,6 +625,7 @@ export class InvoiceService {
         address: invoice.clinic.address,
         city: invoice.clinic.city,
         state: invoice.clinic.state,
+        logo_image: clinicLogo,
       },
       branch: {
         name: invoice.branch.name,

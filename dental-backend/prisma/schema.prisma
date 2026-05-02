@@ -41,36 +41,38 @@ model Clinic {
   ai_usage_records           AiUsageRecord[]
   ai_overage_charges         AiOverageCharge[]
   ai_quota_approval_requests AiQuotaApprovalRequest[]
-  plan                   Plan?                        @relation(fields: [plan_id], references: [id], onDelete: SetNull)
-  users                  User[]
-  branches               Branch[]
-  patients               Patient[]
-  appointments           Appointment[]
-  treatments             Treatment[]
-  prescriptions          Prescription[]
-  invoices               Invoice[]
-  inventory_items        InventoryItem[]
-  attachments            Attachment[]
-  tooth_conditions       PatientToothCondition[]
-  notifications          Notification[]
-  communication_messages CommunicationMessage[]
-  message_templates      MessageTemplate[]
-  communication_settings ClinicCommunicationSettings?
-  campaigns              Campaign[]
-  automation_rules       AutomationRule[]
-  clinic_events          ClinicEvent[]
-  patient_feedback       PatientFeedback[]
-  referral_codes         PatientReferralCode[]
-  referrals              Referral[]
-  ai_insights            AiInsight[]
-  expense_categories     ExpenseCategory[]
-  expenses               Expense[]
-  clinical_visits        ClinicalVisit[]
-  treatment_plans        TreatmentPlan[]
-  membership_plans       MembershipPlan[]
-  membership_enrollments MembershipEnrollment[]
-  membership_usages      MembershipBenefitUsage[]
-  usage_counters         ClinicUsageCounter[]
+  plan                       Plan?                        @relation(fields: [plan_id], references: [id], onDelete: SetNull)
+  users                      User[]
+  branches                   Branch[]
+  patients                   Patient[]
+  appointments               Appointment[]
+  treatments                 Treatment[]
+  prescriptions              Prescription[]
+  invoices                   Invoice[]
+  inventory_items            InventoryItem[]
+  attachments                Attachment[]
+  tooth_conditions           PatientToothCondition[]
+  notifications              Notification[]
+  communication_messages     CommunicationMessage[]
+  message_templates          MessageTemplate[]
+  communication_settings     ClinicCommunicationSettings?
+  campaigns                  Campaign[]
+  automation_rules           AutomationRule[]
+  clinic_events              ClinicEvent[]
+  patient_feedback           PatientFeedback[]
+  referral_codes             PatientReferralCode[]
+  referrals                  Referral[]
+  ai_insights                AiInsight[]
+  expense_categories         ExpenseCategory[]
+  expenses                   Expense[]
+  clinical_visits            ClinicalVisit[]
+  treatment_plans            TreatmentPlan[]
+  membership_plans           MembershipPlan[]
+  membership_enrollments     MembershipEnrollment[]
+  membership_usages          MembershipBenefitUsage[]
+  usage_counters             ClinicUsageCounter[]
+  consent_templates          ConsentTemplate[]
+  patient_consents           PatientConsent[]
 
   // ─── DISABLED: Google Business Profile review auto-reply feature ───
   // Re-enable these relations together with the GoogleBusinessConnection /
@@ -121,52 +123,53 @@ model Branch {
   // Per-branch custom prescription notepad template — clinic uploads scan of
   // their pre-printed pad and defines zones for where each field gets printed.
   // enabled=false → use the default Smart Dental Desk layout.
-  prescription_template_url     String?  @db.VarChar(500)
+  prescription_template_url     String? @db.VarChar(500)
   prescription_template_config  Json?
-  prescription_template_enabled Boolean  @default(false)
+  prescription_template_enabled Boolean @default(false)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  clinic           Clinic                  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  users            User[]
-  patients         Patient[]
-  appointments     Appointment[]
-  treatments       Treatment[]
-  prescriptions    Prescription[]
-  invoices         Invoice[]
-  inventory_items  InventoryItem[]
-  attachments      Attachment[]
-  tooth_conditions PatientToothCondition[]
-  expenses         Expense[]
-  clinical_visits  ClinicalVisit[]
-  treatment_plans  TreatmentPlan[]
+  clinic                 Clinic                  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  users                  User[]
+  patients               Patient[]
+  appointments           Appointment[]
+  treatments             Treatment[]
+  prescriptions          Prescription[]
+  invoices               Invoice[]
+  inventory_items        InventoryItem[]
+  attachments            Attachment[]
+  tooth_conditions       PatientToothCondition[]
+  expenses               Expense[]
+  clinical_visits        ClinicalVisit[]
+  treatment_plans        TreatmentPlan[]
   membership_enrollments MembershipEnrollment[]
+  patient_consents       PatientConsent[]
 
   @@index([clinic_id])
   @@map("branches")
 }
 
 model Plan {
-  id                         String   @id @default(uuid()) @db.Uuid
-  name                       String   @unique @db.VarChar(100)
-  price_monthly              Decimal  @db.Decimal(10, 2)
-  price_yearly               Decimal? @db.Decimal(10, 2) // null for free plan
-  max_branches               Int
-  max_staff                  Int
-  ai_quota                   Int      @default(0) // base AI requests included per cycle (0 = unlimited)
-  ai_overage_cap             Int      @default(0) // max requests allowed during a cycle when clinic enables overage (0 = no overage)
-  max_patients_per_month     Int? // null = unlimited
-  max_appointments_per_month Int? // null = unlimited
-  max_invoices_per_month     Int? // null = unlimited
-  max_treatments_per_month   Int? // null = unlimited
-  razorpay_plan_id           String?  @db.VarChar(100)
-  razorpay_plan_id_yearly    String?  @db.VarChar(100)
-  whatsapp_included_monthly  Int? // messages/month included in the plan (null = unlimited / BYO WABA)
-  whatsapp_hard_limit_monthly Int? // hard cap that blocks further WA sends (null = no block, overage allowed)
-  allow_whatsapp_overage_billing Boolean @default(false) // true = track overage for billing via payment link
-  created_at                 DateTime @default(now())
-  updated_at                 DateTime @updatedAt
+  id                             String   @id @default(uuid()) @db.Uuid
+  name                           String   @unique @db.VarChar(100)
+  price_monthly                  Decimal  @db.Decimal(10, 2)
+  price_yearly                   Decimal? @db.Decimal(10, 2) // null for free plan
+  max_branches                   Int
+  max_staff                      Int
+  ai_quota                       Int      @default(0) // base AI requests included per cycle (0 = unlimited)
+  ai_overage_cap                 Int      @default(0) // max requests allowed during a cycle when clinic enables overage (0 = no overage)
+  max_patients_per_month         Int? // null = unlimited
+  max_appointments_per_month     Int? // null = unlimited
+  max_invoices_per_month         Int? // null = unlimited
+  max_treatments_per_month       Int? // null = unlimited
+  razorpay_plan_id               String?  @db.VarChar(100)
+  razorpay_plan_id_yearly        String?  @db.VarChar(100)
+  whatsapp_included_monthly      Int? // messages/month included in the plan (null = unlimited / BYO WABA)
+  whatsapp_hard_limit_monthly    Int? // hard cap that blocks further WA sends (null = no block, overage allowed)
+  allow_whatsapp_overage_billing Boolean  @default(false) // true = track overage for billing via payment link
+  created_at                     DateTime @default(now())
+  updated_at                     DateTime @updatedAt
 
   clinics           Clinic[]
   plan_features     PlanFeature[]
@@ -204,14 +207,14 @@ model PlanFeature {
 /// Per-clinic per-month counters for messaging usage.
 /// period_start is the first day of the billing month at 00:00 UTC.
 model ClinicUsageCounter {
-  id             String   @id @default(uuid()) @db.Uuid
-  clinic_id      String   @db.Uuid
-  period_start   DateTime @db.Date // first day of the month
-  whatsapp_sent  Int      @default(0)
-  sms_sent       Int      @default(0)
-  email_sent     Int      @default(0)
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  id            String   @id @default(uuid()) @db.Uuid
+  clinic_id     String   @db.Uuid
+  period_start  DateTime @db.Date // first day of the month
+  whatsapp_sent Int      @default(0)
+  sms_sent      Int      @default(0)
+  email_sent    Int      @default(0)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
 
   clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
 
@@ -234,41 +237,44 @@ model SuperAdmin {
 }
 
 model User {
-  id             String   @id @default(uuid()) @db.Uuid
-  clinic_id      String   @db.Uuid
-  branch_id      String?  @db.Uuid
-  name           String   @db.VarChar(255)
-  email          String   @db.VarChar(255)
-  phone          String?  @db.VarChar(20)
-  password_hash  String   @db.VarChar(255)
-  role           String   @db.VarChar(50)
-  status         String   @default("active") @db.VarChar(20)
-  email_verified Boolean  @default(false)
-  phone_verified Boolean  @default(false)
+  id                String   @id @default(uuid()) @db.Uuid
+  clinic_id         String   @db.Uuid
+  branch_id         String?  @db.Uuid
+  name              String   @db.VarChar(255)
+  email             String   @db.VarChar(255)
+  phone             String?  @db.VarChar(20)
+  password_hash     String   @db.VarChar(255)
+  role              String   @db.VarChar(50)
+  status            String   @default("active") @db.VarChar(20)
+  email_verified    Boolean  @default(false)
+  phone_verified    Boolean  @default(false)
   // Doctor-specific (optional). Printed on prescription PDFs:
   // signature_url is an S3 key for an uploaded signature image.
-  license_number String?  @db.VarChar(100)
-  signature_url  String?  @db.VarChar(500)
+  license_number    String?  @db.VarChar(100)
+  signature_url     String?  @db.VarChar(500)
   // S3 key for the staff member's profile photo (private; served via presigned URL).
-  profile_photo_url String? @db.VarChar(500)
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  profile_photo_url String?  @db.VarChar(500)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
 
-  clinic           Clinic                  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch           Branch?                 @relation(fields: [branch_id], references: [id], onDelete: SetNull)
-  appointments     Appointment[]
-  treatments       Treatment[]
-  prescriptions    Prescription[]
-  attachments      Attachment[]
-  tooth_conditions PatientToothCondition[] @relation("ToothConditionDentist")
-  ai_insights      AiInsight[]
-  ai_usage_records AiUsageRecord[]
-  expenses         Expense[]
-  clinical_visits  ClinicalVisit[]         @relation("VisitDentist")
-  treatment_plans  TreatmentPlan[]         @relation("PlanDentist")
-  invoices_as_dentist Invoice[]            @relation("InvoiceDentist")
-  invoices_created    Invoice[]            @relation("InvoiceCreatedBy")
-  refunds_issued      Refund[]             @relation("RefundIssuedBy")
+  clinic                    Clinic                  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch                    Branch?                 @relation(fields: [branch_id], references: [id], onDelete: SetNull)
+  appointments              Appointment[]
+  treatments                Treatment[]
+  prescriptions             Prescription[]
+  attachments               Attachment[]
+  tooth_conditions          PatientToothCondition[] @relation("ToothConditionDentist")
+  ai_insights               AiInsight[]
+  ai_usage_records          AiUsageRecord[]
+  expenses                  Expense[]
+  clinical_visits           ClinicalVisit[]         @relation("VisitDentist")
+  treatment_plans           TreatmentPlan[]         @relation("PlanDentist")
+  invoices_as_dentist       Invoice[]               @relation("InvoiceDentist")
+  invoices_created          Invoice[]               @relation("InvoiceCreatedBy")
+  consents_signed           PatientConsent[]        @relation("ConsentSignedByStaff")
+  consents_witnessed        PatientConsent[]        @relation("ConsentWitnessStaff")
+  consent_templates_created ConsentTemplate[]       @relation("ConsentTemplateCreatedBy")
+  refunds_issued            Refund[]                @relation("RefundIssuedBy")
 
   @@unique([email, clinic_id])
   @@index([clinic_id])
@@ -278,24 +284,24 @@ model User {
 }
 
 model Patient {
-  id              String    @id @default(uuid()) @db.Uuid
-  clinic_id       String    @db.Uuid
-  branch_id       String    @db.Uuid
-  first_name      String    @db.VarChar(100)
-  last_name       String    @db.VarChar(100)
-  phone           String    @db.VarChar(50)
-  email           String?   @db.VarChar(255)
-  gender          String    @db.VarChar(20)
-  date_of_birth   DateTime? @db.Date
-  age             Int?
-  blood_group     String?   @db.VarChar(10)
-  medical_history Json?     @default("{}")
-  allergies       String?   @db.VarChar(1000)
-  notes           String?   @db.Text
+  id                String    @id @default(uuid()) @db.Uuid
+  clinic_id         String    @db.Uuid
+  branch_id         String    @db.Uuid
+  first_name        String    @db.VarChar(100)
+  last_name         String    @db.VarChar(100)
+  phone             String    @db.VarChar(50)
+  email             String?   @db.VarChar(255)
+  gender            String    @db.VarChar(20)
+  date_of_birth     DateTime? @db.Date
+  age               Int?
+  blood_group       String?   @db.VarChar(10)
+  medical_history   Json?     @default("{}")
+  allergies         String?   @db.VarChar(1000)
+  notes             String?   @db.Text
   // S3 key for the patient's profile photo (private; served via presigned URL).
-  profile_photo_url String? @db.VarChar(500)
-  created_at      DateTime  @default(now())
-  updated_at      DateTime  @updatedAt
+  profile_photo_url String?   @db.VarChar(500)
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
 
   preferred_language String @default("en") @db.VarChar(5)
 
@@ -318,6 +324,7 @@ model Patient {
   primary_memberships      MembershipEnrollment[]          @relation("MembershipPrimaryPatient")
   covered_memberships      MembershipEnrollmentMember[]    @relation("MembershipCoveredPatient")
   membership_usages        MembershipBenefitUsage[]        @relation("MembershipUsagePatient")
+  consents                 PatientConsent[]
 
   @@index([clinic_id])
   @@index([branch_id])
@@ -342,11 +349,12 @@ model Appointment {
   created_at          DateTime @default(now())
   updated_at          DateTime @updatedAt
 
-  clinic          Clinic          @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch          Branch          @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  patient         Patient         @relation(fields: [patient_id], references: [id], onDelete: Cascade)
-  dentist         User            @relation(fields: [dentist_id], references: [id], onDelete: Cascade)
+  clinic          Clinic           @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch          Branch           @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient         Patient          @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  dentist         User             @relation(fields: [dentist_id], references: [id], onDelete: Cascade)
   clinical_visits ClinicalVisit[]
+  consents        PatientConsent[]
 
   @@index([clinic_id])
   @@index([branch_id])
@@ -375,15 +383,16 @@ model Treatment {
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
 
-  clinic         Clinic              @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch         Branch              @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  patient        Patient             @relation(fields: [patient_id], references: [id], onDelete: Cascade)
-  dentist        User                @relation(fields: [dentist_id], references: [id], onDelete: Cascade)
-  clinical_visit ClinicalVisit?      @relation(fields: [clinical_visit_id], references: [id], onDelete: SetNull)
-  treatment_plan TreatmentPlan?      @relation(fields: [treatment_plan_id], references: [id], onDelete: SetNull)
-  plan_items     TreatmentPlanItem[]
-  invoice_items  InvoiceItem[]
+  clinic            Clinic                   @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch            Branch                   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient           Patient                  @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  dentist           User                     @relation(fields: [dentist_id], references: [id], onDelete: Cascade)
+  clinical_visit    ClinicalVisit?           @relation(fields: [clinical_visit_id], references: [id], onDelete: SetNull)
+  treatment_plan    TreatmentPlan?           @relation(fields: [treatment_plan_id], references: [id], onDelete: SetNull)
+  plan_items        TreatmentPlanItem[]
+  invoice_items     InvoiceItem[]
   membership_usages MembershipBenefitUsage[]
+  consents          PatientConsent[]
 
   @@index([clinic_id])
   @@index([branch_id])
@@ -396,27 +405,27 @@ model Treatment {
 }
 
 model Prescription {
-  id                String   @id @default(uuid()) @db.Uuid
-  clinic_id         String   @db.Uuid
-  branch_id         String   @db.Uuid
-  patient_id        String   @db.Uuid
-  dentist_id        String   @db.Uuid
-  clinical_visit_id String?  @db.Uuid // Optional link to consultation
+  id                        String   @id @default(uuid()) @db.Uuid
+  clinic_id                 String   @db.Uuid
+  branch_id                 String   @db.Uuid
+  patient_id                String   @db.Uuid
+  dentist_id                String   @db.Uuid
+  clinical_visit_id         String?  @db.Uuid // Optional link to consultation
   // Frozen-at-issue clinical context. We snapshot these on the prescription
   // so it stays a stable, printable record even if the linked ClinicalVisit
   // is later edited.
-  chief_complaint            String?  @db.Text
-  past_dental_history        String?  @db.Text
-  allergies_medical_history  String?  @db.Text
-  diagnosis         String   @db.VarChar(500)
-  instructions      String?  @db.Text
-  created_at        DateTime @default(now())
+  chief_complaint           String?  @db.Text
+  past_dental_history       String?  @db.Text
+  allergies_medical_history String?  @db.Text
+  diagnosis                 String   @db.VarChar(500)
+  instructions              String?  @db.Text
+  created_at                DateTime @default(now())
 
-  clinic         Clinic              @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch         Branch              @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  patient        Patient             @relation(fields: [patient_id], references: [id], onDelete: Cascade)
-  dentist        User                @relation(fields: [dentist_id], references: [id], onDelete: Cascade)
-  clinical_visit ClinicalVisit?      @relation(fields: [clinical_visit_id], references: [id], onDelete: SetNull)
+  clinic         Clinic             @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch         Branch             @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient        Patient            @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  dentist        User               @relation(fields: [dentist_id], references: [id], onDelete: Cascade)
+  clinical_visit ClinicalVisit?     @relation(fields: [clinical_visit_id], references: [id], onDelete: SetNull)
   items          PrescriptionItem[]
 
   @@index([clinic_id])
@@ -446,28 +455,28 @@ model PrescriptionItem {
 }
 
 model Invoice {
-  id                 String   @id @default(uuid()) @db.Uuid
-  clinic_id          String   @db.Uuid
-  branch_id          String   @db.Uuid
-  patient_id         String   @db.Uuid
-  dentist_id         String?  @db.Uuid
+  id                   String    @id @default(uuid()) @db.Uuid
+  clinic_id            String    @db.Uuid
+  branch_id            String    @db.Uuid
+  patient_id           String    @db.Uuid
+  dentist_id           String?   @db.Uuid
   // Staff member who generated the invoice — printed on the PDF as the
   // "Generated by" name + signature. Nullable for invoices created before
   // this feature shipped.
-  created_by_user_id String?  @db.Uuid
+  created_by_user_id   String?   @db.Uuid
   // Date the treatment/service was actually rendered. Distinct from
   // `created_at` (when the invoice was entered) so we can honour cases
   // where a patient is treated in one month and billed in another. Optional
   // — when null, the PDF prints only the invoice date.
-  treatment_date     DateTime? @db.Date
-  invoice_number     String   @db.VarChar(50)
-  total_amount       Decimal  @db.Decimal(10, 2)
-  tax_amount         Decimal  @default(0) @db.Decimal(10, 2)
-  discount_amount    Decimal  @default(0) @db.Decimal(10, 2)
-  net_amount         Decimal  @db.Decimal(10, 2)
-  gst_number         String?  @db.VarChar(20)
-  tax_breakdown      Json?
-  status             String   @default("pending") @db.VarChar(20) // pending | partially_paid | paid
+  treatment_date       DateTime? @db.Date
+  invoice_number       String    @db.VarChar(50)
+  total_amount         Decimal   @db.Decimal(10, 2)
+  tax_amount           Decimal   @default(0) @db.Decimal(10, 2)
+  discount_amount      Decimal   @default(0) @db.Decimal(10, 2)
+  net_amount           Decimal   @db.Decimal(10, 2)
+  gst_number           String?   @db.VarChar(20)
+  tax_breakdown        Json?
+  status               String    @default("pending") @db.VarChar(20) // pending | partially_paid | paid
   // Lifecycle status — orthogonal to the payment status above. Controls
   // which actions are allowed:
   //   draft     → editable, no payments yet, NOT visible to patient
@@ -475,26 +484,26 @@ model Invoice {
   //   cancelled → frozen for audit; no further actions allowed
   // Default `issued` for backwards compatibility (existing rows + flows
   // that don't yet know about the lifecycle still behave like before).
-  lifecycle_status   String   @default("issued") @db.VarChar(20)
+  lifecycle_status     String    @default("issued") @db.VarChar(20)
   // Audit fields for the issued/cancelled transitions. Useful for "who
   // marked this cancelled and why" lookups without needing a full audit log.
-  issued_at          DateTime?
-  issued_by_user_id  String?  @db.Uuid
-  cancelled_at       DateTime?
-  cancelled_by_user_id String? @db.Uuid
-  cancel_reason      String?  @db.VarChar(500)
-  created_at         DateTime @default(now())
-  updated_at         DateTime @updatedAt
+  issued_at            DateTime?
+  issued_by_user_id    String?   @db.Uuid
+  cancelled_at         DateTime?
+  cancelled_by_user_id String?   @db.Uuid
+  cancel_reason        String?   @db.VarChar(500)
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
 
-  clinic           Clinic           @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch           Branch           @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  patient          Patient          @relation(fields: [patient_id], references: [id], onDelete: Cascade)
-  dentist          User?            @relation("InvoiceDentist", fields: [dentist_id], references: [id], onDelete: SetNull)
-  created_by       User?            @relation("InvoiceCreatedBy", fields: [created_by_user_id], references: [id], onDelete: SetNull)
-  items            InvoiceItem[]
-  payments         Payment[]
-  refunds          Refund[]
-  installment_plan InstallmentPlan?
+  clinic            Clinic                   @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch            Branch                   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient           Patient                  @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  dentist           User?                    @relation("InvoiceDentist", fields: [dentist_id], references: [id], onDelete: SetNull)
+  created_by        User?                    @relation("InvoiceCreatedBy", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  items             InvoiceItem[]
+  payments          Payment[]
+  refunds           Refund[]
+  installment_plan  InstallmentPlan?
   membership_usages MembershipBenefitUsage[]
 
   @@unique([clinic_id, invoice_number])
@@ -561,9 +570,9 @@ model Refund {
   refunded_at         DateTime @default(now())
   refunded_by_user_id String?  @db.Uuid
 
-  invoice         Invoice  @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
-  payment         Payment? @relation(fields: [payment_id], references: [id], onDelete: SetNull)
-  refunded_by     User?    @relation("RefundIssuedBy", fields: [refunded_by_user_id], references: [id], onDelete: SetNull)
+  invoice     Invoice  @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  payment     Payment? @relation(fields: [payment_id], references: [id], onDelete: SetNull)
+  refunded_by User?    @relation("RefundIssuedBy", fields: [refunded_by_user_id], references: [id], onDelete: SetNull)
 
   @@index([clinic_id])
   @@index([invoice_id])
@@ -606,21 +615,21 @@ model InstallmentItem {
 }
 
 model MembershipPlan {
-  id                   String   @id @default(uuid()) @db.Uuid
-  clinic_id            String   @db.Uuid
-  code                 String?  @db.VarChar(50)
-  name                 String   @db.VarChar(150)
-  description          String?  @db.Text
-  category             String?  @db.VarChar(50)
-  price                Decimal  @default(0) @db.Decimal(10, 2)
-  duration_months      Int      @default(12)
-  covered_members_limit Int     @default(1)
-  grace_period_days    Int      @default(0)
-  is_active            Boolean  @default(true)
-  terms_and_conditions String?  @db.Text
-  metadata             Json?
-  created_at           DateTime @default(now())
-  updated_at           DateTime @updatedAt
+  id                    String   @id @default(uuid()) @db.Uuid
+  clinic_id             String   @db.Uuid
+  code                  String?  @db.VarChar(50)
+  name                  String   @db.VarChar(150)
+  description           String?  @db.Text
+  category              String?  @db.VarChar(50)
+  price                 Decimal  @default(0) @db.Decimal(10, 2)
+  duration_months       Int      @default(12)
+  covered_members_limit Int      @default(1)
+  grace_period_days     Int      @default(0)
+  is_active             Boolean  @default(true)
+  terms_and_conditions  String?  @db.Text
+  metadata              Json?
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
 
   clinic      Clinic                 @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   benefits    MembershipBenefit[]
@@ -651,7 +660,7 @@ model MembershipBenefit {
   created_at          DateTime @default(now())
   updated_at          DateTime @updatedAt
 
-  membership_plan MembershipPlan          @relation(fields: [membership_plan_id], references: [id], onDelete: Cascade)
+  membership_plan MembershipPlan           @relation(fields: [membership_plan_id], references: [id], onDelete: Cascade)
   usages          MembershipBenefitUsage[]
 
   @@index([membership_plan_id])
@@ -674,10 +683,10 @@ model MembershipEnrollment {
   created_at         DateTime @default(now())
   updated_at         DateTime @updatedAt
 
-  clinic          Clinic                     @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch          Branch                     @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  membership_plan MembershipPlan             @relation(fields: [membership_plan_id], references: [id], onDelete: Cascade)
-  primary_patient Patient                    @relation("MembershipPrimaryPatient", fields: [primary_patient_id], references: [id], onDelete: Cascade)
+  clinic          Clinic                       @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch          Branch                       @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  membership_plan MembershipPlan               @relation(fields: [membership_plan_id], references: [id], onDelete: Cascade)
+  primary_patient Patient                      @relation("MembershipPrimaryPatient", fields: [primary_patient_id], references: [id], onDelete: Cascade)
   members         MembershipEnrollmentMember[]
   usages          MembershipBenefitUsage[]
 
@@ -698,8 +707,8 @@ model MembershipEnrollmentMember {
   is_primary               Boolean  @default(false)
   created_at               DateTime @default(now())
 
-  enrollment MembershipEnrollment   @relation(fields: [membership_enrollment_id], references: [id], onDelete: Cascade)
-  patient    Patient                @relation("MembershipCoveredPatient", fields: [patient_id], references: [id], onDelete: Cascade)
+  enrollment MembershipEnrollment @relation(fields: [membership_enrollment_id], references: [id], onDelete: Cascade)
+  patient    Patient              @relation("MembershipCoveredPatient", fields: [patient_id], references: [id], onDelete: Cascade)
 
   @@unique([membership_enrollment_id, patient_id])
   @@index([membership_enrollment_id])
@@ -721,12 +730,12 @@ model MembershipBenefitUsage {
   used_on                  DateTime @default(now())
   created_at               DateTime @default(now())
 
-  clinic     Clinic                @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  enrollment MembershipEnrollment  @relation(fields: [membership_enrollment_id], references: [id], onDelete: Cascade)
-  benefit    MembershipBenefit     @relation(fields: [membership_benefit_id], references: [id], onDelete: Cascade)
-  patient    Patient               @relation("MembershipUsagePatient", fields: [patient_id], references: [id], onDelete: Cascade)
-  treatment  Treatment?            @relation(fields: [treatment_id], references: [id], onDelete: SetNull)
-  invoice    Invoice?              @relation(fields: [invoice_id], references: [id], onDelete: SetNull)
+  clinic     Clinic               @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  enrollment MembershipEnrollment @relation(fields: [membership_enrollment_id], references: [id], onDelete: Cascade)
+  benefit    MembershipBenefit    @relation(fields: [membership_benefit_id], references: [id], onDelete: Cascade)
+  patient    Patient              @relation("MembershipUsagePatient", fields: [patient_id], references: [id], onDelete: Cascade)
+  treatment  Treatment?           @relation(fields: [treatment_id], references: [id], onDelete: SetNull)
+  invoice    Invoice?             @relation(fields: [invoice_id], references: [id], onDelete: SetNull)
 
   @@index([clinic_id])
   @@index([membership_enrollment_id])
@@ -1358,21 +1367,21 @@ model AiUsageRecord {
 }
 
 model AiOverageCharge {
-  id                     String    @id @default(uuid()) @db.Uuid
-  clinic_id              String    @db.Uuid
-  cycle_start            DateTime
-  cycle_end              DateTime
-  base_quota             Int       @default(0)
-  overage_requests_count Int       @default(0)
-  approved_requests_count Int      @default(0)
-  total_cost_inr         Decimal   @default(0) @db.Decimal(12, 2)
-  status                 String    @default("pending") @db.VarChar(20) // pending | invoiced | paid | waived
-  paid_at                DateTime?
-  paid_by_super_admin_id String?   @db.Uuid
-  payment_reference      String?   @db.VarChar(255)
-  notes                  String?   @db.VarChar(1000)
-  created_at             DateTime  @default(now())
-  updated_at             DateTime  @updatedAt
+  id                      String    @id @default(uuid()) @db.Uuid
+  clinic_id               String    @db.Uuid
+  cycle_start             DateTime
+  cycle_end               DateTime
+  base_quota              Int       @default(0)
+  overage_requests_count  Int       @default(0)
+  approved_requests_count Int       @default(0)
+  total_cost_inr          Decimal   @default(0) @db.Decimal(12, 2)
+  status                  String    @default("pending") @db.VarChar(20) // pending | invoiced | paid | waived
+  paid_at                 DateTime?
+  paid_by_super_admin_id  String?   @db.Uuid
+  payment_reference       String?   @db.VarChar(255)
+  notes                   String?   @db.VarChar(1000)
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @updatedAt
 
   clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
 
@@ -1437,7 +1446,7 @@ model ClinicalVisit {
   vital_signs       Json?
 
   // Step 3 — Assessment (SOAP structure — AI generated or manual)
-  diagnosis_summary String? @db.Text
+  diagnosis_summary String?   @db.Text
   soap_notes        Json?
   review_after_date DateTime?
 
@@ -1527,19 +1536,19 @@ model TreatmentPlanItem {
 }
 
 model DemoRequest {
-  id         String   @id @default(uuid()) @db.Uuid
-  name       String   @db.VarChar(200)
-  email      String   @db.VarChar(255)
-  phone      String   @db.VarChar(20)
-  clinic_name String? @db.VarChar(255)
-  chairs     String?  @db.VarChar(10)
-  status     String   @default("pending") @db.VarChar(20) // pending | contacted | scheduled | completed | cancelled
-  notes      String?  @db.Text
-  source     String   @default("website") @db.VarChar(50) // website | landing_page | referral
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String    @db.VarChar(200)
+  email        String    @db.VarChar(255)
+  phone        String    @db.VarChar(20)
+  clinic_name  String?   @db.VarChar(255)
+  chairs       String?   @db.VarChar(10)
+  status       String    @default("pending") @db.VarChar(20) // pending | contacted | scheduled | completed | cancelled
+  notes        String?   @db.Text
+  source       String    @default("website") @db.VarChar(50) // website | landing_page | referral
   scheduled_at DateTime?
-  meeting_link String? @db.VarChar(500)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  meeting_link String?   @db.VarChar(500)
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
 
   @@index([status])
   @@index([created_at])
@@ -1555,9 +1564,9 @@ model DemoRequest {
 /// platform billing entity (Smart Dental Desk / Yeshika Enterprises) as the
 /// supplier and the clinic as the bill-to.
 model PlatformInvoice {
-  id             String   @id @default(uuid()) @db.Uuid
-  clinic_id      String   @db.Uuid
-  invoice_number String   @unique @db.VarChar(50)
+  id             String @id @default(uuid()) @db.Uuid
+  clinic_id      String @db.Uuid
+  invoice_number String @unique @db.VarChar(50)
 
   // Plan + period covered by this charge
   plan_id       String?  @db.Uuid
@@ -1596,15 +1605,15 @@ model PlatformInvoice {
   razorpay_subscription_id String? @db.VarChar(100)
 
   // Lifecycle
-  status         String  @default("paid") @db.VarChar(20) // paid | failed | refunded
-  pdf_s3_key     String? @db.VarChar(500) // S3 key once PDF has been rendered + uploaded
+  status     String  @default("paid") @db.VarChar(20) // paid | failed | refunded
+  pdf_s3_key String? @db.VarChar(500) // S3 key once PDF has been rendered + uploaded
 
   // Delivery tracking (we send via WhatsApp + Email)
-  delivery_status   String    @default("pending") @db.VarChar(30) // pending | sent | partial | failed
-  whatsapp_sent_at  DateTime?
-  whatsapp_error    String?   @db.Text
-  email_sent_at     DateTime?
-  email_error       String?   @db.Text
+  delivery_status  String    @default("pending") @db.VarChar(30) // pending | sent | partial | failed
+  whatsapp_sent_at DateTime?
+  whatsapp_error   String?   @db.Text
+  email_sent_at    DateTime?
+  email_error      String?   @db.Text
 
   issued_at  DateTime @default(now())
   created_at DateTime @default(now())
@@ -1709,3 +1718,115 @@ model PlatformInvoice {
 //   @@index([review_created_at])
 //   @@map("google_reviews")
 // }
+
+// --- Consent Forms -----------------------------------------------
+//
+// `consent_templates`: per-clinic library of consent form templates.
+// Seeded with 12 system defaults (extraction, RCT, implant, etc.) on first
+// access. Admins can replace/override any default and add new templates,
+// optionally translated by AI into hi/ta/te/kn/ml/mr/bn/gu/pa, etc.
+//
+// `patient_consents`: instances generated for a specific patient. Carries
+// either an uploaded scanned signed copy (`signed_pdf_key` from S3) or a
+// fully digital signature (also rendered to PDF and stored at the same key).
+// Both flows are gated on `status` transitioning pending ? signed.
+model ConsentTemplate {
+  id         String   @id @default(uuid()) @db.Uuid
+  clinic_id  String   @db.Uuid
+  // Stable form code, e.g. "extraction", "endodontic", "implant".
+  // Combined with language for uniqueness; lets the same form exist in
+  // multiple languages for one clinic.
+  code       String   @db.VarChar(50)
+  language   String   @default("en") @db.VarChar(5)
+  title      String   @db.VarChar(255)
+  // Structured body: { sections: [{ heading, paragraphs[]?, bullets[]? }],
+  // risks[]?, consent_statement, signature_lines[] }. Rendered to PDF on
+  // demand; AI generation populates this directly so admins can edit.
+  body       Json
+  // Bumped each time the body changes � printed on the PDF footer so
+  // historical patient_consents can identify the wording they signed.
+  version    Int      @default(1)
+  is_default Boolean  @default(false)
+  is_active  Boolean  @default(true)
+  // null when the row was AI-generated or seeded; otherwise the staff
+  // member who saved this version.
+  created_by String?  @db.Uuid
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  clinic           Clinic           @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  creator          User?            @relation("ConsentTemplateCreatedBy", fields: [created_by], references: [id], onDelete: SetNull)
+  patient_consents PatientConsent[]
+
+  @@unique([clinic_id, code, language])
+  @@index([clinic_id])
+  @@index([clinic_id, is_active])
+  @@map("consent_templates")
+}
+
+model PatientConsent {
+  id             String  @id @default(uuid()) @db.Uuid
+  clinic_id      String  @db.Uuid
+  branch_id      String  @db.Uuid
+  patient_id     String  @db.Uuid
+  template_id    String  @db.Uuid
+  // Optional links so the consent shows up alongside the related work
+  // (e.g. on the treatment timeline as "Consent on file").
+  treatment_id   String? @db.Uuid
+  appointment_id String? @db.Uuid
+
+  // pending ? signed ? archived. "cancelled" used when staff abandon a
+  // generated form before signature.
+  status           String @default("pending") @db.VarChar(20)
+  // Which template version was used at generation time, so legacy PDFs can
+  // be reproduced even after the template is updated.
+  template_version Int    @default(1)
+  language         String @default("en") @db.VarChar(5)
+
+  // Pre-filled but unsigned PDF, generated at create time.
+  generated_pdf_key  String?   @db.VarChar(500)
+  // Final signed PDF � for digital signatures we re-render the PDF with
+  // the signature image embedded; for upload-back we store the scanned
+  // copy as-is (PDF/JPG/PNG converted to PDF on the fly).
+  signed_pdf_key     String?   @db.VarChar(500)
+  signature_method   String?   @db.VarChar(20) // 'digital' | 'upload'
+  signed_by_name     String?   @db.VarChar(255)
+  signed_at          DateTime?
+  signed_by_staff_id String?   @db.Uuid // staff who witnessed/captured the signature
+  witness_staff_id   String?   @db.Uuid // optional second witness
+
+  // ── Remote-link signing (patient signs on their own phone) ──
+  // 'in_clinic_digital' | 'paper_upload' | 'remote_link'
+  signed_via              String?   @db.VarChar(30)
+  signing_token_hash      String?   @db.VarChar(128) // SHA-256 of one-time link token
+  signing_token_expires_at DateTime?
+  signing_link_sent_at    DateTime?
+  signing_link_sent_to    String?   @db.VarChar(50) // phone/email the link went to
+  otp_code_hash           String?   @db.VarChar(128) // SHA-256 of current OTP
+  otp_expires_at          DateTime?
+  otp_verified_at         DateTime?
+  otp_attempts            Int       @default(0)
+  signed_ip               String?   @db.VarChar(64)
+  signed_user_agent       String?   @db.VarChar(500)
+
+  notes      String?  @db.Text
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  clinic      Clinic          @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch      Branch          @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient     Patient         @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  template    ConsentTemplate @relation(fields: [template_id], references: [id], onDelete: Restrict)
+  treatment   Treatment?      @relation(fields: [treatment_id], references: [id], onDelete: SetNull)
+  appointment Appointment?    @relation(fields: [appointment_id], references: [id], onDelete: SetNull)
+  signed_by   User?           @relation("ConsentSignedByStaff", fields: [signed_by_staff_id], references: [id], onDelete: SetNull)
+  witness     User?           @relation("ConsentWitnessStaff", fields: [witness_staff_id], references: [id], onDelete: SetNull)
+
+  @@index([clinic_id])
+  @@index([clinic_id, patient_id])
+  @@index([clinic_id, status])
+  @@index([template_id])
+  @@index([treatment_id])
+  @@index([signing_token_hash])
+  @@map("patient_consents")
+}

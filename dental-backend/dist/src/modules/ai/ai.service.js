@@ -762,6 +762,19 @@ let AiService = AiService_1 = class AiService {
             review_summary: String(result['review_summary'] ?? ''),
         };
     }
+    async generateConsentTemplate(clinicId, systemPrompt, userPrompt, userId) {
+        const result = await this.callLLM(systemPrompt, userPrompt, {
+            clinicId,
+            userId,
+            type: 'consent_form',
+        });
+        const title = String(result['title'] ?? '').trim();
+        const body = (result['body'] && typeof result['body'] === 'object' ? result['body'] : null);
+        if (!title || !body) {
+            throw new common_1.BadRequestException('AI returned an invalid consent template');
+        }
+        return { title, body };
+    }
 };
 exports.AiService = AiService;
 exports.AiService = AiService = AiService_1 = __decorate([

@@ -436,6 +436,15 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                 this.logger.warn(`Could not load creator signature: ${e.message}`);
             }
         }
+        let clinicLogo = null;
+        if (invoice.clinic.logo_url) {
+            try {
+                clinicLogo = await this.s3Service.getObject(invoice.clinic.logo_url);
+            }
+            catch (e) {
+                this.logger.warn(`Could not load clinic logo: ${e.message}`);
+            }
+        }
         const pdfData = {
             invoice_number: invoice.invoice_number,
             created_at: invoice.created_at,
@@ -454,6 +463,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                 address: invoice.clinic.address,
                 city: invoice.clinic.city,
                 state: invoice.clinic.state,
+                logo_image: clinicLogo,
             },
             branch: {
                 name: invoice.branch.name,

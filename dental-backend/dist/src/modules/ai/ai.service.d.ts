@@ -146,4 +146,8 @@ export declare class AiService {
         is_safe_to_auto_post: boolean;
         review_summary: string;
     }>;
+    generateConsentTemplate(clinicId: string, systemPrompt: string, userPrompt: string, userId?: string): Promise<{
+        title: string;
+        body: Record<string, unknown>;
+    }>;
 }

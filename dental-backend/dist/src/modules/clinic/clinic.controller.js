@@ -17,20 +17,20 @@ const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const platform_express_1 = require("@nestjs/platform-express");
-const path_1 = require("path");
-const fs_1 = require("fs");
-const promises_1 = require("fs/promises");
 const crypto_1 = require("crypto");
-const path_2 = require("path");
+const path_1 = require("path");
 const public_decorator_js_1 = require("../../common/decorators/public.decorator.js");
 const super_admin_decorator_js_1 = require("../../common/decorators/super-admin.decorator.js");
 const current_user_decorator_js_1 = require("../../common/decorators/current-user.decorator.js");
+const s3_service_js_1 = require("../../common/services/s3.service.js");
 const clinic_service_js_1 = require("./clinic.service.js");
 const index_js_1 = require("./dto/index.js");
 let ClinicController = class ClinicController {
     clinicService;
-    constructor(clinicService) {
+    s3Service;
+    constructor(clinicService, s3Service) {
         this.clinicService = clinicService;
+        this.s3Service = s3Service;
     }
     async create(dto) {
         return this.clinicService.create(dto);
@@ -63,27 +63,28 @@ let ClinicController = class ClinicController {
         if (!allowed.includes(file.mimetype)) {
             throw new common_1.BadRequestException('Only JPEG, PNG, WebP, or SVG images allowed');
         }
-        const ext = (0, path_2.extname)(file.originalname) || '.jpg';
-        const fileName = `${(0, crypto_1.randomUUID)()}${ext}`;
-        const dir = `uploads/logos/${user.clinicId}`;
-        await (0, promises_1.mkdir)((0, path_1.resolve)(process.cwd(), dir), { recursive: true });
-        const filePath = `${dir}/${fileName}`;
-        await (0, promises_1.writeFile)((0, path_1.resolve)(process.cwd(), filePath), file.buffer);
-        return this.clinicService.update(user.clinicId, { logo_url: filePath });
+        const ext = ((0, path_1.extname)(file.originalname) || '.jpg').toLowerCase();
+        const key = `clinics/${user.clinicId}/logos/${(0, crypto_1.randomUUID)()}${ext}`;
+        await this.s3Service.upload(key, file.buffer, file.mimetype);
+        return this.clinicService.update(user.clinicId, { logo_url: key });
     }
     async serveLogo(clinicId, filename, res) {
-        if (clinicId.includes('..') || filename.includes('..') || filename.includes('/')) {
+        if (!/^[A-Za-z0-9-]+$/.test(clinicId) || !/^[A-Za-z0-9._-]+$/.test(filename)) {
             throw new common_1.BadRequestException('Invalid path');
         }
-        const uploadsBase = (0, path_1.resolve)(process.cwd(), 'uploads/logos');
-        const filePath = (0, path_1.resolve)(process.cwd(), 'uploads/logos', clinicId, filename);
-        if (!filePath.startsWith(uploadsBase))
-            throw new common_1.BadRequestException('Invalid path');
-        if (!(0, fs_1.existsSync)(filePath))
+        const key = `clinics/${clinicId}/logos/${filename}`;
+        const buffer = await this.s3Service.getObject(key);
+        if (!buffer)
             throw new common_1.BadRequestException('Logo not found');
+        const ext = (0, path_1.extname)(filename).toLowerCase();
+        const contentType = ext === '.png' ? 'image/png' :
+            ext === '.webp' ? 'image/webp' :
+                ext === '.svg' ? 'image/svg+xml' :
+                    'image/jpeg';
+        res.setHeader('Content-Type', contentType);
         res.setHeader('Cache-Control', 'public, max-age=86400');
         res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-        res.sendFile(filePath);
+        res.send(buffer);
     }
 };
 exports.ClinicController = ClinicController;
@@ -209,6 +210,7 @@ __decorate([
 exports.ClinicController = ClinicController = __decorate([
     (0, swagger_1.ApiTags)('Clinics'),
     (0, common_1.Controller)('clinics'),
-    __metadata("design:paramtypes", [clinic_service_js_1.ClinicService])
+    __metadata("design:paramtypes", [clinic_service_js_1.ClinicService,
+        s3_service_js_1.S3Service])
 ], ClinicController);
 //# sourceMappingURL=clinic.controller.js.map

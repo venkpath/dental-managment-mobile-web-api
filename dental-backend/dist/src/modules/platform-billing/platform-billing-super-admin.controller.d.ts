@@ -33,7 +33,6 @@ export declare class PlatformBillingSuperAdminController {
             invoice_number: string;
             tax_amount: import("@prisma/client-runtime-utils").Decimal;
             issued_at: Date;
-            razorpay_payment_id: string | null;
             period_end: Date;
             subtotal: import("@prisma/client-runtime-utils").Decimal;
             tax_rate: import("@prisma/client-runtime-utils").Decimal;
@@ -48,6 +47,7 @@ export declare class PlatformBillingSuperAdminController {
             bill_to_state: string | null;
             bill_to_pincode: string | null;
             bill_to_gstin: string | null;
+            razorpay_payment_id: string | null;
             razorpay_subscription_id: string | null;
             pdf_s3_key: string | null;
             delivery_status: string;
@@ -84,7 +84,6 @@ export declare class PlatformBillingSuperAdminController {
         invoice_number: string;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         issued_at: Date;
-        razorpay_payment_id: string | null;
         period_end: Date;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
         tax_rate: import("@prisma/client-runtime-utils").Decimal;
@@ -99,6 +98,7 @@ export declare class PlatformBillingSuperAdminController {
         bill_to_state: string | null;
         bill_to_pincode: string | null;
         bill_to_gstin: string | null;
+        razorpay_payment_id: string | null;
         razorpay_subscription_id: string | null;
         pdf_s3_key: string | null;
         delivery_status: string;
