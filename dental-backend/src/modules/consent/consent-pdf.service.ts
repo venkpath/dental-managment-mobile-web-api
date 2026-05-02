@@ -289,7 +289,7 @@ export class ConsentPdfService {
   private renderSignatureLines(doc: PDFKit.PDFDocument, data: ConsentPdfData, startY: number): void {
     const M = this.M;
     const CW = doc.page.width - M * 2;
-    const lines = data.body.signature_lines;
+    const lines = data.body.signature_lines.filter((k) => k !== 'doctor');
     if (!lines.length) return;
 
     const y = this.ensureSpace(doc, startY, 110);
@@ -306,17 +306,13 @@ export class ConsentPdfService {
       const lineY = y + 36;
 
       // Optional embedded signature image — only on the kind that matches
-      // the captured signature, OR for doctor when doctor.signature_image is present.
+      // the captured signature.
       if (kind === 'patient' || kind === 'guardian') {
         if (data.signature?.image) {
           try {
             doc.image(data.signature.image, x + 12, y, { fit: [slotW - 24, 36], align: 'center', valign: 'bottom' });
           } catch { /* ignore */ }
         }
-      } else if (kind === 'doctor' && data.doctor?.signature_image) {
-        try {
-          doc.image(data.doctor.signature_image, x + 12, y, { fit: [slotW - 24, 36], align: 'center', valign: 'bottom' });
-        } catch { /* ignore */ }
       }
 
       // Signature line
@@ -330,8 +326,6 @@ export class ConsentPdfService {
       let nameLine = '';
       if (kind === 'patient' || kind === 'guardian') {
         nameLine = data.signature?.signed_by_name ?? '';
-      } else if (kind === 'doctor' && data.doctor) {
-        nameLine = data.doctor.name;
       }
       if (nameLine) {
         doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(9).text(nameLine, x, lineY + 14, { width: slotW, align: 'center' });

@@ -134,6 +134,25 @@ export class CommunicationService {
 
     if (dto.template_id) {
       const template = await this.templateService.findOne(clinicId, dto.template_id);
+
+      // If the template uses numbered placeholders ({{1}}, {{2}}, ...) and the
+      // caller passed named variables, map them into numbered keys so the
+      // stored/displayed body renders correctly. The order is taken from
+      // template.variables ([] | string[] | { body: string[] }).
+      const rawVarsForRender = template.variables as unknown;
+      let renderVarNames: string[] = [];
+      if (Array.isArray(rawVarsForRender)) {
+        renderVarNames = rawVarsForRender as string[];
+      } else if (rawVarsForRender && typeof rawVarsForRender === 'object' && 'body' in rawVarsForRender) {
+        renderVarNames = ((rawVarsForRender as { body?: string[] }).body) || [];
+      }
+      renderVarNames.forEach((name, i) => {
+        const numKey = String(i + 1);
+        if (vars[numKey] === undefined || vars[numKey] === '') {
+          vars[numKey] = vars[name] ?? dto.variables?.[name] ?? '';
+        }
+      });
+
       body = this.renderer.render(template.body, vars);
       subject = subject || (template.subject ? this.renderer.render(template.subject, vars) : undefined);
       dltTemplateId = template.dlt_template_id ?? undefined;

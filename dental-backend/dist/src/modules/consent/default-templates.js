@@ -36,7 +36,7 @@ exports.DEFAULT_CONSENT_TEMPLATES = [
                 },
             ],
             consent_statement: 'I have read (or had read to me) the above information, my questions have been answered, no guarantees have been offered, and I voluntarily consent to the treatment described.',
-            signature_lines: ['patient', 'doctor'],
+            signature_lines: ['patient'],
         },
     },
     {
@@ -70,7 +70,7 @@ exports.DEFAULT_CONSENT_TEMPLATES = [
                 },
             ],
             consent_statement: 'I understand the recommended treatment, the fees involved, the risks, alternatives and consequences of doing nothing. All my questions have been answered and no guarantees have been offered. I consent to the procedure.',
-            signature_lines: ['patient', 'guardian', 'doctor'],
+            signature_lines: ['patient', 'guardian'],
         },
     },
     {
@@ -105,7 +105,7 @@ exports.DEFAULT_CONSENT_TEMPLATES = [
             ],
             consent_statement: 'I have had the opportunity to ask questions about the recommended anaesthesia and have sufficient information to give consent. I hereby consent to the use of local anaesthesia as part of my treatment.',
             doctor_statement: 'I attest that I have discussed the risks, benefits, consequences, and alternatives of anaesthesia with the patient (or representative). They have had the opportunity to ask questions and I believe they understand and consent.',
-            signature_lines: ['patient', 'doctor'],
+            signature_lines: ['patient'],
         },
     },
     {
@@ -148,7 +148,7 @@ exports.DEFAULT_CONSENT_TEMPLATES = [
                 },
             ],
             consent_statement: 'I, undersigned, being the patient, parent or guardian of the patient, consent to the performance of procedures decided upon as necessary or advisable in the opinion of the doctor.',
-            signature_lines: ['patient', 'guardian', 'doctor'],
+            signature_lines: ['patient', 'guardian'],
         },
     },
     {
@@ -185,7 +185,7 @@ exports.DEFAULT_CONSENT_TEMPLATES = [
                 },
             ],
             consent_statement: 'I have read and understood the procedure, alternatives (no treatment, removable prosthesis, implant), risks and costs. No guarantees have been offered. I voluntarily consent to the prosthodontic treatment.',
-            signature_lines: ['patient', 'doctor'],
+            signature_lines: ['patient'],
         },
     },
     {
@@ -225,7 +225,7 @@ exports.DEFAULT_CONSENT_TEMPLATES = [
                 },
             ],
             consent_statement: 'I understand the surgical and prosthetic phases, the alternatives (bridge, removable denture, no replacement), the risks, the cost, and the importance of long-term maintenance. No guarantees of success have been offered. I voluntarily consent to dental implant treatment.',
-            signature_lines: ['patient', 'doctor', 'witness'],
+            signature_lines: ['patient', 'witness'],
         },
     },
     {
@@ -263,7 +263,7 @@ exports.DEFAULT_CONSENT_TEMPLATES = [
                 },
             ],
             consent_statement: 'I have read and understood the goals, duration, alternatives, risks and my responsibilities during orthodontic treatment. No guarantees of an exact result have been offered. I voluntarily consent to orthodontic treatment.',
-            signature_lines: ['patient', 'guardian', 'doctor'],
+            signature_lines: ['patient', 'guardian'],
         },
     },
     {
@@ -301,7 +301,7 @@ exports.DEFAULT_CONSENT_TEMPLATES = [
                 },
             ],
             consent_statement: 'I have read and understood the recommended periodontal treatment, alternatives, risks and the importance of long-term maintenance. No guarantees of complete success have been offered. I voluntarily consent to the treatment.',
-            signature_lines: ['patient', 'doctor'],
+            signature_lines: ['patient'],
         },
     },
     {
@@ -337,7 +337,7 @@ exports.DEFAULT_CONSENT_TEMPLATES = [
                 },
             ],
             consent_statement: 'I have had the opportunity to ask questions, understand the risks and benefits, and voluntarily consent to conscious sedation as part of my dental treatment.',
-            signature_lines: ['patient', 'doctor', 'witness'],
+            signature_lines: ['patient', 'witness'],
         },
     },
     {
@@ -370,7 +370,7 @@ exports.DEFAULT_CONSENT_TEMPLATES = [
                 },
             ],
             consent_statement: 'I am the parent / legal guardian of the child named above. I have had the opportunity to ask questions and consent to the proposed treatment and behaviour-management techniques.',
-            signature_lines: ['guardian', 'doctor', 'witness'],
+            signature_lines: ['guardian', 'witness'],
         },
     },
     {
@@ -398,7 +398,7 @@ exports.DEFAULT_CONSENT_TEMPLATES = [
                 },
             ],
             consent_statement: 'I understand that final colour cannot be guaranteed, restorations may need replacement, and follow-up touch-up sessions may be necessary. I voluntarily consent to the whitening procedure.',
-            signature_lines: ['patient', 'doctor'],
+            signature_lines: ['patient'],
         },
     },
     {
@@ -433,7 +433,7 @@ exports.DEFAULT_CONSENT_TEMPLATES = [
                 },
             ],
             consent_statement: 'I have read and understood the above and voluntarily consent to the use of my clinical media as indicated.',
-            signature_lines: ['patient', 'doctor'],
+            signature_lines: ['patient'],
         },
     },
 ];

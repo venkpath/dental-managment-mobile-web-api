@@ -42,7 +42,7 @@ CRITICAL OUTPUT RULES:
       ],
       "consent_statement": "<final sentence the patient explicitly agrees to>",
       "doctor_statement": "<optional doctor attestation, omit if not needed>",
-      "signature_lines": ["patient", "guardian"?, "witness"?, "doctor"]   // 1-4 entries
+      "signature_lines": ["patient", "guardian"?, "witness"?]   // 1-3 entries
     }
   }
 - Keep the literal token "{procedure}" exactly as written; the system substitutes the real procedure at render time.
@@ -70,7 +70,7 @@ export function buildConsentTemplateUserPrompt(input: BuildConsentPromptInput): 
     `Target language: ${input.language_label} (${input.language_code})`,
     `Audience: ${input.audience_age ?? 'adult'}`,
     `Anaesthesia options block: ${input.include_anaesthesia_options ? 'include relevant choices (Local / Sedation / GA)' : 'omit'}`,
-    `Signature lines: include ${input.include_witness ? 'patient + doctor + witness' : 'patient + doctor (and parent/guardian if pediatric)'}`,
+    `Signature lines: include ${input.include_witness ? 'patient + witness' : 'patient (and parent/guardian if pediatric)'}`,
     input.custom_notes ? `Additional clinic notes: ${input.custom_notes}` : null,
     '',
     'Return JSON ONLY. The body MUST follow the shape declared in the system prompt and be entirely in the target language.',

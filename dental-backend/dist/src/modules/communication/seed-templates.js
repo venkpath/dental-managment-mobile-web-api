@@ -660,7 +660,7 @@ const DEFAULT_TEMPLATES = [
         template_name: 'dental_consent_signature_request',
         body: 'Hi {{1}}, {{2}} has shared a consent form for your upcoming {{3}}.\n\nPlease review and sign securely on your phone:\n{{4}}\n\nLink expires in 72 hours. For any questions, contact us at {{5}}.',
         variables: { body: ['patient_name', 'clinic_name', 'procedure', 'link', 'phone'], buttons: [] },
-        language: 'en',
+        language: 'en_US',
         sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic', procedure: 'Root Canal Treatment', link: 'https://app.example.com/consent/sign/abc123', phone: '9876543210' },
     },
     {
@@ -669,7 +669,7 @@ const DEFAULT_TEMPLATES = [
         template_name: 'dental_consent_otp',
         body: 'OTP Code: {{1}}. This is your OTP code for {{2}}. For your security, do not share this code.',
         variables: { body: ['otp', 'clinic_name'], buttons: [] },
-        language: 'en',
+        language: 'en_US',
         sampleValues: { otp: '482917', clinic_name: 'Smile Dental Clinic' },
     },
 ];
@@ -682,7 +682,7 @@ async function seedDefaultTemplates(prisma) {
             where: {
                 clinic_id: null,
                 template_name: template.template_name,
-                language: template.language,
+                channel: template.channel,
             },
         });
         if (!existing) {
@@ -710,6 +710,7 @@ async function seedDefaultTemplates(prisma) {
                     variables: template.variables,
                     footer: template.footer ?? null,
                     category: template.category,
+                    language: template.language,
                 },
             });
             updated++;

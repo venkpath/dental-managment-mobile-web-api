@@ -110,6 +110,20 @@ let CommunicationService = class CommunicationService {
             vars['code'] = vars['otp_code'] || '';
         if (dto.template_id) {
             const template = await this.templateService.findOne(clinicId, dto.template_id);
+            const rawVarsForRender = template.variables;
+            let renderVarNames = [];
+            if (Array.isArray(rawVarsForRender)) {
+                renderVarNames = rawVarsForRender;
+            }
+            else if (rawVarsForRender && typeof rawVarsForRender === 'object' && 'body' in rawVarsForRender) {
+                renderVarNames = (rawVarsForRender.body) || [];
+            }
+            renderVarNames.forEach((name, i) => {
+                const numKey = String(i + 1);
+                if (vars[numKey] === undefined || vars[numKey] === '') {
+                    vars[numKey] = vars[name] ?? dto.variables?.[name] ?? '';
+                }
+            });
             body = this.renderer.render(template.body, vars);
             subject = subject || (template.subject ? this.renderer.render(template.subject, vars) : undefined);
             dltTemplateId = template.dlt_template_id ?? undefined;

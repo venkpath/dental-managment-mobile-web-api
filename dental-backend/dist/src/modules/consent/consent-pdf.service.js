@@ -217,7 +217,7 @@ let ConsentPdfService = class ConsentPdfService {
     renderSignatureLines(doc, data, startY) {
         const M = this.M;
         const CW = doc.page.width - M * 2;
-        const lines = data.body.signature_lines;
+        const lines = data.body.signature_lines.filter((k) => k !== 'doctor');
         if (!lines.length)
             return;
         const y = this.ensureSpace(doc, startY, 110);

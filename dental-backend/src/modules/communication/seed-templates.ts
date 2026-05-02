@@ -794,7 +794,7 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
     template_name: 'dental_consent_signature_request',
     body: 'Hi {{1}}, {{2}} has shared a consent form for your upcoming {{3}}.\n\nPlease review and sign securely on your phone:\n{{4}}\n\nLink expires in 72 hours. For any questions, contact us at {{5}}.',
     variables: { body: ['patient_name', 'clinic_name', 'procedure', 'link', 'phone'], buttons: [] },
-    language: 'en',
+    language: 'en_US',
     sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic', procedure: 'Root Canal Treatment', link: 'https://app.example.com/consent/sign/abc123', phone: '9876543210' },
   },
 
@@ -807,7 +807,7 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
     template_name: 'dental_consent_otp',
     body: 'OTP Code: {{1}}. This is your OTP code for {{2}}. For your security, do not share this code.',
     variables: { body: ['otp', 'clinic_name'], buttons: [] },
-    language: 'en',
+    language: 'en_US',
     sampleValues: { otp: '482917', clinic_name: 'Smile Dental Clinic' },
   },
 ];
@@ -822,7 +822,7 @@ export async function seedDefaultTemplates(prisma: PrismaService): Promise<void>
       where: {
         clinic_id: null, // system template
         template_name: template.template_name,
-        language: template.language,
+        channel: template.channel,
       },
     });
 
@@ -843,7 +843,7 @@ export async function seedDefaultTemplates(prisma: PrismaService): Promise<void>
       });
       created++;
     } else if (template.channel === 'whatsapp') {
-      // Always sync body, variables, footer, category for WhatsApp templates
+      // Always sync body, variables, footer, category, language for WhatsApp templates
       await prisma.messageTemplate.update({
         where: { id: existing.id },
         data: {
@@ -851,6 +851,7 @@ export async function seedDefaultTemplates(prisma: PrismaService): Promise<void>
           variables: template.variables as object,
           footer: template.footer ?? null,
           category: template.category,
+          language: template.language,
         } as any,
       });
       updated++;
