@@ -72,13 +72,15 @@ class CreateInvoiceDto {
     branch_id;
     patient_id;
     dentist_id;
+    treatment_date;
     tax_percentage;
     discount_amount;
     gst_number;
     tax_breakdown;
+    as_draft;
     items;
     static _OPENAPI_METADATA_FACTORY() {
-        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: false, type: () => String, format: "uuid" }, tax_percentage: { required: false, type: () => Number, minimum: 0 }, discount_amount: { required: false, type: () => Number, minimum: 0 }, gst_number: { required: false, type: () => String, maxLength: 20, pattern: "/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/" }, tax_breakdown: { required: false, type: () => Object }, items: { required: true, type: () => [require("./create-invoice.dto").InvoiceItemDto], minItems: 1 } };
+        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: false, type: () => String, format: "uuid" }, treatment_date: { required: false, type: () => String }, tax_percentage: { required: false, type: () => Number, minimum: 0 }, discount_amount: { required: false, type: () => Number, minimum: 0 }, gst_number: { required: false, type: () => String, maxLength: 20, pattern: "/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/" }, tax_breakdown: { required: false, type: () => Object }, as_draft: { required: false, type: () => Boolean }, items: { required: true, type: () => [require("./create-invoice.dto").InvoiceItemDto], minItems: 1 } };
     }
 }
 exports.CreateInvoiceDto = CreateInvoiceDto;
@@ -98,6 +100,15 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], CreateInvoiceDto.prototype, "dentist_id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: '2026-01-15',
+        description: 'Date the treatment was actually rendered. Use when the patient is being billed in a later month than the visit. ISO date (YYYY-MM-DD).',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsDateString)(),
+    __metadata("design:type", String)
+], CreateInvoiceDto.prototype, "treatment_date", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         example: '18%',
@@ -140,6 +151,16 @@ __decorate([
     (0, class_validator_1.IsObject)(),
     __metadata("design:type", Object)
 ], CreateInvoiceDto.prototype, "tax_breakdown", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: false,
+        description: 'When true, the invoice is saved as a DRAFT — not visible to the patient and freely editable. Defaults to false (immediately issued).',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    (0, class_transformer_1.Type)(() => Boolean),
+    __metadata("design:type", Boolean)
+], CreateInvoiceDto.prototype, "as_draft", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ type: [InvoiceItemDto], description: 'Line items for the invoice' }),
     (0, class_validator_1.IsArray)(),

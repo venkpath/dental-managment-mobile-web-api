@@ -22,6 +22,8 @@ const update_invoice_dto_js_1 = require("./dto/update-invoice.dto.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
 const current_user_decorator_js_1 = require("../../common/decorators/current-user.decorator.js");
 const public_decorator_js_1 = require("../../common/decorators/public.decorator.js");
+const roles_decorator_js_1 = require("../../common/decorators/roles.decorator.js");
+const index_js_2 = require("../user/dto/index.js");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
 const dentist_scope_util_js_1 = require("../../common/utils/dentist-scope.util.js");
 let InvoicePublicController = class InvoicePublicController {
@@ -57,8 +59,8 @@ let InvoiceController = class InvoiceController {
     constructor(invoiceService) {
         this.invoiceService = invoiceService;
     }
-    async createInvoice(clinicId, dto) {
-        return this.invoiceService.create(clinicId, dto);
+    async createInvoice(clinicId, user, dto) {
+        return this.invoiceService.create(clinicId, dto, user.sub);
     }
     async findAll(clinicId, user, query) {
         (0, dentist_scope_util_js_1.applyDentistScope)(query, user);
@@ -70,8 +72,17 @@ let InvoiceController = class InvoiceController {
     async updateInvoice(clinicId, id, dto) {
         return this.invoiceService.update(clinicId, id, dto);
     }
+    async issueInvoice(clinicId, user, id) {
+        return this.invoiceService.issueInvoice(clinicId, id, user.sub);
+    }
+    async cancelInvoice(clinicId, user, id, dto) {
+        return this.invoiceService.cancelInvoice(clinicId, id, user.sub, dto.reason);
+    }
     async createPayment(clinicId, dto) {
         return this.invoiceService.addPayment(clinicId, dto);
+    }
+    async createRefund(clinicId, user, id, dto) {
+        return this.invoiceService.addRefund(clinicId, id, dto, user.sub);
     }
     async createInstallmentPlan(clinicId, id, dto) {
         dto.invoice_id = id;
@@ -94,9 +105,10 @@ __decorate([
     (0, swagger_1.ApiCreatedResponse)({ description: 'Invoice created successfully' }),
     openapi.ApiResponse({ status: 201 }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
-    __param(1, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, index_js_1.CreateInvoiceDto]),
+    __metadata("design:paramtypes", [String, Object, index_js_1.CreateInvoiceDto]),
     __metadata("design:returntype", Promise)
 ], InvoiceController.prototype, "createInvoice", null);
 __decorate([
@@ -116,7 +128,7 @@ __decorate([
     (0, swagger_1.ApiOperation)({ summary: 'Get an invoice by ID with items and payments' }),
     (0, swagger_1.ApiOkResponse)({ description: 'Invoice found' }),
     (0, swagger_1.ApiNotFoundResponse)({ description: 'Invoice not found' }),
-    openapi.ApiResponse({ status: 200 }),
+    openapi.ApiResponse({ status: 200, type: Object }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
     __metadata("design:type", Function),
@@ -125,9 +137,10 @@ __decorate([
 ], InvoiceController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)('invoices/:id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Update an invoice (e.g. assign treating dentist, GST number)' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Update a DRAFT invoice (e.g. assign treating dentist, GST number). Issued invoices cannot be edited.' }),
     (0, swagger_1.ApiOkResponse)({ description: 'Invoice updated' }),
     (0, swagger_1.ApiNotFoundResponse)({ description: 'Invoice not found' }),
+    (0, swagger_1.ApiBadRequestResponse)({ description: 'Invoice is not in draft state' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
@@ -136,6 +149,36 @@ __decorate([
     __metadata("design:paramtypes", [String, String, update_invoice_dto_js_1.UpdateInvoiceDto]),
     __metadata("design:returntype", Promise)
 ], InvoiceController.prototype, "updateInvoice", null);
+__decorate([
+    (0, common_1.Post)('invoices/:id/issue'),
+    (0, swagger_1.ApiOperation)({ summary: 'Issue a DRAFT invoice — locks it from edits and makes it shareable with the patient.' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Invoice issued' }),
+    (0, swagger_1.ApiNotFoundResponse)({ description: 'Invoice not found' }),
+    (0, swagger_1.ApiBadRequestResponse)({ description: 'Invoice is already issued or cancelled' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, String]),
+    __metadata("design:returntype", Promise)
+], InvoiceController.prototype, "issueInvoice", null);
+__decorate([
+    (0, common_1.Post)('invoices/:id/cancel'),
+    (0, roles_decorator_js_1.Roles)(index_js_2.UserRole.ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Cancel an invoice (admin only). Cannot cancel invoices with recorded payments — refund first.' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Invoice cancelled' }),
+    (0, swagger_1.ApiNotFoundResponse)({ description: 'Invoice not found' }),
+    (0, swagger_1.ApiBadRequestResponse)({ description: 'Invoice already cancelled, or has recorded payments' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(3, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, String, index_js_1.CancelInvoiceDto]),
+    __metadata("design:returntype", Promise)
+], InvoiceController.prototype, "cancelInvoice", null);
 __decorate([
     (0, common_1.Post)('payments'),
     (0, swagger_1.ApiOperation)({ summary: 'Record a payment against an invoice (supports installments)' }),
@@ -149,6 +192,21 @@ __decorate([
     __metadata("design:paramtypes", [String, index_js_1.CreatePaymentDto]),
     __metadata("design:returntype", Promise)
 ], InvoiceController.prototype, "createPayment", null);
+__decorate([
+    (0, common_1.Post)('invoices/:id/refunds'),
+    (0, swagger_1.ApiOperation)({ summary: 'Refund (fully or partially) money already collected against an invoice.' }),
+    (0, swagger_1.ApiCreatedResponse)({ description: 'Refund recorded' }),
+    (0, swagger_1.ApiNotFoundResponse)({ description: 'Invoice or referenced payment not found' }),
+    (0, swagger_1.ApiBadRequestResponse)({ description: 'Refund exceeds refundable balance, or invoice is in draft' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(3, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, String, index_js_1.CreateRefundDto]),
+    __metadata("design:returntype", Promise)
+], InvoiceController.prototype, "createRefund", null);
 __decorate([
     (0, common_1.Post)('invoices/:id/installment-plan'),
     (0, swagger_1.ApiOperation)({ summary: 'Create an installment plan for an invoice' }),

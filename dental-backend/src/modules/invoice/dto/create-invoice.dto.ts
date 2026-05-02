@@ -11,6 +11,8 @@ import {
   Min,
   Matches,
   IsEnum,
+  IsDateString,
+  IsBoolean,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -70,6 +72,15 @@ export class CreateInvoiceDto {
   dentist_id?: string;
 
   @ApiPropertyOptional({
+    example: '2026-01-15',
+    description:
+      'Date the treatment was actually rendered. Use when the patient is being billed in a later month than the visit. ISO date (YYYY-MM-DD).',
+  })
+  @IsOptional()
+  @IsDateString()
+  treatment_date?: string;
+
+  @ApiPropertyOptional({
     example: '18%',
     description: 'Tax percentage to apply (e.g. 18 for 18% GST). 0 or omit for no tax.',
   })
@@ -106,6 +117,16 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsObject()
   tax_breakdown?: Record<string, unknown>;
+
+  @ApiPropertyOptional({
+    example: false,
+    description:
+      'When true, the invoice is saved as a DRAFT — not visible to the patient and freely editable. Defaults to false (immediately issued).',
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  as_draft?: boolean;
 
   @ApiProperty({ type: [InvoiceItemDto], description: 'Line items for the invoice' })
   @IsArray()

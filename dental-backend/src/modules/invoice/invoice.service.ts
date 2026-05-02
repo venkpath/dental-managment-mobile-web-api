@@ -3,9 +3,9 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { AutomationService } from '../automation/automation.service.js';
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
-import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
+import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto, CreateRefundDto } from './dto/index.js';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto.js';
-import { Invoice, Payment, Prisma } from '@prisma/client';
+import { Invoice, Payment, Refund, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
 import { InvoicePdfService } from './invoice-pdf.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
@@ -14,12 +14,16 @@ import { getCurrencySymbol, getCurrencyLocale } from '../../common/utils/currenc
 const INVOICE_INCLUDE = {
   items: { include: { treatment: { include: { dentist: true } } } },
   payments: { include: { installment_item: true }, orderBy: { paid_at: 'asc' as const } },
+  refunds: { orderBy: { refunded_at: 'asc' as const } },
   patient: true,
   branch: true,
   clinic: true,
   dentist: true,
+  created_by: true,
   installment_plan: { include: { items: { orderBy: { installment_number: 'asc' as const } } } },
 } as const;
+
+type InvoiceWithIncludes = Prisma.InvoiceGetPayload<{ include: typeof INVOICE_INCLUDE }>;
 
 @Injectable()
 export class InvoiceService {
@@ -33,7 +37,7 @@ export class InvoiceService {
     private readonly s3Service: S3Service,
   ) {}
 
-  async create(clinicId: string, dto: CreateInvoiceDto): Promise<Invoice> {
+  async create(clinicId: string, dto: CreateInvoiceDto, createdByUserId?: string): Promise<Invoice> {
     const [branch, patient] = await Promise.all([
       this.prisma.branch.findUnique({ where: { id: dto.branch_id } }),
       this.prisma.patient.findUnique({ where: { id: dto.patient_id } }),
@@ -79,7 +83,9 @@ export class InvoiceService {
     const taxAmount = Math.round(taxableAmount * (taxPercent / 100) * 100) / 100;
     const netAmount = Math.round((taxableAmount + taxAmount) * 100) / 100;
 
-    const { items, tax_percentage, tax_breakdown, ...rest } = dto;
+    const { items, tax_percentage, tax_breakdown, as_draft, ...rest } = dto;
+    const isDraft = as_draft === true;
+    const now = new Date();
 
     // Transaction: generate invoice number + create invoice with items atomically
     return this.prisma.$transaction(async (tx) => {
@@ -91,6 +97,8 @@ export class InvoiceService {
           branch_id: rest.branch_id,
           patient_id: rest.patient_id,
           dentist_id: rest.dentist_id ?? null,
+          created_by_user_id: createdByUserId ?? null,
+          treatment_date: rest.treatment_date ? new Date(rest.treatment_date) : null,
           invoice_number: invoiceNumber,
           total_amount: new Prisma.Decimal(totalAmount),
           tax_amount: new Prisma.Decimal(taxAmount),
@@ -98,6 +106,11 @@ export class InvoiceService {
           net_amount: new Prisma.Decimal(netAmount),
           gst_number: rest.gst_number,
           tax_breakdown: tax_breakdown as Prisma.InputJsonValue ?? undefined,
+          // Lifecycle: drafts have no issued_at/by; immediate-issue invoices
+          // record the same user who created them as the issuer.
+          lifecycle_status: isDraft ? 'draft' : 'issued',
+          issued_at: isDraft ? null : now,
+          issued_by_user_id: isDraft ? null : (createdByUserId ?? null),
           items: {
             create: items.map((item) => ({
               treatment_id: item.treatment_id,
@@ -131,6 +144,9 @@ export class InvoiceService {
     if (query.status) {
       where.status = query.status;
     }
+    if (query.lifecycle_status) {
+      where.lifecycle_status = query.lifecycle_status;
+    }
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -149,7 +165,7 @@ export class InvoiceService {
     return paginate(data, total, page, limit);
   }
 
-  async findOne(clinicId: string, id: string): Promise<Invoice> {
+  async findOne(clinicId: string, id: string): Promise<InvoiceWithIncludes> {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id },
       include: INVOICE_INCLUDE,
@@ -162,7 +178,19 @@ export class InvoiceService {
 
   async update(clinicId: string, id: string, dto: UpdateInvoiceDto): Promise<Invoice> {
     // Ensure invoice belongs to clinic
-    await this.findOne(clinicId, id);
+    const existing = await this.findOne(clinicId, id);
+
+    // Lifecycle gate: only DRAFT invoices can be edited. Issued invoices are
+    // legal documents — corrections happen through credit notes / debit
+    // notes, not by silently mutating fields. Cancelled invoices are frozen.
+    if (existing.lifecycle_status === 'cancelled') {
+      throw new BadRequestException('Cannot edit a cancelled invoice');
+    }
+    if (existing.lifecycle_status === 'issued') {
+      throw new BadRequestException(
+        'Cannot edit an issued invoice. Cancel and recreate, or issue a credit note for adjustments.',
+      );
+    }
 
     const data: Prisma.InvoiceUpdateInput = {};
 
@@ -195,6 +223,18 @@ export class InvoiceService {
 
   async addPayment(clinicId: string, dto: CreatePaymentDto): Promise<Payment> {
     const invoice = await this.findOne(clinicId, dto.invoice_id);
+
+    // Lifecycle gate: payments can only be recorded against ISSUED invoices.
+    // Drafts are not legally given to the patient yet; cancelled invoices
+    // are closed for audit.
+    if (invoice.lifecycle_status === 'draft') {
+      throw new BadRequestException(
+        'Cannot accept payment on a draft invoice. Issue the invoice first.',
+      );
+    }
+    if (invoice.lifecycle_status === 'cancelled') {
+      throw new BadRequestException('Cannot accept payment on a cancelled invoice.');
+    }
 
     if (invoice.status === 'paid') {
       throw new BadRequestException('Invoice is already fully paid');
@@ -267,9 +307,179 @@ export class InvoiceService {
     return payment;
   }
 
+  /**
+   * Record a refund against an invoice. Stored as a separate row so the
+   * original Payment record stays immutable for audit. After insertion the
+   * invoice's payment status is recomputed as
+   *   sum(payments) - sum(refunds)
+   * vs net_amount, so a fully refunded paid invoice falls back to
+   * `pending`, and a partial refund of a paid invoice becomes
+   * `partially_paid`.
+   */
+  async addRefund(
+    clinicId: string,
+    invoiceId: string,
+    dto: CreateRefundDto,
+    userId?: string,
+  ): Promise<Refund> {
+    const invoice = await this.findOne(clinicId, invoiceId);
+
+    if (invoice.lifecycle_status === 'draft') {
+      throw new BadRequestException('Cannot refund a draft invoice — no payments exist yet');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Validate the optional payment link belongs to this invoice. Done
+      // inside the transaction so the payment row can't disappear between
+      // the check and the refund insert.
+      if (dto.payment_id) {
+        const payment = await tx.payment.findUnique({
+          where: { id: dto.payment_id },
+        });
+        if (!payment || payment.invoice_id !== invoiceId) {
+          throw new NotFoundException(`Payment "${dto.payment_id}" not found on this invoice`);
+        }
+      }
+
+      // Refund amount cannot exceed the net positive paid balance —
+      // otherwise we'd be paying the patient more than they ever paid us.
+      // Aggregate inside the tx so two concurrent refunds don't both pass
+      // the check by reading the same pre-state.
+      const [paidAgg, refundAgg] = await Promise.all([
+        tx.payment.aggregate({ where: { invoice_id: invoiceId }, _sum: { amount: true } }),
+        tx.refund.aggregate({ where: { invoice_id: invoiceId }, _sum: { amount: true } }),
+      ]);
+      const totalPaid = Number(paidAgg._sum.amount ?? 0);
+      const totalRefunded = Number(refundAgg._sum.amount ?? 0);
+      const refundable = totalPaid - totalRefunded;
+
+      if (dto.amount > refundable + 0.01) {
+        throw new BadRequestException(
+          `Refund amount (${dto.amount}) exceeds refundable balance (${refundable.toFixed(2)})`,
+        );
+      }
+
+      const refund = await tx.refund.create({
+        data: {
+          clinic_id: clinicId,
+          invoice_id: invoiceId,
+          payment_id: dto.payment_id ?? null,
+          amount: new Prisma.Decimal(dto.amount),
+          method: dto.method,
+          reason: dto.reason ?? null,
+          refunded_by_user_id: userId ?? null,
+        },
+      });
+
+      // Recompute payment status after the refund.
+      const newPaidNet = totalPaid - totalRefunded - dto.amount;
+      const netAmount = Number(invoice.net_amount);
+      let newStatus: 'pending' | 'partially_paid' | 'paid' = 'pending';
+      if (newPaidNet >= netAmount - 0.01) {
+        newStatus = 'paid';
+      } else if (newPaidNet > 0.01) {
+        newStatus = 'partially_paid';
+      }
+      await tx.invoice.update({
+        where: { id: invoiceId },
+        data: { status: newStatus },
+      });
+
+      return refund;
+    }, {
+      // Serializable so two concurrent refund tx's against the same invoice
+      // can't both observe the same pre-state and over-refund.
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
+  }
+
+  /**
+   * Transition a DRAFT invoice to ISSUED. Once issued, the invoice can no
+   * longer be edited (only cancelled or refunded). The user who issues is
+   * recorded so we can answer "who finalized this?" later.
+   */
+  async issueInvoice(clinicId: string, invoiceId: string, userId?: string): Promise<Invoice> {
+    const invoice = await this.findOne(clinicId, invoiceId);
+
+    if (invoice.lifecycle_status === 'issued') {
+      throw new BadRequestException('Invoice is already issued');
+    }
+    if (invoice.lifecycle_status === 'cancelled') {
+      throw new BadRequestException('Cannot issue a cancelled invoice');
+    }
+    // Anything else here would be a draft.
+
+    return this.prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        lifecycle_status: 'issued',
+        issued_at: new Date(),
+        issued_by_user_id: userId ?? null,
+      },
+      include: INVOICE_INCLUDE,
+    });
+  }
+
+  /**
+   * Cancel an ISSUED invoice. Only allowed when no payments have been
+   * recorded — otherwise the staff member needs to refund first. Cancelled
+   * invoices remain in the books (we never delete) so the invoice number
+   * series stays gap-free for tax compliance.
+   */
+  async cancelInvoice(
+    clinicId: string,
+    invoiceId: string,
+    userId?: string,
+    reason?: string,
+  ): Promise<Invoice> {
+    const invoice = await this.findOne(clinicId, invoiceId);
+
+    if (invoice.lifecycle_status === 'cancelled') {
+      throw new BadRequestException('Invoice is already cancelled');
+    }
+    // Drafts are allowed to transition straight to cancelled — useful for
+    // hiding abandoned drafts from the list view without deleting them.
+
+    // An invoice can be cancelled only when no money is currently with the
+    // clinic — i.e. either no payments at all, or any payments have been
+    // fully refunded back to the patient.
+    const [paidAgg, refundAgg] = await Promise.all([
+      this.prisma.payment.aggregate({ where: { invoice_id: invoiceId }, _sum: { amount: true } }),
+      this.prisma.refund.aggregate({ where: { invoice_id: invoiceId }, _sum: { amount: true } }),
+    ]);
+    const netPaid = Number(paidAgg._sum.amount ?? 0) - Number(refundAgg._sum.amount ?? 0);
+    if (netPaid > 0.01) {
+      throw new BadRequestException(
+        `Cannot cancel an invoice with ${netPaid.toFixed(2)} still held against it. Refund the patient first.`,
+      );
+    }
+
+    return this.prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        lifecycle_status: 'cancelled',
+        cancelled_at: new Date(),
+        cancelled_by_user_id: userId ?? null,
+        cancel_reason: reason ?? null,
+      },
+      include: INVOICE_INCLUDE,
+    });
+  }
+
   async createInstallmentPlan(clinicId: string, dto: CreateInstallmentPlanDto) {
     const invoiceId = dto.invoice_id!;
     const invoice = await this.findOne(clinicId, invoiceId);
+
+    // Lifecycle gate: drafts are not yet legal documents and cancelled
+    // invoices are frozen — neither can carry an installment plan.
+    if (invoice.lifecycle_status === 'draft') {
+      throw new BadRequestException(
+        'Cannot create an installment plan on a draft invoice. Issue the invoice first.',
+      );
+    }
+    if (invoice.lifecycle_status === 'cancelled') {
+      throw new BadRequestException('Cannot create an installment plan on a cancelled invoice.');
+    }
 
     // Verify no existing plan
     const existingPlan = await this.prisma.installmentPlan.findUnique({
@@ -279,11 +489,24 @@ export class InvoiceService {
       throw new BadRequestException('An installment plan already exists for this invoice');
     }
 
-    // Verify total of installments matches invoice net_amount
+    // Verify the installment total equals the OUTSTANDING balance
+    // (net_amount − payments + refunds), not the invoice's net amount.
+    // The frontend splits "balance due" into installments, so when any
+    // payment has already been recorded those two numbers diverge and
+    // comparing against net_amount would always fail.
+    const [paidAgg, refundAgg] = await Promise.all([
+      this.prisma.payment.aggregate({ where: { invoice_id: invoiceId }, _sum: { amount: true } }),
+      this.prisma.refund.aggregate({ where: { invoice_id: invoiceId }, _sum: { amount: true } }),
+    ]);
+    const balance =
+      Number(invoice.net_amount) -
+      Number(paidAgg._sum.amount ?? 0) +
+      Number(refundAgg._sum.amount ?? 0);
+
     const installmentTotal = dto.items.reduce((sum, item) => sum + item.amount, 0);
-    if (Math.abs(installmentTotal - Number(invoice.net_amount)) > 0.01) {
+    if (Math.abs(installmentTotal - balance) > 0.01) {
       throw new BadRequestException(
-        `Installment total (${installmentTotal.toFixed(2)}) must equal invoice net amount (${Number(invoice.net_amount).toFixed(2)})`,
+        `Installment total (${installmentTotal.toFixed(2)}) must equal outstanding balance (${balance.toFixed(2)})`,
       );
     }
 
@@ -306,8 +529,14 @@ export class InvoiceService {
   }
 
   async deleteInstallmentPlan(clinicId: string, invoiceId: string) {
-    // Validate invoice belongs to clinic
-    await this.findOne(clinicId, invoiceId);
+    const invoice = await this.findOne(clinicId, invoiceId);
+
+    // Cancelled invoices are frozen — leave their (now-defunct) plan in
+    // place for audit. Drafts shouldn't have plans (gated on create) but
+    // be defensive in case one slipped through.
+    if (invoice.lifecycle_status === 'cancelled') {
+      throw new BadRequestException('Cannot modify an installment plan on a cancelled invoice.');
+    }
 
     const plan = await this.prisma.installmentPlan.findUnique({
       where: { invoice_id: invoiceId },
@@ -329,59 +558,62 @@ export class InvoiceService {
   }
 
   async getPdfUrl(clinicId: string, invoiceId: string): Promise<{ url: string }> {
-    const invoice = await this.prisma.invoice.findUnique({
-      where: { id: invoiceId },
-      include: {
-        ...INVOICE_INCLUDE,
-        clinic: true,
-      },
-    });
-
-    if (!invoice || invoice.clinic_id !== clinicId) {
-      throw new NotFoundException(`Invoice with ID "${invoiceId}" not found`);
-    }
+    const invoice = await this.findOne(clinicId, invoiceId);
 
     const s3Key = `invoices/${clinicId}/${invoice.invoice_number}.pdf`;
+
+    // Pre-fetch the creator's signature image so the PDF is self-contained
+    // (no live URL fetch needed when reprinting). Falls back gracefully if
+    // the user has not uploaded a signature.
+    const creator = invoice.created_by;
+    let creatorSignature: Buffer | null = null;
+    if (creator?.signature_url) {
+      try {
+        creatorSignature = await this.s3Service.getObject(creator.signature_url);
+      } catch (e) {
+        this.logger.warn(`Could not load creator signature: ${(e as Error).message}`);
+      }
+    }
 
     // Generate fresh PDF every time (reflects latest payment status)
     const pdfData = {
       invoice_number: invoice.invoice_number,
       created_at: invoice.created_at,
+      treatment_date: invoice.treatment_date,
+      lifecycle_status: invoice.lifecycle_status,
+      cancel_reason: invoice.cancel_reason,
       gst_number: invoice.gst_number,
       total_amount: Number(invoice.total_amount),
       discount_amount: Number(invoice.discount_amount),
       tax_amount: Number(invoice.tax_amount),
       net_amount: Number(invoice.net_amount),
       clinic: {
-        name: (invoice as any).clinic.name,
-        email: (invoice as any).clinic.email,
-        phone: (invoice as any).clinic.phone,
-        address: (invoice as any).clinic.address,
-        city: (invoice as any).clinic.city,
-        state: (invoice as any).clinic.state,
+        name: invoice.clinic.name,
+        email: invoice.clinic.email,
+        phone: invoice.clinic.phone,
+        address: invoice.clinic.address,
+        city: invoice.clinic.city,
+        state: invoice.clinic.state,
       },
       branch: {
-        name: (invoice as any).branch.name,
-        phone: (invoice as any).branch.phone,
-        address: (invoice as any).branch.address,
-        city: (invoice as any).branch.city,
-        state: (invoice as any).branch.state,
+        name: invoice.branch.name,
+        phone: invoice.branch.phone,
+        address: invoice.branch.address,
+        city: invoice.branch.city,
+        state: invoice.branch.state,
       },
       patient: {
-        first_name: (invoice as any).patient.first_name,
-        last_name: (invoice as any).patient.last_name,
-        phone: (invoice as any).patient.phone,
-        email: (invoice as any).patient.email,
-        date_of_birth: (invoice as any).patient.date_of_birth,
-        age: (invoice as any).patient.age ?? null,
+        first_name: invoice.patient.first_name,
+        last_name: invoice.patient.last_name,
+        phone: invoice.patient.phone,
+        email: invoice.patient.email,
+        date_of_birth: invoice.patient.date_of_birth,
+        age: invoice.patient.age ?? null,
       },
       dentist: (() => {
-        const topLevelDentist = (invoice as any).dentist;
         const firstDentist =
-          topLevelDentist ??
-          (invoice as any).items
-            .map((i: any) => i.treatment?.dentist)
-            .find((d: any) => d != null);
+          invoice.dentist ??
+          invoice.items.map((i) => i.treatment?.dentist).find((d) => d != null);
         if (!firstDentist) return null;
         return {
           name: firstDentist.name,
@@ -389,7 +621,10 @@ export class InvoiceService {
           license_number: firstDentist.license_number ?? null,
         };
       })(),
-      items: (invoice as any).items.map((item: any) => ({
+      generated_by: creator
+        ? { name: creator.name, signature_image: creatorSignature }
+        : null,
+      items: invoice.items.map((item) => ({
         item_type: item.item_type,
         description: item.description,
         procedure: item.treatment?.procedure ?? null,
@@ -398,12 +633,18 @@ export class InvoiceService {
         total_price: Number(item.total_price),
         tooth_number: item.treatment?.tooth_number ?? null,
       })),
-      payments: (invoice as any).payments.map((p: any) => ({
+      payments: invoice.payments.map((p) => ({
         amount: Number(p.amount),
         method: p.method,
         paid_at: p.paid_at,
       })),
-      currency_code: (invoice as any).clinic.currency_code ?? 'INR',
+      refunds: invoice.refunds.map((r) => ({
+        amount: Number(r.amount),
+        method: r.method,
+        refunded_at: r.refunded_at,
+        reason: r.reason,
+      })),
+      currency_code: invoice.clinic.currency_code ?? 'INR',
     };
 
     const pdfBuffer = await this.invoicePdfService.generate(pdfData);
@@ -415,6 +656,15 @@ export class InvoiceService {
 
   async sendWhatsApp(clinicId: string, invoiceId: string): Promise<{ message: string }> {
     const invoice = await this.findOne(clinicId, invoiceId);
+
+    // Don't send drafts or cancelled invoices to patients — they should
+    // only ever see the final issued copy.
+    if (invoice.lifecycle_status === 'draft') {
+      throw new BadRequestException('Cannot send a draft invoice. Issue it first.');
+    }
+    if (invoice.lifecycle_status === 'cancelled') {
+      throw new BadRequestException('Cannot send a cancelled invoice.');
+    }
 
     // Generate / refresh PDF so it's current — capture the signed URL for
     // PDF-header templates (e.g. dental_invoice_pdf).

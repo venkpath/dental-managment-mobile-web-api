@@ -21,11 +21,13 @@ import {
   ApiHeader,
 } from '@nestjs/swagger';
 import { InvoiceService } from './invoice.service.js';
-import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
+import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto, CancelInvoiceDto, CreateRefundDto } from './dto/index.js';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Public } from '../../common/decorators/public.decorator.js';
+import { Roles } from '../../common/decorators/roles.decorator.js';
+import { UserRole } from '../user/dto/index.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 import { applyDentistScope } from '../../common/utils/dentist-scope.util.js';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
@@ -70,9 +72,10 @@ export class InvoiceController {
   @ApiCreatedResponse({ description: 'Invoice created successfully' })
   async createInvoice(
     @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: CreateInvoiceDto,
   ) {
-    return this.invoiceService.create(clinicId, dto);
+    return this.invoiceService.create(clinicId, dto, user.sub);
   }
 
   @Get('invoices')
@@ -99,15 +102,44 @@ export class InvoiceController {
   }
 
   @Patch('invoices/:id')
-  @ApiOperation({ summary: 'Update an invoice (e.g. assign treating dentist, GST number)' })
+  @ApiOperation({ summary: 'Update a DRAFT invoice (e.g. assign treating dentist, GST number). Issued invoices cannot be edited.' })
   @ApiOkResponse({ description: 'Invoice updated' })
   @ApiNotFoundResponse({ description: 'Invoice not found' })
+  @ApiBadRequestResponse({ description: 'Invoice is not in draft state' })
   async updateInvoice(
     @CurrentClinic() clinicId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateInvoiceDto,
   ) {
     return this.invoiceService.update(clinicId, id, dto);
+  }
+
+  @Post('invoices/:id/issue')
+  @ApiOperation({ summary: 'Issue a DRAFT invoice — locks it from edits and makes it shareable with the patient.' })
+  @ApiOkResponse({ description: 'Invoice issued' })
+  @ApiNotFoundResponse({ description: 'Invoice not found' })
+  @ApiBadRequestResponse({ description: 'Invoice is already issued or cancelled' })
+  async issueInvoice(
+    @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.invoiceService.issueInvoice(clinicId, id, user.sub);
+  }
+
+  @Post('invoices/:id/cancel')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Cancel an invoice (admin only). Cannot cancel invoices with recorded payments — refund first.' })
+  @ApiOkResponse({ description: 'Invoice cancelled' })
+  @ApiNotFoundResponse({ description: 'Invoice not found' })
+  @ApiBadRequestResponse({ description: 'Invoice already cancelled, or has recorded payments' })
+  async cancelInvoice(
+    @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CancelInvoiceDto,
+  ) {
+    return this.invoiceService.cancelInvoice(clinicId, id, user.sub, dto.reason);
   }
 
   @Post('payments')
@@ -120,6 +152,20 @@ export class InvoiceController {
     @Body() dto: CreatePaymentDto,
   ) {
     return this.invoiceService.addPayment(clinicId, dto);
+  }
+
+  @Post('invoices/:id/refunds')
+  @ApiOperation({ summary: 'Refund (fully or partially) money already collected against an invoice.' })
+  @ApiCreatedResponse({ description: 'Refund recorded' })
+  @ApiNotFoundResponse({ description: 'Invoice or referenced payment not found' })
+  @ApiBadRequestResponse({ description: 'Refund exceeds refundable balance, or invoice is in draft' })
+  async createRefund(
+    @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateRefundDto,
+  ) {
+    return this.invoiceService.addRefund(clinicId, id, dto, user.sub);
   }
 
   @Post('invoices/:id/installment-plan')

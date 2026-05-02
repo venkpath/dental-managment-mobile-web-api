@@ -5,4 +5,5 @@ export declare class QueryInvoiceDto extends PaginationQueryDto {
     branch_id?: string;
     dentist_id?: string;
     status?: InvoiceStatus;
+    lifecycle_status?: 'draft' | 'issued' | 'cancelled';
 }

@@ -1,6 +1,9 @@
 interface InvoiceData {
     invoice_number: string;
     created_at: Date;
+    treatment_date?: Date | string | null;
+    lifecycle_status?: 'draft' | 'issued' | 'cancelled' | string | null;
+    cancel_reason?: string | null;
     gst_number?: string | null;
     total_amount: number;
     discount_amount: number;
@@ -26,13 +29,17 @@ interface InvoiceData {
         last_name: string;
         phone: string;
         email?: string | null;
-        date_of_birth?: string | null;
+        date_of_birth?: Date | string | null;
         age?: number | null;
     };
     dentist?: {
         name: string;
         specialization?: string | null;
         license_number?: string | null;
+    } | null;
+    generated_by?: {
+        name: string;
+        signature_image?: Buffer | null;
     } | null;
     items: Array<{
         item_type: string;
@@ -47,6 +54,12 @@ interface InvoiceData {
         amount: number;
         method: string;
         paid_at: Date;
+    }>;
+    refunds?: Array<{
+        amount: number;
+        method: string;
+        refunded_at: Date;
+        reason?: string | null;
     }>;
     currency_code?: string;
 }

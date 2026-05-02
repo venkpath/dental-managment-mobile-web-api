@@ -1,5 +1,5 @@
 import { InvoiceService } from './invoice.service.js';
-import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto } from './dto/index.js';
+import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto, CancelInvoiceDto, CreateRefundDto } from './dto/index.js';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto.js';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 export declare class InvoicePublicController {
@@ -13,7 +13,7 @@ export declare class InvoicePublicController {
 export declare class InvoiceController {
     private readonly invoiceService;
     constructor(invoiceService: InvoiceService);
-    createInvoice(clinicId: string, dto: CreateInvoiceDto): Promise<{
+    createInvoice(clinicId: string, user: JwtPayload, dto: CreateInvoiceDto): Promise<{
         id: string;
         status: string;
         created_at: Date;
@@ -23,12 +23,20 @@ export declare class InvoiceController {
         patient_id: string;
         total_amount: import("@prisma/client-runtime-utils").Decimal;
         dentist_id: string | null;
+        created_by_user_id: string | null;
+        treatment_date: Date | null;
         invoice_number: string;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
         net_amount: import("@prisma/client-runtime-utils").Decimal;
         gst_number: string | null;
         tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
+        lifecycle_status: string;
+        issued_at: Date | null;
+        issued_by_user_id: string | null;
+        cancelled_at: Date | null;
+        cancelled_by_user_id: string | null;
+        cancel_reason: string | null;
     }>;
     findAll(clinicId: string, user: JwtPayload, query: QueryInvoiceDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         id: string;
@@ -40,14 +48,226 @@ export declare class InvoiceController {
         patient_id: string;
         total_amount: import("@prisma/client-runtime-utils").Decimal;
         dentist_id: string | null;
+        created_by_user_id: string | null;
+        treatment_date: Date | null;
         invoice_number: string;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
         net_amount: import("@prisma/client-runtime-utils").Decimal;
         gst_number: string | null;
         tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
+        lifecycle_status: string;
+        issued_at: Date | null;
+        issued_by_user_id: string | null;
+        cancelled_at: Date | null;
+        cancelled_by_user_id: string | null;
+        cancel_reason: string | null;
     }>>;
     findOne(clinicId: string, id: string): Promise<{
+        clinic: {
+            id: string;
+            email: string;
+            name: string;
+            created_at: Date;
+            updated_at: Date;
+            plan_id: string | null;
+            phone: string | null;
+            address: string | null;
+            city: string | null;
+            state: string | null;
+            country: string | null;
+            pincode: string | null;
+            subscription_status: string;
+            subscription_id: string | null;
+            billing_cycle: string;
+            trial_ends_at: Date | null;
+            is_complimentary: boolean;
+            has_own_waba: boolean;
+            logo_url: string | null;
+            currency_code: string;
+            ai_usage_count: number;
+            ai_quota_override: number | null;
+        };
+        branch: {
+            id: string;
+            name: string;
+            created_at: Date;
+            updated_at: Date;
+            phone: string | null;
+            address: string | null;
+            city: string | null;
+            state: string | null;
+            country: string | null;
+            pincode: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            map_url: string | null;
+            book_now_url: string | null;
+            working_start_time: string | null;
+            working_end_time: string | null;
+            lunch_start_time: string | null;
+            lunch_end_time: string | null;
+            slot_duration: number | null;
+            default_appt_duration: number | null;
+            buffer_minutes: number | null;
+            advance_booking_days: number | null;
+            working_days: string | null;
+            prescription_template_url: string | null;
+            prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
+            prescription_template_enabled: boolean;
+            clinic_id: string;
+        };
+        dentist: {
+            id: string;
+            email: string;
+            password_hash: string;
+            name: string;
+            status: string;
+            created_at: Date;
+            updated_at: Date;
+            phone: string | null;
+            clinic_id: string;
+            role: string;
+            email_verified: boolean;
+            phone_verified: boolean;
+            license_number: string | null;
+            signature_url: string | null;
+            branch_id: string | null;
+        } | null;
+        patient: {
+            id: string;
+            email: string | null;
+            created_at: Date;
+            updated_at: Date;
+            phone: string;
+            clinic_id: string;
+            branch_id: string;
+            age: number | null;
+            gender: string;
+            first_name: string;
+            last_name: string;
+            date_of_birth: Date | null;
+            blood_group: string | null;
+            medical_history: import("@prisma/client/runtime/client").JsonValue | null;
+            allergies: string | null;
+            notes: string | null;
+            preferred_language: string;
+        };
+        items: ({
+            treatment: ({
+                dentist: {
+                    id: string;
+                    email: string;
+                    password_hash: string;
+                    name: string;
+                    status: string;
+                    created_at: Date;
+                    updated_at: Date;
+                    phone: string | null;
+                    clinic_id: string;
+                    role: string;
+                    email_verified: boolean;
+                    phone_verified: boolean;
+                    license_number: string | null;
+                    signature_url: string | null;
+                    branch_id: string | null;
+                };
+            } & {
+                id: string;
+                status: string;
+                created_at: Date;
+                updated_at: Date;
+                clinic_id: string;
+                branch_id: string;
+                patient_id: string;
+                procedure: string;
+                tooth_number: string | null;
+                cost: import("@prisma/client-runtime-utils").Decimal;
+                notes: string | null;
+                dentist_id: string;
+                clinical_visit_id: string | null;
+                treatment_plan_id: string | null;
+                diagnosis: string;
+            }) | null;
+        } & {
+            id: string;
+            description: string;
+            invoice_id: string;
+            treatment_id: string | null;
+            item_type: string;
+            quantity: number;
+            unit_price: import("@prisma/client-runtime-utils").Decimal;
+            total_price: import("@prisma/client-runtime-utils").Decimal;
+        })[];
+        payments: ({
+            installment_item: {
+                id: string;
+                status: string;
+                created_at: Date;
+                amount: import("@prisma/client-runtime-utils").Decimal;
+                due_date: Date;
+                paid_at: Date | null;
+                installment_plan_id: string;
+                installment_number: number;
+            } | null;
+        } & {
+            id: string;
+            amount: import("@prisma/client-runtime-utils").Decimal;
+            method: string;
+            notes: string | null;
+            paid_at: Date;
+            invoice_id: string;
+            installment_item_id: string | null;
+        })[];
+        created_by: {
+            id: string;
+            email: string;
+            password_hash: string;
+            name: string;
+            status: string;
+            created_at: Date;
+            updated_at: Date;
+            phone: string | null;
+            clinic_id: string;
+            role: string;
+            email_verified: boolean;
+            phone_verified: boolean;
+            license_number: string | null;
+            signature_url: string | null;
+            branch_id: string | null;
+        } | null;
+        refunds: {
+            id: string;
+            clinic_id: string;
+            amount: import("@prisma/client-runtime-utils").Decimal;
+            method: string;
+            reason: string | null;
+            invoice_id: string;
+            payment_id: string | null;
+            refunded_at: Date;
+            refunded_by_user_id: string | null;
+        }[];
+        installment_plan: ({
+            items: {
+                id: string;
+                status: string;
+                created_at: Date;
+                amount: import("@prisma/client-runtime-utils").Decimal;
+                due_date: Date;
+                paid_at: Date | null;
+                installment_plan_id: string;
+                installment_number: number;
+            }[];
+        } & {
+            id: string;
+            created_at: Date;
+            updated_at: Date;
+            notes: string | null;
+            invoice_id: string;
+            total_amount: import("@prisma/client-runtime-utils").Decimal;
+            num_installments: number;
+        }) | null;
+    } & {
         id: string;
         status: string;
         created_at: Date;
@@ -57,12 +277,20 @@ export declare class InvoiceController {
         patient_id: string;
         total_amount: import("@prisma/client-runtime-utils").Decimal;
         dentist_id: string | null;
+        created_by_user_id: string | null;
+        treatment_date: Date | null;
         invoice_number: string;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
         net_amount: import("@prisma/client-runtime-utils").Decimal;
         gst_number: string | null;
         tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
+        lifecycle_status: string;
+        issued_at: Date | null;
+        issued_by_user_id: string | null;
+        cancelled_at: Date | null;
+        cancelled_by_user_id: string | null;
+        cancel_reason: string | null;
     }>;
     updateInvoice(clinicId: string, id: string, dto: UpdateInvoiceDto): Promise<{
         id: string;
@@ -74,12 +302,70 @@ export declare class InvoiceController {
         patient_id: string;
         total_amount: import("@prisma/client-runtime-utils").Decimal;
         dentist_id: string | null;
+        created_by_user_id: string | null;
+        treatment_date: Date | null;
         invoice_number: string;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
         net_amount: import("@prisma/client-runtime-utils").Decimal;
         gst_number: string | null;
         tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
+        lifecycle_status: string;
+        issued_at: Date | null;
+        issued_by_user_id: string | null;
+        cancelled_at: Date | null;
+        cancelled_by_user_id: string | null;
+        cancel_reason: string | null;
+    }>;
+    issueInvoice(clinicId: string, user: JwtPayload, id: string): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        branch_id: string;
+        patient_id: string;
+        total_amount: import("@prisma/client-runtime-utils").Decimal;
+        dentist_id: string | null;
+        created_by_user_id: string | null;
+        treatment_date: Date | null;
+        invoice_number: string;
+        tax_amount: import("@prisma/client-runtime-utils").Decimal;
+        discount_amount: import("@prisma/client-runtime-utils").Decimal;
+        net_amount: import("@prisma/client-runtime-utils").Decimal;
+        gst_number: string | null;
+        tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
+        lifecycle_status: string;
+        issued_at: Date | null;
+        issued_by_user_id: string | null;
+        cancelled_at: Date | null;
+        cancelled_by_user_id: string | null;
+        cancel_reason: string | null;
+    }>;
+    cancelInvoice(clinicId: string, user: JwtPayload, id: string, dto: CancelInvoiceDto): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        branch_id: string;
+        patient_id: string;
+        total_amount: import("@prisma/client-runtime-utils").Decimal;
+        dentist_id: string | null;
+        created_by_user_id: string | null;
+        treatment_date: Date | null;
+        invoice_number: string;
+        tax_amount: import("@prisma/client-runtime-utils").Decimal;
+        discount_amount: import("@prisma/client-runtime-utils").Decimal;
+        net_amount: import("@prisma/client-runtime-utils").Decimal;
+        gst_number: string | null;
+        tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
+        lifecycle_status: string;
+        issued_at: Date | null;
+        issued_by_user_id: string | null;
+        cancelled_at: Date | null;
+        cancelled_by_user_id: string | null;
+        cancel_reason: string | null;
     }>;
     createPayment(clinicId: string, dto: CreatePaymentDto): Promise<{
         id: string;
@@ -89,6 +375,17 @@ export declare class InvoiceController {
         paid_at: Date;
         invoice_id: string;
         installment_item_id: string | null;
+    }>;
+    createRefund(clinicId: string, user: JwtPayload, id: string, dto: CreateRefundDto): Promise<{
+        id: string;
+        clinic_id: string;
+        amount: import("@prisma/client-runtime-utils").Decimal;
+        method: string;
+        reason: string | null;
+        invoice_id: string;
+        payment_id: string | null;
+        refunded_at: Date;
+        refunded_by_user_id: string | null;
     }>;
     createInstallmentPlan(clinicId: string, id: string, dto: CreateInstallmentPlanDto): Promise<{
         items: {

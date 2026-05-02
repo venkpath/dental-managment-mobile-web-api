@@ -243,12 +243,20 @@ export declare class MembershipService {
                 patient_id: string;
                 total_amount: Prisma.Decimal;
                 dentist_id: string | null;
+                created_by_user_id: string | null;
+                treatment_date: Date | null;
                 invoice_number: string;
                 tax_amount: Prisma.Decimal;
                 discount_amount: Prisma.Decimal;
                 net_amount: Prisma.Decimal;
                 gst_number: string | null;
                 tax_breakdown: Prisma.JsonValue | null;
+                lifecycle_status: string;
+                issued_at: Date | null;
+                issued_by_user_id: string | null;
+                cancelled_at: Date | null;
+                cancelled_by_user_id: string | null;
+                cancel_reason: string | null;
             } | null;
             benefit: {
                 id: string;
@@ -457,12 +465,20 @@ export declare class MembershipService {
                 patient_id: string;
                 total_amount: Prisma.Decimal;
                 dentist_id: string | null;
+                created_by_user_id: string | null;
+                treatment_date: Date | null;
                 invoice_number: string;
                 tax_amount: Prisma.Decimal;
                 discount_amount: Prisma.Decimal;
                 net_amount: Prisma.Decimal;
                 gst_number: string | null;
                 tax_breakdown: Prisma.JsonValue | null;
+                lifecycle_status: string;
+                issued_at: Date | null;
+                issued_by_user_id: string | null;
+                cancelled_at: Date | null;
+                cancelled_by_user_id: string | null;
+                cancel_reason: string | null;
             } | null;
             benefit: {
                 id: string;
@@ -671,12 +687,20 @@ export declare class MembershipService {
                 patient_id: string;
                 total_amount: Prisma.Decimal;
                 dentist_id: string | null;
+                created_by_user_id: string | null;
+                treatment_date: Date | null;
                 invoice_number: string;
                 tax_amount: Prisma.Decimal;
                 discount_amount: Prisma.Decimal;
                 net_amount: Prisma.Decimal;
                 gst_number: string | null;
                 tax_breakdown: Prisma.JsonValue | null;
+                lifecycle_status: string;
+                issued_at: Date | null;
+                issued_by_user_id: string | null;
+                cancelled_at: Date | null;
+                cancelled_by_user_id: string | null;
+                cancel_reason: string | null;
             } | null;
             benefit: {
                 id: string;
@@ -772,12 +796,20 @@ export declare class MembershipService {
             patient_id: string;
             total_amount: Prisma.Decimal;
             dentist_id: string | null;
+            created_by_user_id: string | null;
+            treatment_date: Date | null;
             invoice_number: string;
             tax_amount: Prisma.Decimal;
             discount_amount: Prisma.Decimal;
             net_amount: Prisma.Decimal;
             gst_number: string | null;
             tax_breakdown: Prisma.JsonValue | null;
+            lifecycle_status: string;
+            issued_at: Date | null;
+            issued_by_user_id: string | null;
+            cancelled_at: Date | null;
+            cancelled_by_user_id: string | null;
+            cancel_reason: string | null;
         } | null;
         benefit: {
             id: string;
@@ -965,12 +997,20 @@ export declare class MembershipService {
                     patient_id: string;
                     total_amount: Prisma.Decimal;
                     dentist_id: string | null;
+                    created_by_user_id: string | null;
+                    treatment_date: Date | null;
                     invoice_number: string;
                     tax_amount: Prisma.Decimal;
                     discount_amount: Prisma.Decimal;
                     net_amount: Prisma.Decimal;
                     gst_number: string | null;
                     tax_breakdown: Prisma.JsonValue | null;
+                    lifecycle_status: string;
+                    issued_at: Date | null;
+                    issued_by_user_id: string | null;
+                    cancelled_at: Date | null;
+                    cancelled_by_user_id: string | null;
+                    cancel_reason: string | null;
                 } | null;
                 benefit: {
                     id: string;
@@ -1139,12 +1179,20 @@ export declare class MembershipService {
                     patient_id: string;
                     total_amount: Prisma.Decimal;
                     dentist_id: string | null;
+                    created_by_user_id: string | null;
+                    treatment_date: Date | null;
                     invoice_number: string;
                     tax_amount: Prisma.Decimal;
                     discount_amount: Prisma.Decimal;
                     net_amount: Prisma.Decimal;
                     gst_number: string | null;
                     tax_breakdown: Prisma.JsonValue | null;
+                    lifecycle_status: string;
+                    issued_at: Date | null;
+                    issued_by_user_id: string | null;
+                    cancelled_at: Date | null;
+                    cancelled_by_user_id: string | null;
+                    cancel_reason: string | null;
                 } | null;
                 benefit: {
                     id: string;

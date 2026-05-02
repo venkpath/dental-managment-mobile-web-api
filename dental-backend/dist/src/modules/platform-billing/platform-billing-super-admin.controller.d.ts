@@ -32,6 +32,7 @@ export declare class PlatformBillingSuperAdminController {
             total_amount: import("@prisma/client-runtime-utils").Decimal;
             invoice_number: string;
             tax_amount: import("@prisma/client-runtime-utils").Decimal;
+            issued_at: Date;
             razorpay_payment_id: string | null;
             period_end: Date;
             subtotal: import("@prisma/client-runtime-utils").Decimal;
@@ -54,7 +55,6 @@ export declare class PlatformBillingSuperAdminController {
             whatsapp_error: string | null;
             email_sent_at: Date | null;
             email_error: string | null;
-            issued_at: Date;
         })[];
         total: number;
         totals: {
@@ -83,6 +83,7 @@ export declare class PlatformBillingSuperAdminController {
         total_amount: import("@prisma/client-runtime-utils").Decimal;
         invoice_number: string;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
+        issued_at: Date;
         razorpay_payment_id: string | null;
         period_end: Date;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
@@ -105,7 +106,6 @@ export declare class PlatformBillingSuperAdminController {
         whatsapp_error: string | null;
         email_sent_at: Date | null;
         email_error: string | null;
-        issued_at: Date;
     }>;
     getPdf(id: string): Promise<{
         url: string;

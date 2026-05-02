@@ -258,12 +258,20 @@ export declare class MembershipController {
                 patient_id: string;
                 total_amount: import("@prisma/client-runtime-utils").Decimal;
                 dentist_id: string | null;
+                created_by_user_id: string | null;
+                treatment_date: Date | null;
                 invoice_number: string;
                 tax_amount: import("@prisma/client-runtime-utils").Decimal;
                 discount_amount: import("@prisma/client-runtime-utils").Decimal;
                 net_amount: import("@prisma/client-runtime-utils").Decimal;
                 gst_number: string | null;
                 tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
+                lifecycle_status: string;
+                issued_at: Date | null;
+                issued_by_user_id: string | null;
+                cancelled_at: Date | null;
+                cancelled_by_user_id: string | null;
+                cancel_reason: string | null;
             } | null;
             benefit: {
                 id: string;
@@ -472,12 +480,20 @@ export declare class MembershipController {
                 patient_id: string;
                 total_amount: import("@prisma/client-runtime-utils").Decimal;
                 dentist_id: string | null;
+                created_by_user_id: string | null;
+                treatment_date: Date | null;
                 invoice_number: string;
                 tax_amount: import("@prisma/client-runtime-utils").Decimal;
                 discount_amount: import("@prisma/client-runtime-utils").Decimal;
                 net_amount: import("@prisma/client-runtime-utils").Decimal;
                 gst_number: string | null;
                 tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
+                lifecycle_status: string;
+                issued_at: Date | null;
+                issued_by_user_id: string | null;
+                cancelled_at: Date | null;
+                cancelled_by_user_id: string | null;
+                cancel_reason: string | null;
             } | null;
             benefit: {
                 id: string;
@@ -686,12 +702,20 @@ export declare class MembershipController {
                 patient_id: string;
                 total_amount: import("@prisma/client-runtime-utils").Decimal;
                 dentist_id: string | null;
+                created_by_user_id: string | null;
+                treatment_date: Date | null;
                 invoice_number: string;
                 tax_amount: import("@prisma/client-runtime-utils").Decimal;
                 discount_amount: import("@prisma/client-runtime-utils").Decimal;
                 net_amount: import("@prisma/client-runtime-utils").Decimal;
                 gst_number: string | null;
                 tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
+                lifecycle_status: string;
+                issued_at: Date | null;
+                issued_by_user_id: string | null;
+                cancelled_at: Date | null;
+                cancelled_by_user_id: string | null;
+                cancel_reason: string | null;
             } | null;
             benefit: {
                 id: string;
@@ -787,12 +811,20 @@ export declare class MembershipController {
             patient_id: string;
             total_amount: import("@prisma/client-runtime-utils").Decimal;
             dentist_id: string | null;
+            created_by_user_id: string | null;
+            treatment_date: Date | null;
             invoice_number: string;
             tax_amount: import("@prisma/client-runtime-utils").Decimal;
             discount_amount: import("@prisma/client-runtime-utils").Decimal;
             net_amount: import("@prisma/client-runtime-utils").Decimal;
             gst_number: string | null;
             tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
+            lifecycle_status: string;
+            issued_at: Date | null;
+            issued_by_user_id: string | null;
+            cancelled_at: Date | null;
+            cancelled_by_user_id: string | null;
+            cancel_reason: string | null;
         } | null;
         benefit: {
             id: string;
@@ -980,12 +1012,20 @@ export declare class MembershipController {
                     patient_id: string;
                     total_amount: import("@prisma/client-runtime-utils").Decimal;
                     dentist_id: string | null;
+                    created_by_user_id: string | null;
+                    treatment_date: Date | null;
                     invoice_number: string;
                     tax_amount: import("@prisma/client-runtime-utils").Decimal;
                     discount_amount: import("@prisma/client-runtime-utils").Decimal;
                     net_amount: import("@prisma/client-runtime-utils").Decimal;
                     gst_number: string | null;
                     tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
+                    lifecycle_status: string;
+                    issued_at: Date | null;
+                    issued_by_user_id: string | null;
+                    cancelled_at: Date | null;
+                    cancelled_by_user_id: string | null;
+                    cancel_reason: string | null;
                 } | null;
                 benefit: {
                     id: string;
@@ -1154,12 +1194,20 @@ export declare class MembershipController {
                     patient_id: string;
                     total_amount: import("@prisma/client-runtime-utils").Decimal;
                     dentist_id: string | null;
+                    created_by_user_id: string | null;
+                    treatment_date: Date | null;
                     invoice_number: string;
                     tax_amount: import("@prisma/client-runtime-utils").Decimal;
                     discount_amount: import("@prisma/client-runtime-utils").Decimal;
                     net_amount: import("@prisma/client-runtime-utils").Decimal;
                     gst_number: string | null;
                     tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
+                    lifecycle_status: string;
+                    issued_at: Date | null;
+                    issued_by_user_id: string | null;
+                    cancelled_at: Date | null;
+                    cancelled_by_user_id: string | null;
+                    cancel_reason: string | null;
                 } | null;
                 benefit: {
                     id: string;

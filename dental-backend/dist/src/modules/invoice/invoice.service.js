@@ -24,10 +24,12 @@ const currency_util_js_1 = require("../../common/utils/currency.util.js");
 const INVOICE_INCLUDE = {
     items: { include: { treatment: { include: { dentist: true } } } },
     payments: { include: { installment_item: true }, orderBy: { paid_at: 'asc' } },
+    refunds: { orderBy: { refunded_at: 'asc' } },
     patient: true,
     branch: true,
     clinic: true,
     dentist: true,
+    created_by: true,
     installment_plan: { include: { items: { orderBy: { installment_number: 'asc' } } } },
 };
 let InvoiceService = InvoiceService_1 = class InvoiceService {
@@ -44,7 +46,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         this.invoicePdfService = invoicePdfService;
         this.s3Service = s3Service;
     }
-    async create(clinicId, dto) {
+    async create(clinicId, dto, createdByUserId) {
         const [branch, patient] = await Promise.all([
             this.prisma.branch.findUnique({ where: { id: dto.branch_id } }),
             this.prisma.patient.findUnique({ where: { id: dto.patient_id } }),
@@ -78,7 +80,9 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         const taxPercent = dto.tax_percentage ?? 0;
         const taxAmount = Math.round(taxableAmount * (taxPercent / 100) * 100) / 100;
         const netAmount = Math.round((taxableAmount + taxAmount) * 100) / 100;
-        const { items, tax_percentage, tax_breakdown, ...rest } = dto;
+        const { items, tax_percentage, tax_breakdown, as_draft, ...rest } = dto;
+        const isDraft = as_draft === true;
+        const now = new Date();
         return this.prisma.$transaction(async (tx) => {
             const invoiceNumber = await this.generateInvoiceNumber(clinicId, tx);
             return tx.invoice.create({
@@ -87,6 +91,8 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                     branch_id: rest.branch_id,
                     patient_id: rest.patient_id,
                     dentist_id: rest.dentist_id ?? null,
+                    created_by_user_id: createdByUserId ?? null,
+                    treatment_date: rest.treatment_date ? new Date(rest.treatment_date) : null,
                     invoice_number: invoiceNumber,
                     total_amount: new client_1.Prisma.Decimal(totalAmount),
                     tax_amount: new client_1.Prisma.Decimal(taxAmount),
@@ -94,6 +100,9 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                     net_amount: new client_1.Prisma.Decimal(netAmount),
                     gst_number: rest.gst_number,
                     tax_breakdown: tax_breakdown ?? undefined,
+                    lifecycle_status: isDraft ? 'draft' : 'issued',
+                    issued_at: isDraft ? null : now,
+                    issued_by_user_id: isDraft ? null : (createdByUserId ?? null),
                     items: {
                         create: items.map((item) => ({
                             treatment_id: item.treatment_id,
@@ -123,6 +132,9 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         if (query.status) {
             where.status = query.status;
         }
+        if (query.lifecycle_status) {
+            where.lifecycle_status = query.lifecycle_status;
+        }
         const page = query.page ?? 1;
         const limit = query.limit ?? 20;
         const [data, total] = await Promise.all([
@@ -148,7 +160,13 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         return invoice;
     }
     async update(clinicId, id, dto) {
-        await this.findOne(clinicId, id);
+        const existing = await this.findOne(clinicId, id);
+        if (existing.lifecycle_status === 'cancelled') {
+            throw new common_1.BadRequestException('Cannot edit a cancelled invoice');
+        }
+        if (existing.lifecycle_status === 'issued') {
+            throw new common_1.BadRequestException('Cannot edit an issued invoice. Cancel and recreate, or issue a credit note for adjustments.');
+        }
         const data = {};
         if (dto.dentist_id !== undefined) {
             if (dto.dentist_id === null || dto.dentist_id === '') {
@@ -176,6 +194,12 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
     }
     async addPayment(clinicId, dto) {
         const invoice = await this.findOne(clinicId, dto.invoice_id);
+        if (invoice.lifecycle_status === 'draft') {
+            throw new common_1.BadRequestException('Cannot accept payment on a draft invoice. Issue the invoice first.');
+        }
+        if (invoice.lifecycle_status === 'cancelled') {
+            throw new common_1.BadRequestException('Cannot accept payment on a cancelled invoice.');
+        }
         if (invoice.status === 'paid') {
             throw new common_1.BadRequestException('Invoice is already fully paid');
         }
@@ -231,18 +255,126 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         this.sendPaymentConfirmation(clinicId, invoice.patient_id, invoice.invoice_number, dto.amount, dto.invoice_id).catch((e) => this.logger.warn(`Payment confirmation failed: ${e.message}`));
         return payment;
     }
+    async addRefund(clinicId, invoiceId, dto, userId) {
+        const invoice = await this.findOne(clinicId, invoiceId);
+        if (invoice.lifecycle_status === 'draft') {
+            throw new common_1.BadRequestException('Cannot refund a draft invoice — no payments exist yet');
+        }
+        return this.prisma.$transaction(async (tx) => {
+            if (dto.payment_id) {
+                const payment = await tx.payment.findUnique({
+                    where: { id: dto.payment_id },
+                });
+                if (!payment || payment.invoice_id !== invoiceId) {
+                    throw new common_1.NotFoundException(`Payment "${dto.payment_id}" not found on this invoice`);
+                }
+            }
+            const [paidAgg, refundAgg] = await Promise.all([
+                tx.payment.aggregate({ where: { invoice_id: invoiceId }, _sum: { amount: true } }),
+                tx.refund.aggregate({ where: { invoice_id: invoiceId }, _sum: { amount: true } }),
+            ]);
+            const totalPaid = Number(paidAgg._sum.amount ?? 0);
+            const totalRefunded = Number(refundAgg._sum.amount ?? 0);
+            const refundable = totalPaid - totalRefunded;
+            if (dto.amount > refundable + 0.01) {
+                throw new common_1.BadRequestException(`Refund amount (${dto.amount}) exceeds refundable balance (${refundable.toFixed(2)})`);
+            }
+            const refund = await tx.refund.create({
+                data: {
+                    clinic_id: clinicId,
+                    invoice_id: invoiceId,
+                    payment_id: dto.payment_id ?? null,
+                    amount: new client_1.Prisma.Decimal(dto.amount),
+                    method: dto.method,
+                    reason: dto.reason ?? null,
+                    refunded_by_user_id: userId ?? null,
+                },
+            });
+            const newPaidNet = totalPaid - totalRefunded - dto.amount;
+            const netAmount = Number(invoice.net_amount);
+            let newStatus = 'pending';
+            if (newPaidNet >= netAmount - 0.01) {
+                newStatus = 'paid';
+            }
+            else if (newPaidNet > 0.01) {
+                newStatus = 'partially_paid';
+            }
+            await tx.invoice.update({
+                where: { id: invoiceId },
+                data: { status: newStatus },
+            });
+            return refund;
+        }, {
+            isolationLevel: client_1.Prisma.TransactionIsolationLevel.Serializable,
+        });
+    }
+    async issueInvoice(clinicId, invoiceId, userId) {
+        const invoice = await this.findOne(clinicId, invoiceId);
+        if (invoice.lifecycle_status === 'issued') {
+            throw new common_1.BadRequestException('Invoice is already issued');
+        }
+        if (invoice.lifecycle_status === 'cancelled') {
+            throw new common_1.BadRequestException('Cannot issue a cancelled invoice');
+        }
+        return this.prisma.invoice.update({
+            where: { id: invoiceId },
+            data: {
+                lifecycle_status: 'issued',
+                issued_at: new Date(),
+                issued_by_user_id: userId ?? null,
+            },
+            include: INVOICE_INCLUDE,
+        });
+    }
+    async cancelInvoice(clinicId, invoiceId, userId, reason) {
+        const invoice = await this.findOne(clinicId, invoiceId);
+        if (invoice.lifecycle_status === 'cancelled') {
+            throw new common_1.BadRequestException('Invoice is already cancelled');
+        }
+        const [paidAgg, refundAgg] = await Promise.all([
+            this.prisma.payment.aggregate({ where: { invoice_id: invoiceId }, _sum: { amount: true } }),
+            this.prisma.refund.aggregate({ where: { invoice_id: invoiceId }, _sum: { amount: true } }),
+        ]);
+        const netPaid = Number(paidAgg._sum.amount ?? 0) - Number(refundAgg._sum.amount ?? 0);
+        if (netPaid > 0.01) {
+            throw new common_1.BadRequestException(`Cannot cancel an invoice with ${netPaid.toFixed(2)} still held against it. Refund the patient first.`);
+        }
+        return this.prisma.invoice.update({
+            where: { id: invoiceId },
+            data: {
+                lifecycle_status: 'cancelled',
+                cancelled_at: new Date(),
+                cancelled_by_user_id: userId ?? null,
+                cancel_reason: reason ?? null,
+            },
+            include: INVOICE_INCLUDE,
+        });
+    }
     async createInstallmentPlan(clinicId, dto) {
         const invoiceId = dto.invoice_id;
         const invoice = await this.findOne(clinicId, invoiceId);
+        if (invoice.lifecycle_status === 'draft') {
+            throw new common_1.BadRequestException('Cannot create an installment plan on a draft invoice. Issue the invoice first.');
+        }
+        if (invoice.lifecycle_status === 'cancelled') {
+            throw new common_1.BadRequestException('Cannot create an installment plan on a cancelled invoice.');
+        }
         const existingPlan = await this.prisma.installmentPlan.findUnique({
             where: { invoice_id: invoiceId },
         });
         if (existingPlan) {
             throw new common_1.BadRequestException('An installment plan already exists for this invoice');
         }
+        const [paidAgg, refundAgg] = await Promise.all([
+            this.prisma.payment.aggregate({ where: { invoice_id: invoiceId }, _sum: { amount: true } }),
+            this.prisma.refund.aggregate({ where: { invoice_id: invoiceId }, _sum: { amount: true } }),
+        ]);
+        const balance = Number(invoice.net_amount) -
+            Number(paidAgg._sum.amount ?? 0) +
+            Number(refundAgg._sum.amount ?? 0);
         const installmentTotal = dto.items.reduce((sum, item) => sum + item.amount, 0);
-        if (Math.abs(installmentTotal - Number(invoice.net_amount)) > 0.01) {
-            throw new common_1.BadRequestException(`Installment total (${installmentTotal.toFixed(2)}) must equal invoice net amount (${Number(invoice.net_amount).toFixed(2)})`);
+        if (Math.abs(installmentTotal - balance) > 0.01) {
+            throw new common_1.BadRequestException(`Installment total (${installmentTotal.toFixed(2)}) must equal outstanding balance (${balance.toFixed(2)})`);
         }
         return this.prisma.installmentPlan.create({
             data: {
@@ -262,7 +394,10 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         });
     }
     async deleteInstallmentPlan(clinicId, invoiceId) {
-        await this.findOne(clinicId, invoiceId);
+        const invoice = await this.findOne(clinicId, invoiceId);
+        if (invoice.lifecycle_status === 'cancelled') {
+            throw new common_1.BadRequestException('Cannot modify an installment plan on a cancelled invoice.');
+        }
         const plan = await this.prisma.installmentPlan.findUnique({
             where: { invoice_id: invoiceId },
         });
@@ -279,20 +414,24 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         return { message: 'Installment plan deleted' };
     }
     async getPdfUrl(clinicId, invoiceId) {
-        const invoice = await this.prisma.invoice.findUnique({
-            where: { id: invoiceId },
-            include: {
-                ...INVOICE_INCLUDE,
-                clinic: true,
-            },
-        });
-        if (!invoice || invoice.clinic_id !== clinicId) {
-            throw new common_1.NotFoundException(`Invoice with ID "${invoiceId}" not found`);
-        }
+        const invoice = await this.findOne(clinicId, invoiceId);
         const s3Key = `invoices/${clinicId}/${invoice.invoice_number}.pdf`;
+        const creator = invoice.created_by;
+        let creatorSignature = null;
+        if (creator?.signature_url) {
+            try {
+                creatorSignature = await this.s3Service.getObject(creator.signature_url);
+            }
+            catch (e) {
+                this.logger.warn(`Could not load creator signature: ${e.message}`);
+            }
+        }
         const pdfData = {
             invoice_number: invoice.invoice_number,
             created_at: invoice.created_at,
+            treatment_date: invoice.treatment_date,
+            lifecycle_status: invoice.lifecycle_status,
+            cancel_reason: invoice.cancel_reason,
             gst_number: invoice.gst_number,
             total_amount: Number(invoice.total_amount),
             discount_amount: Number(invoice.discount_amount),
@@ -322,11 +461,8 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                 age: invoice.patient.age ?? null,
             },
             dentist: (() => {
-                const topLevelDentist = invoice.dentist;
-                const firstDentist = topLevelDentist ??
-                    invoice.items
-                        .map((i) => i.treatment?.dentist)
-                        .find((d) => d != null);
+                const firstDentist = invoice.dentist ??
+                    invoice.items.map((i) => i.treatment?.dentist).find((d) => d != null);
                 if (!firstDentist)
                     return null;
                 return {
@@ -335,6 +471,9 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                     license_number: firstDentist.license_number ?? null,
                 };
             })(),
+            generated_by: creator
+                ? { name: creator.name, signature_image: creatorSignature }
+                : null,
             items: invoice.items.map((item) => ({
                 item_type: item.item_type,
                 description: item.description,
@@ -349,6 +488,12 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                 method: p.method,
                 paid_at: p.paid_at,
             })),
+            refunds: invoice.refunds.map((r) => ({
+                amount: Number(r.amount),
+                method: r.method,
+                refunded_at: r.refunded_at,
+                reason: r.reason,
+            })),
             currency_code: invoice.clinic.currency_code ?? 'INR',
         };
         const pdfBuffer = await this.invoicePdfService.generate(pdfData);
@@ -358,6 +503,12 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
     }
     async sendWhatsApp(clinicId, invoiceId) {
         const invoice = await this.findOne(clinicId, invoiceId);
+        if (invoice.lifecycle_status === 'draft') {
+            throw new common_1.BadRequestException('Cannot send a draft invoice. Issue it first.');
+        }
+        if (invoice.lifecycle_status === 'cancelled') {
+            throw new common_1.BadRequestException('Cannot send a cancelled invoice.');
+        }
         const { url: pdfUrl } = await this.getPdfUrl(clinicId, invoiceId);
         const [patient, clinic, rule] = await Promise.all([
             this.prisma.patient.findUnique({

@@ -21,6 +21,15 @@ const DUE_FG = '#b91c1c';
 interface InvoiceData {
   invoice_number: string;
   created_at: Date;
+  // Date the treatment was actually rendered (optional). When present and
+  // different from `created_at`, shown alongside the invoice date so the
+  // patient can see "treated on X, billed on Y" at a glance.
+  treatment_date?: Date | string | null;
+  // Lifecycle state — when "draft" or "cancelled", a diagonal watermark
+  // is rendered across the page so a printed/photographed copy is never
+  // mistaken for a final invoice.
+  lifecycle_status?: 'draft' | 'issued' | 'cancelled' | string | null;
+  cancel_reason?: string | null;
   gst_number?: string | null;
   total_amount: number;
   discount_amount: number;
@@ -46,13 +55,20 @@ interface InvoiceData {
     last_name: string;
     phone: string;
     email?: string | null;
-    date_of_birth?: string | null;
+    date_of_birth?: Date | string | null;
     age?: number | null;
   };
   dentist?: {
     name: string;
     specialization?: string | null;
     license_number?: string | null;
+  } | null;
+  // Staff member who generated this invoice — printed in the lower-right
+  // signature block. `signature_image` is optional pre-fetched image bytes
+  // (the User.signature_url asset), embedded so the PDF stays self-contained.
+  generated_by?: {
+    name: string;
+    signature_image?: Buffer | null;
   } | null;
   items: Array<{
     item_type: string;
@@ -67,6 +83,14 @@ interface InvoiceData {
     amount: number;
     method: string;
     paid_at: Date;
+  }>;
+  // Refunds — drawn as red negative entries in the payment history. Net
+  // amount paid (used for balance + paid badge) is sum(payments) - sum(refunds).
+  refunds?: Array<{
+    amount: number;
+    method: string;
+    refunded_at: Date;
+    reason?: string | null;
   }>;
   currency_code?: string;
 }
@@ -141,6 +165,17 @@ export class InvoicePdfService {
         ['Invoice #', data.invoice_number],
         ['Date', dateStr],
       ];
+      // Treatment date — only show when set AND different from the invoice
+      // date, so simple same-day bills stay uncluttered.
+      if (data.treatment_date) {
+        const td = new Date(data.treatment_date);
+        const tdStr = td.toLocaleDateString(currencyLocale, {
+          day: '2-digit', month: 'short', year: 'numeric',
+        });
+        if (tdStr !== dateStr) {
+          metaItems.push(['Treatment Date', tdStr]);
+        }
+      }
       if (data.gst_number) metaItems.push(['GST No', data.gst_number]);
 
       let mX = W - M;
@@ -320,13 +355,19 @@ export class InvoicePdfService {
       sectionH('Payment Information', M, bottomY, halfW);
 
       const paidTotal = data.payments.reduce((s, p) => s + Number(p.amount), 0);
-      const balance = Number(data.net_amount) - paidTotal;
+      const refundTotal = (data.refunds ?? []).reduce((s, r) => s + Number(r.amount), 0);
+      const netPaid = paidTotal - refundTotal;
+      const balance = Number(data.net_amount) - netPaid;
 
       const pmtInfo: [string, string][] = [
         ['Accepted Methods', 'Cash, Card, UPI'],
         ['Total Billed',     fmt(data.net_amount)],
         ['Amount Paid',      fmt(paidTotal)],
       ];
+      if (refundTotal > 0) {
+        pmtInfo.push(['Refunded', `-${fmt(refundTotal)}`]);
+        pmtInfo.push(['Net Paid', fmt(netPaid)]);
+      }
 
       let pY = bottomY + 24;
       for (const [k, v] of pmtInfo) {
@@ -351,21 +392,77 @@ export class InvoicePdfService {
       const histX = M + halfW + 20;
       sectionH('Payment History', histX, bottomY, halfW);
 
+      // Combine payments + refunds into a single time-ordered ledger so the
+      // patient sees money in (positive) and money out (negative red) side
+      // by side, with the net at the bottom.
+      type LedgerEntry = { date: Date; method: string; amount: number; isRefund: boolean };
+      const ledger: LedgerEntry[] = [
+        ...data.payments.map((p) => ({
+          date: new Date(p.paid_at), method: p.method, amount: Number(p.amount), isRefund: false,
+        })),
+        ...((data.refunds ?? []).map((r) => ({
+          date: new Date(r.refunded_at), method: r.method, amount: Number(r.amount), isRefund: true,
+        }))),
+      ].sort((a, b) => a.date.getTime() - b.date.getTime());
+
       let hY = bottomY + 24;
-      if (data.payments.length === 0) {
+      if (ledger.length === 0) {
         doc.fillColor(TEXT_MUTED).font('Helvetica-Oblique').fontSize(9)
           .text('No payments yet.', histX, hY);
       } else {
-        for (const p of data.payments) {
-          const pDate = new Date(p.paid_at).toLocaleDateString(currencyLocale, {
+        for (const e of ledger) {
+          const eDate = e.date.toLocaleDateString(currencyLocale, {
             day: '2-digit', month: 'short', year: 'numeric',
           });
+          const label = e.isRefund
+            ? `${eDate} · REFUND · ${e.method.toUpperCase()}`
+            : `${eDate} · ${e.method.toUpperCase()}`;
           doc.fillColor(TEXT_MUTED).font('Helvetica').fontSize(8.5)
-            .text(`${pDate} · ${p.method.toUpperCase()}`, histX, hY, { width: halfW - 90 });
-          doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(9)
-            .text(fmt(Number(p.amount)), histX + halfW - 90, hY, { width: 90, align: 'right' });
+            .text(label, histX, hY, { width: halfW - 90 });
+          doc.fillColor(e.isRefund ? DUE_FG : TEXT_HEAD).font('Helvetica-Bold').fontSize(9)
+            .text(e.isRefund ? `-${fmt(e.amount)}` : fmt(e.amount),
+              histX + halfW - 90, hY, { width: 90, align: 'right' });
           hY += 13;
         }
+      }
+
+      // ─── GENERATED-BY SIGNATURE BLOCK (bottom-right, above footer) ───
+      // Layout (top → bottom):
+      //   1. Signature image (if uploaded) — fitted into a small box
+      //   2. Thin accent baseline                  ← signature rests on this
+      //   3. "Generated by"   (muted eyebrow)
+      //   4. {staff name}     (bold)
+      // Skipped entirely for older invoices that have no `generated_by`.
+      if (data.generated_by) {
+        const sigBoxW = 200;
+        const sigBoxH = 28;
+        const sigX = W - M - sigBoxW;
+        // Sit ~70pt above the footer line so we never collide with it.
+        const sigBlockY = H - 130;
+        const baselineY = sigBlockY + sigBoxH;
+
+        if (data.generated_by.signature_image) {
+          try {
+            doc.image(data.generated_by.signature_image, sigX, sigBlockY, {
+              fit: [sigBoxW, sigBoxH],
+              align: 'center',
+              valign: 'bottom',
+            });
+          } catch {
+            // Bad image bytes — fall through and just print the name.
+          }
+        }
+
+        doc.rect(sigX, baselineY, sigBoxW, 0.5).fill(ACCENT);
+
+        doc.fillColor(TEXT_MUTED).font('Helvetica').fontSize(7.5)
+          .text('GENERATED BY', sigX, baselineY + 6, {
+            width: sigBoxW, align: 'center', characterSpacing: 1,
+          });
+        doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(9.5)
+          .text(data.generated_by.name, sigX, baselineY + 18, {
+            width: sigBoxW, align: 'center',
+          });
       }
 
       // ─── FOOTER ───
@@ -385,6 +482,27 @@ export class InvoicePdfService {
       doc.fillColor(TEXT_FAINT).font('Helvetica-Oblique').fontSize(7.5)
         .text(`Thank you for choosing ${data.clinic.name} for your dental care.`,
           M, footerY + 12, { width: CW, align: 'center' });
+
+      // ─── LIFECYCLE WATERMARK ───
+      // Diagonal overlay across the page when the invoice is a draft or
+      // cancelled. Drawn last so it sits on top of all content and remains
+      // legible regardless of background. The cancel reason is printed in
+      // a smaller line below the main word.
+      if (data.lifecycle_status === 'draft' || data.lifecycle_status === 'cancelled') {
+        const word = data.lifecycle_status === 'draft' ? 'DRAFT' : 'CANCELLED';
+        // Save graphics state, rotate around page centre, draw the word
+        // very large in a faint translucent red, then restore.
+        doc.save();
+        doc.translate(W / 2, H / 2);
+        doc.rotate(-30);
+        doc.fillColor('#dc2626', 0.15).font('Helvetica-Bold').fontSize(140)
+          .text(word, -W / 2, -70, { width: W, align: 'center' });
+        if (data.lifecycle_status === 'cancelled' && data.cancel_reason) {
+          doc.fillColor('#dc2626', 0.45).font('Helvetica').fontSize(12)
+            .text(`Reason: ${data.cancel_reason}`, -W / 2, 90, { width: W, align: 'center' });
+        }
+        doc.restore();
+      }
 
       // Suppress unused-variable warning for ACCENT_SOFT (reserved for future badges)
       void ACCENT_SOFT;

@@ -21,9 +21,9 @@ export declare class CampaignController {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
         completed_at: Date | null;
-        created_by: string;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
         started_at: Date | null;
@@ -49,9 +49,9 @@ export declare class CampaignController {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
         completed_at: Date | null;
-        created_by: string;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
         started_at: Date | null;
@@ -91,9 +91,9 @@ export declare class CampaignController {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
         completed_at: Date | null;
-        created_by: string;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
         started_at: Date | null;
@@ -119,9 +119,9 @@ export declare class CampaignController {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
         completed_at: Date | null;
-        created_by: string;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
         started_at: Date | null;
@@ -142,9 +142,9 @@ export declare class CampaignController {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
         completed_at: Date | null;
-        created_by: string;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
         started_at: Date | null;
@@ -302,9 +302,9 @@ export declare class CampaignController {
             channel: string;
             template_id: string | null;
             scheduled_at: Date | null;
+            created_by: string;
             estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
             completed_at: Date | null;
-            created_by: string;
             segment_type: string;
             segment_config: import("@prisma/client/runtime/client").JsonValue | null;
             started_at: Date | null;

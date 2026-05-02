@@ -94,12 +94,12 @@ export declare class ExpenseService {
         title: string;
         notes: string | null;
         is_recurring: boolean;
+        created_by: string;
         category_id: string;
         payment_mode: string | null;
         vendor: string | null;
         receipt_url: string | null;
         recurring_frequency: string | null;
-        created_by: string;
     }>;
     findAll(clinicId: string, query: QueryExpenseDto): Promise<PaginatedResult<any>>;
     findOne(clinicId: string, id: string): Promise<{
@@ -157,12 +157,12 @@ export declare class ExpenseService {
         title: string;
         notes: string | null;
         is_recurring: boolean;
+        created_by: string;
         category_id: string;
         payment_mode: string | null;
         vendor: string | null;
         receipt_url: string | null;
         recurring_frequency: string | null;
-        created_by: string;
     }>;
     update(clinicId: string, id: string, dto: UpdateExpenseDto): Promise<{
         branch: {
@@ -219,12 +219,12 @@ export declare class ExpenseService {
         title: string;
         notes: string | null;
         is_recurring: boolean;
+        created_by: string;
         category_id: string;
         payment_mode: string | null;
         vendor: string | null;
         receipt_url: string | null;
         recurring_frequency: string | null;
-        created_by: string;
     }>;
     remove(clinicId: string, id: string): Promise<{
         message: string;

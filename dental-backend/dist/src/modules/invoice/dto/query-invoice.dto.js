@@ -20,8 +20,9 @@ class QueryInvoiceDto extends pagination_query_dto_js_1.PaginationQueryDto {
     branch_id;
     dentist_id;
     status;
+    lifecycle_status;
     static _OPENAPI_METADATA_FACTORY() {
-        return { patient_id: { required: false, type: () => String, format: "uuid" }, branch_id: { required: false, type: () => String, format: "uuid" }, dentist_id: { required: false, type: () => String, format: "uuid" }, status: { required: false, enum: require("./create-invoice.dto").InvoiceStatus } };
+        return { patient_id: { required: false, type: () => String, format: "uuid" }, branch_id: { required: false, type: () => String, format: "uuid" }, dentist_id: { required: false, type: () => String, format: "uuid" }, status: { required: false, enum: require("./create-invoice.dto").InvoiceStatus }, lifecycle_status: { required: false, type: () => Object, enum: ['draft', 'issued', 'cancelled'] } };
     }
 }
 exports.QueryInvoiceDto = QueryInvoiceDto;
@@ -49,4 +50,13 @@ __decorate([
     (0, class_validator_1.IsEnum)(create_invoice_dto_js_1.InvoiceStatus),
     __metadata("design:type", String)
 ], QueryInvoiceDto.prototype, "status", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Filter by lifecycle (draft / issued / cancelled)',
+        enum: ['draft', 'issued', 'cancelled'],
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['draft', 'issued', 'cancelled']),
+    __metadata("design:type", String)
+], QueryInvoiceDto.prototype, "lifecycle_status", void 0);
 //# sourceMappingURL=query-invoice.dto.js.map

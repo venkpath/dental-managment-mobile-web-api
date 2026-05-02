@@ -38,9 +38,9 @@ export declare class CampaignService {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         estimated_cost: Prisma.Decimal | null;
         completed_at: Date | null;
-        created_by: string;
         segment_type: string;
         segment_config: Prisma.JsonValue | null;
         started_at: Date | null;
@@ -66,9 +66,9 @@ export declare class CampaignService {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         estimated_cost: Prisma.Decimal | null;
         completed_at: Date | null;
-        created_by: string;
         segment_type: string;
         segment_config: Prisma.JsonValue | null;
         started_at: Date | null;
@@ -108,9 +108,9 @@ export declare class CampaignService {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         estimated_cost: Prisma.Decimal | null;
         completed_at: Date | null;
-        created_by: string;
         segment_type: string;
         segment_config: Prisma.JsonValue | null;
         started_at: Date | null;
@@ -136,9 +136,9 @@ export declare class CampaignService {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         estimated_cost: Prisma.Decimal | null;
         completed_at: Date | null;
-        created_by: string;
         segment_type: string;
         segment_config: Prisma.JsonValue | null;
         started_at: Date | null;
@@ -159,9 +159,9 @@ export declare class CampaignService {
         channel: string;
         template_id: string | null;
         scheduled_at: Date | null;
+        created_by: string;
         estimated_cost: Prisma.Decimal | null;
         completed_at: Date | null;
-        created_by: string;
         segment_type: string;
         segment_config: Prisma.JsonValue | null;
         started_at: Date | null;
@@ -316,9 +316,9 @@ export declare class CampaignService {
             channel: string;
             template_id: string | null;
             scheduled_at: Date | null;
+            created_by: string;
             estimated_cost: Prisma.Decimal | null;
             completed_at: Date | null;
-            created_by: string;
             segment_type: string;
             segment_config: Prisma.JsonValue | null;
             started_at: Date | null;

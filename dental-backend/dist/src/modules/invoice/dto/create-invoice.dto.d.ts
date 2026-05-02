@@ -19,9 +19,11 @@ export declare class CreateInvoiceDto {
     branch_id: string;
     patient_id: string;
     dentist_id?: string;
+    treatment_date?: string;
     tax_percentage?: number;
     discount_amount?: number;
     gst_number?: string;
     tax_breakdown?: Record<string, unknown>;
+    as_draft?: boolean;
     items: InvoiceItemDto[];
 }
