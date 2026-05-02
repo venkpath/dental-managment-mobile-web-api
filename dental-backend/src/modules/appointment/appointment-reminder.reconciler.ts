@@ -25,10 +25,12 @@ export class AppointmentReminderReconciler {
   ) {}
 
   /**
-   * Safety net: every 5 minutes, ensure upcoming scheduled appointments
+   * Safety net: every hour, ensure upcoming scheduled appointments
    * have reminder jobs enqueued per automation config.
+   * Reminders must be scheduled >= 2 hours before the appointment so
+   * a 1-hour reconciler cadence leaves at least one safe window.
    */
-  @Cron('0 */5 * * * *')
+  @Cron('0 0 * * * *')
   async reconcileUpcomingReminderJobs(): Promise<void> {
     const today = getDateStrInClinicTz(new Date());
     const maxDate = addDaysToDateStr(today, 2);

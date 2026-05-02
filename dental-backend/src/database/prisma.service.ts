@@ -14,6 +14,9 @@ export class PrismaService
   constructor() {
     const pool = new pg.Pool({
       connectionString: process.env['DATABASE_URL'],
+      min: 0,
+      idleTimeoutMillis: 10_000,
+      allowExitOnIdle: true,
     });
     const adapter = new PrismaPg(pool);
     super({ adapter });

@@ -12,9 +12,9 @@ export class CampaignCronService {
     private readonly campaignService: CampaignService,
   ) {}
 
-  // ─── Scheduled Campaign Execution — Every 5 minutes ───
+  // ─── Scheduled Campaign Execution — Every 30 minutes ───
 
-  @Cron('0 */5 * * * *')
+  @Cron('0 */30 * * * *')
   async executeScheduledCampaigns(): Promise<void> {
     this.logger.debug('Checking for scheduled campaigns...');
 

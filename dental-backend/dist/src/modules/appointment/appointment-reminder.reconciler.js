@@ -65,7 +65,7 @@ let AppointmentReminderReconciler = AppointmentReminderReconciler_1 = class Appo
 };
 exports.AppointmentReminderReconciler = AppointmentReminderReconciler;
 __decorate([
-    (0, schedule_1.Cron)('0 */5 * * * *'),
+    (0, schedule_1.Cron)('0 0 * * * *'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)

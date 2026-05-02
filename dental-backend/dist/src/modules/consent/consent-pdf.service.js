@@ -239,12 +239,6 @@ let ConsentPdfService = class ConsentPdfService {
                     catch { }
                 }
             }
-            else if (kind === 'doctor' && data.doctor?.signature_image) {
-                try {
-                    doc.image(data.doctor.signature_image, x + 12, y, { fit: [slotW - 24, 36], align: 'center', valign: 'bottom' });
-                }
-                catch { }
-            }
             doc.lineWidth(0.7).strokeColor('#374151')
                 .moveTo(x + 12, lineY).lineTo(x + slotW - 12, lineY).stroke();
             doc.fillColor(TEXT_MUTED).font('Helvetica').fontSize(8.5)
@@ -252,9 +246,6 @@ let ConsentPdfService = class ConsentPdfService {
             let nameLine = '';
             if (kind === 'patient' || kind === 'guardian') {
                 nameLine = data.signature?.signed_by_name ?? '';
-            }
-            else if (kind === 'doctor' && data.doctor) {
-                nameLine = data.doctor.name;
             }
             if (nameLine) {
                 doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(9).text(nameLine, x, lineY + 14, { width: slotW, align: 'center' });
