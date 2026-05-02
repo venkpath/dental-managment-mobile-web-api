@@ -135,6 +135,8 @@ export declare class SuperAdminService {
             whatsapp_included_monthly: number | null;
             whatsapp_hard_limit_monthly: number | null;
             allow_whatsapp_overage_billing: boolean;
+            max_invoices_per_month: number | null;
+            max_treatments_per_month: number | null;
             razorpay_plan_id: string | null;
             razorpay_plan_id_yearly: string | null;
         }) | null;
