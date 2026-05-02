@@ -188,6 +188,28 @@ let AutomationService = AutomationService_1 = class AutomationService {
                 channel: 'whatsapp',
                 config: {},
             },
+            {
+                rule_type: 'appointment_confirmation_dentist',
+                is_enabled: true,
+                channel: 'whatsapp',
+                config: {},
+            },
+            {
+                rule_type: 'appointment_reminder_dentist',
+                is_enabled: true,
+                channel: 'whatsapp',
+                config: {},
+            },
+            {
+                rule_type: 'subscription_payment_reminder',
+                is_enabled: true,
+                channel: 'whatsapp',
+                config: {
+                    trial_reminder_days_before: [3, 1],
+                    trial_reminder_days_after: [1],
+                    renewal_reminder_days_before: [7, 3, 1],
+                },
+            },
         ];
         await this.prisma.automationRule.createMany({
             data: defaults.map((d) => ({

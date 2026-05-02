@@ -483,6 +483,9 @@ export declare class CommunicationService {
             total_pages: number;
         };
     }>;
+    sendStaffWhatsAppTemplate(clinicId: string, recipientPhone: string, templateName: string, namedVars: Record<string, string>, metadata?: Record<string, unknown>): Promise<{
+        messageId: string;
+    } | null>;
     sendInboxReply(clinicId: string, phone: string, body: string): Promise<{
         success: boolean;
         message_id: string;

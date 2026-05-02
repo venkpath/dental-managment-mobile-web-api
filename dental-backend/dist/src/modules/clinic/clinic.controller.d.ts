@@ -27,6 +27,7 @@ export declare class ClinicController {
         subscription_id: string | null;
         billing_cycle: string;
         trial_ends_at: Date | null;
+        next_billing_at: Date | null;
         is_complimentary: boolean;
         has_own_waba: boolean;
         logo_url: string | null;
@@ -51,6 +52,7 @@ export declare class ClinicController {
         subscription_id: string | null;
         billing_cycle: string;
         trial_ends_at: Date | null;
+        next_billing_at: Date | null;
         is_complimentary: boolean;
         has_own_waba: boolean;
         logo_url: string | null;
@@ -89,6 +91,7 @@ export declare class ClinicController {
         subscription_id: string | null;
         billing_cycle: string;
         trial_ends_at: Date | null;
+        next_billing_at: Date | null;
         is_complimentary: boolean;
         has_own_waba: boolean;
         logo_url: string | null;
@@ -113,6 +116,7 @@ export declare class ClinicController {
         subscription_id: string | null;
         billing_cycle: string;
         trial_ends_at: Date | null;
+        next_billing_at: Date | null;
         is_complimentary: boolean;
         has_own_waba: boolean;
         logo_url: string | null;
@@ -137,6 +141,7 @@ export declare class ClinicController {
         subscription_id: string | null;
         billing_cycle: string;
         trial_ends_at: Date | null;
+        next_billing_at: Date | null;
         is_complimentary: boolean;
         has_own_waba: boolean;
         logo_url: string | null;
@@ -161,6 +166,7 @@ export declare class ClinicController {
         subscription_id: string | null;
         billing_cycle: string;
         trial_ends_at: Date | null;
+        next_billing_at: Date | null;
         is_complimentary: boolean;
         has_own_waba: boolean;
         logo_url: string | null;
@@ -185,6 +191,7 @@ export declare class ClinicController {
         subscription_id: string | null;
         billing_cycle: string;
         trial_ends_at: Date | null;
+        next_billing_at: Date | null;
         is_complimentary: boolean;
         has_own_waba: boolean;
         logo_url: string | null;
@@ -209,6 +216,7 @@ export declare class ClinicController {
         subscription_id: string | null;
         billing_cycle: string;
         trial_ends_at: Date | null;
+        next_billing_at: Date | null;
         is_complimentary: boolean;
         has_own_waba: boolean;
         logo_url: string | null;

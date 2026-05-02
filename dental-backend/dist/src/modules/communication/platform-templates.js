@@ -6,5 +6,14 @@ exports.PLATFORM_TEMPLATE_NAMES = [
     'demo_request_admin_alert',
     'demo_scheduled_confirmation',
     'platform_subscription_invoice',
+    'platform_trial_ending_soon',
+    'platform_trial_expired',
+    'platform_payment_reminder_post_trial',
+    'platform_subscription_renewal_reminder',
+    'platform_subscription_expired',
+    'platform_final_payment_reminder',
+    'dental_subscription_trial_ending',
+    'dental_subscription_trial_expired',
+    'dental_subscription_renewal_reminder',
 ];
 //# sourceMappingURL=platform-templates.js.map

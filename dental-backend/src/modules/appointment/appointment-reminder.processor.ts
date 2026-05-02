@@ -8,6 +8,7 @@ import { QUEUE_NAMES } from '../../common/queue/queue-names.js';
 import type { AppointmentReminderJobData } from './appointment-reminder.types.js';
 import { isReminderEnabled } from './appointment-reminder.config.js';
 import { formatDoctorName } from '../../common/utils/name.util.js';
+import { AppointmentNotificationService } from './appointment-notification.service.js';
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString('en-IN', {
@@ -64,12 +65,47 @@ export class AppointmentReminderProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly communicationService: CommunicationService,
+    private readonly notificationService: AppointmentNotificationService,
   ) {
     super();
   }
 
   async process(job: Job<AppointmentReminderJobData>): Promise<void> {
-    const { appointmentId, clinicId, reminderIndex, reminderHours } = job.data;
+    const data = job.data;
+
+    // ── Dentist reminder branch ──
+    // Dentist jobs are scheduled independently of patient slots and have
+    // their own `appointment_reminder_dentist` rule. We delegate to the
+    // notification service which handles role/phone gates, template
+    // resolution, and final send.
+    if (data.kind === 'dentist') {
+      const { appointmentId, clinicId, reminderHours } = data;
+      this.logger.log(
+        `Processing dentist reminder (${reminderHours}h before) for appointment ${appointmentId}`,
+      );
+
+      // Bail out fast if the appointment is no longer scheduled.
+      const appt = await this.prisma.appointment.findUnique({
+        where: { id: appointmentId },
+        select: { id: true, status: true },
+      });
+      if (!appt) {
+        this.logger.warn(`Appointment ${appointmentId} not found — skipping dentist reminder`);
+        return;
+      }
+      if (appt.status !== 'scheduled') {
+        this.logger.log(
+          `Appointment ${appointmentId} status "${appt.status}" — skipping dentist reminder`,
+        );
+        return;
+      }
+
+      await this.notificationService.sendDentistReminder(clinicId, appointmentId, reminderHours);
+      return;
+    }
+
+    // ── Patient reminder branch (default) ──
+    const { appointmentId, clinicId, reminderIndex, reminderHours } = data;
 
     this.logger.log(
       `Processing reminder ${reminderIndex} (${reminderHours}h before) for appointment ${appointmentId}`,

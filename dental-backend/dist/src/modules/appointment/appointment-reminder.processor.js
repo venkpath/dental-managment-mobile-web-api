@@ -19,6 +19,7 @@ const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js"
 const queue_names_js_1 = require("../../common/queue/queue-names.js");
 const appointment_reminder_config_js_1 = require("./appointment-reminder.config.js");
 const name_util_js_1 = require("../../common/utils/name.util.js");
+const appointment_notification_service_js_1 = require("./appointment-notification.service.js");
 function formatDate(date) {
     return date.toLocaleDateString('en-IN', {
         day: '2-digit',
@@ -63,11 +64,13 @@ function resolveChannel(ruleChannel, preferred, settings) {
 let AppointmentReminderProcessor = AppointmentReminderProcessor_1 = class AppointmentReminderProcessor extends bullmq_1.WorkerHost {
     prisma;
     communicationService;
+    notificationService;
     logger = new common_1.Logger(AppointmentReminderProcessor_1.name);
-    constructor(prisma, communicationService) {
+    constructor(prisma, communicationService, notificationService) {
         super();
         this.prisma = prisma;
         this.communicationService = communicationService;
+        this.notificationService = notificationService;
     }
     async process(job) {
         const { appointmentId, clinicId, reminderIndex, reminderHours } = job.data;
@@ -160,12 +163,18 @@ let AppointmentReminderProcessor = AppointmentReminderProcessor_1 = class Appoin
             },
         });
         this.logger.log(`Sent reminder ${reminderIndex} for appointment ${appointmentId} via ${channel}`);
+        if (reminderIndex === 2) {
+            this.notificationService
+                .sendDentistReminder(clinicId, appointmentId, reminderHours)
+                .catch((e) => this.logger.warn(`Dentist reminder failed for ${appointmentId}: ${e.message}`));
+        }
     }
 };
 exports.AppointmentReminderProcessor = AppointmentReminderProcessor;
 exports.AppointmentReminderProcessor = AppointmentReminderProcessor = AppointmentReminderProcessor_1 = __decorate([
     (0, bullmq_1.Processor)(queue_names_js_1.QUEUE_NAMES.APPOINTMENT_REMINDER),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
-        communication_service_js_1.CommunicationService])
+        communication_service_js_1.CommunicationService,
+        appointment_notification_service_js_1.AppointmentNotificationService])
 ], AppointmentReminderProcessor);
 //# sourceMappingURL=appointment-reminder.processor.js.map

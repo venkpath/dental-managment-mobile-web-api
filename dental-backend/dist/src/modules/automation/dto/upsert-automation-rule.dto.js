@@ -69,5 +69,8 @@ exports.AUTOMATION_RULE_TYPES = [
     'invoice_ready',
     'payment_overdue',
     'prescription_ready',
+    'appointment_confirmation_dentist',
+    'appointment_reminder_dentist',
+    'subscription_payment_reminder',
 ];
 //# sourceMappingURL=upsert-automation-rule.dto.js.map

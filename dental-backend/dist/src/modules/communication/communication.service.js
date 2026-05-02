@@ -1706,6 +1706,78 @@ let CommunicationService = class CommunicationService {
             meta: { total, page, limit, total_pages: Math.ceil(total / limit) },
         };
     }
+    async sendStaffWhatsAppTemplate(clinicId, recipientPhone, templateName, namedVars, metadata) {
+        if (!recipientPhone || !recipientPhone.trim()) {
+            this.logger.warn(`Staff WhatsApp send skipped — no recipient phone (template=${templateName})`);
+            return null;
+        }
+        await this.ensureProvidersConfigured(clinicId);
+        const clinicSettings = await this.getOrCreateClinicSettings(clinicId);
+        if (!this.isChannelEnabled(clinicSettings, 'whatsapp')) {
+            this.logger.log(`Staff WhatsApp send skipped — clinic ${clinicId} WhatsApp disabled (template=${templateName})`);
+            return null;
+        }
+        const quotaExceeded = await this.checkWhatsAppQuota(clinicId);
+        if (quotaExceeded) {
+            this.logger.warn(`Staff WhatsApp send skipped — clinic ${clinicId} WhatsApp quota exceeded`);
+            return null;
+        }
+        const template = await this.prisma.messageTemplate.findFirst({
+            where: {
+                template_name: templateName,
+                channel: 'whatsapp',
+                is_active: true,
+                OR: [{ clinic_id: clinicId }, { clinic_id: null }],
+            },
+            orderBy: { clinic_id: 'desc' },
+        });
+        if (!template) {
+            this.logger.warn(`Staff WhatsApp send skipped — template "${templateName}" not found`);
+            return null;
+        }
+        const rawVars = template.variables;
+        let templateVarNames = [];
+        if (Array.isArray(rawVars)) {
+            templateVarNames = rawVars;
+        }
+        else if (rawVars && typeof rawVars === 'object' && 'body' in rawVars) {
+            templateVarNames = (rawVars.body) || [];
+        }
+        const orderedVars = templateVarNames.map((name) => namedVars[name] ?? '');
+        const numberedVars = Object.fromEntries(orderedVars.map((v, i) => [String(i + 1), v]));
+        const renderedBody = this.sanitizeTextBody(this.renderer.render(template.body, namedVars));
+        const digitsOnly = recipientPhone.replace(/[^0-9]/g, '');
+        const last10 = digitsOnly.slice(-10);
+        const normalizedPhone = last10.length === 10 ? `91${last10}` : digitsOnly;
+        const mergedMetadata = { ...(metadata || {}), staff_recipient: true };
+        const message = await this.prisma.communicationMessage.create({
+            data: {
+                clinic_id: clinicId,
+                patient_id: null,
+                template_id: template.id,
+                channel: 'whatsapp',
+                category: 'transactional',
+                body: renderedBody,
+                recipient: normalizedPhone,
+                status: 'queued',
+                direction: 'outbound',
+                metadata: JSON.parse(JSON.stringify(mergedMetadata)),
+            },
+        });
+        await this.producer.enqueue({
+            messageId: message.id,
+            clinicId,
+            channel: 'whatsapp',
+            to: normalizedPhone,
+            body: renderedBody,
+            templateId: template.template_name,
+            variables: numberedVars,
+            language: template.language || 'en',
+            metadata: mergedMetadata,
+        });
+        this.incrementUsageCounter(clinicId, 'whatsapp').catch((err) => this.logger.warn(`Failed to increment whatsapp usage counter: ${err instanceof Error ? err.message : String(err)}`));
+        return { messageId: message.id };
+    }
     async sendInboxReply(clinicId, phone, body) {
         const digitsOnly = phone.replace(/[^0-9]/g, '');
         const last10 = digitsOnly.slice(-10);

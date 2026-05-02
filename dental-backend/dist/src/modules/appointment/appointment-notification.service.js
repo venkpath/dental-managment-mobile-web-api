@@ -22,11 +22,15 @@ const WHATSAPP_TEMPLATE_VARS = {
     dental_appointment_reminder: ['patient_name', 'date', 'time', 'clinic_name', 'doctor_name', 'phone'],
     dental_appointment_cancel: ['patient_name', 'clinic_name', 'date', 'time', 'phone'],
     dental_appointment_rescheduled: ['patient_name', 'previous_time', 'new_time', 'clinic_name', 'phone'],
+    dental_appointment_confirmation_dentist: ['doctor_name', 'patient_name', 'date', 'time', 'treatment'],
+    dental_appointment_reminder_dentist: ['doctor_name', 'patient_name', 'time', 'treatment'],
 };
 const RULE_TO_DEFAULT_TEMPLATE = {
     appointment_confirmation: 'dental_appointment_confirmation',
     appointment_cancellation: 'dental_appointment_cancel',
     appointment_rescheduled: 'dental_appointment_rescheduled',
+    appointment_confirmation_dentist: 'dental_appointment_confirmation_dentist',
+    appointment_reminder_dentist: 'dental_appointment_reminder_dentist',
 };
 let AppointmentNotificationService = AppointmentNotificationService_1 = class AppointmentNotificationService {
     prisma;
@@ -52,6 +56,22 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
         }
         catch (e) {
             this.logger.warn(`Failed to send appointment cancellation for ${appointmentId}: ${e.message}`);
+        }
+    }
+    async sendDentistConfirmation(clinicId, appointmentId) {
+        try {
+            await this.sendDentistNotification(clinicId, appointmentId, 'appointment_confirmation_dentist');
+        }
+        catch (e) {
+            this.logger.warn(`Failed to send dentist confirmation for ${appointmentId}: ${e.message}`);
+        }
+    }
+    async sendDentistReminder(clinicId, appointmentId, hoursUntil) {
+        try {
+            await this.sendDentistNotification(clinicId, appointmentId, 'appointment_reminder_dentist', { hoursUntil });
+        }
+        catch (e) {
+            this.logger.warn(`Failed to send dentist reminder for ${appointmentId}: ${e.message}`);
         }
     }
     async sendReschedule(clinicId, appointmentId, oldDate, oldTime) {
@@ -93,6 +113,79 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
         }
         this.logger.log(`${ruleType} notification sent for ${appointmentId}`);
     }
+    async sendDentistNotification(clinicId, appointmentId, ruleType, extra) {
+        const { skip } = await this.resolveTemplate(clinicId, ruleType);
+        if (skip) {
+            this.logger.log(`${ruleType} disabled for clinic ${clinicId} — skipping`);
+            return;
+        }
+        const appt = await this.loadAppointment(appointmentId);
+        if (!appt)
+            return;
+        if (ruleType === 'appointment_reminder_dentist') {
+            const role = (appt.dentist.role ?? '').trim().toLowerCase();
+            if (role !== 'consultant' && role !== 'dentist') {
+                this.logger.log(`${ruleType} skipped for ${appointmentId} — assignee role "${appt.dentist.role}" is not a clinical role`);
+                return;
+            }
+        }
+        const dentistPhone = appt.dentist.phone?.trim();
+        if (!dentistPhone) {
+            this.logger.log(`${ruleType} skipped for ${appointmentId} — dentist has no phone on file`);
+            return;
+        }
+        const templateName = RULE_TO_DEFAULT_TEMPLATE[ruleType];
+        if (!templateName) {
+            this.logger.warn(`No default template mapped for rule ${ruleType}`);
+            return;
+        }
+        const namedVars = this.buildDentistVariables(appt, extra);
+        const metadata = {
+            automation: ruleType,
+            appointment_id: appointmentId,
+            dentist_id: appt.dentist_id,
+        };
+        await this.communicationService.sendStaffWhatsAppTemplate(clinicId, dentistPhone, templateName, namedVars, metadata);
+        this.logger.log(`${ruleType} sent for appointment ${appointmentId} → ${dentistPhone}`);
+    }
+    buildDentistVariables(appt, extra) {
+        const patientName = `${appt.patient.first_name} ${appt.patient.last_name}`;
+        const date = this.formatDate(appt.appointment_date);
+        const baseTime = this.formatTime(appt.start_time);
+        const doctorName = (0, name_util_js_1.stripDoctorPrefix)(appt.dentist.name) || (appt.dentist.name ?? '');
+        const clinicName = appt.clinic.name;
+        const treatment = (appt.notes?.trim() || 'Consultation').slice(0, 60);
+        const time = extra?.hoursUntil !== undefined
+            ? `${baseTime} (${this.formatTimeUntil(extra.hoursUntil)})`
+            : baseTime;
+        return {
+            doctor_name: doctorName,
+            patient_name: patientName,
+            date,
+            time,
+            clinic_name: clinicName,
+            treatment,
+            time_until: this.formatTimeUntil(extra?.hoursUntil),
+        };
+    }
+    formatTimeUntil(hoursUntil) {
+        if (hoursUntil === undefined || hoursUntil === null)
+            return '';
+        if (hoursUntil <= 0)
+            return 'soon';
+        if (hoursUntil < 1) {
+            const mins = Math.max(1, Math.round(hoursUntil * 60));
+            return `in ${mins} min`;
+        }
+        if (hoursUntil >= 23 && hoursUntil <= 25)
+            return 'tomorrow';
+        if (hoursUntil < 24) {
+            const h = Math.round(hoursUntil);
+            return `in ${h} hour${h === 1 ? '' : 's'}`;
+        }
+        const days = Math.round(hoursUntil / 24);
+        return `in ${days} day${days === 1 ? '' : 's'}`;
+    }
     async clinicHasFeature(clinicId, featureKey) {
         const match = await this.prisma.planFeature.findFirst({
             where: {
@@ -124,7 +217,7 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
             where: { id: appointmentId },
             include: {
                 patient: true,
-                dentist: { select: { name: true } },
+                dentist: { select: { name: true, phone: true, role: true } },
                 branch: { select: { name: true, address: true, map_url: true, latitude: true, longitude: true, book_now_url: true } },
                 clinic: { select: { id: true, name: true, phone: true } },
             },

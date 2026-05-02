@@ -109,7 +109,12 @@ let TemplateService = class TemplateService {
     }
     async getBaseWhatsAppTemplates() {
         const templates = await this.prisma.messageTemplate.findMany({
-            where: { clinic_id: null, channel: 'whatsapp', is_active: true },
+            where: {
+                clinic_id: null,
+                channel: 'whatsapp',
+                is_active: true,
+                template_name: { notIn: [...platform_templates_js_1.PLATFORM_TEMPLATE_NAMES] },
+            },
             orderBy: { template_name: 'asc' },
         });
         return templates.map((t) => ({

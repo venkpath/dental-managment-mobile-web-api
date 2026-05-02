@@ -45,6 +45,11 @@ export const AUTOMATION_RULE_TYPES = [
   'invoice_ready',
   'payment_overdue',
   'prescription_ready',
+  // ── Dentist-side notifications (sent to the consultant's WhatsApp) ──
+  'appointment_confirmation_dentist',
+  'appointment_reminder_dentist',
+  // ── Platform/SaaS billing reminders (sent to clinic admin) ──
+  'subscription_payment_reminder',
 ] as const;
 
 export type AutomationRuleType = typeof AUTOMATION_RULE_TYPES[number];

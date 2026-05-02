@@ -5,7 +5,7 @@ import { AutomationService } from '../automation/automation.service.js';
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
 import type { AutomationRuleType } from '../automation/dto/upsert-automation-rule.dto.js';
 import type { Appointment, Patient, User, Branch } from '@prisma/client';
-import { formatDoctorName } from '../../common/utils/name.util.js';
+import { formatDoctorName, stripDoctorPrefix } from '../../common/utils/name.util.js';
 
 /**
  * Maps WhatsApp Meta template names to their variable order.
@@ -21,6 +21,11 @@ const WHATSAPP_TEMPLATE_VARS: Record<string, string[]> = {
   dental_appointment_cancel:       ['patient_name', 'clinic_name', 'date', 'time', 'phone'],
   // {{1}} patient_name  {{2}} previous_time  {{3}} new_time  {{4}} clinic_name  {{5}} phone
   dental_appointment_rescheduled:  ['patient_name', 'previous_time', 'new_time', 'clinic_name', 'phone'],
+  // ── Dentist-side templates (sent to the consultant) ──
+  // {{1}} doctor_name  {{2}} patient_name  {{3}} date  {{4}} time  {{5}} treatment
+  dental_appointment_confirmation_dentist: ['doctor_name', 'patient_name', 'date', 'time', 'treatment'],
+  // {{1}} doctor_name  {{2}} patient_name  {{3}} time (with bracketed countdown)  {{4}} treatment
+  dental_appointment_reminder_dentist:     ['doctor_name', 'patient_name', 'time', 'treatment'],
 };
 
 /** Maps automation rule types to their default (fallback) template names */
@@ -28,11 +33,13 @@ const RULE_TO_DEFAULT_TEMPLATE: Record<string, string> = {
   appointment_confirmation: 'dental_appointment_confirmation',
   appointment_cancellation: 'dental_appointment_cancel',
   appointment_rescheduled:  'dental_appointment_rescheduled',
+  appointment_confirmation_dentist: 'dental_appointment_confirmation_dentist',
+  appointment_reminder_dentist:     'dental_appointment_reminder_dentist',
 };
 
 interface AppointmentWithRelations extends Appointment {
   patient: Patient;
-  dentist: Pick<User, 'name'>;
+  dentist: Pick<User, 'name' | 'phone' | 'role'>;
   branch: Pick<Branch, 'name' | 'address' | 'map_url' | 'latitude' | 'longitude' | 'book_now_url'>;
   clinic: { id: string; name: string; phone?: string | null };
 }
@@ -66,6 +73,44 @@ export class AppointmentNotificationService {
       await this.sendNotification(clinicId, appointmentId, 'appointment_cancellation');
     } catch (e) {
       this.logger.warn(`Failed to send appointment cancellation for ${appointmentId}: ${(e as Error).message}`);
+    }
+  }
+
+  /**
+   * Send a WhatsApp confirmation to the dentist (consultant) when a new
+   * appointment is booked with them. Gated by the
+   * `appointment_confirmation_dentist` automation rule.
+   */
+  async sendDentistConfirmation(clinicId: string, appointmentId: string): Promise<void> {
+    try {
+      await this.sendDentistNotification(clinicId, appointmentId, 'appointment_confirmation_dentist');
+    } catch (e) {
+      this.logger.warn(`Failed to send dentist confirmation for ${appointmentId}: ${(e as Error).message}`);
+    }
+  }
+
+  /**
+   * Send a WhatsApp reminder to the dentist (consultant) ahead of an
+   * upcoming appointment. Gated by the `appointment_reminder_dentist`
+   * automation rule.
+   *
+   * @param hoursUntil hours remaining until the appointment (used to
+   *                   render the `time_until` slot in the template).
+   */
+  async sendDentistReminder(
+    clinicId: string,
+    appointmentId: string,
+    hoursUntil: number,
+  ): Promise<void> {
+    try {
+      await this.sendDentistNotification(
+        clinicId,
+        appointmentId,
+        'appointment_reminder_dentist',
+        { hoursUntil },
+      );
+    } catch (e) {
+      this.logger.warn(`Failed to send dentist reminder for ${appointmentId}: ${(e as Error).message}`);
     }
   }
 
@@ -134,6 +179,123 @@ export class AppointmentNotificationService {
     this.logger.log(`${ruleType} notification sent for ${appointmentId}`);
   }
 
+  /**
+   * Core dentist-side notification sender. Sends a WhatsApp template to the
+   * dentist's own phone number (not the patient). Gated by the matching
+   * `*_dentist` automation rule. Bypasses APPOINTMENT_CONFIRMATIONS plan
+   * gate because staff alerts are an internal workflow.
+   */
+  private async sendDentistNotification(
+    clinicId: string,
+    appointmentId: string,
+    ruleType: AutomationRuleType,
+    extra?: { hoursUntil?: number },
+  ): Promise<void> {
+    const { skip } = await this.resolveTemplate(clinicId, ruleType);
+    if (skip) {
+      this.logger.log(`${ruleType} disabled for clinic ${clinicId} — skipping`);
+      return;
+    }
+
+    const appt = await this.loadAppointment(appointmentId);
+    if (!appt) return;
+
+    // Reminders go to both Dentists and Consultants — they may be moving
+    // between rooms/clinics and benefit from a heads-up.
+    if (ruleType === 'appointment_reminder_dentist') {
+      const role = (appt.dentist.role ?? '').trim().toLowerCase();
+      if (role !== 'consultant' && role !== 'dentist') {
+        this.logger.log(
+          `${ruleType} skipped for ${appointmentId} — assignee role "${appt.dentist.role}" is not a clinical role`,
+        );
+        return;
+      }
+    }
+
+    const dentistPhone = appt.dentist.phone?.trim();
+    if (!dentistPhone) {
+      this.logger.log(
+        `${ruleType} skipped for ${appointmentId} — dentist has no phone on file`,
+      );
+      return;
+    }
+
+    const templateName = RULE_TO_DEFAULT_TEMPLATE[ruleType];
+    if (!templateName) {
+      this.logger.warn(`No default template mapped for rule ${ruleType}`);
+      return;
+    }
+
+    const namedVars = this.buildDentistVariables(appt, extra);
+    const metadata = {
+      automation: ruleType,
+      appointment_id: appointmentId,
+      dentist_id: appt.dentist_id,
+    };
+
+    await this.communicationService.sendStaffWhatsAppTemplate(
+      clinicId,
+      dentistPhone,
+      templateName,
+      namedVars,
+      metadata,
+    );
+
+    this.logger.log(`${ruleType} sent for appointment ${appointmentId} → ${dentistPhone}`);
+  }
+
+  /** Build the named-variable map for dentist-side templates. */
+  private buildDentistVariables(
+    appt: AppointmentWithRelations,
+    extra?: { hoursUntil?: number },
+  ): Record<string, string> {
+    const patientName = `${appt.patient.first_name} ${appt.patient.last_name}`;
+    const date = this.formatDate(appt.appointment_date);
+    const baseTime = this.formatTime(appt.start_time);
+    // Approved Meta template begins with literal "Hello Dr. " so we pass
+    // just the bare name (no "Dr." prefix) to avoid "Dr. Dr. Priya".
+    const doctorName = stripDoctorPrefix(appt.dentist.name) || (appt.dentist.name ?? '');
+    const clinicName = appt.clinic.name;
+
+    // Treatment slot: pull from appointment notes if present, otherwise
+    // fall back to a generic value so the Meta template variable never
+    // ends up empty (which would fail Meta's parameter validation).
+    const treatment = (appt.notes?.trim() || 'Consultation').slice(0, 60);
+
+    // For reminders, embed the time-left in brackets next to the time so
+    // the dentist sees urgency at a glance, e.g. "10:30 AM (in 30 min)".
+    const time = extra?.hoursUntil !== undefined
+      ? `${baseTime} (${this.formatTimeUntil(extra.hoursUntil)})`
+      : baseTime;
+
+    return {
+      doctor_name: doctorName,
+      patient_name: patientName,
+      date,
+      time,
+      clinic_name: clinicName,
+      treatment,
+      time_until: this.formatTimeUntil(extra?.hoursUntil),
+    };
+  }
+
+  /** Render hours-until-appointment as a human phrase for the template. */
+  private formatTimeUntil(hoursUntil?: number): string {
+    if (hoursUntil === undefined || hoursUntil === null) return '';
+    if (hoursUntil <= 0) return 'soon';
+    if (hoursUntil < 1) {
+      const mins = Math.max(1, Math.round(hoursUntil * 60));
+      return `in ${mins} min`;
+    }
+    if (hoursUntil >= 23 && hoursUntil <= 25) return 'tomorrow';
+    if (hoursUntil < 24) {
+      const h = Math.round(hoursUntil);
+      return `in ${h} hour${h === 1 ? '' : 's'}`;
+    }
+    const days = Math.round(hoursUntil / 24);
+    return `in ${days} day${days === 1 ? '' : 's'}`;
+  }
+
   private async clinicHasFeature(clinicId: string, featureKey: string): Promise<boolean> {
     const match = await this.prisma.planFeature.findFirst({
       where: {
@@ -173,7 +335,7 @@ export class AppointmentNotificationService {
       where: { id: appointmentId },
       include: {
         patient: true,
-        dentist: { select: { name: true } },
+        dentist: { select: { name: true, phone: true, role: true } },
         branch: { select: { name: true, address: true, map_url: true, latitude: true, longitude: true, book_now_url: true } },
         clinic: { select: { id: true, name: true, phone: true } },
       },

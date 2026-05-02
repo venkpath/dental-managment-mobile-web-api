@@ -202,6 +202,36 @@ export class AutomationService {
         channel: 'whatsapp',
         config: {},
       },
+      // ── Dentist-side notifications ──
+      {
+        rule_type: 'appointment_confirmation_dentist',
+        is_enabled: true,
+        channel: 'whatsapp',
+        config: {},
+      },
+      {
+        rule_type: 'appointment_reminder_dentist',
+        is_enabled: true,
+        channel: 'whatsapp',
+        // Single reminder slot — admin picks how many hours before the
+        // appointment the dentist gets pinged. Default 2h matches the
+        // prior piggy-back behaviour. Toggle is_enabled to turn it off.
+        config: { hours: 2 },
+      },
+      // ── Platform/SaaS billing reminders (sent to clinic admin) ──
+      {
+        rule_type: 'subscription_payment_reminder',
+        is_enabled: true,
+        channel: 'whatsapp',
+        config: {
+          // Days BEFORE trial_ends_at to send "trial ending" reminders.
+          trial_reminder_days_before: [3, 1],
+          // Days AFTER trial_ends_at to send "trial expired" reminder.
+          trial_reminder_days_after: [1],
+          // Days BEFORE next_billing_at to send renewal reminders.
+          renewal_reminder_days_before: [7, 3, 1],
+        },
+      },
     ];
 
     await this.prisma.automationRule.createMany({
@@ -225,6 +255,8 @@ export class AutomationService {
       'appointment_confirmation', 'appointment_cancellation', 'appointment_rescheduled',
       'payment_confirmation', 'invoice_ready', 'payment_overdue',
       'prescription_ready',
+      'appointment_confirmation_dentist', 'appointment_reminder_dentist',
+      'subscription_payment_reminder',
     ];
   }
 }

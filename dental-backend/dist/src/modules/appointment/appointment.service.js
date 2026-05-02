@@ -102,6 +102,9 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
         this.notificationService.sendConfirmation(clinicId, appointment.id).catch((e) => {
             this.logger.warn(`Appointment confirmation notification failed: ${e.message}`);
         });
+        this.notificationService.sendDentistConfirmation(clinicId, appointment.id).catch((e) => {
+            this.logger.warn(`Dentist confirmation notification failed: ${e.message}`);
+        });
         await this.tryScheduleReminders(clinicId, appointment.id, appointment.appointment_date, appointment.start_time);
         return appointment;
     }

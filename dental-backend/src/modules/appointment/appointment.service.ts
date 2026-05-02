@@ -121,6 +121,11 @@ export class AppointmentService {
       this.logger.warn(`Appointment confirmation notification failed: ${(e as Error).message}`);
     });
 
+    // Send WhatsApp confirmation to the dentist/consultant (fire-and-forget)
+    this.notificationService.sendDentistConfirmation(clinicId, appointment.id).catch((e) => {
+      this.logger.warn(`Dentist confirmation notification failed: ${(e as Error).message}`);
+    });
+
     // Schedule BullMQ reminder jobs at exact times.
     // Awaiting here makes internal booking behavior deterministic in normal flow.
     await this.tryScheduleReminders(clinicId, appointment.id, appointment.appointment_date, appointment.start_time);

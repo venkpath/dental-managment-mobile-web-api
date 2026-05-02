@@ -14,3 +14,13 @@ export function formatDoctorName(name?: string | null): string {
   if (!cleaned) return '—';
   return `Dr. ${cleaned}`;
 }
+
+/**
+ * Strip any leading "Dr." / "Doctor" prefix and return just the bare name.
+ * Used when a downstream template body already includes a literal "Dr."
+ * (e.g. an approved Meta WhatsApp template) so we don't duplicate it.
+ */
+export function stripDoctorPrefix(name?: string | null): string {
+  if (!name) return '';
+  return name.trim().replace(/^(dr\.?|doctor)\s+/i, '').trim();
+}

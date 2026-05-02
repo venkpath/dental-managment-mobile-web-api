@@ -130,7 +130,15 @@ export class TemplateService {
    */
   async getBaseWhatsAppTemplates() {
     const templates = await this.prisma.messageTemplate.findMany({
-      where: { clinic_id: null, channel: 'whatsapp', is_active: true },
+      where: {
+        clinic_id: null,
+        channel: 'whatsapp',
+        is_active: true,
+        // Hide platform-level templates (demo, platform invoices, SaaS
+        // billing reminders) — they belong to Smart Dental Desk's WABA,
+        // not the clinic's, so clinics shouldn't see or clone them.
+        template_name: { notIn: [...PLATFORM_TEMPLATE_NAMES] },
+      },
       orderBy: { template_name: 'asc' },
     });
 

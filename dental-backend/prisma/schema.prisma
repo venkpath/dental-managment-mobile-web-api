@@ -22,6 +22,12 @@ model Clinic {
   subscription_id     String?   @db.VarChar(100)
   billing_cycle       String    @default("monthly") @db.VarChar(10) // monthly | yearly
   trial_ends_at       DateTime?
+  // Next Razorpay subscription charge time. Populated from
+  // subscription.activated / subscription.charged webhooks (using the
+  // Razorpay `current_end` field). Used by the daily renewal-reminder cron
+  // so we don't have to call Razorpay for every clinic. NULL until the
+  // first subscription event arrives (trial clinics or unconfigured).
+  next_billing_at     DateTime?
   is_complimentary    Boolean   @default(false)
   has_own_waba        Boolean   @default(false) // true = clinic brings their own WhatsApp Business Account (no platform WA billing)
   logo_url            String?   @db.Text

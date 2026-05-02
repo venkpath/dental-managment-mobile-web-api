@@ -226,11 +226,16 @@ export class PaymentService implements OnModuleInit {
     const planId = notes?.['plan_id'];
     if (!clinicId) return;
 
+    const nextBillingAt = subscription['current_end']
+      ? new Date(Number(subscription['current_end']) * 1000)
+      : null;
+
     await this.prisma.clinic.update({
       where: { id: clinicId },
       data: {
         subscription_status: 'active',
         ...(planId ? { plan_id: planId } : {}),
+        ...(nextBillingAt ? { next_billing_at: nextBillingAt } : {}),
       },
     });
     this.logger.log(`Subscription activated for clinic ${clinicId}`);
@@ -247,9 +252,16 @@ export class PaymentService implements OnModuleInit {
 
     // Ensure clinic stays active on successful recurring charge
     if (clinicId) {
+      const nextBillingAt = subscription?.['current_end']
+        ? new Date(Number(subscription['current_end']) * 1000)
+        : null;
+
       await this.prisma.clinic.update({
         where: { id: clinicId },
-        data: { subscription_status: 'active' },
+        data: {
+          subscription_status: 'active',
+          ...(nextBillingAt ? { next_billing_at: nextBillingAt } : {}),
+        },
       });
 
       // Settle the oldest pending AI overage charge using this payment

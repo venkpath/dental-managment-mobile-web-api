@@ -48,3 +48,25 @@ export function isReminderEnabled(
 ): boolean {
   return parseEnabled(config[`reminder_${reminderIndex}_enabled`], fallback);
 }
+
+/**
+ * Dentist-side reminder definition. Single slot — admin picks the
+ * hours-before-appointment on the `appointment_reminder_dentist` automation
+ * rule's `config.hours`. The rule's own `is_enabled` flag is the on/off
+ * toggle, so there's no separate `enabled` here.
+ *
+ * Default: 2 hours before — same as the patient slot 2 default, which is
+ * the prior piggy-back behaviour, so existing clinics with empty config
+ * keep getting their dentist nudge at the same time as before.
+ */
+export interface DentistReminderDefinition {
+  hours: number;
+}
+
+export function getDentistReminderDefinition(
+  config: Record<string, unknown>,
+): DentistReminderDefinition {
+  return {
+    hours: parseHours(config['hours'], 2),
+  };
+}

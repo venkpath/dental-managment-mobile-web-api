@@ -2247,6 +2247,115 @@ export class CommunicationService {
     };
   }
 
+  /**
+   * Send a WhatsApp template message to an arbitrary phone number that is
+   * not necessarily a patient (e.g. a staff member / consultant). Bypasses
+   * patient-preference / DND / dedup checks because those are designed for
+   * patient flows; staff alerts are internal communications. Still respects
+   * clinic enable_whatsapp + WhatsApp monthly quota and stores a
+   * CommunicationMessage row (patient_id=null) for audit + delivery
+   * tracking.
+   *
+   * Returns null when skipped (template missing, channel disabled, quota
+   * exhausted, or no recipient phone).
+   */
+  async sendStaffWhatsAppTemplate(
+    clinicId: string,
+    recipientPhone: string,
+    templateName: string,
+    namedVars: Record<string, string>,
+    metadata?: Record<string, unknown>,
+  ): Promise<{ messageId: string } | null> {
+    if (!recipientPhone || !recipientPhone.trim()) {
+      this.logger.warn(`Staff WhatsApp send skipped — no recipient phone (template=${templateName})`);
+      return null;
+    }
+
+    await this.ensureProvidersConfigured(clinicId);
+
+    const clinicSettings = await this.getOrCreateClinicSettings(clinicId);
+    if (!this.isChannelEnabled(clinicSettings, 'whatsapp')) {
+      this.logger.log(`Staff WhatsApp send skipped — clinic ${clinicId} WhatsApp disabled (template=${templateName})`);
+      return null;
+    }
+
+    const quotaExceeded = await this.checkWhatsAppQuota(clinicId);
+    if (quotaExceeded) {
+      this.logger.warn(`Staff WhatsApp send skipped — clinic ${clinicId} WhatsApp quota exceeded`);
+      return null;
+    }
+
+    const template = await this.prisma.messageTemplate.findFirst({
+      where: {
+        template_name: templateName,
+        channel: 'whatsapp',
+        is_active: true,
+        OR: [{ clinic_id: clinicId }, { clinic_id: null }],
+      },
+      orderBy: { clinic_id: 'desc' },
+    });
+
+    if (!template) {
+      this.logger.warn(`Staff WhatsApp send skipped — template "${templateName}" not found`);
+      return null;
+    }
+
+    // Resolve ordered body vars from template.variables config
+    const rawVars = template.variables as unknown;
+    let templateVarNames: string[] = [];
+    if (Array.isArray(rawVars)) {
+      templateVarNames = rawVars as string[];
+    } else if (rawVars && typeof rawVars === 'object' && 'body' in rawVars) {
+      templateVarNames = ((rawVars as { body?: string[] }).body) || [];
+    }
+
+    const orderedVars = templateVarNames.map((name) => namedVars[name] ?? '');
+    const numberedVars = Object.fromEntries(orderedVars.map((v, i) => [String(i + 1), v]));
+
+    // Render body locally for the audit row + dashboard display
+    const renderedBody = this.sanitizeTextBody(this.renderer.render(template.body, namedVars));
+
+    // Normalize phone (strip non-digits, keep last 10 → "91XXXXXXXXXX")
+    const digitsOnly = recipientPhone.replace(/[^0-9]/g, '');
+    const last10 = digitsOnly.slice(-10);
+    const normalizedPhone = last10.length === 10 ? `91${last10}` : digitsOnly;
+
+    const mergedMetadata = { ...(metadata || {}), staff_recipient: true };
+
+    const message = await this.prisma.communicationMessage.create({
+      data: {
+        clinic_id: clinicId,
+        patient_id: null,
+        template_id: template.id,
+        channel: 'whatsapp',
+        category: 'transactional',
+        body: renderedBody,
+        recipient: normalizedPhone,
+        status: 'queued',
+        direction: 'outbound',
+        metadata: JSON.parse(JSON.stringify(mergedMetadata)),
+      },
+    });
+
+    await this.producer.enqueue({
+      messageId: message.id,
+      clinicId,
+      channel: 'whatsapp',
+      to: normalizedPhone,
+      body: renderedBody,
+      templateId: template.template_name,
+      variables: numberedVars,
+      language: template.language || 'en',
+      metadata: mergedMetadata,
+    });
+
+    this.incrementUsageCounter(clinicId, 'whatsapp').catch((err) =>
+      this.logger.warn(`Failed to increment whatsapp usage counter: ${err instanceof Error ? err.message : String(err)}`),
+    );
+
+    return { messageId: message.id };
+  }
+
   async sendInboxReply(clinicId: string, phone: string, body: string) {
     // Normalize phone to 91XXXXXXXXXX format for consistent storage
     const digitsOnly = phone.replace(/[^0-9]/g, '');

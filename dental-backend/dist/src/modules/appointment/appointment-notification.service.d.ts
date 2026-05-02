@@ -9,8 +9,13 @@ export declare class AppointmentNotificationService {
     constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService);
     sendConfirmation(clinicId: string, appointmentId: string): Promise<void>;
     sendCancellation(clinicId: string, appointmentId: string): Promise<void>;
+    sendDentistConfirmation(clinicId: string, appointmentId: string): Promise<void>;
+    sendDentistReminder(clinicId: string, appointmentId: string, hoursUntil: number): Promise<void>;
     sendReschedule(clinicId: string, appointmentId: string, oldDate: string, oldTime: string): Promise<void>;
     private sendNotification;
+    private sendDentistNotification;
+    private buildDentistVariables;
+    private formatTimeUntil;
     private clinicHasFeature;
     private resolveTemplate;
     private loadAppointment;

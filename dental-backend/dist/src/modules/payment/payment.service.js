@@ -187,11 +187,15 @@ let PaymentService = PaymentService_1 = class PaymentService {
         const planId = notes?.['plan_id'];
         if (!clinicId)
             return;
+        const nextBillingAt = subscription['current_end']
+            ? new Date(Number(subscription['current_end']) * 1000)
+            : null;
         await this.prisma.clinic.update({
             where: { id: clinicId },
             data: {
                 subscription_status: 'active',
                 ...(planId ? { plan_id: planId } : {}),
+                ...(nextBillingAt ? { next_billing_at: nextBillingAt } : {}),
             },
         });
         this.logger.log(`Subscription activated for clinic ${clinicId}`);
@@ -203,9 +207,15 @@ let PaymentService = PaymentService_1 = class PaymentService {
         const clinicId = notes?.['clinic_id'];
         this.logger.log(`Payment received: ${payment['id']}, amount: ${payment['amount']}, clinic: ${clinicId || 'unknown'}`);
         if (clinicId) {
+            const nextBillingAt = subscription?.['current_end']
+                ? new Date(Number(subscription['current_end']) * 1000)
+                : null;
             await this.prisma.clinic.update({
                 where: { id: clinicId },
-                data: { subscription_status: 'active' },
+                data: {
+                    subscription_status: 'active',
+                    ...(nextBillingAt ? { next_billing_at: nextBillingAt } : {}),
+                },
             });
             const paymentRef = payment['id'] ?? '';
             if (paymentRef) {

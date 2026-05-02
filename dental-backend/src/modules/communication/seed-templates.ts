@@ -528,6 +528,31 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
     sampleValues: { patient_name: 'Priya Sharma', previous_time: '15 Jan 10:30 AM', new_time: '16 Jan 11:00 AM', clinic_name: 'Smile Dental Clinic', phone: '9876543210' },
   },
 
+  // ── 4b. Appointment Confirmation — Dentist (sent to the consultant) ──
+  {
+    channel: 'whatsapp',
+    category: 'transactional',
+    template_name: 'dental_appointment_confirmation_dentist',
+    body: 'Hello Dr. {{doctor_name}}, A new appointment has been scheduled. Patient: {{patient_name}} Date: {{date}} Time: {{time}} Treatment: {{treatment}} Please be available accordingly.',
+    variables: { body: ['doctor_name', 'patient_name', 'date', 'time', 'treatment'], buttons: [] },
+    language: 'en',
+    sampleValues: { doctor_name: 'Anil Mehta', patient_name: 'Priya Sharma', date: '15 Jan 2026', time: '10:30 AM', treatment: 'Root Canal' },
+  },
+
+  // ── 4c. Appointment Reminder — Dentist (sent to the consultant) ──
+  // Only ONE reminder is fired (the closer one), and the {{time}} slot
+  // includes a bracketed countdown like "10:30 AM (in 30 min)" so the
+  // dentist gets the urgency at a glance.
+  {
+    channel: 'whatsapp',
+    category: 'transactional',
+    template_name: 'dental_appointment_reminder_dentist',
+    body: 'Hello Dr. {{doctor_name}}, Reminder for your upcoming appointment: Patient: {{patient_name}} Time: {{time}} Treatment: {{treatment}} Please ensure timely availability.',
+    variables: { body: ['doctor_name', 'patient_name', 'time', 'treatment'], buttons: [] },
+    language: 'en',
+    sampleValues: { doctor_name: 'Anil Mehta', patient_name: 'Priya Sharma', time: '10:30 AM (in 30 min)', treatment: 'Root Canal' },
+  },
+
   // ── 5. Post-Treatment Care ──
   {
     channel: 'whatsapp',
@@ -680,6 +705,79 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
     variables: { body: ['patient_name', 'clinic_name', 'offer_details'], buttons: [] },
     language: 'en',
     sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic', offer_details: 'Get 20% off on teeth whitening this month!' },
+  },
+
+  // ─── Platform / SaaS billing reminders (sent to clinic admin) ───
+  // These are utility messages from the SaaS platform to the clinic owner
+  // about their subscription. Recipient is the clinic's admin user, not a
+  // patient — sent via CommunicationService.sendStaffWhatsAppTemplate.
+  // All names are prefixed `platform_` and hidden from clinic-facing UI
+  // via PLATFORM_TEMPLATE_NAMES.
+
+  // ── 19. Trial Ending Soon (admin) ──
+  {
+    channel: 'whatsapp',
+    category: 'transactional',
+    template_name: 'platform_trial_ending_soon',
+    body: 'Hello Dr. {{Dentist_Name}},\n\nYour Smart Dental Desk free trial is ending on {{Trial_End_Date}}.\n\nTo continue using appointments, reminders, and clinic management features without interruption, please upgrade your plan.\n\nLet us know if you need any assistance.\n\n– Smart Dental Desk',
+    variables: { body: ['Dentist_Name', 'Trial_End_Date'], buttons: [] },
+    language: 'en',
+    sampleValues: { Dentist_Name: 'Anil Mehta', Trial_End_Date: '15 May 2026' },
+  },
+
+  // ── 20. Trial Expired (admin) ──
+  {
+    channel: 'whatsapp',
+    category: 'transactional',
+    template_name: 'platform_trial_expired',
+    body: 'Hello Dr. {{Dentist_Name}},\n\nYour free trial has ended today.\n\nTo continue accessing your clinic data and managing appointments, please upgrade your plan.\n\nWe’re here to help if you need any assistance.\n\n– Smart Dental Desk',
+    variables: { body: ['Dentist_Name'], buttons: [] },
+    language: 'en',
+    sampleValues: { Dentist_Name: 'Anil Mehta' },
+  },
+
+  // ── 21. Payment Reminder — Post Trial (admin) ──
+  {
+    channel: 'whatsapp',
+    category: 'transactional',
+    template_name: 'platform_payment_reminder_post_trial',
+    body: 'Hello Dr. {{Dentist_Name}},\n\nThis is a reminder to renew your Smart Dental Desk subscription.\n\nUpgrade now to continue managing your clinic smoothly without any disruptions.\n\nLet us know if you\'d like help with the process.\n\n– Smart Dental Desk',
+    variables: { body: ['Dentist_Name'], buttons: [] },
+    language: 'en',
+    sampleValues: { Dentist_Name: 'Anil Mehta' },
+  },
+
+  // ── 22. Subscription Renewal Reminder (admin) ──
+  {
+    channel: 'whatsapp',
+    category: 'transactional',
+    template_name: 'platform_subscription_renewal_reminder',
+    body: 'Hello Dr. {{Dentist_Name}},\n\nYour Smart Dental Desk subscription is due for renewal on {{Renewal_Date}}.\n\nPlease renew in time to avoid any interruption in services.\n\nFeel free to reach out if you need assistance.\n\n– Smart Dental Desk',
+    variables: { body: ['Dentist_Name', 'Renewal_Date'], buttons: [] },
+    language: 'en',
+    sampleValues: { Dentist_Name: 'Anil Mehta', Renewal_Date: '15 May 2026' },
+  },
+
+  // ── 23. Subscription Expired (admin) ──
+  {
+    channel: 'whatsapp',
+    category: 'transactional',
+    template_name: 'platform_subscription_expired',
+    body: 'Hello Dr. {{Dentist_Name}},\n\nYour Smart Dental Desk subscription has expired.\n\nRenew your plan to regain access to appointments, patient records, and reminders.\n\nWe\'re happy to assist you if needed.\n\n– Smart Dental Desk',
+    variables: { body: ['Dentist_Name'], buttons: [] },
+    language: 'en',
+    sampleValues: { Dentist_Name: 'Anil Mehta' },
+  },
+
+  // ── 24. Final Payment Reminder — High Priority (admin) ──
+  {
+    channel: 'whatsapp',
+    category: 'transactional',
+    template_name: 'platform_final_payment_reminder',
+    body: 'Hello Dr. {{Dentist_Name}},\n\nYour access to Smart Dental Desk is currently inactive.\n\nRenew your subscription today to continue managing appointments, patient records, and automated reminders without disruption.\n\nLet us know if you’d like help getting started again.\n\n– Smart Dental Desk',
+    variables: { body: ['Dentist_Name'], buttons: [] },
+    language: 'en',
+    sampleValues: { Dentist_Name: 'Anil Mehta' },
   },
 ];
 
