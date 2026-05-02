@@ -10,6 +10,7 @@ import { PaginatedResult, paginate } from '../../common/interfaces/paginated-res
 import { InvoicePdfService } from './invoice-pdf.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 import { getCurrencySymbol, getCurrencyLocale } from '../../common/utils/currency.util.js';
+import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 
 const INVOICE_INCLUDE = {
   items: { include: { treatment: { include: { dentist: true } } } },
@@ -35,9 +36,12 @@ export class InvoiceService {
     private readonly automationService: AutomationService,
     private readonly invoicePdfService: InvoicePdfService,
     private readonly s3Service: S3Service,
+    private readonly planLimit: PlanLimitService,
   ) {}
 
   async create(clinicId: string, dto: CreateInvoiceDto, createdByUserId?: string): Promise<Invoice> {
+    await this.planLimit.enforceMonthlyCap(clinicId, 'invoices');
+
     const [branch, patient] = await Promise.all([
       this.prisma.branch.findUnique({ where: { id: dto.branch_id } }),
       this.prisma.patient.findUnique({ where: { id: dto.patient_id } }),

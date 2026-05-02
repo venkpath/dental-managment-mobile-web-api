@@ -67,6 +67,8 @@ export declare class ClinicController {
             ai_quota: number;
             max_patients_per_month: number | null;
             max_appointments_per_month: number | null;
+            max_invoices_per_month: number | null;
+            max_treatments_per_month: number | null;
         } | null;
         features: string[];
     }>;

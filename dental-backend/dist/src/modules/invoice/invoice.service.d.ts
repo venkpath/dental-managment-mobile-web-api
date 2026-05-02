@@ -7,6 +7,7 @@ import { Invoice, Payment, Refund, Prisma } from '@prisma/client';
 import { PaginatedResult } from '../../common/interfaces/paginated-result.interface.js';
 import { InvoicePdfService } from './invoice-pdf.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
+import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 declare const INVOICE_INCLUDE: {
     readonly items: {
         readonly include: {
@@ -54,8 +55,9 @@ export declare class InvoiceService {
     private readonly automationService;
     private readonly invoicePdfService;
     private readonly s3Service;
+    private readonly planLimit;
     private readonly logger;
-    constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService, invoicePdfService: InvoicePdfService, s3Service: S3Service);
+    constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService, invoicePdfService: InvoicePdfService, s3Service: S3Service, planLimit: PlanLimitService);
     create(clinicId: string, dto: CreateInvoiceDto, createdByUserId?: string): Promise<Invoice>;
     findAll(clinicId: string, query: QueryInvoiceDto): Promise<PaginatedResult<Invoice>>;
     findOne(clinicId: string, id: string): Promise<InvoiceWithIncludes>;

@@ -110,10 +110,10 @@ let DatabaseSeederService = DatabaseSeederService_1 = class DatabaseSeederServic
     }
     async seedPlans() {
         const plans = [
-            { name: 'Free', price_monthly: 0, max_branches: 1, max_staff: 2, ai_quota: 0, max_patients_per_month: 20, max_appointments_per_month: 20 },
-            { name: 'Starter', price_monthly: 999, max_branches: 1, max_staff: 5, ai_quota: 0, max_patients_per_month: null, max_appointments_per_month: null },
-            { name: 'Professional', price_monthly: 1999, max_branches: 3, max_staff: 15, ai_quota: 100, max_patients_per_month: null, max_appointments_per_month: null },
-            { name: 'Enterprise', price_monthly: 2999, max_branches: 10, max_staff: 50, ai_quota: 500, max_patients_per_month: null, max_appointments_per_month: null },
+            { name: 'Free', price_monthly: 0, max_branches: 1, max_staff: 2, ai_quota: 0, max_patients_per_month: 20, max_appointments_per_month: 20, max_invoices_per_month: 20, max_treatments_per_month: 20 },
+            { name: 'Starter', price_monthly: 999, max_branches: 1, max_staff: 5, ai_quota: 0, max_patients_per_month: null, max_appointments_per_month: null, max_invoices_per_month: null, max_treatments_per_month: null },
+            { name: 'Professional', price_monthly: 1999, max_branches: 3, max_staff: 15, ai_quota: 100, max_patients_per_month: null, max_appointments_per_month: null, max_invoices_per_month: null, max_treatments_per_month: null },
+            { name: 'Enterprise', price_monthly: 2999, max_branches: 10, max_staff: 50, ai_quota: 500, max_patients_per_month: null, max_appointments_per_month: null, max_invoices_per_month: null, max_treatments_per_month: null },
         ];
         let created = 0;
         for (const p of plans) {

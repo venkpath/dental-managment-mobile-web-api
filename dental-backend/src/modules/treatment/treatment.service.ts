@@ -3,10 +3,14 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { CreateTreatmentDto, UpdateTreatmentDto, QueryTreatmentDto } from './dto/index.js';
 import { Treatment, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
+import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 
 @Injectable()
 export class TreatmentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly planLimit: PlanLimitService,
+  ) {}
 
   // Map treatment procedures to dental chart condition names
   private static readonly PROCEDURE_CONDITION_MAP: Record<string, string> = {
@@ -19,6 +23,8 @@ export class TreatmentService {
   };
 
   async create(clinicId: string, dto: CreateTreatmentDto): Promise<Treatment> {
+    await this.planLimit.enforceMonthlyCap(clinicId, 'treatments');
+
     const [branch, patient, dentist] = await Promise.all([
       this.prisma.branch.findUnique({ where: { id: dto.branch_id } }),
       this.prisma.patient.findUnique({ where: { id: dto.patient_id } }),

@@ -21,6 +21,7 @@ const paginated_result_interface_js_1 = require("../../common/interfaces/paginat
 const invoice_pdf_service_js_1 = require("./invoice-pdf.service.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
 const currency_util_js_1 = require("../../common/utils/currency.util.js");
+const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
 const INVOICE_INCLUDE = {
     items: { include: { treatment: { include: { dentist: true } } } },
     payments: { include: { installment_item: true }, orderBy: { paid_at: 'asc' } },
@@ -38,15 +39,18 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
     automationService;
     invoicePdfService;
     s3Service;
+    planLimit;
     logger = new common_1.Logger(InvoiceService_1.name);
-    constructor(prisma, communicationService, automationService, invoicePdfService, s3Service) {
+    constructor(prisma, communicationService, automationService, invoicePdfService, s3Service, planLimit) {
         this.prisma = prisma;
         this.communicationService = communicationService;
         this.automationService = automationService;
         this.invoicePdfService = invoicePdfService;
         this.s3Service = s3Service;
+        this.planLimit = planLimit;
     }
     async create(clinicId, dto, createdByUserId) {
+        await this.planLimit.enforceMonthlyCap(clinicId, 'invoices');
         const [branch, patient] = await Promise.all([
             this.prisma.branch.findUnique({ where: { id: dto.branch_id } }),
             this.prisma.patient.findUnique({ where: { id: dto.patient_id } }),
@@ -687,6 +691,7 @@ exports.InvoiceService = InvoiceService = InvoiceService_1 = __decorate([
         communication_service_js_1.CommunicationService,
         automation_service_js_1.AutomationService,
         invoice_pdf_service_js_1.InvoicePdfService,
-        s3_service_js_1.S3Service])
+        s3_service_js_1.S3Service,
+        plan_limit_service_js_1.PlanLimitService])
 ], InvoiceService);
 //# sourceMappingURL=invoice.service.js.map

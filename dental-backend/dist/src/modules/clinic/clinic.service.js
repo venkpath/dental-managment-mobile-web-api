@@ -57,6 +57,8 @@ let ClinicService = class ClinicService {
                         ai_quota: true,
                         max_patients_per_month: true,
                         max_appointments_per_month: true,
+                        max_invoices_per_month: true,
+                        max_treatments_per_month: true,
                         plan_features: {
                             where: { is_enabled: true },
                             select: { feature: { select: { key: true } } },
@@ -78,6 +80,8 @@ let ClinicService = class ClinicService {
                     ai_quota: plan.ai_quota,
                     max_patients_per_month: plan.max_patients_per_month,
                     max_appointments_per_month: plan.max_appointments_per_month,
+                    max_invoices_per_month: plan.max_invoices_per_month,
+                    max_treatments_per_month: plan.max_treatments_per_month,
                 }
                 : null,
             features: plan?.plan_features.map((pf) => pf.feature.key) ?? [],

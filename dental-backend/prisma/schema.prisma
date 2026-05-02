@@ -152,6 +152,8 @@ model Plan {
   ai_overage_cap             Int      @default(0) // max requests allowed during a cycle when clinic enables overage (0 = no overage)
   max_patients_per_month     Int? // null = unlimited
   max_appointments_per_month Int? // null = unlimited
+  max_invoices_per_month     Int? // null = unlimited
+  max_treatments_per_month   Int? // null = unlimited
   razorpay_plan_id           String?  @db.VarChar(100)
   razorpay_plan_id_yearly    String?  @db.VarChar(100)
   whatsapp_included_monthly  Int? // messages/month included in the plan (null = unlimited / BYO WABA)
