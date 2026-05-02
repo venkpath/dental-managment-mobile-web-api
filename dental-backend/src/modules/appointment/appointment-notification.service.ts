@@ -191,7 +191,7 @@ export class AppointmentNotificationService {
     ruleType: AutomationRuleType,
     extra?: { hoursUntil?: number },
   ): Promise<void> {
-    const { skip } = await this.resolveTemplate(clinicId, ruleType);
+    const { skip, templateId } = await this.resolveTemplate(clinicId, ruleType);
     if (skip) {
       this.logger.log(`${ruleType} disabled for clinic ${clinicId} — skipping`);
       return;
@@ -220,7 +220,25 @@ export class AppointmentNotificationService {
       return;
     }
 
-    const templateName = RULE_TO_DEFAULT_TEMPLATE[ruleType];
+    // Resolve template name. Admin override on the rule wins, otherwise
+    // fall back to the hardcoded default. Mirrors the patient flow where
+    // rule.template_id overrides RULE_TO_DEFAULT_TEMPLATE. The override is
+    // only honoured for active WhatsApp templates — anything else falls
+    // back so a stale rule.template_id can't silently break the send.
+    let templateName = RULE_TO_DEFAULT_TEMPLATE[ruleType];
+    if (templateId) {
+      const override = await this.prisma.messageTemplate.findUnique({
+        where: { id: templateId },
+        select: { template_name: true, channel: true, is_active: true },
+      });
+      if (override && override.is_active && override.channel === 'whatsapp') {
+        templateName = override.template_name;
+      } else {
+        this.logger.warn(
+          `${ruleType} template override ${templateId} not usable (missing / inactive / non-whatsapp) — falling back to default`,
+        );
+      }
+    }
     if (!templateName) {
       this.logger.warn(`No default template mapped for rule ${ruleType}`);
       return;
@@ -241,7 +259,7 @@ export class AppointmentNotificationService {
       metadata,
     );
 
-    this.logger.log(`${ruleType} sent for appointment ${appointmentId} → ${dentistPhone}`);
+    this.logger.log(`${ruleType} sent for appointment ${appointmentId} → ${dentistPhone} (template=${templateName})`);
   }
 
   /** Build the named-variable map for dentist-side templates. */

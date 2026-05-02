@@ -213,10 +213,10 @@ export class AutomationService {
         rule_type: 'appointment_reminder_dentist',
         is_enabled: true,
         channel: 'whatsapp',
-        // Single reminder slot — admin picks how many hours before the
-        // appointment the dentist gets pinged. Default 2h matches the
-        // prior piggy-back behaviour. Toggle is_enabled to turn it off.
-        config: { hours: 2 },
+        // The dentist reminder fires ONCE per appointment, piggy-backing
+        // on the patient reminder schedule's closer (2h) slot. Toggle
+        // is_enabled to turn it off.
+        config: {},
       },
       // ── Platform/SaaS billing reminders (sent to clinic admin) ──
       {
@@ -255,8 +255,6 @@ export class AutomationService {
       'appointment_confirmation', 'appointment_cancellation', 'appointment_rescheduled',
       'payment_confirmation', 'invoice_ready', 'payment_overdue',
       'prescription_ready',
-      'appointment_confirmation_dentist', 'appointment_reminder_dentist',
-      'subscription_payment_reminder',
     ];
   }
 }

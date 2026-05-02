@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getReminderDefinitions = getReminderDefinitions;
 exports.isReminderEnabled = isReminderEnabled;
+exports.getDentistReminderDefinition = getDentistReminderDefinition;
 function parseHours(raw, fallback) {
     const parsed = typeof raw === 'number'
         ? raw
@@ -40,5 +41,10 @@ function getReminderDefinitions(config) {
 }
 function isReminderEnabled(config, reminderIndex, fallback = true) {
     return parseEnabled(config[`reminder_${reminderIndex}_enabled`], fallback);
+}
+function getDentistReminderDefinition(config) {
+    return {
+        hours: parseHours(config['hours'], 2),
+    };
 }
 //# sourceMappingURL=appointment-reminder.config.js.map

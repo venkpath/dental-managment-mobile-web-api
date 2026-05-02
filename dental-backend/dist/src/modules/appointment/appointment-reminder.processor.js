@@ -73,6 +73,17 @@ let AppointmentReminderProcessor = AppointmentReminderProcessor_1 = class Appoin
         this.notificationService = notificationService;
     }
     async process(job) {
+        if (job.data.kind === 'dentist') {
+            const { appointmentId, clinicId, reminderHours } = job.data;
+            this.logger.log(`Processing dentist reminder (${reminderHours}h before) for appointment ${appointmentId}`);
+            try {
+                await this.notificationService.sendDentistReminder(clinicId, appointmentId, reminderHours);
+            }
+            catch (e) {
+                this.logger.warn(`Dentist reminder failed for ${appointmentId}: ${e.message}`);
+            }
+            return;
+        }
         const { appointmentId, clinicId, reminderIndex, reminderHours } = job.data;
         this.logger.log(`Processing reminder ${reminderIndex} (${reminderHours}h before) for appointment ${appointmentId}`);
         const appt = await this.prisma.appointment.findUnique({
@@ -163,11 +174,6 @@ let AppointmentReminderProcessor = AppointmentReminderProcessor_1 = class Appoin
             },
         });
         this.logger.log(`Sent reminder ${reminderIndex} for appointment ${appointmentId} via ${channel}`);
-        if (reminderIndex === 2) {
-            this.notificationService
-                .sendDentistReminder(clinicId, appointmentId, reminderHours)
-                .catch((e) => this.logger.warn(`Dentist reminder failed for ${appointmentId}: ${e.message}`));
-        }
     }
 };
 exports.AppointmentReminderProcessor = AppointmentReminderProcessor;

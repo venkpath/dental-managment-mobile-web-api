@@ -71,41 +71,25 @@ export class AppointmentReminderProcessor extends WorkerHost {
   }
 
   async process(job: Job<AppointmentReminderJobData>): Promise<void> {
-    const data = job.data;
-
-    // ── Dentist reminder branch ──
-    // Dentist jobs are scheduled independently of patient slots and have
-    // their own `appointment_reminder_dentist` rule. We delegate to the
-    // notification service which handles role/phone gates, template
-    // resolution, and final send.
-    if (data.kind === 'dentist') {
-      const { appointmentId, clinicId, reminderHours } = data;
+    // The reminder queue carries two job kinds: patient (default) and
+    // dentist. Discriminate up-front so each path has the right shape.
+    if (job.data.kind === 'dentist') {
+      const { appointmentId, clinicId, reminderHours } = job.data;
       this.logger.log(
         `Processing dentist reminder (${reminderHours}h before) for appointment ${appointmentId}`,
       );
-
-      // Bail out fast if the appointment is no longer scheduled.
-      const appt = await this.prisma.appointment.findUnique({
-        where: { id: appointmentId },
-        select: { id: true, status: true },
-      });
-      if (!appt) {
-        this.logger.warn(`Appointment ${appointmentId} not found — skipping dentist reminder`);
-        return;
-      }
-      if (appt.status !== 'scheduled') {
-        this.logger.log(
-          `Appointment ${appointmentId} status "${appt.status}" — skipping dentist reminder`,
+      try {
+        await this.notificationService.sendDentistReminder(clinicId, appointmentId, reminderHours);
+      } catch (e) {
+        this.logger.warn(
+          `Dentist reminder failed for ${appointmentId}: ${(e as Error).message}`,
         );
-        return;
+        // Don't rethrow — BullMQ would retry and re-spam the dentist.
       }
-
-      await this.notificationService.sendDentistReminder(clinicId, appointmentId, reminderHours);
       return;
     }
 
-    // ── Patient reminder branch (default) ──
-    const { appointmentId, clinicId, reminderIndex, reminderHours } = data;
+    const { appointmentId, clinicId, reminderIndex, reminderHours } = job.data;
 
     this.logger.log(
       `Processing reminder ${reminderIndex} (${reminderHours}h before) for appointment ${appointmentId}`,
@@ -229,5 +213,10 @@ export class AppointmentReminderProcessor extends WorkerHost {
     this.logger.log(
       `Sent reminder ${reminderIndex} for appointment ${appointmentId} via ${channel}`,
     );
+
+    // The dentist gets its own dedicated reminder job (scheduled by the
+    // producer alongside the patient slots), so we no longer piggy-back a
+    // dentist send on the patient processor — that path produced double
+    // messages once the dentist queue was wired up.
   }
 }

@@ -59,14 +59,9 @@ export class SubscriptionReminderService {
   // ─── Trial reminders ───
 
   private async processTrialReminders(): Promise<void> {
-    // Use a wide query window so any reasonable per-clinic config offset
-    // (trial_reminder_days_before / _after / post_trial_reminder_days_after)
-    // is included. Per-clinic logic in `sendTrialReminderForClinic` then
-    // narrows by exact day match. The dedup row in CommunicationMessage
-    // prevents duplicate sends across cron runs.
     const now = new Date();
-    const windowStart = this.startOfDay(this.addDays(now, -90));
-    const windowEnd = this.endOfDay(this.addDays(now, 90));
+    const windowStart = this.startOfDay(this.addDays(now, -7));
+    const windowEnd = this.endOfDay(this.addDays(now, 7));
 
     const clinics = await this.prisma.clinic.findMany({
       where: {
@@ -151,12 +146,9 @@ export class SubscriptionReminderService {
   // ─── Renewal reminders ───
 
   private async processRenewalReminders(): Promise<void> {
-    // Wide forward window so configured `renewal_reminder_days_before`
-    // values larger than the historical default (7, 3, 1) still match.
-    // Per-clinic exact-day match happens in sendRenewalReminderForClinic.
     const now = new Date();
     const windowStart = this.startOfDay(now);
-    const windowEnd = this.endOfDay(this.addDays(now, 90));
+    const windowEnd = this.endOfDay(this.addDays(now, 14));
 
     const clinics = await this.prisma.clinic.findMany({
       where: {
@@ -238,13 +230,8 @@ export class SubscriptionReminderService {
   // Day-offsets are configurable per-clinic via the
   // `subscription_payment_reminder` automation rule.
   private async processExpiredReminders(): Promise<void> {
-    // Wide backward window so configured `final_reminder_days_after`
-    // beyond the default 14d still gets picked up. Bound at 365d so the
-    // query stays cheap and we don't keep nagging clinics that churned
-    // out long ago. Per-clinic exact-day match in
-    // sendExpiredReminderForClinic.
     const now = new Date();
-    const windowStart = this.startOfDay(this.addDays(now, -365));
+    const windowStart = this.startOfDay(this.addDays(now, -30));
     const windowEnd = this.endOfDay(now);
 
     const clinics = await this.prisma.clinic.findMany({

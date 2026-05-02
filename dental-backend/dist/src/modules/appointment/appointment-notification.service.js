@@ -114,7 +114,7 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
         this.logger.log(`${ruleType} notification sent for ${appointmentId}`);
     }
     async sendDentistNotification(clinicId, appointmentId, ruleType, extra) {
-        const { skip } = await this.resolveTemplate(clinicId, ruleType);
+        const { skip, templateId } = await this.resolveTemplate(clinicId, ruleType);
         if (skip) {
             this.logger.log(`${ruleType} disabled for clinic ${clinicId} — skipping`);
             return;
@@ -134,7 +134,19 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
             this.logger.log(`${ruleType} skipped for ${appointmentId} — dentist has no phone on file`);
             return;
         }
-        const templateName = RULE_TO_DEFAULT_TEMPLATE[ruleType];
+        let templateName = RULE_TO_DEFAULT_TEMPLATE[ruleType];
+        if (templateId) {
+            const override = await this.prisma.messageTemplate.findUnique({
+                where: { id: templateId },
+                select: { template_name: true, channel: true, is_active: true },
+            });
+            if (override && override.is_active && override.channel === 'whatsapp') {
+                templateName = override.template_name;
+            }
+            else {
+                this.logger.warn(`${ruleType} template override ${templateId} not usable (missing / inactive / non-whatsapp) — falling back to default`);
+            }
+        }
         if (!templateName) {
             this.logger.warn(`No default template mapped for rule ${ruleType}`);
             return;
@@ -146,7 +158,7 @@ let AppointmentNotificationService = AppointmentNotificationService_1 = class Ap
             dentist_id: appt.dentist_id,
         };
         await this.communicationService.sendStaffWhatsAppTemplate(clinicId, dentistPhone, templateName, namedVars, metadata);
-        this.logger.log(`${ruleType} sent for appointment ${appointmentId} → ${dentistPhone}`);
+        this.logger.log(`${ruleType} sent for appointment ${appointmentId} → ${dentistPhone} (template=${templateName})`);
     }
     buildDentistVariables(appt, extra) {
         const patientName = `${appt.patient.first_name} ${appt.patient.last_name}`;
