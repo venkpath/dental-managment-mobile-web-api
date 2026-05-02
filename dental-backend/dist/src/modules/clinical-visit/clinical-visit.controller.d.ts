@@ -188,6 +188,7 @@ export declare class ClinicalVisitController {
             phone_verified: boolean;
             license_number: string | null;
             signature_url: string | null;
+            profile_photo_url: string | null;
             branch_id: string | null;
         };
         patient: {
@@ -197,6 +198,7 @@ export declare class ClinicalVisitController {
             updated_at: Date;
             phone: string;
             clinic_id: string;
+            profile_photo_url: string | null;
             branch_id: string;
             age: number | null;
             gender: string;
@@ -340,6 +342,7 @@ export declare class ClinicalVisitController {
             phone_verified: boolean;
             license_number: string | null;
             signature_url: string | null;
+            profile_photo_url: string | null;
             branch_id: string | null;
         };
         items: {
@@ -434,6 +437,7 @@ export declare class ClinicalVisitController {
             phone_verified: boolean;
             license_number: string | null;
             signature_url: string | null;
+            profile_photo_url: string | null;
             branch_id: string | null;
         };
         patient: {
@@ -443,6 +447,7 @@ export declare class ClinicalVisitController {
             updated_at: Date;
             phone: string;
             clinic_id: string;
+            profile_photo_url: string | null;
             branch_id: string;
             age: number | null;
             gender: string;

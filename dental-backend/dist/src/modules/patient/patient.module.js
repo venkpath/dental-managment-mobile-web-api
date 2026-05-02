@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const patient_controller_js_1 = require("./patient.controller.js");
 const patient_service_js_1 = require("./patient.service.js");
+const s3_service_js_1 = require("../../common/services/s3.service.js");
 let PatientModule = class PatientModule {
 };
 exports.PatientModule = PatientModule;
@@ -18,7 +19,7 @@ exports.PatientModule = PatientModule = __decorate([
     (0, common_1.Module)({
         imports: [config_1.ConfigModule],
         controllers: [patient_controller_js_1.PatientController],
-        providers: [patient_service_js_1.PatientService],
+        providers: [patient_service_js_1.PatientService, s3_service_js_1.S3Service],
         exports: [patient_service_js_1.PatientService],
     })
 ], PatientModule);

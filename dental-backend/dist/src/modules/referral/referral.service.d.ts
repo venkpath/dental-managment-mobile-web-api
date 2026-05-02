@@ -30,6 +30,7 @@ export declare class ReferralService {
             updated_at: Date;
             phone: string;
             clinic_id: string;
+            profile_photo_url: string | null;
             branch_id: string;
             age: number | null;
             gender: string;
@@ -49,6 +50,7 @@ export declare class ReferralService {
             updated_at: Date;
             phone: string;
             clinic_id: string;
+            profile_photo_url: string | null;
             branch_id: string;
             age: number | null;
             gender: string;

@@ -4,10 +4,14 @@ import OpenAI from 'openai';
 import * as XLSX from 'xlsx';
 import { parse } from 'csv-parse/sync';
 import { PrismaService } from '../../database/prisma.service.js';
+import { S3Service } from '../../common/services/s3.service.js';
 import { CreatePatientDto, UpdatePatientDto, QueryPatientDto, ImportPatientRow } from './dto/index.js';
 import { Patient, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
+
+const PROFILE_PHOTO_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+const PROFILE_PHOTO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 
 @Injectable()
 export class PatientService {
@@ -18,10 +22,22 @@ export class PatientService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly planLimit: PlanLimitService,
+    private readonly s3Service: S3Service,
   ) {
     this.openai = new OpenAI({
       apiKey: this.config.get<string>('OPENAI_API_KEY'),
     });
+  }
+
+  /** Convert stored S3 keys (profile_photo_url) into short-lived presigned
+   *  URLs so private S3 objects can be rendered by the browser. */
+  private async withSignedUrls<T extends { profile_photo_url?: string | null }>(
+    record: T,
+  ): Promise<T> {
+    const photo = record.profile_photo_url;
+    if (!photo) return record;
+    const signed = await this.s3Service.getSignedUrl(photo).catch(() => null);
+    return { ...record, profile_photo_url: signed ?? photo };
   }
 
   async create(clinicId: string, dto: CreatePatientDto): Promise<Patient> {
@@ -52,7 +68,7 @@ export class PatientService {
           ? { medical_history: medical_history as Prisma.InputJsonValue }
           : {}),
       },
-    });
+    }).then((p) => this.withSignedUrls(p));
   }
 
   async findAll(clinicId: string, query: QueryPatientDto): Promise<PaginatedResult<Patient>> {
@@ -108,7 +124,8 @@ export class PatientService {
       this.prisma.patient.count({ where }),
     ]);
 
-    return paginate(data, total, page, limit);
+    const signedData = await Promise.all(data.map((p) => this.withSignedUrls(p)));
+    return paginate(signedData, total, page, limit);
   }
 
   async findOne(clinicId: string, id: string): Promise<Patient> {
@@ -128,14 +145,14 @@ export class PatientService {
     if (!patient || patient.clinic_id !== clinicId) {
       throw new NotFoundException(`Patient with ID "${id}" not found`);
     }
-    return patient;
+    return this.withSignedUrls(patient);
   }
 
   async update(clinicId: string, id: string, dto: UpdatePatientDto): Promise<Patient> {
     await this.findOne(clinicId, id);
 
     const { date_of_birth, medical_history, ...rest } = dto;
-    return this.prisma.patient.update({
+    const updated = await this.prisma.patient.update({
       where: { id },
       data: {
         ...rest,
@@ -146,6 +163,58 @@ export class PatientService {
       },
       include: { branch: true },
     });
+    return this.withSignedUrls(updated);
+  }
+
+
+
+  /** Upload a profile photo for a patient. Stored privately in S3 under
+   *  `clinics/{clinicId}/branches/{branchId}/patient-photos/patient_{patientId}.{ext}`. */
+  async uploadProfilePhoto(
+    clinicId: string,
+    patientId: string,
+    file: { buffer: Buffer; mimetype: string; size: number; originalname?: string },
+  ): Promise<{ profile_photo_url: string }> {
+    const patient = await this.prisma.patient.findUnique({ where: { id: patientId } });
+    if (!patient || patient.clinic_id !== clinicId) {
+      throw new NotFoundException(`Patient with ID "${patientId}" not found`);
+    }
+
+    if (!file?.buffer || file.size === 0) {
+      throw new BadRequestException('No file uploaded');
+    }
+    if (file.size > PROFILE_PHOTO_MAX_BYTES) {
+      throw new BadRequestException('Profile photo must be 2 MB or smaller');
+    }
+    if (!PROFILE_PHOTO_ALLOWED_MIME.includes(file.mimetype)) {
+      throw new BadRequestException('Profile photo must be a PNG, JPEG, or WebP image');
+    }
+
+    const ext = file.mimetype === 'image/png'  ? 'png'
+              : file.mimetype === 'image/webp' ? 'webp'
+              : 'jpg';
+    const key = `clinics/${clinicId}/branches/${patient.branch_id}/patient-photos/patient_${patientId}.${ext}`;
+    await this.s3Service.upload(key, file.buffer, file.mimetype);
+
+    await this.prisma.patient.update({
+      where: { id: patientId },
+      data: { profile_photo_url: key },
+    });
+
+    const signed = await this.s3Service.getSignedUrl(key).catch(() => null);
+    return { profile_photo_url: signed ?? key };
+  }
+
+  async deleteProfilePhoto(clinicId: string, patientId: string): Promise<{ message: string }> {
+    const patient = await this.prisma.patient.findUnique({ where: { id: patientId } });
+    if (!patient || patient.clinic_id !== clinicId) {
+      throw new NotFoundException(`Patient with ID "${patientId}" not found`);
+    }
+    await this.prisma.patient.update({
+      where: { id: patientId },
+      data: { profile_photo_url: null },
+    });
+    return { message: 'Profile photo removed' };
   }
 
   async remove(clinicId: string, id: string): Promise<Patient> {

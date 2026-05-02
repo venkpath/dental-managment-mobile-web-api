@@ -53,21 +53,33 @@ const openai_1 = __importDefault(require("openai"));
 const XLSX = __importStar(require("xlsx"));
 const sync_1 = require("csv-parse/sync");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
+const s3_service_js_1 = require("../../common/services/s3.service.js");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
 const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
+const PROFILE_PHOTO_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+const PROFILE_PHOTO_MAX_BYTES = 2 * 1024 * 1024;
 let PatientService = PatientService_1 = class PatientService {
     prisma;
     config;
     planLimit;
+    s3Service;
     logger = new common_1.Logger(PatientService_1.name);
     openai;
-    constructor(prisma, config, planLimit) {
+    constructor(prisma, config, planLimit, s3Service) {
         this.prisma = prisma;
         this.config = config;
         this.planLimit = planLimit;
+        this.s3Service = s3Service;
         this.openai = new openai_1.default({
             apiKey: this.config.get('OPENAI_API_KEY'),
         });
+    }
+    async withSignedUrls(record) {
+        const photo = record.profile_photo_url;
+        if (!photo)
+            return record;
+        const signed = await this.s3Service.getSignedUrl(photo).catch(() => null);
+        return { ...record, profile_photo_url: signed ?? photo };
     }
     async create(clinicId, dto) {
         await this.planLimit.enforceMonthlyCap(clinicId, 'patients');
@@ -92,7 +104,7 @@ let PatientService = PatientService_1 = class PatientService {
                     ? { medical_history: medical_history }
                     : {}),
             },
-        });
+        }).then((p) => this.withSignedUrls(p));
     }
     async findAll(clinicId, query) {
         const where = { clinic_id: clinicId };
@@ -142,7 +154,8 @@ let PatientService = PatientService_1 = class PatientService {
             }),
             this.prisma.patient.count({ where }),
         ]);
-        return (0, paginated_result_interface_js_1.paginate)(data, total, page, limit);
+        const signedData = await Promise.all(data.map((p) => this.withSignedUrls(p)));
+        return (0, paginated_result_interface_js_1.paginate)(signedData, total, page, limit);
     }
     async findOne(clinicId, id) {
         const now = new Date();
@@ -161,12 +174,12 @@ let PatientService = PatientService_1 = class PatientService {
         if (!patient || patient.clinic_id !== clinicId) {
             throw new common_1.NotFoundException(`Patient with ID "${id}" not found`);
         }
-        return patient;
+        return this.withSignedUrls(patient);
     }
     async update(clinicId, id, dto) {
         await this.findOne(clinicId, id);
         const { date_of_birth, medical_history, ...rest } = dto;
-        return this.prisma.patient.update({
+        const updated = await this.prisma.patient.update({
             where: { id },
             data: {
                 ...rest,
@@ -177,6 +190,44 @@ let PatientService = PatientService_1 = class PatientService {
             },
             include: { branch: true },
         });
+        return this.withSignedUrls(updated);
+    }
+    async uploadProfilePhoto(clinicId, patientId, file) {
+        const patient = await this.prisma.patient.findUnique({ where: { id: patientId } });
+        if (!patient || patient.clinic_id !== clinicId) {
+            throw new common_1.NotFoundException(`Patient with ID "${patientId}" not found`);
+        }
+        if (!file?.buffer || file.size === 0) {
+            throw new common_1.BadRequestException('No file uploaded');
+        }
+        if (file.size > PROFILE_PHOTO_MAX_BYTES) {
+            throw new common_1.BadRequestException('Profile photo must be 2 MB or smaller');
+        }
+        if (!PROFILE_PHOTO_ALLOWED_MIME.includes(file.mimetype)) {
+            throw new common_1.BadRequestException('Profile photo must be a PNG, JPEG, or WebP image');
+        }
+        const ext = file.mimetype === 'image/png' ? 'png'
+            : file.mimetype === 'image/webp' ? 'webp'
+                : 'jpg';
+        const key = `clinics/${clinicId}/branches/${patient.branch_id}/patient-photos/patient_${patientId}.${ext}`;
+        await this.s3Service.upload(key, file.buffer, file.mimetype);
+        await this.prisma.patient.update({
+            where: { id: patientId },
+            data: { profile_photo_url: key },
+        });
+        const signed = await this.s3Service.getSignedUrl(key).catch(() => null);
+        return { profile_photo_url: signed ?? key };
+    }
+    async deleteProfilePhoto(clinicId, patientId) {
+        const patient = await this.prisma.patient.findUnique({ where: { id: patientId } });
+        if (!patient || patient.clinic_id !== clinicId) {
+            throw new common_1.NotFoundException(`Patient with ID "${patientId}" not found`);
+        }
+        await this.prisma.patient.update({
+            where: { id: patientId },
+            data: { profile_photo_url: null },
+        });
+        return { message: 'Profile photo removed' };
     }
     async remove(clinicId, id) {
         await this.findOne(clinicId, id);
@@ -414,6 +465,7 @@ exports.PatientService = PatientService = PatientService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         config_1.ConfigService,
-        plan_limit_service_js_1.PlanLimitService])
+        plan_limit_service_js_1.PlanLimitService,
+        s3_service_js_1.S3Service])
 ], PatientService);
 //# sourceMappingURL=patient.service.js.map

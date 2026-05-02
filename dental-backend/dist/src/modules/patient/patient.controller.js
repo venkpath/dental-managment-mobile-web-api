@@ -42,6 +42,12 @@ let PatientController = class PatientController {
     async remove(clinicId, id) {
         return this.patientService.remove(clinicId, id);
     }
+    async uploadProfilePhoto(clinicId, id, file) {
+        return this.patientService.uploadProfilePhoto(clinicId, id, file);
+    }
+    async deleteProfilePhoto(clinicId, id) {
+        return this.patientService.deleteProfilePhoto(clinicId, id);
+    }
     async importFromFile(clinicId, file, branchId) {
         if (!file)
             throw new common_1.BadRequestException('No file uploaded');
@@ -133,6 +139,31 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], PatientController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Post)(':id/profile-photo'),
+    (0, swagger_1.ApiOperation)({ summary: 'Upload a profile photo for the patient (private, served via presigned URL)' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiOkResponse)({ description: 'Profile photo uploaded' }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', { limits: { fileSize: 2 * 1024 * 1024 } })),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], PatientController.prototype, "uploadProfilePhoto", null);
+__decorate([
+    (0, common_1.Delete)(':id/profile-photo'),
+    (0, swagger_1.ApiOperation)({ summary: 'Remove the profile photo for the patient' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Profile photo removed' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], PatientController.prototype, "deleteProfilePhoto", null);
 __decorate([
     (0, common_1.Post)('import/file'),
     (0, require_feature_decorator_js_1.RequireFeature)('PATIENT_IMPORT'),

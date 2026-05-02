@@ -249,6 +249,8 @@ model User {
   // signature_url is an S3 key for an uploaded signature image.
   license_number String?  @db.VarChar(100)
   signature_url  String?  @db.VarChar(500)
+  // S3 key for the staff member's profile photo (private; served via presigned URL).
+  profile_photo_url String? @db.VarChar(500)
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 
@@ -290,6 +292,8 @@ model Patient {
   medical_history Json?     @default("{}")
   allergies       String?   @db.VarChar(1000)
   notes           String?   @db.Text
+  // S3 key for the patient's profile photo (private; served via presigned URL).
+  profile_photo_url String? @db.VarChar(500)
   created_at      DateTime  @default(now())
   updated_at      DateTime  @updatedAt
 

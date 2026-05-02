@@ -44,6 +44,12 @@ let UserController = class UserController {
     async uploadSignature(clinicId, id, file) {
         return this.userService.uploadSignature(clinicId, id, file);
     }
+    async uploadProfilePhoto(clinicId, id, file) {
+        return this.userService.uploadProfilePhoto(clinicId, id, file);
+    }
+    async deleteProfilePhoto(clinicId, id) {
+        return this.userService.deleteProfilePhoto(clinicId, id);
+    }
 };
 exports.UserController = UserController;
 __decorate([
@@ -123,6 +129,31 @@ __decorate([
     __metadata("design:paramtypes", [String, String, Object]),
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "uploadSignature", null);
+__decorate([
+    (0, common_1.Post)(':id/profile-photo'),
+    (0, swagger_1.ApiOperation)({ summary: 'Upload a profile photo for the user (private, served via presigned URL)' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiOkResponse)({ description: 'Profile photo uploaded' }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', { limits: { fileSize: 2 * 1024 * 1024 } })),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "uploadProfilePhoto", null);
+__decorate([
+    (0, common_1.Delete)(':id/profile-photo'),
+    (0, swagger_1.ApiOperation)({ summary: 'Remove the profile photo for the user' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Profile photo removed' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "deleteProfilePhoto", null);
 exports.UserController = UserController = __decorate([
     (0, swagger_1.ApiTags)('Users'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' }),

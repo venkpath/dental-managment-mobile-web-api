@@ -18,6 +18,7 @@ export declare class UserController {
         phone_verified: boolean;
         license_number: string | null;
         signature_url: string | null;
+        profile_photo_url: string | null;
         branch_id: string | null;
     }, "password_hash">>;
     findAll(clinicId: string, role?: string, search?: string, branchId?: string): Promise<Omit<{
@@ -35,6 +36,7 @@ export declare class UserController {
         phone_verified: boolean;
         license_number: string | null;
         signature_url: string | null;
+        profile_photo_url: string | null;
         branch_id: string | null;
     }, "password_hash">[]>;
     findOne(clinicId: string, id: string): Promise<Omit<{
@@ -52,6 +54,7 @@ export declare class UserController {
         phone_verified: boolean;
         license_number: string | null;
         signature_url: string | null;
+        profile_photo_url: string | null;
         branch_id: string | null;
     }, "password_hash">>;
     update(clinicId: string, id: string, dto: UpdateUserDto): Promise<Omit<{
@@ -69,6 +72,7 @@ export declare class UserController {
         phone_verified: boolean;
         license_number: string | null;
         signature_url: string | null;
+        profile_photo_url: string | null;
         branch_id: string | null;
     }, "password_hash">>;
     remove(clinicId: string, id: string): Promise<{
@@ -76,5 +80,11 @@ export declare class UserController {
     }>;
     uploadSignature(clinicId: string, id: string, file: Express.Multer.File): Promise<{
         signature_url: string;
+    }>;
+    uploadProfilePhoto(clinicId: string, id: string, file: Express.Multer.File): Promise<{
+        profile_photo_url: string;
+    }>;
+    deleteProfilePhoto(clinicId: string, id: string): Promise<{
+        message: string;
     }>;
 }

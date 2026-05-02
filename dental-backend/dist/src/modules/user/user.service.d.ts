@@ -8,6 +8,7 @@ export declare class UserService {
     private readonly passwordService;
     private readonly s3Service;
     constructor(prisma: PrismaService, passwordService: PasswordService, s3Service: S3Service);
+    private withSignedUrls;
     uploadSignature(clinicId: string, userId: string, file: {
         buffer: Buffer;
         mimetype: string;
@@ -15,6 +16,17 @@ export declare class UserService {
         originalname?: string;
     }): Promise<{
         signature_url: string;
+    }>;
+    uploadProfilePhoto(clinicId: string, userId: string, file: {
+        buffer: Buffer;
+        mimetype: string;
+        size: number;
+        originalname?: string;
+    }): Promise<{
+        profile_photo_url: string;
+    }>;
+    deleteProfilePhoto(clinicId: string, userId: string): Promise<{
+        message: string;
     }>;
     create(clinicId: string, dto: CreateUserDto): Promise<Omit<User, 'password_hash'>>;
     findByEmail(email: string, clinicId: string): Promise<User | null>;

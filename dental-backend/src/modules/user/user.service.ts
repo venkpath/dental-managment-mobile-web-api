@@ -18,12 +18,20 @@ const userSelect = {
   phone_verified: true,
   license_number: true,
   signature_url: true,
+  profile_photo_url: true,
   created_at: true,
   updated_at: true,
 } as const;
 
 const SIGNATURE_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const SIGNATURE_MAX_BYTES = 1 * 1024 * 1024; // 1 MB
+const PROFILE_PHOTO_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+const PROFILE_PHOTO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB (after client-side crop)
+
+/** Slugify a name into a filesystem-safe segment (lowercase, dashes). */
+function slugify(input: string): string {
+  return input.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'user';
+}
 
 @Injectable()
 export class UserService {
@@ -32,6 +40,25 @@ export class UserService {
     private readonly passwordService: PasswordService,
     private readonly s3Service: S3Service,
   ) {}
+
+  /** Convert stored S3 keys (signature_url, profile_photo_url) into
+   *  short-lived presigned URLs so private S3 objects can be rendered
+   *  by the browser without exposing the bucket publicly. */
+  private async withSignedUrls<
+    T extends { signature_url?: string | null; profile_photo_url?: string | null },
+  >(record: T): Promise<T> {
+    const sig = record.signature_url;
+    const photo = record.profile_photo_url;
+    const [signedSig, signedPhoto] = await Promise.all([
+      sig ? this.s3Service.getSignedUrl(sig).catch(() => null) : Promise.resolve(null),
+      photo ? this.s3Service.getSignedUrl(photo).catch(() => null) : Promise.resolve(null),
+    ]);
+    return {
+      ...record,
+      signature_url: signedSig ?? sig ?? null,
+      profile_photo_url: signedPhoto ?? photo ?? null,
+    };
+  }
 
   /** Upload a signature image for a user. Stored in S3 under a per-clinic
    *  key; the key is saved on user.signature_url and re-fetched at PDF
@@ -64,7 +91,54 @@ export class UserService {
       data: { signature_url: key },
     });
 
-    return { signature_url: key };
+    // Return a presigned URL so the client can immediately preview the
+    // freshly-uploaded signature without a separate fetch round-trip.
+    const signed = await this.s3Service.getSignedUrl(key).catch(() => null);
+    return { signature_url: signed ?? key };
+  }
+
+  /** Upload a profile photo for a staff member. Stored privately in S3
+   *  under `clinics/{clinicId}/staff-photos/{slug(name)}_{userId}.{ext}`. */
+  async uploadProfilePhoto(
+    clinicId: string,
+    userId: string,
+    file: { buffer: Buffer; mimetype: string; size: number; originalname?: string },
+  ): Promise<{ profile_photo_url: string }> {
+    const user = await this.findOne(clinicId, userId);
+
+    if (!file?.buffer || file.size === 0) {
+      throw new BadRequestException('No file uploaded');
+    }
+    if (file.size > PROFILE_PHOTO_MAX_BYTES) {
+      throw new BadRequestException('Profile photo must be 2 MB or smaller');
+    }
+    if (!PROFILE_PHOTO_ALLOWED_MIME.includes(file.mimetype)) {
+      throw new BadRequestException('Profile photo must be a PNG, JPEG, or WebP image');
+    }
+
+    const ext = file.mimetype === 'image/png'  ? 'png'
+              : file.mimetype === 'image/webp' ? 'webp'
+              : 'jpg';
+    const slug = slugify(user.name);
+    const key = `clinics/${clinicId}/staff-photos/${slug}_${userId}.${ext}`;
+    await this.s3Service.upload(key, file.buffer, file.mimetype);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { profile_photo_url: key },
+    });
+
+    const signed = await this.s3Service.getSignedUrl(key).catch(() => null);
+    return { profile_photo_url: signed ?? key };
+  }
+
+  async deleteProfilePhoto(clinicId: string, userId: string): Promise<{ message: string }> {
+    await this.findOne(clinicId, userId);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { profile_photo_url: null },
+    });
+    return { message: 'Profile photo removed' };
   }
 
   async create(clinicId: string, dto: CreateUserDto): Promise<Omit<User, 'password_hash'>> {
@@ -95,10 +169,11 @@ export class UserService {
 
     const { password, ...rest } = dto;
     const finalPassword = password || 'Admin@123';
-    return this.prisma.user.create({
+    const created = await this.prisma.user.create({
       data: { ...rest, clinic_id: clinicId, password_hash: await this.passwordService.hash(finalPassword) },
       select: userSelect,
     });
+    return this.withSignedUrls(created);
   }
 
   async findByEmail(email: string, clinicId: string): Promise<User | null> {
@@ -121,11 +196,12 @@ export class UserService {
         { email: { contains: search, mode: 'insensitive' } },
       ];
     }
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       where,
       orderBy: { created_at: 'desc' },
       select: userSelect,
     });
+    return Promise.all(users.map((u) => this.withSignedUrls(u)));
   }
 
   async findOne(clinicId: string, id: string): Promise<Omit<User, 'password_hash'>> {
@@ -136,7 +212,7 @@ export class UserService {
     if (!user || user.clinic_id !== clinicId) {
       throw new NotFoundException(`User with ID "${id}" not found`);
     }
-    return user;
+    return this.withSignedUrls(user);
   }
 
   async remove(clinicId: string, id: string): Promise<{ message: string }> {
@@ -157,10 +233,11 @@ export class UserService {
         );
       }
     }
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id },
       data: dto,
       select: userSelect,
     });
+    return this.withSignedUrls(updated);
   }
 }

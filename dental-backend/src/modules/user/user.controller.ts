@@ -95,4 +95,27 @@ export class UserController {
   ) {
     return this.userService.uploadSignature(clinicId, id, file);
   }
+
+  @Post(':id/profile-photo')
+  @ApiOperation({ summary: 'Upload a profile photo for the user (private, served via presigned URL)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiOkResponse({ description: 'Profile photo uploaded' })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024 } }))
+  async uploadProfilePhoto(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.userService.uploadProfilePhoto(clinicId, id, file);
+  }
+
+  @Delete(':id/profile-photo')
+  @ApiOperation({ summary: 'Remove the profile photo for the user' })
+  @ApiOkResponse({ description: 'Profile photo removed' })
+  async deleteProfilePhoto(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.userService.deleteProfilePhoto(clinicId, id);
+  }
 }

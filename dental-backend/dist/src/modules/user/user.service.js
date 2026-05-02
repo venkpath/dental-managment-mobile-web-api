@@ -27,11 +27,17 @@ const userSelect = {
     phone_verified: true,
     license_number: true,
     signature_url: true,
+    profile_photo_url: true,
     created_at: true,
     updated_at: true,
 };
 const SIGNATURE_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const SIGNATURE_MAX_BYTES = 1 * 1024 * 1024;
+const PROFILE_PHOTO_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+const PROFILE_PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+function slugify(input) {
+    return input.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'user';
+}
 let UserService = class UserService {
     prisma;
     passwordService;
@@ -40,6 +46,19 @@ let UserService = class UserService {
         this.prisma = prisma;
         this.passwordService = passwordService;
         this.s3Service = s3Service;
+    }
+    async withSignedUrls(record) {
+        const sig = record.signature_url;
+        const photo = record.profile_photo_url;
+        const [signedSig, signedPhoto] = await Promise.all([
+            sig ? this.s3Service.getSignedUrl(sig).catch(() => null) : Promise.resolve(null),
+            photo ? this.s3Service.getSignedUrl(photo).catch(() => null) : Promise.resolve(null),
+        ]);
+        return {
+            ...record,
+            signature_url: signedSig ?? sig ?? null,
+            profile_photo_url: signedPhoto ?? photo ?? null,
+        };
     }
     async uploadSignature(clinicId, userId, file) {
         await this.findOne(clinicId, userId);
@@ -61,7 +80,40 @@ let UserService = class UserService {
             where: { id: userId },
             data: { signature_url: key },
         });
-        return { signature_url: key };
+        const signed = await this.s3Service.getSignedUrl(key).catch(() => null);
+        return { signature_url: signed ?? key };
+    }
+    async uploadProfilePhoto(clinicId, userId, file) {
+        const user = await this.findOne(clinicId, userId);
+        if (!file?.buffer || file.size === 0) {
+            throw new common_1.BadRequestException('No file uploaded');
+        }
+        if (file.size > PROFILE_PHOTO_MAX_BYTES) {
+            throw new common_1.BadRequestException('Profile photo must be 2 MB or smaller');
+        }
+        if (!PROFILE_PHOTO_ALLOWED_MIME.includes(file.mimetype)) {
+            throw new common_1.BadRequestException('Profile photo must be a PNG, JPEG, or WebP image');
+        }
+        const ext = file.mimetype === 'image/png' ? 'png'
+            : file.mimetype === 'image/webp' ? 'webp'
+                : 'jpg';
+        const slug = slugify(user.name);
+        const key = `clinics/${clinicId}/staff-photos/${slug}_${userId}.${ext}`;
+        await this.s3Service.upload(key, file.buffer, file.mimetype);
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { profile_photo_url: key },
+        });
+        const signed = await this.s3Service.getSignedUrl(key).catch(() => null);
+        return { profile_photo_url: signed ?? key };
+    }
+    async deleteProfilePhoto(clinicId, userId) {
+        await this.findOne(clinicId, userId);
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { profile_photo_url: null },
+        });
+        return { message: 'Profile photo removed' };
     }
     async create(clinicId, dto) {
         const clinic = await this.prisma.clinic.findUnique({
@@ -86,10 +138,11 @@ let UserService = class UserService {
         }
         const { password, ...rest } = dto;
         const finalPassword = password || 'Admin@123';
-        return this.prisma.user.create({
+        const created = await this.prisma.user.create({
             data: { ...rest, clinic_id: clinicId, password_hash: await this.passwordService.hash(finalPassword) },
             select: userSelect,
         });
+        return this.withSignedUrls(created);
     }
     async findByEmail(email, clinicId) {
         return this.prisma.user.findUnique({
@@ -110,11 +163,12 @@ let UserService = class UserService {
                 { email: { contains: search, mode: 'insensitive' } },
             ];
         }
-        return this.prisma.user.findMany({
+        const users = await this.prisma.user.findMany({
             where,
             orderBy: { created_at: 'desc' },
             select: userSelect,
         });
+        return Promise.all(users.map((u) => this.withSignedUrls(u)));
     }
     async findOne(clinicId, id) {
         const user = await this.prisma.user.findUnique({
@@ -124,7 +178,7 @@ let UserService = class UserService {
         if (!user || user.clinic_id !== clinicId) {
             throw new common_1.NotFoundException(`User with ID "${id}" not found`);
         }
-        return user;
+        return this.withSignedUrls(user);
     }
     async remove(clinicId, id) {
         await this.findOne(clinicId, id);
@@ -141,11 +195,12 @@ let UserService = class UserService {
                 throw new common_1.NotFoundException(`Branch with ID "${dto.branch_id}" not found in this clinic`);
             }
         }
-        return this.prisma.user.update({
+        const updated = await this.prisma.user.update({
             where: { id },
             data: dto,
             select: userSelect,
         });
+        return this.withSignedUrls(updated);
     }
 };
 exports.UserService = UserService;

@@ -10,6 +10,7 @@ export declare class PatientController {
         updated_at: Date;
         phone: string;
         clinic_id: string;
+        profile_photo_url: string | null;
         branch_id: string;
         age: number | null;
         gender: string;
@@ -29,6 +30,7 @@ export declare class PatientController {
         updated_at: Date;
         phone: string;
         clinic_id: string;
+        profile_photo_url: string | null;
         branch_id: string;
         age: number | null;
         gender: string;
@@ -48,6 +50,7 @@ export declare class PatientController {
         updated_at: Date;
         phone: string;
         clinic_id: string;
+        profile_photo_url: string | null;
         branch_id: string;
         age: number | null;
         gender: string;
@@ -67,6 +70,7 @@ export declare class PatientController {
         updated_at: Date;
         phone: string;
         clinic_id: string;
+        profile_photo_url: string | null;
         branch_id: string;
         age: number | null;
         gender: string;
@@ -86,6 +90,7 @@ export declare class PatientController {
         updated_at: Date;
         phone: string;
         clinic_id: string;
+        profile_photo_url: string | null;
         branch_id: string;
         age: number | null;
         gender: string;
@@ -97,6 +102,12 @@ export declare class PatientController {
         allergies: string | null;
         notes: string | null;
         preferred_language: string;
+    }>;
+    uploadProfilePhoto(clinicId: string, id: string, file: Express.Multer.File): Promise<{
+        profile_photo_url: string;
+    }>;
+    deleteProfilePhoto(clinicId: string, id: string): Promise<{
+        message: string;
     }>;
     importFromFile(clinicId: string, file: Express.Multer.File, branchId: string): Promise<{
         created: number;

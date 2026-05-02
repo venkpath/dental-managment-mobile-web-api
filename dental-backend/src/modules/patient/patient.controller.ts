@@ -93,6 +93,29 @@ export class PatientController {
     return this.patientService.remove(clinicId, id);
   }
 
+  @Post(':id/profile-photo')
+  @ApiOperation({ summary: 'Upload a profile photo for the patient (private, served via presigned URL)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiOkResponse({ description: 'Profile photo uploaded' })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024 } }))
+  async uploadProfilePhoto(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.patientService.uploadProfilePhoto(clinicId, id, file);
+  }
+
+  @Delete(':id/profile-photo')
+  @ApiOperation({ summary: 'Remove the profile photo for the patient' })
+  @ApiOkResponse({ description: 'Profile photo removed' })
+  async deleteProfilePhoto(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.patientService.deleteProfilePhoto(clinicId, id);
+  }
+
   // ─── Bulk Import (CSV / Excel file) ────────────────────────────
 
   @Post('import/file')
