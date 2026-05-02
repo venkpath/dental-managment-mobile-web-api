@@ -17,6 +17,7 @@ export interface DashboardSummary {
   low_inventory_count: number;
   this_month_expenses: number;
   this_month_revenue: number;
+  this_month_refunds: number;
   net_profit: number;
 }
 
@@ -93,7 +94,7 @@ export class ReportsService {
     // are clinic-wide and remain unfiltered by dentist.
     const invoiceDentistFilter = dentistFilter ? { dentist_id: dentistFilter } : {};
 
-    const [todayAppointments, todayRevenue, pendingInvoices, pendingInvoicesAgg, partiallyPaidAgg, partiallyPaidPaymentsAgg, lowInventoryItems, monthExpenses, monthRevenue] =
+    const [todayAppointments, todayRevenue, pendingInvoices, pendingInvoicesAgg, partiallyPaidAgg, partiallyPaidPaymentsAgg, lowInventoryItems, monthExpenses, monthRevenue, monthRefunds] =
       await Promise.all([
         this.prisma.appointment.count({
           where: {
@@ -188,10 +189,25 @@ export class ReportsService {
             paid_at: { gte: monthStart, lte: monthEnd },
           },
         }),
+
+        // Refunds issued this month — surfaced separately on the dashboard
+        // so the user can see "money returned to patients" alongside revenue.
+        this.prisma.refund.aggregate({
+          _sum: { amount: true },
+          where: {
+            invoice: {
+              clinic_id: clinicId,
+              ...(branchFilter && { branch_id: branchFilter }),
+              ...invoiceDentistFilter,
+            },
+            refunded_at: { gte: monthStart, lte: monthEnd },
+          },
+        }),
       ]);
 
     const thisMonthExpenses = Number(monthExpenses._sum.amount ?? 0);
     const thisMonthRevenue = Number(monthRevenue._sum.amount ?? 0);
+    const thisMonthRefunds = Number(monthRefunds._sum.amount ?? 0);
 
     const pendingNet = Number(pendingInvoicesAgg._sum.net_amount ?? 0);
     const partiallyPaidNet = Number(partiallyPaidAgg._sum.net_amount ?? 0);
@@ -206,7 +222,10 @@ export class ReportsService {
       low_inventory_count: Number(lowInventoryItems[0]?.count ?? 0),
       this_month_expenses: thisMonthExpenses,
       this_month_revenue: thisMonthRevenue,
-      net_profit: thisMonthRevenue - thisMonthExpenses,
+      this_month_refunds: thisMonthRefunds,
+      // Net profit subtracts both expenses AND refunds — refunds are real
+      // cash leaving the business, so the bottom line should reflect them.
+      net_profit: thisMonthRevenue - thisMonthExpenses - thisMonthRefunds,
     };
   }
 

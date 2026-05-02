@@ -8,6 +8,7 @@ export interface DashboardSummary {
     low_inventory_count: number;
     this_month_expenses: number;
     this_month_revenue: number;
+    this_month_refunds: number;
     net_profit: number;
 }
 export interface AppointmentAnalytics {

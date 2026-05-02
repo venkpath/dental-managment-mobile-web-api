@@ -28,7 +28,7 @@ let ReportsService = class ReportsService {
         const branchFilter = branchId || null;
         const dentistFilter = dentistId || null;
         const invoiceDentistFilter = dentistFilter ? { dentist_id: dentistFilter } : {};
-        const [todayAppointments, todayRevenue, pendingInvoices, pendingInvoicesAgg, partiallyPaidAgg, partiallyPaidPaymentsAgg, lowInventoryItems, monthExpenses, monthRevenue] = await Promise.all([
+        const [todayAppointments, todayRevenue, pendingInvoices, pendingInvoicesAgg, partiallyPaidAgg, partiallyPaidPaymentsAgg, lowInventoryItems, monthExpenses, monthRevenue, monthRefunds] = await Promise.all([
             this.prisma.appointment.count({
                 where: {
                     clinic_id: clinicId,
@@ -111,9 +111,21 @@ let ReportsService = class ReportsService {
                     paid_at: { gte: monthStart, lte: monthEnd },
                 },
             }),
+            this.prisma.refund.aggregate({
+                _sum: { amount: true },
+                where: {
+                    invoice: {
+                        clinic_id: clinicId,
+                        ...(branchFilter && { branch_id: branchFilter }),
+                        ...invoiceDentistFilter,
+                    },
+                    refunded_at: { gte: monthStart, lte: monthEnd },
+                },
+            }),
         ]);
         const thisMonthExpenses = Number(monthExpenses._sum.amount ?? 0);
         const thisMonthRevenue = Number(monthRevenue._sum.amount ?? 0);
+        const thisMonthRefunds = Number(monthRefunds._sum.amount ?? 0);
         const pendingNet = Number(pendingInvoicesAgg._sum.net_amount ?? 0);
         const partiallyPaidNet = Number(partiallyPaidAgg._sum.net_amount ?? 0);
         const partiallyPaidCollected = Number(partiallyPaidPaymentsAgg._sum.amount ?? 0);
@@ -126,7 +138,8 @@ let ReportsService = class ReportsService {
             low_inventory_count: Number(lowInventoryItems[0]?.count ?? 0),
             this_month_expenses: thisMonthExpenses,
             this_month_revenue: thisMonthRevenue,
-            net_profit: thisMonthRevenue - thisMonthExpenses,
+            this_month_refunds: thisMonthRefunds,
+            net_profit: thisMonthRevenue - thisMonthExpenses - thisMonthRefunds,
         };
     }
     async getRevenueReport(clinicId, query) {

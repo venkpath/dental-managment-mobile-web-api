@@ -310,11 +310,17 @@ export class InvoiceService {
   /**
    * Record a refund against an invoice. Stored as a separate row so the
    * original Payment record stays immutable for audit. After insertion the
-   * invoice's payment status is recomputed as
-   *   sum(payments) - sum(refunds)
-   * vs net_amount, so a fully refunded paid invoice falls back to
-   * `pending`, and a partial refund of a paid invoice becomes
-   * `partially_paid`.
+   * invoice's payment status is recomputed:
+   *   - If the entire paid amount has been refunded (sum(refunds) >=
+   *     sum(payments)), the invoice becomes `refunded`.
+   *   - Otherwise the status reflects what the patient actually paid in
+   *     (sum(payments) vs net_amount): so a partial refund on a fully
+   *     paid invoice stays `paid` (with the refund tracked separately),
+   *     and a partial refund on an under-paid invoice stays
+   *     `partially_paid`.
+   * Refunded amount is surfaced to the UI/PDF as a separate line item
+   * rather than dragging the status down to "Partially Paid", which
+   * would incorrectly imply the patient still owes money.
    */
   async addRefund(
     clinicId: string,
@@ -371,13 +377,23 @@ export class InvoiceService {
         },
       });
 
-      // Recompute payment status after the refund.
-      const newPaidNet = totalPaid - totalRefunded - dto.amount;
+      // Recompute payment status after the refund. The status reflects
+      // both the patient's payment liability and the refund posture:
+      //   - All money refunded back → `refunded`
+      //   - Some refund on a fully-paid invoice → `partially_refunded`
+      //     (clinic kept some of the money, returned the rest)
+      //   - Otherwise → status follows total payments vs net_amount
+      //     (`paid` / `partially_paid` / `pending`)
+      const newTotalRefunded = totalRefunded + dto.amount;
       const netAmount = Number(invoice.net_amount);
-      let newStatus: 'pending' | 'partially_paid' | 'paid' = 'pending';
-      if (newPaidNet >= netAmount - 0.01) {
+      let newStatus: 'pending' | 'partially_paid' | 'paid' | 'partially_refunded' | 'refunded' = 'pending';
+      if (totalPaid > 0.01 && newTotalRefunded >= totalPaid - 0.01) {
+        newStatus = 'refunded';
+      } else if (totalPaid >= netAmount - 0.01 && newTotalRefunded > 0.01) {
+        newStatus = 'partially_refunded';
+      } else if (totalPaid >= netAmount - 0.01) {
         newStatus = 'paid';
-      } else if (newPaidNet > 0.01) {
+      } else if (totalPaid > 0.01) {
         newStatus = 'partially_paid';
       }
       await tx.invoice.update({

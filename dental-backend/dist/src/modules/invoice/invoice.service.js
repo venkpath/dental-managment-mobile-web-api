@@ -290,13 +290,19 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                     refunded_by_user_id: userId ?? null,
                 },
             });
-            const newPaidNet = totalPaid - totalRefunded - dto.amount;
+            const newTotalRefunded = totalRefunded + dto.amount;
             const netAmount = Number(invoice.net_amount);
             let newStatus = 'pending';
-            if (newPaidNet >= netAmount - 0.01) {
+            if (totalPaid > 0.01 && newTotalRefunded >= totalPaid - 0.01) {
+                newStatus = 'refunded';
+            }
+            else if (totalPaid >= netAmount - 0.01 && newTotalRefunded > 0.01) {
+                newStatus = 'partially_refunded';
+            }
+            else if (totalPaid >= netAmount - 0.01) {
                 newStatus = 'paid';
             }
-            else if (newPaidNet > 0.01) {
+            else if (totalPaid > 0.01) {
                 newStatus = 'partially_paid';
             }
             await tx.invoice.update({
