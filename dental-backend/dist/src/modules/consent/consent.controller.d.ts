@@ -294,6 +294,7 @@ export declare class ConsentController {
         signed_user_agent: string | null;
     }>;
     sendLink(req: Request, id: string, dto: SendConsentLinkDto): Promise<{
+        error?: string | undefined;
         sent: boolean;
         channel: import("../communication/dto/send-message.dto.js").MessageChannel;
         link: string;

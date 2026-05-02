@@ -436,20 +436,32 @@ export class ConsentService {
     const procedure = consent.notes || consent.template.title;
     const channel = options.channel === 'sms' ? MessageChannel.SMS : MessageChannel.WHATSAPP;
 
-    try {
-      let templateId: string | undefined;
-      if (channel === MessageChannel.WHATSAPP) {
-        const tpl = await this.prisma.messageTemplate.findFirst({
-          where: {
-            template_name: 'dental_consent_signature_request',
-            channel: 'whatsapp',
-            is_active: true,
-            OR: [{ clinic_id: clinicId }, { clinic_id: null }],
-          },
-          orderBy: { clinic_id: 'desc' },
-        });
-        templateId = tpl?.id;
+    // Outside the 24-hour customer-care window, WhatsApp only delivers
+    // template messages — and the template must be Meta-approved. If the DB
+    // row is missing, the message would silently fail downstream and staff
+    // would think the link was sent. Surface the real state instead.
+    let templateId: string | undefined;
+    if (channel === MessageChannel.WHATSAPP) {
+      const tpl = await this.prisma.messageTemplate.findFirst({
+        where: {
+          template_name: 'dental_consent_signature_request',
+          channel: 'whatsapp',
+          is_active: true,
+          OR: [{ clinic_id: clinicId }, { clinic_id: null }],
+        },
+        orderBy: { clinic_id: 'desc' },
+      });
+      if (!tpl) {
+        throw new BadRequestException(
+          'WhatsApp template "dental_consent_signature_request" is not registered. ' +
+            'Restart the backend to seed default templates, then submit it for Meta approval.',
+        );
       }
+      templateId = tpl.id;
+    }
+
+    let sendError: string | undefined;
+    try {
       await this.communication.sendMessage(clinicId, {
         patient_id: consent.patient_id,
         channel,
@@ -472,16 +484,18 @@ export class ConsentService {
         metadata: { consent_id: consent.id, type: 'consent_signature_request' },
       });
     } catch (err) {
-      this.logger.warn(
-        `Consent ${consent.id}: link generated but ${channel} send failed — ${(err as Error).message}`,
-      );
+      sendError = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Consent ${consent.id}: ${channel} send failed — ${sendError}`);
     }
 
     return {
-      sent: true,
+      sent: !sendError,
       channel,
       link,
       expires_at: expiresAt.toISOString(),
+      // When delivery fails, hand the staff the link + reason so they can
+      // copy/paste it via another channel.
+      ...(sendError ? { error: sendError } : {}),
     };
   }
 
@@ -543,28 +557,33 @@ export class ConsentService {
       },
     });
 
-    try {
-      const tpl = await this.prisma.messageTemplate.findFirst({
-        where: {
-          template_name: 'dental_consent_otp',
-          channel: 'whatsapp',
-          is_active: true,
-          OR: [{ clinic_id: consent.clinic_id }, { clinic_id: null }],
-        },
-        orderBy: { clinic_id: 'desc' },
-      });
-      await this.communication.sendMessage(consent.clinic_id, {
-        patient_id: consent.patient_id,
-        channel: MessageChannel.WHATSAPP,
-        category: MessageCategory.TRANSACTIONAL,
-        ...(tpl ? { template_id: tpl.id } : {}),
-        body: `OTP Code: ${code}. This is your OTP code for ${consent.clinic.name}. For your security, do not share this code.`,
-        variables: { otp: code, clinic_name: consent.clinic.name },
-        metadata: { consent_id: consent.id, type: 'consent_otp' },
-      });
-    } catch (err) {
-      this.logger.warn(`Consent OTP send failed: ${(err as Error).message}`);
+    // OTP delivery MUST succeed for the patient to proceed — we don't catch
+    // and lie. Template must exist (Meta won't deliver free-text outside
+    // the 24h window). If send fails, the patient retries via "Resend".
+    const tpl = await this.prisma.messageTemplate.findFirst({
+      where: {
+        template_name: 'dental_consent_otp',
+        channel: 'whatsapp',
+        is_active: true,
+        OR: [{ clinic_id: consent.clinic_id }, { clinic_id: null }],
+      },
+      orderBy: { clinic_id: 'desc' },
+    });
+    if (!tpl) {
+      throw new BadRequestException(
+        'WhatsApp template "dental_consent_otp" is not registered. ' +
+          'Restart the backend to seed default templates, then submit it for Meta approval.',
+      );
     }
+    await this.communication.sendMessage(consent.clinic_id, {
+      patient_id: consent.patient_id,
+      channel: MessageChannel.WHATSAPP,
+      category: MessageCategory.TRANSACTIONAL,
+      template_id: tpl.id,
+      body: `OTP Code: ${code}. This is your OTP code for ${consent.clinic.name}. For your security, do not share this code.`,
+      variables: { otp: code, clinic_name: consent.clinic.name },
+      metadata: { consent_id: consent.id, type: 'consent_otp' },
+    });
 
     return {
       sent: true,

@@ -315,6 +315,7 @@ export declare class ConsentService {
         channel?: 'whatsapp' | 'sms';
         expires_in_hours?: number;
     }): Promise<{
+        error?: string | undefined;
         sent: boolean;
         channel: MessageChannel;
         link: string;
