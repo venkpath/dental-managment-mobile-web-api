@@ -69,6 +69,7 @@ const expense_module_js_1 = require("./modules/expense/expense.module.js");
 const membership_module_js_1 = require("./modules/membership/membership.module.js");
 const demo_request_module_js_1 = require("./modules/demo-request/demo-request.module.js");
 const platform_billing_module_js_1 = require("./modules/platform-billing/platform-billing.module.js");
+const branch_scope_interceptor_js_1 = require("./common/interceptors/branch-scope.interceptor.js");
 const nestjs_pino_1 = require("nestjs-pino");
 const razorpay_config_js_1 = __importDefault(require("./config/razorpay.config.js"));
 let AppModule = class AppModule {
@@ -156,6 +157,7 @@ exports.AppModule = AppModule = __decorate([
             { provide: core_1.APP_GUARD, useClass: ai_usage_guard_js_1.AiUsageGuard },
             { provide: core_1.APP_GUARD, useClass: subscription_guard_js_1.SubscriptionGuard },
             { provide: core_1.APP_GUARD, useClass: csrf_guard_js_1.CsrfGuard },
+            { provide: core_1.APP_INTERCEPTOR, useClass: branch_scope_interceptor_js_1.BranchScopeInterceptor },
         ],
     })
 ], AppModule);

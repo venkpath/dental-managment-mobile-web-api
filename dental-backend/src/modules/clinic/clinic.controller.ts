@@ -17,6 +17,8 @@ import { randomUUID } from 'crypto';
 import { extname } from 'path';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { SuperAdmin } from '../../common/decorators/super-admin.decorator.js';
+import { Roles } from '../../common/decorators/roles.decorator.js';
+import { UserRole } from '../user/dto/create-user.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { S3Service } from '../../common/services/s3.service.js';
 // request.user is set by JwtAuthGuard with camelCase properties
@@ -63,6 +65,7 @@ export class ClinicController {
 
   @Patch('me')
   @ApiBearerAuth()
+  @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Update the current user\'s clinic details' })
   @ApiOkResponse({ description: 'Clinic updated' })
   async updateMyClinic(@CurrentUser() user: RequestUser, @Body() dto: UpdateClinicDto) {
@@ -112,6 +115,7 @@ export class ClinicController {
 
   @Post('me/logo')
   @ApiBearerAuth()
+  @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Upload clinic logo' })
   @ApiConsumes('multipart/form-data')
   @ApiOkResponse({ description: 'Logo uploaded and clinic updated' })

@@ -31,6 +31,12 @@ export class RolesGuard implements CanActivate {
     }
 
     const userRole = String(user.role || '').toLowerCase();
+
+    // SuperAdmin has all permissions — passes any role-gated route
+    if (userRole === UserRole.SUPER_ADMIN.toLowerCase()) {
+      return true;
+    }
+
     const allowedRoles = requiredRoles.map((role) => String(role).toLowerCase());
 
     if (!allowedRoles.includes(userRole)) {
@@ -40,3 +46,4 @@ export class RolesGuard implements CanActivate {
     return true;
   }
 }
+

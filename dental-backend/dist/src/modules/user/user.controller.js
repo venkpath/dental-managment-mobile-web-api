@@ -20,13 +20,17 @@ const platform_express_1 = require("@nestjs/platform-express");
 const user_service_js_1 = require("./user.service.js");
 const index_js_1 = require("./dto/index.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
+const current_user_decorator_js_1 = require("../../common/decorators/current-user.decorator.js");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
 let UserController = class UserController {
     userService;
     constructor(userService) {
         this.userService = userService;
     }
-    async create(clinicId, dto) {
+    async create(clinicId, requestingUser, dto) {
+        if (dto.role === index_js_1.UserRole.SUPER_ADMIN && requestingUser.role !== index_js_1.UserRole.SUPER_ADMIN) {
+            throw new common_1.ForbiddenException('Only a SuperAdmin can create another SuperAdmin');
+        }
         return this.userService.create(clinicId, dto);
     }
     async findAll(clinicId, role, search, branchId) {
@@ -60,9 +64,10 @@ __decorate([
     (0, swagger_1.ApiConflictResponse)({ description: 'Email already exists in clinic' }),
     openapi.ApiResponse({ status: 201, type: Object }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
-    __param(1, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, index_js_1.CreateUserDto]),
+    __metadata("design:paramtypes", [String, Object, index_js_1.CreateUserDto]),
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "create", null);
 __decorate([

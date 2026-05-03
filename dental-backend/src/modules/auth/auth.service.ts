@@ -246,7 +246,7 @@ export class AuthService {
           name: dto.admin_name,
           email: dto.admin_email,
           password_hash: await this.passwordService.hash(dto.admin_password),
-          role: 'Admin',
+          role: 'SuperAdmin',
           status: 'active',
         },
         select: {

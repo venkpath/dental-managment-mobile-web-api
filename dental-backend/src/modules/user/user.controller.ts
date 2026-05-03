@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseUUIDPipe, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseUUIDPipe, UseGuards, UseInterceptors, UploadedFile, ForbiddenException } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -13,9 +13,11 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UserService } from './user.service.js';
-import { CreateUserDto, UpdateUserDto } from './dto/index.js';
+import { CreateUserDto, UpdateUserDto, UserRole } from './dto/index.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
+import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 
 @ApiTags('Users')
 @ApiHeader({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' })
@@ -32,8 +34,13 @@ export class UserController {
   @ApiConflictResponse({ description: 'Email already exists in clinic' })
   async create(
     @CurrentClinic() clinicId: string,
+    @CurrentUser() requestingUser: JwtPayload,
     @Body() dto: CreateUserDto,
   ) {
+    // Only SuperAdmin can assign the SuperAdmin role
+    if (dto.role === UserRole.SUPER_ADMIN && requestingUser.role !== UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Only a SuperAdmin can create another SuperAdmin');
+    }
     return this.userService.create(clinicId, dto);
   }
 

@@ -1,9 +1,10 @@
 import { UserService } from './user.service.js';
 import { CreateUserDto, UpdateUserDto } from './dto/index.js';
+import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 export declare class UserController {
     private readonly userService;
     constructor(userService: UserService);
-    create(clinicId: string, dto: CreateUserDto): Promise<Omit<{
+    create(clinicId: string, requestingUser: JwtPayload, dto: CreateUserDto): Promise<Omit<{
         id: string;
         email: string;
         password_hash: string;

@@ -1,5 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -57,6 +57,7 @@ import { ExpenseModule } from './modules/expense/expense.module.js';
 import { MembershipModule } from './modules/membership/membership.module.js';
 import { DemoRequestModule } from './modules/demo-request/demo-request.module.js';
 import { PlatformBillingModule } from './modules/platform-billing/platform-billing.module.js';
+import { BranchScopeInterceptor } from './common/interceptors/branch-scope.interceptor.js';
 // DISABLED: Google review auto-reply — pending Google Business Profile API approval.
 // Code lives at src/modules/google-reviews/ (excluded from compile via tsconfig).
 // import { GoogleReviewsModule } from './modules/google-reviews/google-reviews.module.js';
@@ -142,6 +143,7 @@ import razorpayConfig from './config/razorpay.config.js';
     { provide: APP_GUARD, useClass: AiUsageGuard },
     { provide: APP_GUARD, useClass: SubscriptionGuard },
     { provide: APP_GUARD, useClass: CsrfGuard },
+    { provide: APP_INTERCEPTOR, useClass: BranchScopeInterceptor },
   ],
 })
 export class AppModule implements NestModule {

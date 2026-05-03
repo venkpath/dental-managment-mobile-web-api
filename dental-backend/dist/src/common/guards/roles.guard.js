@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RolesGuard = void 0;
 const common_1 = require("@nestjs/common");
 const core_1 = require("@nestjs/core");
+const create_user_dto_js_1 = require("../../modules/user/dto/create-user.dto.js");
 const roles_decorator_js_1 = require("../decorators/roles.decorator.js");
 let RolesGuard = class RolesGuard {
     reflector;
@@ -29,6 +30,9 @@ let RolesGuard = class RolesGuard {
             throw new common_1.ForbiddenException('Access denied');
         }
         const userRole = String(user.role || '').toLowerCase();
+        if (userRole === create_user_dto_js_1.UserRole.SUPER_ADMIN.toLowerCase()) {
+            return true;
+        }
         const allowedRoles = requiredRoles.map((role) => String(role).toLowerCase());
         if (!allowedRoles.includes(userRole)) {
             throw new common_1.ForbiddenException('Insufficient role permissions');

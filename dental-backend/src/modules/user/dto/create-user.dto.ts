@@ -2,6 +2,7 @@ import { IsString, IsEmail, IsUUID, IsOptional, IsEnum, MaxLength, MinLength } f
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum UserRole {
+  SUPER_ADMIN = 'SuperAdmin',
   ADMIN = 'Admin',
   DENTIST = 'Dentist',
   RECEPTIONIST = 'Receptionist',

@@ -41,7 +41,7 @@ let PlatformBillingController = class PlatformBillingController {
 exports.PlatformBillingController = PlatformBillingController;
 __decorate([
     (0, common_1.Get)('invoices'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'List subscription invoices issued to this clinic' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, common_1.Req)()),
@@ -52,7 +52,7 @@ __decorate([
 ], PlatformBillingController.prototype, "list", null);
 __decorate([
     (0, common_1.Get)('invoices/:id'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Get a single platform invoice with full breakup' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, common_1.Req)()),
@@ -63,7 +63,7 @@ __decorate([
 ], PlatformBillingController.prototype, "get", null);
 __decorate([
     (0, common_1.Get)('invoices/:id/pdf'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Get a signed download URL for the invoice PDF' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, common_1.Req)()),
@@ -74,7 +74,7 @@ __decorate([
 ], PlatformBillingController.prototype, "getPdf", null);
 __decorate([
     (0, common_1.Post)('invoices/:id/resend'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Re-send the invoice via WhatsApp + Email' }),
     openapi.ApiResponse({ status: 201 }),
     __param(0, (0, common_1.Req)()),

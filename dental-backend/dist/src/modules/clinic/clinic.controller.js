@@ -21,6 +21,8 @@ const crypto_1 = require("crypto");
 const path_1 = require("path");
 const public_decorator_js_1 = require("../../common/decorators/public.decorator.js");
 const super_admin_decorator_js_1 = require("../../common/decorators/super-admin.decorator.js");
+const roles_decorator_js_1 = require("../../common/decorators/roles.decorator.js");
+const create_user_dto_js_1 = require("../user/dto/create-user.dto.js");
 const current_user_decorator_js_1 = require("../../common/decorators/current-user.decorator.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
 const clinic_service_js_1 = require("./clinic.service.js");
@@ -124,6 +126,7 @@ __decorate([
 __decorate([
     (0, common_1.Patch)('me'),
     (0, swagger_1.ApiBearerAuth)(),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Update the current user\'s clinic details' }),
     (0, swagger_1.ApiOkResponse)({ description: 'Clinic updated' }),
     openapi.ApiResponse({ status: 200 }),
@@ -184,6 +187,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)('me/logo'),
     (0, swagger_1.ApiBearerAuth)(),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Upload clinic logo' }),
     (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiOkResponse)({ description: 'Logo uploaded and clinic updated' }),

@@ -15,6 +15,7 @@ const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
 var UserRole;
 (function (UserRole) {
+    UserRole["SUPER_ADMIN"] = "SuperAdmin";
     UserRole["ADMIN"] = "Admin";
     UserRole["DENTIST"] = "Dentist";
     UserRole["RECEPTIONIST"] = "Receptionist";
