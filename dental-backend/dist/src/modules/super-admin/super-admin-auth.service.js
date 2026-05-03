@@ -56,7 +56,8 @@ let SuperAdminAuthService = class SuperAdminAuthService {
         if (!clinic)
             throw new common_1.NotFoundException('Clinic not found');
         const adminUser = await this.prisma.user.findFirst({
-            where: { clinic_id: clinicId, role: 'Admin' },
+            where: { clinic_id: clinicId, role: { in: ['SuperAdmin', 'Admin'] } },
+            orderBy: { created_at: 'asc' },
         });
         if (!adminUser)
             throw new common_1.NotFoundException('No admin user found for this clinic');

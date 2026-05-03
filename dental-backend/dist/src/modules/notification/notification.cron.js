@@ -55,7 +55,7 @@ let NotificationCronService = NotificationCronService_1 = class NotificationCron
                     metadata: { appointment_id: appt.id, patient_id: appt.patient_id },
                 });
                 const admins = await this.prisma.user.findMany({
-                    where: { clinic_id: appt.clinic_id, role: 'Admin', status: 'active' },
+                    where: { clinic_id: appt.clinic_id, role: { in: ['Admin', 'SuperAdmin'] }, status: 'active' },
                     select: { id: true },
                 });
                 for (const admin of admins) {
@@ -117,7 +117,7 @@ let NotificationCronService = NotificationCronService_1 = class NotificationCron
             const notifications = [];
             for (const [clinicId, items] of byClinic) {
                 const admins = await this.prisma.user.findMany({
-                    where: { clinic_id: clinicId, role: 'Admin', status: 'active' },
+                    where: { clinic_id: clinicId, role: { in: ['Admin', 'SuperAdmin'] }, status: 'active' },
                     select: { id: true },
                 });
                 for (const admin of admins) {
@@ -168,7 +168,7 @@ let NotificationCronService = NotificationCronService_1 = class NotificationCron
             const notifications = [];
             for (const [clinicId, items] of byClinic) {
                 const admins = await this.prisma.user.findMany({
-                    where: { clinic_id: clinicId, role: 'Admin', status: 'active' },
+                    where: { clinic_id: clinicId, role: { in: ['Admin', 'SuperAdmin'] }, status: 'active' },
                     select: { id: true },
                 });
                 const itemNames = items.slice(0, 3).map((i) => i.name).join(', ');

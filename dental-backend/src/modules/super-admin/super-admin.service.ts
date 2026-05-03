@@ -257,7 +257,7 @@ export class SuperAdminService {
           name: dto.admin_name,
           email: dto.admin_email,
           password_hash: passwordHash,
-          role: 'Admin',
+          role: 'SuperAdmin',
           clinic_id: clinic.id,
           branch_id: branch.id,
         },

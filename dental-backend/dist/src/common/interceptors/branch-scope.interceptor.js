@@ -14,7 +14,6 @@ let BranchScopeInterceptor = class BranchScopeInterceptor {
         const req = context.switchToHttp().getRequest();
         const user = req.user;
         if (user &&
-            user.role !== create_user_dto_js_1.UserRole.SUPER_ADMIN &&
             user.role === create_user_dto_js_1.UserRole.ADMIN &&
             user.branchId) {
             req.query = { ...req.query, branch_id: user.branchId };

@@ -247,7 +247,10 @@ let SubscriptionReminderService = SubscriptionReminderService_1 = class Subscrip
             select: { id: true, name: true, phone: true, role: true, created_at: true },
             orderBy: { created_at: 'asc' },
         });
-        const admin = candidates.find((u) => u.role.toLowerCase() === 'admin');
+        const admin = candidates.find((u) => {
+            const r = u.role.toLowerCase();
+            return r === 'admin' || r === 'superadmin';
+        });
         if (admin && admin.phone && admin.phone.trim())
             return admin;
         return null;

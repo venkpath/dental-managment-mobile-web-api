@@ -334,7 +334,10 @@ export class SubscriptionReminderService {
       orderBy: { created_at: 'asc' },
     });
 
-    const admin = candidates.find((u) => u.role.toLowerCase() === 'admin');
+    const admin = candidates.find((u) => {
+      const r = u.role.toLowerCase();
+      return r === 'admin' || r === 'superadmin';
+    });
     if (admin && admin.phone && admin.phone.trim()) return admin;
     return null;
   }
