@@ -97,7 +97,11 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
         ]);
         const revenueByPlan = await this.prisma.clinic.groupBy({
             by: ['plan_id'],
-            where: { subscription_status: 'active', plan_id: { not: null } },
+            where: {
+                subscription_status: 'active',
+                plan_id: { not: null },
+                is_complimentary: false,
+            },
             _count: true,
         });
         const plans = await this.prisma.plan.findMany();
