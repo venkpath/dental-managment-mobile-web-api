@@ -77,14 +77,20 @@ export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getDashboardSummary(clinicId: string, branchId?: string, dentistId?: string): Promise<DashboardSummary> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const now = new Date();
+    // Use ISO date string to avoid timezone issues with @db.Date fields.
+    // new Date('YYYY-MM-DD') always parses as UTC midnight, which matches
+    // how Prisma stores @db.Date values.
+    const todayStr = now.toISOString().slice(0, 10); // e.g. '2025-07-15'
+    const tomorrowDate = new Date(now);
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const tomorrowStr = tomorrowDate.toISOString().slice(0, 10);
+    const today = new Date(todayStr);      // UTC midnight today
+    const tomorrow = new Date(tomorrowStr); // UTC midnight tomorrow
 
-    // First day of current month
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+    // First day of current month (use `now` which has local time context)
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
     const branchFilter = branchId || null;
     const dentistFilter = dentistId || null;

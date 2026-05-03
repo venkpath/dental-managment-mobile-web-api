@@ -7,10 +7,9 @@ import { UserRole } from '../../modules/user/dto/create-user.dto.js';
  *
  * Rules:
  * - SuperAdmin  → unrestricted, no override
- * - Admin with branch_id → force branch_id on the query string so all
- *   downstream service calls are scoped to their branch
- * - All other roles → no change (they are already scoped by patient/dentist
- *   ownership or have no cross-branch exposure)
+ * - Any non-SuperAdmin user with branch_id → force branch_id on the query
+ *   string so all downstream service calls are scoped to their branch.
+ *   This covers Admin, Dentist, Receptionist, Staff, and Consultant roles.
  */
 @Injectable()
 export class BranchScopeInterceptor implements NestInterceptor {
@@ -20,11 +19,11 @@ export class BranchScopeInterceptor implements NestInterceptor {
 
     if (
       user &&
-      user.role === UserRole.ADMIN &&
+      user.role !== UserRole.SUPER_ADMIN &&
       user.branchId
     ) {
       // Force the branch_id query param so services filter to this branch only.
-      // This prevents an Admin from querying another branch by passing a
+      // This prevents users from querying another branch by passing a
       // different branch_id in the query string.
       //
       // In Express 5, req.query is a prototype getter that RE-PARSES the query

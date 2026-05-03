@@ -19,12 +19,15 @@ let ReportsService = class ReportsService {
         this.prisma = prisma;
     }
     async getDashboardSummary(clinicId, branchId, dentistId) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+        const now = new Date();
+        const todayStr = now.toISOString().slice(0, 10);
+        const tomorrowDate = new Date(now);
+        tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+        const tomorrowStr = tomorrowDate.toISOString().slice(0, 10);
+        const today = new Date(todayStr);
+        const tomorrow = new Date(tomorrowStr);
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
         const branchFilter = branchId || null;
         const dentistFilter = dentistId || null;
         const invoiceDentistFilter = dentistFilter ? { dentist_id: dentistFilter } : {};
