@@ -18,6 +18,7 @@ const userSelect = {
     id: true,
     clinic_id: true,
     branch_id: true,
+    branch: { select: { id: true, name: true } },
     name: true,
     email: true,
     phone: true,
