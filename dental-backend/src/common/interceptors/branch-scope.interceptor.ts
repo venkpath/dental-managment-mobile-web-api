@@ -26,7 +26,11 @@ export class BranchScopeInterceptor implements NestInterceptor {
       // Force the branch_id query param so services filter to this branch only.
       // This prevents an Admin from querying another branch by passing a
       // different branch_id in the query string.
-      req.query = { ...req.query, branch_id: user.branchId };
+      // NOTE: req.query is a getter-only property in newer Express versions,
+      // so we must mutate it in place rather than reassigning.
+      if (req.query && typeof req.query === 'object') {
+        (req.query as Record<string, unknown>).branch_id = user.branchId;
+      }
     }
 
     return next.handle();

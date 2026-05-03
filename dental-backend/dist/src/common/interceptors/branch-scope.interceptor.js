@@ -16,7 +16,9 @@ let BranchScopeInterceptor = class BranchScopeInterceptor {
         if (user &&
             user.role === create_user_dto_js_1.UserRole.ADMIN &&
             user.branchId) {
-            req.query = { ...req.query, branch_id: user.branchId };
+            if (req.query && typeof req.query === 'object') {
+                req.query.branch_id = user.branchId;
+            }
         }
         return next.handle();
     }
