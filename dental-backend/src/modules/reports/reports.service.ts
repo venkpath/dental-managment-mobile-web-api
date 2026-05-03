@@ -78,15 +78,20 @@ export class ReportsService {
 
   async getDashboardSummary(clinicId: string, branchId?: string, dentistId?: string): Promise<DashboardSummary> {
     const now = new Date();
-    // Use ISO date string to avoid timezone issues with @db.Date fields.
-    // new Date('YYYY-MM-DD') always parses as UTC midnight, which matches
-    // how Prisma stores @db.Date values.
-    const todayStr = now.toISOString().slice(0, 10); // e.g. '2025-07-15'
-    const tomorrowDate = new Date(now);
-    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-    const tomorrowStr = tomorrowDate.toISOString().slice(0, 10);
-    const today = new Date(todayStr);      // UTC midnight today
-    const tomorrow = new Date(tomorrowStr); // UTC midnight tomorrow
+    // Build the date string from LOCAL calendar components, not UTC.
+    // Appointments are stored as @db.Date (UTC midnight of the local
+    // calendar date the appointment was booked for), and the frontend
+    // sends date filters via `format(new Date(), 'yyyy-MM-dd')` which
+    // also uses local components. Using `toISOString()` here would be
+    // off-by-one for users in positive timezones during early hours
+    // (e.g. 9 AM IST on May 4 is still May 3 UTC), causing this widget
+    // to disagree with the "Today's Schedule" list below it.
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const tomorrowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const tomorrowStr = `${tomorrowDate.getFullYear()}-${pad(tomorrowDate.getMonth() + 1)}-${pad(tomorrowDate.getDate())}`;
+    const today = new Date(todayStr);      // UTC midnight of local "today"
+    const tomorrow = new Date(tomorrowStr); // UTC midnight of local "tomorrow"
 
     // First day of current month (use `now` which has local time context)
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);

@@ -20,10 +20,10 @@ let ReportsService = class ReportsService {
     }
     async getDashboardSummary(clinicId, branchId, dentistId) {
         const now = new Date();
-        const todayStr = now.toISOString().slice(0, 10);
-        const tomorrowDate = new Date(now);
-        tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-        const tomorrowStr = tomorrowDate.toISOString().slice(0, 10);
+        const pad = (n) => String(n).padStart(2, '0');
+        const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        const tomorrowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        const tomorrowStr = `${tomorrowDate.getFullYear()}-${pad(tomorrowDate.getMonth() + 1)}-${pad(tomorrowDate.getDate())}`;
         const today = new Date(todayStr);
         const tomorrow = new Date(tomorrowStr);
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
