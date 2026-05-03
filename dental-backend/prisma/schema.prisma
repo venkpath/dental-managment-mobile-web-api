@@ -419,6 +419,13 @@ model Prescription {
   allergies_medical_history String?  @db.Text
   diagnosis                 String   @db.VarChar(500)
   instructions              String?  @db.Text
+  // AI-generated safety fields. Optional — populated when the prescription was
+  // produced or seeded by the AI assistant; rendered on the printable Rx so the
+  // patient leaves with the same safety guidance the dentist saw.
+  interactions                String?  @db.Text
+  dietary_advice              String?  @db.Text
+  post_procedure_instructions String?  @db.Text
+  follow_up                   String?  @db.Text
   created_at                DateTime @default(now())
 
   clinic         Clinic             @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
@@ -447,6 +454,14 @@ model PrescriptionItem {
   evening         Int     @default(0)
   night           Int     @default(0)
   notes           String? @db.Text
+  // AI-generated safety fields. Stored on the item so per-medicine context
+  // (route, why prescribed, patient-facing warnings) prints alongside the row.
+  route           String? @db.VarChar(50)
+  purpose         String? @db.VarChar(255)
+  warnings        String? @db.Text
+  // Inventory linkage — set when the medicine maps to an in-stock item so the
+  // dentist knows the Rx was filled from clinic inventory (vs. a fallback med).
+  inventory_id    String? @db.Uuid
 
   prescription Prescription @relation(fields: [prescription_id], references: [id], onDelete: Cascade)
 

@@ -47,4 +47,11 @@ export class GeneratePrescriptionDto {
   @IsOptional()
   @IsString()
   existing_medications?: string;
+
+  @ApiPropertyOptional({
+    description: 'Branch UUID. When provided, AI prefers medicines that are in stock for this branch.',
+  })
+  @IsOptional()
+  @IsUUID()
+  branch_id?: string;
 }

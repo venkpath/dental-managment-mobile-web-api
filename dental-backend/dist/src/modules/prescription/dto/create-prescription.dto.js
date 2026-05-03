@@ -24,8 +24,12 @@ class PrescriptionItemDto {
     evening;
     night;
     notes;
+    route;
+    purpose;
+    warnings;
+    inventory_id;
     static _OPENAPI_METADATA_FACTORY() {
-        return { medicine_name: { required: true, type: () => String, maxLength: 255 }, dosage: { required: true, type: () => String, maxLength: 100 }, frequency: { required: true, type: () => String, maxLength: 100 }, duration: { required: true, type: () => String, maxLength: 100 }, morning: { required: false, type: () => Number, minimum: 0 }, afternoon: { required: false, type: () => Number, minimum: 0 }, evening: { required: false, type: () => Number, minimum: 0 }, night: { required: false, type: () => Number, minimum: 0 }, notes: { required: false, type: () => String } };
+        return { medicine_name: { required: true, type: () => String, maxLength: 255 }, dosage: { required: true, type: () => String, maxLength: 100 }, frequency: { required: true, type: () => String, maxLength: 100 }, duration: { required: true, type: () => String, maxLength: 100 }, morning: { required: false, type: () => Number, minimum: 0 }, afternoon: { required: false, type: () => Number, minimum: 0 }, evening: { required: false, type: () => Number, minimum: 0 }, night: { required: false, type: () => Number, minimum: 0 }, notes: { required: false, type: () => String }, route: { required: false, type: () => String, maxLength: 50 }, purpose: { required: false, type: () => String, maxLength: 255 }, warnings: { required: false, type: () => String }, inventory_id: { required: false, type: () => String, format: "uuid" } };
     }
 }
 exports.PrescriptionItemDto = PrescriptionItemDto;
@@ -91,6 +95,32 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], PrescriptionItemDto.prototype, "notes", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'oral', maxLength: 50 }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(50),
+    __metadata("design:type", String)
+], PrescriptionItemDto.prototype, "route", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Pain relief post-extraction', maxLength: 255 }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(255),
+    __metadata("design:type", String)
+], PrescriptionItemDto.prototype, "purpose", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Avoid driving. Take with food to reduce stomach upset.' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], PrescriptionItemDto.prototype, "warnings", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'b3a1c2d4-e5f6-7890-abcd-ef0123456789', description: 'Linked InventoryItem UUID when filled from clinic stock' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], PrescriptionItemDto.prototype, "inventory_id", void 0);
 class CreatePrescriptionDto {
     branch_id;
     patient_id;
@@ -101,9 +131,13 @@ class CreatePrescriptionDto {
     past_dental_history;
     allergies_medical_history;
     instructions;
+    interactions;
+    dietary_advice;
+    post_procedure_instructions;
+    follow_up;
     items;
     static _OPENAPI_METADATA_FACTORY() {
-        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: true, type: () => String, format: "uuid" }, clinical_visit_id: { required: false, type: () => String, format: "uuid" }, diagnosis: { required: true, type: () => String, maxLength: 500 }, chief_complaint: { required: false, type: () => String }, past_dental_history: { required: false, type: () => String }, allergies_medical_history: { required: false, type: () => String }, instructions: { required: false, type: () => String }, items: { required: false, type: () => [require("./create-prescription.dto").PrescriptionItemDto] } };
+        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: true, type: () => String, format: "uuid" }, clinical_visit_id: { required: false, type: () => String, format: "uuid" }, diagnosis: { required: true, type: () => String, maxLength: 500 }, chief_complaint: { required: false, type: () => String }, past_dental_history: { required: false, type: () => String }, allergies_medical_history: { required: false, type: () => String }, instructions: { required: false, type: () => String }, interactions: { required: false, type: () => String }, dietary_advice: { required: false, type: () => String }, post_procedure_instructions: { required: false, type: () => String }, follow_up: { required: false, type: () => String }, items: { required: false, type: () => [require("./create-prescription.dto").PrescriptionItemDto] } };
     }
 }
 exports.CreatePrescriptionDto = CreatePrescriptionDto;
@@ -158,6 +192,30 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreatePrescriptionDto.prototype, "instructions", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Avoid concurrent NSAIDs while on warfarin.' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreatePrescriptionDto.prototype, "interactions", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Soft cold foods for 48 hours. Avoid spicy food.' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreatePrescriptionDto.prototype, "dietary_advice", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Bite on gauze for 30 mins. No rinsing for 24 hours.' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreatePrescriptionDto.prototype, "post_procedure_instructions", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Review in 7 days if pain persists.' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreatePrescriptionDto.prototype, "follow_up", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         type: [PrescriptionItemDto],

@@ -57,6 +57,7 @@ export function buildTreatmentPlanUserPrompt(input: {
   medical_history?: Record<string, unknown>;
   allergies?: string;
   chief_complaint?: string;
+  dentist_notes?: string;
   tooth_chart: Array<{ tooth: string; condition: string; severity?: string; notes?: string }>;
   existing_treatments?: Array<{ procedure: string; tooth?: string; date: string; status: string }>;
   treatment_catalog?: Array<{ name: string; price: number }>;
@@ -70,6 +71,10 @@ export function buildTreatmentPlanUserPrompt(input: {
 
   if (input.chief_complaint) {
     prompt += `Chief Complaint: ${input.chief_complaint}\n`;
+  }
+
+  if (input.dentist_notes) {
+    prompt += `\nDentist's Notes:\n${input.dentist_notes}\n`;
   }
 
   if (input.allergies) {

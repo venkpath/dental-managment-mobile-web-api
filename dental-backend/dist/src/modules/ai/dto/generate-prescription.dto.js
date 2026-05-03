@@ -22,8 +22,9 @@ class GeneratePrescriptionDto {
     allergies_medical_history;
     tooth_numbers;
     existing_medications;
+    branch_id;
     static _OPENAPI_METADATA_FACTORY() {
-        return { patient_id: { required: true, type: () => String, format: "uuid" }, diagnosis: { required: true, type: () => String, minLength: 5 }, procedures_performed: { required: false, type: () => String }, chief_complaint: { required: false, type: () => String }, past_dental_history: { required: false, type: () => String }, allergies_medical_history: { required: false, type: () => String }, tooth_numbers: { required: false, type: () => [String] }, existing_medications: { required: false, type: () => String } };
+        return { patient_id: { required: true, type: () => String, format: "uuid" }, diagnosis: { required: true, type: () => String, minLength: 5 }, procedures_performed: { required: false, type: () => String }, chief_complaint: { required: false, type: () => String }, past_dental_history: { required: false, type: () => String }, allergies_medical_history: { required: false, type: () => String }, tooth_numbers: { required: false, type: () => [String] }, existing_medications: { required: false, type: () => String }, branch_id: { required: false, type: () => String, format: "uuid" } };
     }
 }
 exports.GeneratePrescriptionDto = GeneratePrescriptionDto;
@@ -81,4 +82,12 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], GeneratePrescriptionDto.prototype, "existing_medications", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Branch UUID. When provided, AI prefers medicines that are in stock for this branch.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], GeneratePrescriptionDto.prototype, "branch_id", void 0);
 //# sourceMappingURL=generate-prescription.dto.js.map

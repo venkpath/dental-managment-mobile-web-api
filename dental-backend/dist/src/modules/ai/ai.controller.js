@@ -75,9 +75,10 @@ let AiController = class AiController {
     async listMyApprovalRequests(req) {
         return this.aiUsageService.listMyApprovalRequests(req.user.clinicId);
     }
-    async listInsights(req, type, limit, offset) {
+    async listInsights(req, type, patientId, limit, offset) {
         return this.aiService.listInsights(req.user.clinicId, {
             type,
+            patient_id: patientId,
             limit: limit ? parseInt(limit, 10) : undefined,
             offset: offset ? parseInt(offset, 10) : undefined,
         });
@@ -87,6 +88,14 @@ let AiController = class AiController {
     }
     async deleteInsight(req, id) {
         return this.aiService.deleteInsight(req.user.clinicId, id);
+    }
+    async linkInsight(req, id, body) {
+        return this.aiService.linkInsight(req.user.clinicId, id, {
+            consultation_id: body.consultation_id,
+            prescription_id: body.prescription_id,
+            reviewed_by: req.user.userId,
+            reviewed_at: new Date().toISOString(),
+        });
     }
 };
 exports.AiController = AiController;
@@ -241,15 +250,17 @@ __decorate([
     (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST, create_user_dto_js_1.UserRole.CONSULTANT),
     (0, swagger_1.ApiOperation)({ summary: 'List stored AI insights with optional type filter' }),
     (0, swagger_1.ApiQuery)({ name: 'type', required: false }),
+    (0, swagger_1.ApiQuery)({ name: 'patient_id', required: false }),
     (0, swagger_1.ApiQuery)({ name: 'limit', required: false }),
     (0, swagger_1.ApiQuery)({ name: 'offset', required: false }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Query)('type')),
-    __param(2, (0, common_1.Query)('limit')),
-    __param(3, (0, common_1.Query)('offset')),
+    __param(2, (0, common_1.Query)('patient_id')),
+    __param(3, (0, common_1.Query)('limit')),
+    __param(4, (0, common_1.Query)('offset')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], AiController.prototype, "listInsights", null);
 __decorate([
@@ -274,6 +285,20 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], AiController.prototype, "deleteInsight", null);
+__decorate([
+    (0, common_1.Patch)('insights/:id/link'),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST, create_user_dto_js_1.UserRole.CONSULTANT),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Link a stored AI insight to a saved consultation and/or prescription (audit trail back-link)',
+    }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], AiController.prototype, "linkInsight", null);
 exports.AiController = AiController = __decorate([
     (0, swagger_1.ApiTags)('AI'),
     (0, swagger_1.ApiBearerAuth)(),

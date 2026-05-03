@@ -16,8 +16,9 @@ const swagger_1 = require("@nestjs/swagger");
 class GenerateTreatmentPlanDto {
     patient_id;
     chief_complaint;
+    dentist_notes;
     static _OPENAPI_METADATA_FACTORY() {
-        return { patient_id: { required: true, type: () => String, format: "uuid" }, chief_complaint: { required: false, type: () => String } };
+        return { patient_id: { required: true, type: () => String, format: "uuid" }, chief_complaint: { required: true, type: () => String, minLength: 3 }, dentist_notes: { required: true, type: () => String, minLength: 10 } };
     }
 }
 exports.GenerateTreatmentPlanDto = GenerateTreatmentPlanDto;
@@ -27,9 +28,18 @@ __decorate([
     __metadata("design:type", String)
 ], GenerateTreatmentPlanDto.prototype, "patient_id", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'Pain in lower right molar and bleeding gums' }),
-    (0, class_validator_1.IsOptional)(),
+    (0, swagger_1.ApiProperty)({ example: 'Pain in lower right molar and bleeding gums' }),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(3),
     __metadata("design:type", String)
 ], GenerateTreatmentPlanDto.prototype, "chief_complaint", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        example: 'Tooth 36 deep distal caries, percussion +ve. Generalized gingivitis. Missing 26.',
+        description: 'Dentist examination notes — required so the AI can plan when the dental chart is sparse.',
+    }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(10),
+    __metadata("design:type", String)
+], GenerateTreatmentPlanDto.prototype, "dentist_notes", void 0);
 //# sourceMappingURL=generate-treatment-plan.dto.js.map

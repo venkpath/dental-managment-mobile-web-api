@@ -64,6 +64,9 @@ function buildTreatmentPlanUserPrompt(input) {
     if (input.chief_complaint) {
         prompt += `Chief Complaint: ${input.chief_complaint}\n`;
     }
+    if (input.dentist_notes) {
+        prompt += `\nDentist's Notes:\n${input.dentist_notes}\n`;
+    }
     if (input.allergies) {
         prompt += `Allergies: ${input.allergies}\n`;
     }

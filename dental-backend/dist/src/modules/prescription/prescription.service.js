@@ -193,6 +193,10 @@ let PrescriptionService = class PrescriptionService {
             chief_complaint: prescription.chief_complaint,
             past_dental_history: prescription.past_dental_history,
             allergies_medical_history: prescription.allergies_medical_history,
+            interactions: prescription.interactions ?? null,
+            dietary_advice: prescription.dietary_advice ?? null,
+            post_procedure_instructions: prescription.post_procedure_instructions ?? null,
+            follow_up: prescription.follow_up ?? null,
             review_after_date: clinicalVisit?.review_after_date ?? null,
             clinic: {
                 name: clinic.name,

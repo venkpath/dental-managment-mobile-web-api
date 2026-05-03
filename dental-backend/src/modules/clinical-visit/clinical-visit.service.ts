@@ -113,6 +113,7 @@ export class ClinicalVisitService {
         tooth_conditions: { include: { tooth: true, surface: true } },
         treatments: true,
         treatment_plans: { include: { items: true } },
+        prescriptions: { include: { items: true } },
       },
     });
     if (!visit || visit.clinic_id !== clinicId) {

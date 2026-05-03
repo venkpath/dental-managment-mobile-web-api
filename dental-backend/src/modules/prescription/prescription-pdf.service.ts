@@ -68,6 +68,10 @@ export interface PrescriptionPdfData {
   chief_complaint?: string | null;
   past_dental_history?: string | null;
   allergies_medical_history?: string | null;
+  interactions?: string | null;
+  dietary_advice?: string | null;
+  post_procedure_instructions?: string | null;
+  follow_up?: string | null;
   /** From the linked ClinicalVisit if any — printed in the Follow Up After section. */
   review_after_date?: string | Date | null;
   clinic: {
@@ -116,6 +120,9 @@ export interface PrescriptionPdfData {
     evening?: number | null;
     night?: number | null;
     notes?: string | null;
+    route?: string | null;
+    purpose?: string | null;
+    warnings?: string | null;
   }>;
   /** Treatments performed during the linked consultation. Rendered above Rx. */
   treatments?: Array<{
@@ -431,13 +438,14 @@ export class PrescriptionPdfService {
           const regime = hasDosePattern
             ? `${m}-${af}-${ev}${n ? '-' + n : ''}`
             : (item.frequency || '—');
-          const route = 'Per Oral';
-          const remark = item.notes || 'After Food';
+          const route = item.route || 'Per Oral';
+          const remark = item.notes || item.warnings || 'After Food';
 
           // Estimate row height (medicine name may wrap)
           const medName = item.medicine_name || '';
           const medLines = Math.max(1, Math.ceil(medName.length / 26));
-          const baseH = item.dosage ? medLines * 11 + 14 : medLines * 11 + 6;
+          const hasSub = !!(item.dosage || item.purpose);
+          const baseH = hasSub ? medLines * 11 + 14 : medLines * 11 + 6;
           const rowH = Math.max(20, baseH);
 
           if (idx % 2 === 1) {
@@ -454,9 +462,10 @@ export class PrescriptionPdfService {
           // Medicine
           doc.font('Helvetica-Bold').fillColor(TEXT_HEAD)
             .text(medName, bx + 6, cursorY + 5, { width: colWidths[1] - 12 });
-          if (item.dosage) {
+          const subLine = [item.dosage, item.purpose].filter(Boolean).join(' · ');
+          if (subLine) {
             doc.font('Helvetica').fontSize(7.5).fillColor(TEXT_MUTED)
-              .text(item.dosage, bx + 6, cursorY + 5 + medLines * 11, { width: colWidths[1] - 12 });
+              .text(subLine, bx + 6, cursorY + 5 + medLines * 11, { width: colWidths[1] - 12 });
           }
           bx += colWidths[1];
 
@@ -494,13 +503,45 @@ export class PrescriptionPdfService {
         cursorY += 6;
       }
 
+      // ─── POST-PROCEDURE INSTRUCTIONS ───
+      if (data.post_procedure_instructions) {
+        cursorY = sectionHeading('Post-Procedure Care', cursorY);
+        doc.fillColor(TEXT_BODY).font('Helvetica').fontSize(9);
+        const lines = data.post_procedure_instructions.split('\n').filter((l) => l.trim());
+        for (const line of lines) {
+          doc.text(`• ${line.trim()}`, M + 4, cursorY, { width: CW - 4 });
+          cursorY = doc.y + 2;
+        }
+        cursorY += 6;
+      }
+
+      // ─── DIETARY ADVICE ───
+      if (data.dietary_advice) {
+        cursorY = sectionHeading('Dietary Advice', cursorY);
+        doc.fillColor(TEXT_BODY).font('Helvetica').fontSize(9)
+          .text(data.dietary_advice, M, cursorY, { width: CW });
+        cursorY = doc.y + 8;
+      }
+
+      // ─── DRUG INTERACTIONS / WARNINGS ───
+      if (data.interactions) {
+        cursorY = sectionHeading('Drug Interactions & Warnings', cursorY);
+        doc.fillColor(TEXT_BODY).font('Helvetica').fontSize(9);
+        const lines = data.interactions.split('\n').filter((l) => l.trim());
+        for (const line of lines) {
+          doc.text(`• ${line.trim()}`, M + 4, cursorY, { width: CW - 4 });
+          cursorY = doc.y + 2;
+        }
+        cursorY += 6;
+      }
+
       // ─── FOLLOW UP ───
       cursorY += 4;
       doc.fillColor(TEXT_MUTED).font('Helvetica-Bold').fontSize(8.5)
         .text('FOLLOW UP ON', M, cursorY, { characterSpacing: 1 });
       const followUpValue = data.review_after_date
         ? ` : ${fmtDate(new Date(data.review_after_date))}`
-        : ' : ___________________';
+        : (data.follow_up ? ` : ${data.follow_up}` : ' : ___________________');
       doc.fillColor(TEXT_BODY).font('Helvetica').fontSize(9)
         .text(followUpValue, M + 110, cursorY);
 
@@ -760,9 +801,11 @@ export class PrescriptionPdfService {
             item.dosage,
             regime,
             item.duration,
+            item.route,
           ].filter((s) => s && String(s).trim().length > 0);
+          const purposeNote = item.purpose ? ` — ${item.purpose}` : '';
           const notes = item.notes ? ` (${item.notes})` : '';
-          blocks.push({ kind: 'line', text: `${idx + 1}. ${parts.join(', ')}${notes}` });
+          blocks.push({ kind: 'line', text: `${idx + 1}. ${parts.join(', ')}${purposeNote}${notes}` });
         });
         blocks.push({ kind: 'spacer', text: '' });
       }
@@ -774,11 +817,32 @@ export class PrescriptionPdfService {
         blocks.push({ kind: 'spacer', text: '' });
       }
 
+      if (data.post_procedure_instructions) {
+        blocks.push({ kind: 'heading', text: 'Post-Procedure Care' });
+        const lines = data.post_procedure_instructions.split('\n').map((l) => l.trim()).filter(Boolean);
+        for (const line of lines) blocks.push({ kind: 'line', text: `• ${line}` });
+        blocks.push({ kind: 'spacer', text: '' });
+      }
+
+      if (data.dietary_advice) {
+        blocks.push({ kind: 'labeled', label: 'Dietary Advice: ', text: data.dietary_advice });
+        blocks.push({ kind: 'spacer', text: '' });
+      }
+
+      if (data.interactions) {
+        blocks.push({ kind: 'heading', text: 'Drug Interactions & Warnings' });
+        const lines = data.interactions.split('\n').map((l) => l.trim()).filter(Boolean);
+        for (const line of lines) blocks.push({ kind: 'line', text: `• ${line}` });
+        blocks.push({ kind: 'spacer', text: '' });
+      }
+
       if (data.review_after_date) {
         blocks.push({
           kind: 'line',
           text: `Follow up on: ${fmtDate(new Date(data.review_after_date))}`,
         });
+      } else if (data.follow_up) {
+        blocks.push({ kind: 'labeled', label: 'Follow up: ', text: data.follow_up });
       }
 
       // Layout body blocks with manual pagination

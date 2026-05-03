@@ -12,7 +12,7 @@ CRITICAL SAFETY RULES:
 OUTPUT FORMAT (strict JSON, no markdown):
 {
   "medications": [
-    { "drug_name": "<generic (brand)>", "dosage": "<amount>", "frequency": "<TDS/BD/OD>", "duration": "<n days>", "route": "Oral", "instructions": "<short>", "purpose": "<why>" }
+    { "drug_name": "<generic (brand)>", "dosage": "<amount>", "frequency": "<TDS/BD/OD>", "duration": "<n days>", "route": "Oral", "instructions": "<short>", "purpose": "<why>", "in_stock": <true|false>, "inventory_id": "<uuid or null>" }
   ],
   "warnings": ["<allergy or contraindication warnings; empty array if none>"],
   "interactions": ["<drug-drug or drug-condition concerns; empty array if none>"],
@@ -20,6 +20,12 @@ OUTPUT FORMAT (strict JSON, no markdown):
   "dietary_advice": "<one short sentence specific to this case>",
   "follow_up": "<when and why to return>"
 }
+
+INVENTORY PREFERENCE:
+When an "Available Inventory" list is provided in the user prompt, PREFER medicines from that list whenever clinically appropriate. For each medication you output:
+- If you matched it against an inventory entry, copy the exact "name" as drug_name (you may add the generic in parentheses), set "in_stock": true, and set "inventory_id" to that entry's id.
+- If you fall back to a standard medicine that is not on the list, set "in_stock": false and "inventory_id": null. Do not invent inventory ids.
+- Never compromise safety to match inventory — if nothing in inventory is appropriate, prescribe the right drug and mark it not in stock.
 
 CRITICAL — INSTRUCTION TAILORING:
 The post_procedure_instructions and dietary_advice MUST be specific to the diagnosis and procedure performed today. Do NOT default to extraction/surgical advice unless the case is actually surgical. Use this guidance:
@@ -67,6 +73,13 @@ export function buildPrescriptionUserPrompt(input: {
   medical_history?: Record<string, unknown>;
   existing_medications?: string;
   tooth_numbers?: string[];
+  available_inventory?: Array<{
+    id: string;
+    name: string;
+    category?: string | null;
+    quantity: number;
+    unit: string;
+  }>;
 }): string {
   let prompt = `Generate a dental prescription for:\n\n`;
   prompt += `Patient: ${input.patient_name}`;
@@ -107,6 +120,14 @@ export function buildPrescriptionUserPrompt(input: {
 
   if (input.existing_medications) {
     prompt += `Current Medications: ${input.existing_medications}\n`;
+  }
+
+  if (input.available_inventory && input.available_inventory.length > 0) {
+    prompt += `\nAvailable Inventory (clinic stock — prefer these when clinically appropriate):\n`;
+    for (const item of input.available_inventory) {
+      const cat = item.category ? ` [${item.category}]` : '';
+      prompt += `- id=${item.id} | ${item.name}${cat} | ${item.quantity} ${item.unit} in stock\n`;
+    }
   }
 
   return prompt;

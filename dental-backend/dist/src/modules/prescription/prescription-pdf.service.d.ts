@@ -36,6 +36,10 @@ export interface PrescriptionPdfData {
     chief_complaint?: string | null;
     past_dental_history?: string | null;
     allergies_medical_history?: string | null;
+    interactions?: string | null;
+    dietary_advice?: string | null;
+    post_procedure_instructions?: string | null;
+    follow_up?: string | null;
     review_after_date?: string | Date | null;
     clinic: {
         name: string;
@@ -80,6 +84,9 @@ export interface PrescriptionPdfData {
         evening?: number | null;
         night?: number | null;
         notes?: string | null;
+        route?: string | null;
+        purpose?: string | null;
+        warnings?: string | null;
     }>;
     treatments?: Array<{
         procedure: string;

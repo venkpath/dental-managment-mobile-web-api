@@ -14,6 +14,7 @@ export declare class AiService {
     private saveInsight;
     listInsights(clinicId: string, params: {
         type?: string;
+        patient_id?: string;
         limit?: number;
         offset?: number;
     }): Promise<{
@@ -82,6 +83,21 @@ export declare class AiService {
             role: string;
             count: number;
         }[];
+    }>;
+    linkInsight(clinicId: string, insightId: string, links: {
+        consultation_id?: string;
+        prescription_id?: string;
+        reviewed_by?: string;
+        reviewed_at?: string;
+    }): Promise<{
+        id: string;
+        created_at: Date;
+        data: import("@prisma/client/runtime/client").JsonValue;
+        clinic_id: string;
+        type: string;
+        title: string;
+        context: import("@prisma/client/runtime/client").JsonValue | null;
+        generated_by: string | null;
     }>;
     deleteInsight(clinicId: string, insightId: string): Promise<{
         deleted: boolean;

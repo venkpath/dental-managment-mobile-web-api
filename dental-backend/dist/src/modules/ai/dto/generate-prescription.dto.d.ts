@@ -7,4 +7,5 @@ export declare class GeneratePrescriptionDto {
     allergies_medical_history?: string;
     tooth_numbers?: string[];
     existing_medications?: string;
+    branch_id?: string;
 }

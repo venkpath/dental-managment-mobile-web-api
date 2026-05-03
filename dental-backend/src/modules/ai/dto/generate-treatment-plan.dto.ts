@@ -1,13 +1,21 @@
-import { IsString, IsUUID, IsOptional } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsUUID, MinLength } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class GenerateTreatmentPlanDto {
   @ApiProperty({ description: 'Patient UUID' })
   @IsUUID()
   patient_id!: string;
 
-  @ApiPropertyOptional({ example: 'Pain in lower right molar and bleeding gums' })
-  @IsOptional()
+  @ApiProperty({ example: 'Pain in lower right molar and bleeding gums' })
   @IsString()
-  chief_complaint?: string;
+  @MinLength(3)
+  chief_complaint!: string;
+
+  @ApiProperty({
+    example: 'Tooth 36 deep distal caries, percussion +ve. Generalized gingivitis. Missing 26.',
+    description: 'Dentist examination notes — required so the AI can plan when the dental chart is sparse.',
+  })
+  @IsString()
+  @MinLength(10)
+  dentist_notes!: string;
 }

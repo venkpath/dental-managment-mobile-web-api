@@ -6,6 +6,7 @@ export declare function buildTreatmentPlanUserPrompt(input: {
     medical_history?: Record<string, unknown>;
     allergies?: string;
     chief_complaint?: string;
+    dentist_notes?: string;
     tooth_chart: Array<{
         tooth: string;
         condition: string;

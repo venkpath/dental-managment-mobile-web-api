@@ -138,7 +138,7 @@ export declare class AiController {
         decision_note: string | null;
         decided_at: Date | null;
     }[]>;
-    listInsights(req: Request, type?: string, limit?: string, offset?: string): Promise<{
+    listInsights(req: Request, type?: string, patientId?: string, limit?: string, offset?: string): Promise<{
         items: {
             id: string;
             created_at: Date;
@@ -163,5 +163,18 @@ export declare class AiController {
     }>;
     deleteInsight(req: Request, id: string): Promise<{
         deleted: boolean;
+    }>;
+    linkInsight(req: Request, id: string, body: {
+        consultation_id?: string;
+        prescription_id?: string;
+    }): Promise<{
+        id: string;
+        created_at: Date;
+        data: import("@prisma/client/runtime/client").JsonValue;
+        clinic_id: string;
+        type: string;
+        title: string;
+        context: import("@prisma/client/runtime/client").JsonValue | null;
+        generated_by: string | null;
     }>;
 }

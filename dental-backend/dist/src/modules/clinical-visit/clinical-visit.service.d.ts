@@ -26,6 +26,42 @@ export declare class ClinicalVisitService {
             treatment_plan_id: string | null;
             diagnosis: string;
         }[];
+        prescriptions: ({
+            items: {
+                id: string;
+                duration: string;
+                medicine_name: string;
+                notes: string | null;
+                route: string | null;
+                prescription_id: string;
+                dosage: string;
+                frequency: string;
+                morning: number;
+                afternoon: number;
+                evening: number;
+                night: number;
+                purpose: string | null;
+                warnings: string | null;
+                inventory_id: string | null;
+            }[];
+        } & {
+            id: string;
+            created_at: Date;
+            clinic_id: string;
+            branch_id: string;
+            follow_up: string | null;
+            patient_id: string;
+            dentist_id: string;
+            clinical_visit_id: string | null;
+            diagnosis: string;
+            chief_complaint: string | null;
+            past_dental_history: string | null;
+            allergies_medical_history: string | null;
+            instructions: string | null;
+            interactions: string | null;
+            dietary_advice: string | null;
+            post_procedure_instructions: string | null;
+        })[];
         tooth_conditions: ({
             tooth: {
                 id: string;

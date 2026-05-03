@@ -178,16 +178,19 @@ export class AiController {
   @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.CONSULTANT)
   @ApiOperation({ summary: 'List stored AI insights with optional type filter' })
   @ApiQuery({ name: 'type', required: false })
+  @ApiQuery({ name: 'patient_id', required: false })
   @ApiQuery({ name: 'limit', required: false })
   @ApiQuery({ name: 'offset', required: false })
   async listInsights(
     @Req() req: Request,
     @Query('type') type?: string,
+    @Query('patient_id') patientId?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
     return this.aiService.listInsights(req.user!.clinicId, {
       type,
+      patient_id: patientId,
       limit: limit ? parseInt(limit, 10) : undefined,
       offset: offset ? parseInt(offset, 10) : undefined,
     });
@@ -211,6 +214,29 @@ export class AiController {
     @Param('id') id: string,
   ) {
     return this.aiService.deleteInsight(req.user!.clinicId, id);
+  }
+
+  @Patch('insights/:id/link')
+  @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.CONSULTANT)
+  @ApiOperation({
+    summary:
+      'Link a stored AI insight to a saved consultation and/or prescription (audit trail back-link)',
+  })
+  async linkInsight(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      consultation_id?: string;
+      prescription_id?: string;
+    },
+  ) {
+    return this.aiService.linkInsight(req.user!.clinicId, id, {
+      consultation_id: body.consultation_id,
+      prescription_id: body.prescription_id,
+      reviewed_by: req.user!.userId,
+      reviewed_at: new Date().toISOString(),
+    });
   }
 }
 

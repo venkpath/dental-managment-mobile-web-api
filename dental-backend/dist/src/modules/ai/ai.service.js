@@ -74,6 +74,12 @@ let AiService = AiService_1 = class AiService {
         const where = { clinic_id: clinicId };
         if (params.type)
             where.type = params.type;
+        if (params.patient_id) {
+            where.context = {
+                path: ['patient_id'],
+                equals: params.patient_id,
+            };
+        }
         const [items, total] = await Promise.all([
             this.prisma.aiInsight.findMany({
                 where,
@@ -166,6 +172,26 @@ let AiService = AiService_1 = class AiService {
                 count: u._count,
             })),
         };
+    }
+    async linkInsight(clinicId, insightId, links) {
+        const insight = await this.prisma.aiInsight.findUnique({
+            where: { id: insightId },
+        });
+        if (!insight || insight.clinic_id !== clinicId) {
+            throw new common_1.NotFoundException('AI insight not found');
+        }
+        const prevContext = insight.context ?? {};
+        const newContext = {
+            ...prevContext,
+            ...(links.consultation_id ? { consultation_id: links.consultation_id } : {}),
+            ...(links.prescription_id ? { prescription_id: links.prescription_id } : {}),
+            ...(links.reviewed_by ? { reviewed_by: links.reviewed_by } : {}),
+            ...(links.reviewed_at ? { reviewed_at: links.reviewed_at } : {}),
+        };
+        return this.prisma.aiInsight.update({
+            where: { id: insightId },
+            data: { context: newContext },
+        });
     }
     async deleteInsight(clinicId, insightId) {
         const insight = await this.prisma.aiInsight.findUnique({
@@ -317,6 +343,13 @@ let AiService = AiService_1 = class AiService {
         const mergedAllergies = [patient.allergies, dto.allergies_medical_history]
             .filter((s) => !!s && s.trim().length > 0)
             .join(' | ') || undefined;
+        const inventory = dto.branch_id
+            ? await this.prisma.inventoryItem.findMany({
+                where: { clinic_id: clinicId, branch_id: dto.branch_id, quantity: { gt: 0 } },
+                select: { id: true, name: true, category: true, quantity: true, unit: true },
+                take: 200,
+            })
+            : [];
         const userPrompt = (0, prescription_prompt_js_1.buildPrescriptionUserPrompt)({
             diagnosis: dto.diagnosis,
             chief_complaint: dto.chief_complaint,
@@ -329,6 +362,13 @@ let AiService = AiService_1 = class AiService {
             medical_history: patient.medical_history ?? undefined,
             existing_medications: dto.existing_medications,
             tooth_numbers: dto.tooth_numbers,
+            available_inventory: inventory.map((i) => ({
+                id: i.id,
+                name: i.name,
+                category: i.category,
+                quantity: i.quantity,
+                unit: i.unit,
+            })),
         });
         this.logger.log(`Generating prescription for patient ${dto.patient_id}`);
         const result = await this.callLLM(prescription_prompt_js_1.PRESCRIPTION_SYSTEM_PROMPT, userPrompt, {
@@ -383,6 +423,7 @@ let AiService = AiService_1 = class AiService {
             medical_history: patient.medical_history ?? undefined,
             allergies: patient.allergies ?? undefined,
             chief_complaint: dto.chief_complaint,
+            dentist_notes: dto.dentist_notes,
             tooth_chart: toothChart,
             existing_treatments: treatments.map((t) => ({
                 procedure: t.procedure,

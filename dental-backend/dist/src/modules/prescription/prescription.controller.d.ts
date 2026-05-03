@@ -17,6 +17,7 @@ export declare class PrescriptionController {
         created_at: Date;
         clinic_id: string;
         branch_id: string;
+        follow_up: string | null;
         patient_id: string;
         dentist_id: string;
         clinical_visit_id: string | null;
@@ -25,12 +26,16 @@ export declare class PrescriptionController {
         past_dental_history: string | null;
         allergies_medical_history: string | null;
         instructions: string | null;
+        interactions: string | null;
+        dietary_advice: string | null;
+        post_procedure_instructions: string | null;
     }>>;
     create(clinicId: string, dto: CreatePrescriptionDto): Promise<{
         id: string;
         created_at: Date;
         clinic_id: string;
         branch_id: string;
+        follow_up: string | null;
         patient_id: string;
         dentist_id: string;
         clinical_visit_id: string | null;
@@ -39,12 +44,16 @@ export declare class PrescriptionController {
         past_dental_history: string | null;
         allergies_medical_history: string | null;
         instructions: string | null;
+        interactions: string | null;
+        dietary_advice: string | null;
+        post_procedure_instructions: string | null;
     }>;
     findOne(clinicId: string, id: string): Promise<{
         id: string;
         created_at: Date;
         clinic_id: string;
         branch_id: string;
+        follow_up: string | null;
         patient_id: string;
         dentist_id: string;
         clinical_visit_id: string | null;
@@ -53,12 +62,16 @@ export declare class PrescriptionController {
         past_dental_history: string | null;
         allergies_medical_history: string | null;
         instructions: string | null;
+        interactions: string | null;
+        dietary_advice: string | null;
+        post_procedure_instructions: string | null;
     }>;
     update(clinicId: string, id: string, dto: UpdatePrescriptionDto): Promise<{
         id: string;
         created_at: Date;
         clinic_id: string;
         branch_id: string;
+        follow_up: string | null;
         patient_id: string;
         dentist_id: string;
         clinical_visit_id: string | null;
@@ -67,6 +80,9 @@ export declare class PrescriptionController {
         past_dental_history: string | null;
         allergies_medical_history: string | null;
         instructions: string | null;
+        interactions: string | null;
+        dietary_advice: string | null;
+        post_procedure_instructions: string | null;
     }>;
     getPdfUrl(clinicId: string, id: string, bg?: string): Promise<{
         url: string;
@@ -79,6 +95,7 @@ export declare class PrescriptionController {
         created_at: Date;
         clinic_id: string;
         branch_id: string;
+        follow_up: string | null;
         patient_id: string;
         dentist_id: string;
         clinical_visit_id: string | null;
@@ -87,5 +104,8 @@ export declare class PrescriptionController {
         past_dental_history: string | null;
         allergies_medical_history: string | null;
         instructions: string | null;
+        interactions: string | null;
+        dietary_advice: string | null;
+        post_procedure_instructions: string | null;
     }[]>;
 }

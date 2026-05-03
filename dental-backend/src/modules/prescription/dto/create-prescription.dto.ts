@@ -64,6 +64,30 @@ export class PrescriptionItemDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  // ─── AI safety fields (optional, populated when AI seeds the prescription) ───
+
+  @ApiPropertyOptional({ example: 'oral', maxLength: 50 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  route?: string;
+
+  @ApiPropertyOptional({ example: 'Pain relief post-extraction', maxLength: 255 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  purpose?: string;
+
+  @ApiPropertyOptional({ example: 'Avoid driving. Take with food to reduce stomach upset.' })
+  @IsOptional()
+  @IsString()
+  warnings?: string;
+
+  @ApiPropertyOptional({ example: 'b3a1c2d4-e5f6-7890-abcd-ef0123456789', description: 'Linked InventoryItem UUID when filled from clinic stock' })
+  @IsOptional()
+  @IsUUID()
+  inventory_id?: string;
 }
 
 export class CreatePrescriptionDto {
@@ -108,6 +132,28 @@ export class CreatePrescriptionDto {
   @IsOptional()
   @IsString()
   instructions?: string;
+
+  // ─── AI safety fields (optional, populated when AI seeds the prescription) ───
+
+  @ApiPropertyOptional({ example: 'Avoid concurrent NSAIDs while on warfarin.' })
+  @IsOptional()
+  @IsString()
+  interactions?: string;
+
+  @ApiPropertyOptional({ example: 'Soft cold foods for 48 hours. Avoid spicy food.' })
+  @IsOptional()
+  @IsString()
+  dietary_advice?: string;
+
+  @ApiPropertyOptional({ example: 'Bite on gauze for 30 mins. No rinsing for 24 hours.' })
+  @IsOptional()
+  @IsString()
+  post_procedure_instructions?: string;
+
+  @ApiPropertyOptional({ example: 'Review in 7 days if pain persists.' })
+  @IsOptional()
+  @IsString()
+  follow_up?: string;
 
   @ApiPropertyOptional({
     type: [PrescriptionItemDto],

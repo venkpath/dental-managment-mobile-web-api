@@ -111,9 +111,18 @@ export class AiService {
   }
 
   // ─── List stored insights ────────────────────────────────────
-  async listInsights(clinicId: string, params: { type?: string; limit?: number; offset?: number }) {
+  async listInsights(clinicId: string, params: { type?: string; patient_id?: string; limit?: number; offset?: number }) {
+    // Build the base where clause.
     const where: Record<string, unknown> = { clinic_id: clinicId };
     if (params.type) where.type = params.type;
+    // Filter by patient_id stored inside the context JSON column.
+    // Prisma JSON path filtering works on PostgreSQL with the `path` operator.
+    if (params.patient_id) {
+      where.context = {
+        path: ['patient_id'],
+        equals: params.patient_id,
+      };
+    }
 
     const [items, total] = await Promise.all([
       this.prisma.aiInsight.findMany({
@@ -216,6 +225,45 @@ export class AiService {
         count: u._count,
       })),
     };
+  }
+
+  // ─── Link insight to a saved consultation / prescription ─────
+  /**
+   * Attach a back-link to a stored AI insight after the dentist accepts and
+   * saves the AI-generated draft. Used by the AI Copilot "Apply Consultation
+   * + Prescription" flow so the audit trail can be navigated:
+   *   AI insight → consultation_id / prescription_id → record page.
+   * The link is merged into the existing `context` JSON; existing keys are
+   * preserved so we do not lose the original input parameters.
+   */
+  async linkInsight(
+    clinicId: string,
+    insightId: string,
+    links: {
+      consultation_id?: string;
+      prescription_id?: string;
+      reviewed_by?: string;
+      reviewed_at?: string;
+    },
+  ) {
+    const insight = await this.prisma.aiInsight.findUnique({
+      where: { id: insightId },
+    });
+    if (!insight || insight.clinic_id !== clinicId) {
+      throw new NotFoundException('AI insight not found');
+    }
+    const prevContext = (insight.context as Record<string, unknown> | null) ?? {};
+    const newContext = {
+      ...prevContext,
+      ...(links.consultation_id ? { consultation_id: links.consultation_id } : {}),
+      ...(links.prescription_id ? { prescription_id: links.prescription_id } : {}),
+      ...(links.reviewed_by ? { reviewed_by: links.reviewed_by } : {}),
+      ...(links.reviewed_at ? { reviewed_at: links.reviewed_at } : {}),
+    };
+    return this.prisma.aiInsight.update({
+      where: { id: insightId },
+      data: { context: newContext as never },
+    });
   }
 
   // ─── Delete insight ──────────────────────────────────────────
@@ -402,6 +450,16 @@ export class AiService {
       .filter((s): s is string => !!s && s.trim().length > 0)
       .join(' | ') || undefined;
 
+    // Fetch in-stock inventory so the LLM can prefer what's actually available.
+    // Cap at 200 so the prompt stays compact for large pharmacies.
+    const inventory = dto.branch_id
+      ? await this.prisma.inventoryItem.findMany({
+          where: { clinic_id: clinicId, branch_id: dto.branch_id, quantity: { gt: 0 } },
+          select: { id: true, name: true, category: true, quantity: true, unit: true },
+          take: 200,
+        })
+      : [];
+
     const userPrompt = buildPrescriptionUserPrompt({
       diagnosis: dto.diagnosis,
       chief_complaint: dto.chief_complaint,
@@ -414,6 +472,13 @@ export class AiService {
       medical_history: (patient.medical_history as Record<string, unknown>) ?? undefined,
       existing_medications: dto.existing_medications,
       tooth_numbers: dto.tooth_numbers,
+      available_inventory: inventory.map((i) => ({
+        id: i.id,
+        name: i.name,
+        category: i.category,
+        quantity: i.quantity,
+        unit: i.unit,
+      })),
     });
 
     this.logger.log(`Generating prescription for patient ${dto.patient_id}`);
@@ -481,6 +546,7 @@ export class AiService {
       medical_history: (patient.medical_history as Record<string, unknown>) ?? undefined,
       allergies: patient.allergies ?? undefined,
       chief_complaint: dto.chief_complaint,
+      dentist_notes: dto.dentist_notes,
       tooth_chart: toothChart,
       existing_treatments: treatments.map((t) => ({
         procedure: t.procedure,
