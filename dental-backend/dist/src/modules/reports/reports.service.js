@@ -33,6 +33,7 @@ let ReportsService = class ReportsService {
                 where: {
                     clinic_id: clinicId,
                     appointment_date: { gte: today, lt: tomorrow },
+                    status: { not: 'cancelled' },
                     ...(branchFilter && { branch_id: branchFilter }),
                     ...(dentistFilter && { dentist_id: dentistFilter }),
                 },
