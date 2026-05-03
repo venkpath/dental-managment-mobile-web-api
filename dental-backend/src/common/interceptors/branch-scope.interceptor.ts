@@ -26,11 +26,19 @@ export class BranchScopeInterceptor implements NestInterceptor {
       // Force the branch_id query param so services filter to this branch only.
       // This prevents an Admin from querying another branch by passing a
       // different branch_id in the query string.
-      // NOTE: req.query is a getter-only property in newer Express versions,
-      // so we must mutate it in place rather than reassigning.
-      if (req.query && typeof req.query === 'object') {
-        (req.query as Record<string, unknown>).branch_id = user.branchId;
-      }
+      //
+      // In Express 5, req.query is a prototype getter that RE-PARSES the query
+      // string on EVERY access, so mutating the returned object is ineffective
+      // (the mutation is discarded on the next read). The correct fix is to
+      // shadow the prototype getter by defining an own property on this specific
+      // request instance. Own properties take precedence over prototype getters.
+      const patched = { ...req.query, branch_id: user.branchId };
+      Object.defineProperty(req, 'query', {
+        value: patched,
+        writable: true,
+        configurable: true,
+        enumerable: true,
+      });
     }
 
     return next.handle();

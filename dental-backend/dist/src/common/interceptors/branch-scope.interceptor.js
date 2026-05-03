@@ -16,9 +16,13 @@ let BranchScopeInterceptor = class BranchScopeInterceptor {
         if (user &&
             user.role === create_user_dto_js_1.UserRole.ADMIN &&
             user.branchId) {
-            if (req.query && typeof req.query === 'object') {
-                req.query.branch_id = user.branchId;
-            }
+            const patched = { ...req.query, branch_id: user.branchId };
+            Object.defineProperty(req, 'query', {
+                value: patched,
+                writable: true,
+                configurable: true,
+                enumerable: true,
+            });
         }
         return next.handle();
     }
