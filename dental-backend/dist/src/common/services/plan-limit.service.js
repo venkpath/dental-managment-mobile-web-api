@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PlanLimitService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
+const FREE_TRIAL_CAP = 20;
 let PlanLimitService = class PlanLimitService {
     prisma;
     constructor(prisma) {
@@ -21,6 +22,13 @@ let PlanLimitService = class PlanLimitService {
         const clinic = await this.prisma.clinic.findUnique({
             where: { id: clinicId },
             select: {
+                trial_ends_at: true,
+                custom_patient_limit: true,
+                custom_appointment_limit: true,
+                custom_invoice_limit: true,
+                custom_treatment_limit: true,
+                custom_prescription_limit: true,
+                custom_consultation_limit: true,
                 plan: {
                     select: {
                         name: true,
@@ -28,19 +36,43 @@ let PlanLimitService = class PlanLimitService {
                         max_appointments_per_month: true,
                         max_invoices_per_month: true,
                         max_treatments_per_month: true,
+                        max_prescriptions_per_month: true,
+                        max_consultations_per_month: true,
                     },
                 },
             },
         });
         if (!clinic?.plan)
             return;
-        const cap = resource === 'patients'
-            ? clinic.plan.max_patients_per_month
+        const isFreePlan = clinic.plan.name === 'Free';
+        const withinTrial = isFreePlan &&
+            clinic.trial_ends_at != null &&
+            new Date() < new Date(clinic.trial_ends_at);
+        const planCap = withinTrial
+            ? FREE_TRIAL_CAP
+            : resource === 'patients'
+                ? clinic.plan.max_patients_per_month
+                : resource === 'appointments'
+                    ? clinic.plan.max_appointments_per_month
+                    : resource === 'invoices'
+                        ? clinic.plan.max_invoices_per_month
+                        : resource === 'treatments'
+                            ? clinic.plan.max_treatments_per_month
+                            : resource === 'prescriptions'
+                                ? clinic.plan.max_prescriptions_per_month
+                                : clinic.plan.max_consultations_per_month;
+        const customCap = resource === 'patients'
+            ? clinic.custom_patient_limit
             : resource === 'appointments'
-                ? clinic.plan.max_appointments_per_month
+                ? clinic.custom_appointment_limit
                 : resource === 'invoices'
-                    ? clinic.plan.max_invoices_per_month
-                    : clinic.plan.max_treatments_per_month;
+                    ? clinic.custom_invoice_limit
+                    : resource === 'treatments'
+                        ? clinic.custom_treatment_limit
+                        : resource === 'prescriptions'
+                            ? clinic.custom_prescription_limit
+                            : clinic.custom_consultation_limit;
+        const cap = customCap ?? planCap;
         if (cap == null)
             return;
         const { start, end } = monthRange();
@@ -56,9 +88,17 @@ let PlanLimitService = class PlanLimitService {
                     ? await this.prisma.invoice.count({
                         where: { clinic_id: clinicId, created_at: { gte: start, lt: end } },
                     })
-                    : await this.prisma.treatment.count({
-                        where: { clinic_id: clinicId, created_at: { gte: start, lt: end } },
-                    });
+                    : resource === 'treatments'
+                        ? await this.prisma.treatment.count({
+                            where: { clinic_id: clinicId, created_at: { gte: start, lt: end } },
+                        })
+                        : resource === 'prescriptions'
+                            ? await this.prisma.prescription.count({
+                                where: { clinic_id: clinicId, created_at: { gte: start, lt: end } },
+                            })
+                            : await this.prisma.clinicalVisit.count({
+                                where: { clinic_id: clinicId, created_at: { gte: start, lt: end } },
+                            });
         if (used + additional > cap) {
             const label = resource === 'patients'
                 ? 'new patients'
@@ -66,7 +106,11 @@ let PlanLimitService = class PlanLimitService {
                     ? 'appointments'
                     : resource === 'invoices'
                         ? 'invoices'
-                        : 'treatments';
+                        : resource === 'treatments'
+                            ? 'treatments'
+                            : resource === 'prescriptions'
+                                ? 'prescriptions'
+                                : 'consultations';
             throw new common_1.ForbiddenException(`Monthly limit reached: your ${clinic.plan.name} plan allows ${cap} ${label} per month (used ${used}). Upgrade to continue.`);
         }
     }

@@ -14,6 +14,7 @@ import {
 } from './prescription-pdf.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 import { formatDoctorName } from '../../common/utils/name.util.js';
+import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 
 const PRESCRIPTION_INCLUDE = {
   items: true,
@@ -31,9 +32,12 @@ export class PrescriptionService {
     private readonly s3Service: S3Service,
     private readonly communicationService: CommunicationService,
     private readonly automationService: AutomationService,
+    private readonly planLimit: PlanLimitService,
   ) {}
 
   async create(clinicId: string, dto: CreatePrescriptionDto): Promise<Prescription> {
+    await this.planLimit.enforceMonthlyCap(clinicId, 'prescriptions');
+
     const [branch, patient, dentist] = await Promise.all([
       this.prisma.branch.findUnique({ where: { id: dto.branch_id } }),
       this.prisma.patient.findUnique({ where: { id: dto.patient_id } }),

@@ -471,10 +471,14 @@ let ConsentService = ConsentService_1 = class ConsentService {
             patient_id: consent.patient_id,
             channel: send_message_dto_js_1.MessageChannel.WHATSAPP,
             category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
-            template_id: tpl.id,
-            body: `OTP Code: ${code}. This is your OTP code for ${consent.clinic.name}. For your security, do not share this code.`,
-            variables: { otp: code, clinic_name: consent.clinic.name },
-            metadata: { consent_id: consent.id, type: 'consent_otp' },
+            body: `Consent verification OTP sent for ${consent.clinic.name}`,
+            variables: { '1': code, '2': consent.clinic.name },
+            metadata: {
+                consent_id: consent.id,
+                type: 'consent_otp',
+                whatsapp_template_name: tpl.template_name,
+                whatsapp_language: tpl.language || 'en_US',
+            },
         });
         return {
             sent: true,

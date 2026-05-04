@@ -1,10 +1,12 @@
 import { PrismaService } from '../../database/prisma.service.js';
+import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 import { ClinicalVisit, TreatmentPlan, Prisma } from '@prisma/client';
 import { PaginatedResult } from '../../common/interfaces/paginated-result.interface.js';
 import { CreateClinicalVisitDto, UpdateClinicalVisitDto, QueryClinicalVisitDto, CreateTreatmentPlanDto, UpdateTreatmentPlanDto } from './dto/index.js';
 export declare class ClinicalVisitService {
     private readonly prisma;
-    constructor(prisma: PrismaService);
+    private readonly planLimit;
+    constructor(prisma: PrismaService, planLimit: PlanLimitService);
     private static readonly PROCEDURE_CONDITION_MAP;
     create(clinicId: string, dto: CreateClinicalVisitDto): Promise<ClinicalVisit>;
     findAll(clinicId: string, query: QueryClinicalVisitDto): Promise<PaginatedResult<ClinicalVisit>>;

@@ -243,7 +243,7 @@ let AiService = AiService_1 = class AiService {
             throw new common_1.BadRequestException('AI X-ray analysis temporarily unavailable. Please try again.');
         }
     }
-    async callLLM(systemPrompt, userPrompt, meta) {
+    async callLLM(systemPrompt, userPrompt, meta, maxTokens = 2000) {
         try {
             const response = await this.openai.chat.completions.create({
                 model: this.model,
@@ -252,7 +252,7 @@ let AiService = AiService_1 = class AiService {
                     { role: 'user', content: userPrompt },
                 ],
                 temperature: 0.3,
-                max_tokens: 2000,
+                max_tokens: maxTokens,
                 response_format: { type: 'json_object' },
             });
             const content = response.choices[0]?.message?.content;
@@ -808,7 +808,7 @@ let AiService = AiService_1 = class AiService {
             clinicId,
             userId,
             type: 'consent_form',
-        });
+        }, 4000);
         const title = String(result['title'] ?? '').trim();
         const body = (result['body'] && typeof result['body'] === 'object' ? result['body'] : null);
         if (!title || !body) {

@@ -10,11 +10,13 @@ exports.ClinicalVisitModule = void 0;
 const common_1 = require("@nestjs/common");
 const clinical_visit_controller_js_1 = require("./clinical-visit.controller.js");
 const clinical_visit_service_js_1 = require("./clinical-visit.service.js");
+const plan_limit_module_js_1 = require("../../common/services/plan-limit.module.js");
 let ClinicalVisitModule = class ClinicalVisitModule {
 };
 exports.ClinicalVisitModule = ClinicalVisitModule;
 exports.ClinicalVisitModule = ClinicalVisitModule = __decorate([
     (0, common_1.Module)({
+        imports: [plan_limit_module_js_1.PlanLimitModule],
         controllers: [clinical_visit_controller_js_1.ClinicalVisitController],
         providers: [clinical_visit_service_js_1.ClinicalVisitService],
         exports: [clinical_visit_service_js_1.ClinicalVisitService],

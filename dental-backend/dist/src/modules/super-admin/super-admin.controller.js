@@ -86,6 +86,9 @@ let SuperAdminController = class SuperAdminController {
     async deleteClinic(id) {
         return this.superAdminService.deleteClinic(id);
     }
+    async updateClinicLimits(id, dto) {
+        return this.superAdminService.updateClinicLimits(id, dto);
+    }
     async changePassword(admin, dto) {
         return this.superAdminService.changePassword(admin.id, dto.current_password, dto.new_password);
     }
@@ -297,6 +300,18 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "deleteClinic", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/clinics/:id/limits'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Set per-clinic monthly usage limit overrides (null resets to plan default)' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Clinic limits updated' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, index_js_1.UpdateClinicLimitsDto]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "updateClinicLimits", null);
 __decorate([
     (0, common_1.Patch)('super-admins/me/password'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),

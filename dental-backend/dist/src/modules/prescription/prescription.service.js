@@ -21,6 +21,7 @@ const paginated_result_interface_js_1 = require("../../common/interfaces/paginat
 const prescription_pdf_service_js_1 = require("./prescription-pdf.service.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
 const name_util_js_1 = require("../../common/utils/name.util.js");
+const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
 const PRESCRIPTION_INCLUDE = {
     items: true,
     patient: true,
@@ -34,14 +35,17 @@ let PrescriptionService = class PrescriptionService {
     s3Service;
     communicationService;
     automationService;
-    constructor(prisma, pdfService, s3Service, communicationService, automationService) {
+    planLimit;
+    constructor(prisma, pdfService, s3Service, communicationService, automationService, planLimit) {
         this.prisma = prisma;
         this.pdfService = pdfService;
         this.s3Service = s3Service;
         this.communicationService = communicationService;
         this.automationService = automationService;
+        this.planLimit = planLimit;
     }
     async create(clinicId, dto) {
+        await this.planLimit.enforceMonthlyCap(clinicId, 'prescriptions');
         const [branch, patient, dentist] = await Promise.all([
             this.prisma.branch.findUnique({ where: { id: dto.branch_id } }),
             this.prisma.patient.findUnique({ where: { id: dto.patient_id } }),
@@ -324,6 +328,7 @@ exports.PrescriptionService = PrescriptionService = __decorate([
         prescription_pdf_service_js_1.PrescriptionPdfService,
         s3_service_js_1.S3Service,
         communication_service_js_1.CommunicationService,
-        automation_service_js_1.AutomationService])
+        automation_service_js_1.AutomationService,
+        plan_limit_service_js_1.PlanLimitService])
 ], PrescriptionService);
 //# sourceMappingURL=prescription.service.js.map

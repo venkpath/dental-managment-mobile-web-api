@@ -80,7 +80,7 @@ let BranchController = class BranchController {
 exports.BranchController = BranchController;
 __decorate([
     (0, common_1.Post)(),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN, create_user_dto_js_1.UserRole.ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Create a new branch for the current clinic' }),
     (0, swagger_1.ApiCreatedResponse)({ description: 'Branch created successfully' }),
     openapi.ApiResponse({ status: 201 }),
@@ -114,7 +114,7 @@ __decorate([
 ], BranchController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN, create_user_dto_js_1.UserRole.ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Update a branch' }),
     (0, swagger_1.ApiOkResponse)({ description: 'Branch updated successfully' }),
     (0, swagger_1.ApiNotFoundResponse)({ description: 'Branch not found' }),
@@ -140,7 +140,7 @@ __decorate([
 ], BranchController.prototype, "getSchedulingSettings", null);
 __decorate([
     (0, common_1.Patch)(':id/scheduling'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN, create_user_dto_js_1.UserRole.ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Update scheduling settings for a branch (working hours, slot duration, etc.)' }),
     (0, swagger_1.ApiOkResponse)({ description: 'Scheduling settings updated' }),
     (0, swagger_1.ApiNotFoundResponse)({ description: 'Branch not found' }),
@@ -165,7 +165,7 @@ __decorate([
 ], BranchController.prototype, "getTemplate", null);
 __decorate([
     (0, common_1.Post)(':id/prescription-template/image'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN, create_user_dto_js_1.UserRole.ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Upload the branch notepad scan (PNG or JPEG, ≤8MB)' }),
     (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiCreatedResponse)({ description: 'Image uploaded; returns server-validated dimensions' }),
@@ -180,7 +180,7 @@ __decorate([
 ], BranchController.prototype, "uploadTemplateImage", null);
 __decorate([
     (0, common_1.Patch)(':id/prescription-template/config'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN, create_user_dto_js_1.UserRole.ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Save zone coordinates + enable the template' }),
     (0, swagger_1.ApiOkResponse)({ description: 'Template config saved' }),
     openapi.ApiResponse({ status: 200 }),
@@ -193,7 +193,7 @@ __decorate([
 ], BranchController.prototype, "saveTemplateConfig", null);
 __decorate([
     (0, common_1.Delete)(':id/prescription-template'),
-    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN, create_user_dto_js_1.UserRole.ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Remove the custom template — branch falls back to default layout' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),

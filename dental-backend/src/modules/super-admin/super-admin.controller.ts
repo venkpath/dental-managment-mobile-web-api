@@ -7,7 +7,7 @@ import { CurrentSuperAdmin } from '../../common/decorators/current-super-admin.d
 import { SuperAdminService } from './super-admin.service.js';
 import { SuperAdminAuthService } from './super-admin-auth.service.js';
 import { SuperAdminWhatsAppService } from './super-admin-whatsapp.service.js';
-import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto } from './dto/index.js';
+import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto, UpdateClinicLimitsDto } from './dto/index.js';
 import { ClinicService } from '../clinic/clinic.service.js';
 import { UpdateSubscriptionDto } from '../clinic/dto/index.js';
 import { CommunicationService } from '../communication/communication.service.js';
@@ -125,6 +125,17 @@ export class SuperAdminController {
   @ApiOkResponse({ description: 'Clinic deleted successfully' })
   async deleteClinic(@Param('id', ParseUUIDPipe) id: string) {
     return this.superAdminService.deleteClinic(id);
+  }
+
+  @Patch('super-admins/clinics/:id/limits')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Set per-clinic monthly usage limit overrides (null resets to plan default)' })
+  @ApiOkResponse({ description: 'Clinic limits updated' })
+  async updateClinicLimits(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateClinicLimitsDto,
+  ) {
+    return this.superAdminService.updateClinicLimits(id, dto);
   }
 
   // ─── Password Change ───

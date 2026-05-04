@@ -171,7 +171,8 @@ export class AuthService {
   }
 
   async register(dto: RegisterClinicDto) {
-    const TRIAL_DAYS = 14;
+    const PAID_TRIAL_DAYS = 14;
+    const FREE_GRACE_DAYS = 30;
 
     // Check if clinic email already exists
     const existingClinic = await this.prisma.clinic.findFirst({
@@ -181,8 +182,11 @@ export class AuthService {
       throw new ConflictException('A clinic with this email already exists');
     }
 
-    // Resolve the selected plan (if any). Free plan is free forever — no trial.
-    // Everyone else (or no plan selected) starts on a 14-day trial.
+    // Resolve the selected plan (if any).
+    // Free plan: subscription is immediately active (no billing trial), but
+    // trial_ends_at is still set to 30 days out so PlanLimitService can use
+    // it as a grace window (20 resources/month → 10 after grace expires).
+    // Paid plans start a 14-day billing trial as before.
     let planId: string | undefined;
     let isFreePlan = false;
     if (dto.plan_key && dto.plan_key !== 'trial') {
@@ -196,9 +200,10 @@ export class AuthService {
     }
 
     const billingCycle = dto.billing_cycle === 'yearly' ? 'yearly' : 'monthly';
-    const trialEndsAt = isFreePlan ? null : (() => {
+    const graceDays = isFreePlan ? FREE_GRACE_DAYS : PAID_TRIAL_DAYS;
+    const trialEndsAt = (() => {
       const d = new Date();
-      d.setDate(d.getDate() + TRIAL_DAYS);
+      d.setDate(d.getDate() + graceDays);
       return d;
     })();
     const subscriptionStatus = isFreePlan ? 'active' : 'trial';
@@ -318,8 +323,8 @@ export class AuthService {
 
     const frontendUrl = this.configService.get<string>('app.frontendUrl') || 'http://localhost:3001';
     const loginUrl = `${frontendUrl}/login`;
-    const planLine = data.subscription_status === 'trial' && data.trial_ends_at
-      ? `You're on a <strong>14-day free trial</strong> that ends on <strong>${data.trial_ends_at.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.`
+    const planLine = data.trial_ends_at
+      ? `You're on a <strong>free trial</strong> that ends on <strong>${data.trial_ends_at.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.`
       : `Your subscription is <strong>active</strong>.`;
 
     const html = `

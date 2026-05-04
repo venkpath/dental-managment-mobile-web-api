@@ -67,9 +67,6 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             else if (destination.length === 11 && destination.startsWith('0')) {
                 destination = '91' + destination.slice(1);
             }
-            else if (destination.length === 10 && !destination.startsWith('91')) {
-                destination = '91' + destination;
-            }
             const interactiveButtons = options.metadata?.['interactive_buttons'];
             const mediaOptions = options.metadata?.['media'];
             let messagePayload;

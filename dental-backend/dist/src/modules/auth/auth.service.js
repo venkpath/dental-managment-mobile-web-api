@@ -142,7 +142,8 @@ let AuthService = AuthService_1 = class AuthService {
         return { message: 'Password changed successfully' };
     }
     async register(dto) {
-        const TRIAL_DAYS = 14;
+        const PAID_TRIAL_DAYS = 14;
+        const FREE_GRACE_DAYS = 30;
         const existingClinic = await this.prisma.clinic.findFirst({
             where: { email: dto.clinic_email },
         });
@@ -161,9 +162,10 @@ let AuthService = AuthService_1 = class AuthService {
             }
         }
         const billingCycle = dto.billing_cycle === 'yearly' ? 'yearly' : 'monthly';
-        const trialEndsAt = isFreePlan ? null : (() => {
+        const graceDays = isFreePlan ? FREE_GRACE_DAYS : PAID_TRIAL_DAYS;
+        const trialEndsAt = (() => {
             const d = new Date();
-            d.setDate(d.getDate() + TRIAL_DAYS);
+            d.setDate(d.getDate() + graceDays);
             return d;
         })();
         const subscriptionStatus = isFreePlan ? 'active' : 'trial';
@@ -258,8 +260,8 @@ let AuthService = AuthService_1 = class AuthService {
             return;
         const frontendUrl = this.configService.get('app.frontendUrl') || 'http://localhost:3001';
         const loginUrl = `${frontendUrl}/login`;
-        const planLine = data.subscription_status === 'trial' && data.trial_ends_at
-            ? `You're on a <strong>14-day free trial</strong> that ends on <strong>${data.trial_ends_at.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.`
+        const planLine = data.trial_ends_at
+            ? `You're on a <strong>free trial</strong> that ends on <strong>${data.trial_ends_at.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.`
             : `Your subscription is <strong>active</strong>.`;
         const html = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto;">

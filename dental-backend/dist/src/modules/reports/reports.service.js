@@ -18,8 +18,8 @@ let ReportsService = class ReportsService {
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async getDashboardSummary(clinicId, branchId, dentistId) {
-        const now = new Date();
+    async getDashboardSummary(clinicId, branchId, dentistId, referenceDate) {
+        const now = referenceDate ?? new Date();
         const pad = (n) => String(n).padStart(2, '0');
         const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
         const tomorrowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);

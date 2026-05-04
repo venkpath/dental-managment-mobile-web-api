@@ -4,9 +4,10 @@ import { PrescriptionService } from './prescription.service.js';
 import { PrescriptionPdfService } from './prescription-pdf.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 import { AutomationModule } from '../automation/automation.module.js';
+import { PlanLimitModule } from '../../common/services/plan-limit.module.js';
 
 @Module({
-  imports: [AutomationModule],
+  imports: [AutomationModule, PlanLimitModule],
   controllers: [PrescriptionController, PrescriptionPublicController],
   providers: [PrescriptionService, PrescriptionPdfService, S3Service],
   exports: [PrescriptionService],

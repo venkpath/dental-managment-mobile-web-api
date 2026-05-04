@@ -810,6 +810,30 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
     language: 'en_US',
     sampleValues: { otp: '482917', clinic_name: 'Smile Dental Clinic' },
   },
+
+  // ── 27. Daily Clinic Morning Summary (sent to clinic Admin/SuperAdmin) ──
+  // Utility template — business-initiated digest sent at 8 AM IST.
+  // Numbered placeholders:
+  //   {{1}} = recipient first name, {{2}} = clinic name, {{3}} = date (e.g. "4 May 2026")
+  //   {{4}} = stats line  (appointments yesterday + today)
+  //   {{5}} = finance line (outstanding, month revenue, expenses, net profit)
+  //   {{6}} = AI insight  (≤200 chars, ends with "⚠️ AI estimate.")
+  {
+    channel: 'whatsapp',
+    category: 'utility',
+    template_name: 'daily_clinic_summary',
+    body: 'Good morning {{1}}! Here is your {{2}} summary for {{3}}.\n\n📊 {{4}}\n\n💰 {{5}}\n\n🤖 {{6}}',
+    variables: { body: ['recipient_name', 'clinic_name', 'date', 'stats', 'finance', 'insight'], buttons: [] },
+    language: 'en',
+    sampleValues: {
+      recipient_name: 'Dr. Sharma',
+      clinic_name: 'Smile Dental Clinic',
+      date: '4 May 2026',
+      stats: 'Yesterday: 12 appointments, ₹8,500 revenue | Today: 9 scheduled',
+      finance: 'Outstanding: ₹22,000 · Month revenue: ₹1,10,000 · Expenses: ₹28,000 · Net profit: ₹82,000',
+      insight: 'Revenue ↑18% vs 7-day avg. 3 invoices pending — follow up to recover dues. ⚠️ AI estimate.',
+    },
+  },
 ];
 
 export async function seedDefaultTemplates(prisma: PrismaService): Promise<void> {

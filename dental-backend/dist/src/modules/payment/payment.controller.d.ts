@@ -45,6 +45,7 @@ export declare class PaymentController {
         name: string;
         created_at: Date;
         updated_at: Date;
+        max_invoices_per_month: number | null;
         price_monthly: import("@prisma/client-runtime-utils").Decimal;
         price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
         max_branches: number;
@@ -53,11 +54,12 @@ export declare class PaymentController {
         ai_overage_cap: number;
         max_patients_per_month: number | null;
         max_appointments_per_month: number | null;
+        max_treatments_per_month: number | null;
+        max_prescriptions_per_month: number | null;
+        max_consultations_per_month: number | null;
         whatsapp_included_monthly: number | null;
         whatsapp_hard_limit_monthly: number | null;
         allow_whatsapp_overage_billing: boolean;
-        max_invoices_per_month: number | null;
-        max_treatments_per_month: number | null;
         razorpay_plan_id: string | null;
         razorpay_plan_id_yearly: string | null;
     })[]>;

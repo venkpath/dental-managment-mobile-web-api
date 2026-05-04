@@ -76,8 +76,8 @@ export interface RevenueReport {
 export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getDashboardSummary(clinicId: string, branchId?: string, dentistId?: string): Promise<DashboardSummary> {
-    const now = new Date();
+  async getDashboardSummary(clinicId: string, branchId?: string, dentistId?: string, referenceDate?: Date): Promise<DashboardSummary> {
+    const now = referenceDate ?? new Date();
     // Build the date string from LOCAL calendar components, not UTC.
     // Appointments are stored as @db.Date (UTC midnight of the local
     // calendar date the appointment was booked for), and the frontend

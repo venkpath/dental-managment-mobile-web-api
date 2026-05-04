@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
+import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 import { ClinicalVisit, TreatmentPlan, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
 import {
@@ -13,7 +14,10 @@ import {
 
 @Injectable()
 export class ClinicalVisitService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly planLimit: PlanLimitService,
+  ) {}
 
   // Map treatment procedures to dental chart condition names
   private static readonly PROCEDURE_CONDITION_MAP: Record<string, string> = {
@@ -30,6 +34,8 @@ export class ClinicalVisitService {
   // ────────────────────────────────────────────────────────────
 
   async create(clinicId: string, dto: CreateClinicalVisitDto): Promise<ClinicalVisit> {
+    await this.planLimit.enforceMonthlyCap(clinicId, 'consultations');
+
     const [branch, patient, dentist] = await Promise.all([
       this.prisma.branch.findUnique({ where: { id: dto.branch_id } }),
       this.prisma.patient.findUnique({ where: { id: dto.patient_id } }),

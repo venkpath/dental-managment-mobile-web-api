@@ -6,13 +6,15 @@ import { Prescription } from '@prisma/client';
 import { PaginatedResult } from '../../common/interfaces/paginated-result.interface.js';
 import { PrescriptionPdfService } from './prescription-pdf.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
+import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 export declare class PrescriptionService {
     private readonly prisma;
     private readonly pdfService;
     private readonly s3Service;
     private readonly communicationService;
     private readonly automationService;
-    constructor(prisma: PrismaService, pdfService: PrescriptionPdfService, s3Service: S3Service, communicationService: CommunicationService, automationService: AutomationService);
+    private readonly planLimit;
+    constructor(prisma: PrismaService, pdfService: PrescriptionPdfService, s3Service: S3Service, communicationService: CommunicationService, automationService: AutomationService, planLimit: PlanLimitService);
     create(clinicId: string, dto: CreatePrescriptionDto): Promise<Prescription>;
     findAll(clinicId: string, query: QueryPrescriptionDto): Promise<PaginatedResult<Prescription>>;
     findOne(clinicId: string, id: string): Promise<Prescription>;

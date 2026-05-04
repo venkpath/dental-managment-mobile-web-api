@@ -58,7 +58,7 @@ export interface RevenueReport {
 export declare class ReportsService {
     private readonly prisma;
     constructor(prisma: PrismaService);
-    getDashboardSummary(clinicId: string, branchId?: string, dentistId?: string): Promise<DashboardSummary>;
+    getDashboardSummary(clinicId: string, branchId?: string, dentistId?: string, referenceDate?: Date): Promise<DashboardSummary>;
     getRevenueReport(clinicId: string, query: RevenueQueryDto): Promise<RevenueReport>;
     getAppointmentAnalytics(clinicId: string, query: AppointmentAnalyticsQueryDto): Promise<AppointmentAnalytics>;
     getDentistPerformance(clinicId: string, query: DentistPerformanceQueryDto): Promise<DentistPerformanceItem[]>;

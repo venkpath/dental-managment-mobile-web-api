@@ -39,7 +39,7 @@ async function main() {
   // whatsapp_hard_limit_monthly: hard cap — further WA sends are blocked. null = no block (overage allowed).
   // allow_whatsapp_overage_billing: true = overage tracked for post-hoc billing via payment link.
   const plans = [
-    { name: 'Free',         price_monthly: 0,    price_yearly: 0,     max_branches: 1,  max_staff: 2,  ai_quota: 5,  ai_overage_cap: 0,   max_patients_per_month: 20,   max_appointments_per_month: 20,   whatsapp_included_monthly: 0,   whatsapp_hard_limit_monthly: 0,    allow_whatsapp_overage_billing: false },
+    { name: 'Free',         price_monthly: 0,    price_yearly: 0,     max_branches: 1,  max_staff: 2,  ai_quota: 5,  ai_overage_cap: 0,   max_patients_per_month: 10,   max_appointments_per_month: 10,   max_invoices_per_month: 10,   max_treatments_per_month: 10,   max_prescriptions_per_month: 10,   max_consultations_per_month: 10,   whatsapp_included_monthly: 0,   whatsapp_hard_limit_monthly: 0,    allow_whatsapp_overage_billing: false },
     { name: 'Starter',      price_monthly: 999,  price_yearly: 9990,  max_branches: 1,  max_staff: 5,  ai_quota: 15, ai_overage_cap: 50,  max_patients_per_month: null, max_appointments_per_month: null, whatsapp_included_monthly: 0,   whatsapp_hard_limit_monthly: 0,    allow_whatsapp_overage_billing: false },
     { name: 'Professional', price_monthly: 1999, price_yearly: 19990, max_branches: 3,  max_staff: 15, ai_quota: 25, ai_overage_cap: 75,  max_patients_per_month: null, max_appointments_per_month: null, whatsapp_included_monthly: 400, whatsapp_hard_limit_monthly: 500,  allow_whatsapp_overage_billing: false },
     { name: 'Enterprise',   price_monthly: 2999, price_yearly: 29990, max_branches: 10, max_staff: 50, ai_quota: 50, ai_overage_cap: 100, max_patients_per_month: null, max_appointments_per_month: null, whatsapp_included_monthly: 500, whatsapp_hard_limit_monthly: null, allow_whatsapp_overage_billing: true },
@@ -160,13 +160,19 @@ async function main() {
     const featureMap = Object.fromEntries(allFeatures.map((f) => [f.key, f.id]));
 
     const planFeatureMappings = [
-      // Free: inventory + all AI features (capped at ai_quota = 5/cycle, no overage)
+      // Free: all features except campaigns, automation, and external-cost channels
+      // (MARKETING_CAMPAIGNS, AUTOMATION_RULES, SMS_REMINDERS, WHATSAPP_INTEGRATION,
+      //  WHATSAPP_INBOX are excluded because they incur per-message provider costs)
       { plan_id: freePlan.id, feature_id: featureMap['INVENTORY_MANAGEMENT']!, is_enabled: true },
       { plan_id: freePlan.id, feature_id: featureMap['AI_CLINICAL_NOTES']!, is_enabled: true },
       { plan_id: freePlan.id, feature_id: featureMap['AI_PRESCRIPTION']!, is_enabled: true },
       { plan_id: freePlan.id, feature_id: featureMap['AI_TREATMENT_PLAN']!, is_enabled: true },
       { plan_id: freePlan.id, feature_id: featureMap['AI_CAMPAIGN_CONTENT']!, is_enabled: true },
       { plan_id: freePlan.id, feature_id: featureMap['AI_CONSENT_FORM']!, is_enabled: true },
+      { plan_id: freePlan.id, feature_id: featureMap['APPOINTMENT_CONFIRMATIONS']!, is_enabled: true },
+      { plan_id: freePlan.id, feature_id: featureMap['DIGITAL_XRAY']!, is_enabled: true },
+      { plan_id: freePlan.id, feature_id: featureMap['PATIENT_IMPORT']!, is_enabled: true },
+      { plan_id: freePlan.id, feature_id: featureMap['CUSTOM_PROVIDER_CONFIG']!, is_enabled: true },
 
       // Starter: Free + confirmations + SMS reminders + AI
       { plan_id: starterPlan.id, feature_id: featureMap['INVENTORY_MANAGEMENT']!, is_enabled: true },
@@ -213,12 +219,11 @@ async function main() {
     ];
 
     for (const mapping of planFeatureMappings) {
-      const existing = await prisma.planFeature.findUnique({
+      await prisma.planFeature.upsert({
         where: { plan_id_feature_id: { plan_id: mapping.plan_id, feature_id: mapping.feature_id } },
+        create: mapping,
+        update: { is_enabled: mapping.is_enabled },
       });
-      if (!existing) {
-        await prisma.planFeature.create({ data: mapping });
-      }
     }
     console.log('Seeded plan-feature mappings.');
   }

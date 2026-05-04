@@ -1,7 +1,7 @@
 import { SuperAdminService } from './super-admin.service.js';
 import { SuperAdminAuthService } from './super-admin-auth.service.js';
 import { SuperAdminWhatsAppService } from './super-admin-whatsapp.service.js';
-import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto } from './dto/index.js';
+import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto, UpdateClinicLimitsDto } from './dto/index.js';
 import { ClinicService } from '../clinic/clinic.service.js';
 import { UpdateSubscriptionDto } from '../clinic/dto/index.js';
 import { CommunicationService } from '../communication/communication.service.js';
@@ -82,6 +82,12 @@ export declare class SuperAdminController {
             currency_code: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
+            custom_patient_limit: number | null;
+            custom_appointment_limit: number | null;
+            custom_invoice_limit: number | null;
+            custom_treatment_limit: number | null;
+            custom_prescription_limit: number | null;
+            custom_consultation_limit: number | null;
         })[];
     }>;
     listClinics(status?: string, search?: string, page?: string, limit?: string): Promise<{
@@ -120,6 +126,12 @@ export declare class SuperAdminController {
             currency_code: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
+            custom_patient_limit: number | null;
+            custom_appointment_limit: number | null;
+            custom_invoice_limit: number | null;
+            custom_treatment_limit: number | null;
+            custom_prescription_limit: number | null;
+            custom_consultation_limit: number | null;
         })[];
         meta: {
             total: number;
@@ -148,6 +160,7 @@ export declare class SuperAdminController {
             name: string;
             created_at: Date;
             updated_at: Date;
+            max_invoices_per_month: number | null;
             price_monthly: import("@prisma/client-runtime-utils").Decimal;
             price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
             max_branches: number;
@@ -156,11 +169,12 @@ export declare class SuperAdminController {
             ai_overage_cap: number;
             max_patients_per_month: number | null;
             max_appointments_per_month: number | null;
+            max_treatments_per_month: number | null;
+            max_prescriptions_per_month: number | null;
+            max_consultations_per_month: number | null;
             whatsapp_included_monthly: number | null;
             whatsapp_hard_limit_monthly: number | null;
             allow_whatsapp_overage_billing: boolean;
-            max_invoices_per_month: number | null;
-            max_treatments_per_month: number | null;
             razorpay_plan_id: string | null;
             razorpay_plan_id_yearly: string | null;
         }) | null;
@@ -230,6 +244,12 @@ export declare class SuperAdminController {
         currency_code: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
+        custom_patient_limit: number | null;
+        custom_appointment_limit: number | null;
+        custom_invoice_limit: number | null;
+        custom_treatment_limit: number | null;
+        custom_prescription_limit: number | null;
+        custom_consultation_limit: number | null;
     }>;
     updateSubscription(id: string, dto: UpdateSubscriptionDto): Promise<{
         id: string;
@@ -255,6 +275,12 @@ export declare class SuperAdminController {
         currency_code: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
+        custom_patient_limit: number | null;
+        custom_appointment_limit: number | null;
+        custom_invoice_limit: number | null;
+        custom_treatment_limit: number | null;
+        custom_prescription_limit: number | null;
+        custom_consultation_limit: number | null;
     }>;
     onboardClinic(dto: OnboardClinicDto): Promise<{
         clinic: {
@@ -281,6 +307,12 @@ export declare class SuperAdminController {
             currency_code: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
+            custom_patient_limit: number | null;
+            custom_appointment_limit: number | null;
+            custom_invoice_limit: number | null;
+            custom_treatment_limit: number | null;
+            custom_prescription_limit: number | null;
+            custom_consultation_limit: number | null;
         };
         branch: {
             id: string;
@@ -321,6 +353,25 @@ export declare class SuperAdminController {
     deleteClinic(id: string): Promise<{
         deleted: boolean;
         clinic_name: string;
+    }>;
+    updateClinicLimits(id: string, dto: UpdateClinicLimitsDto): Promise<{
+        id: string;
+        name: string;
+        plan: {
+            name: string;
+            max_invoices_per_month: number | null;
+            max_patients_per_month: number | null;
+            max_appointments_per_month: number | null;
+            max_treatments_per_month: number | null;
+            max_prescriptions_per_month: number | null;
+            max_consultations_per_month: number | null;
+        } | null;
+        custom_patient_limit: number | null;
+        custom_appointment_limit: number | null;
+        custom_invoice_limit: number | null;
+        custom_treatment_limit: number | null;
+        custom_prescription_limit: number | null;
+        custom_consultation_limit: number | null;
     }>;
     changePassword(admin: {
         id: string;

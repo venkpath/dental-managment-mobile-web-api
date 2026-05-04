@@ -107,21 +107,16 @@ export class WhatsAppProvider implements ChannelProvider {
       // full international format without + (e.g. 919876543210).
       let destination = options.to.replace(/[^0-9]/g, '');
 
-      // Handle edge cases for Indian phone normalization
-      // Case 1: 10-digit number (e.g. 9876543210)
+      // Indian phone normalization: Meta requires full international format without +
+      // Case 1: 10-digit number → prefix 91 (e.g. 9876543210 → 919876543210)
       if (destination.length === 10) {
         destination = '91' + destination;
       }
-      // Case 2: 11-digit starting with 0 (e.g. 09876543210 → strip leading 0)
+      // Case 2: 11-digit starting with 0 → strip 0, prefix 91 (e.g. 09876543210)
       else if (destination.length === 11 && destination.startsWith('0')) {
         destination = '91' + destination.slice(1);
       }
-      // Case 3: Already has 91 prefix but 12 digits total (91 + 10 digits)
-      // No change needed
-      // Case 4: Missing prefix entirely, assume 10 digits if not already prefixed
-      else if (destination.length === 10 && !destination.startsWith('91')) {
-        destination = '91' + destination;
-      }
+      // Case 3: 12-digit with 91 prefix already — no change needed
 
       // Determine message type based on options
       const interactiveButtons = options.metadata?.['interactive_buttons'] as WhatsAppInteractiveButton[] | undefined;

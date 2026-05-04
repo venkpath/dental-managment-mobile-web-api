@@ -13,14 +13,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ClinicalVisitService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
+const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
 const client_1 = require("@prisma/client");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
 const index_js_1 = require("./dto/index.js");
 let ClinicalVisitService = class ClinicalVisitService {
     static { ClinicalVisitService_1 = this; }
     prisma;
-    constructor(prisma) {
+    planLimit;
+    constructor(prisma, planLimit) {
         this.prisma = prisma;
+        this.planLimit = planLimit;
     }
     static PROCEDURE_CONDITION_MAP = {
         RCT: 'RCT',
@@ -31,6 +34,7 @@ let ClinicalVisitService = class ClinicalVisitService {
         Implant: 'Implant',
     };
     async create(clinicId, dto) {
+        await this.planLimit.enforceMonthlyCap(clinicId, 'consultations');
         const [branch, patient, dentist] = await Promise.all([
             this.prisma.branch.findUnique({ where: { id: dto.branch_id } }),
             this.prisma.patient.findUnique({ where: { id: dto.patient_id } }),
@@ -357,6 +361,7 @@ let ClinicalVisitService = class ClinicalVisitService {
 exports.ClinicalVisitService = ClinicalVisitService;
 exports.ClinicalVisitService = ClinicalVisitService = ClinicalVisitService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
+        plan_limit_service_js_1.PlanLimitService])
 ], ClinicalVisitService);
 //# sourceMappingURL=clinical-visit.service.js.map

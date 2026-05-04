@@ -329,6 +329,7 @@ export class AiService {
     systemPrompt: string,
     userPrompt: string,
     meta: AiCallMeta,
+    maxTokens = 2000,
   ): Promise<Record<string, unknown>> {
     try {
       const response = await this.openai.chat.completions.create({
@@ -338,7 +339,7 @@ export class AiService {
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.3,
-        max_tokens: 2000,
+        max_tokens: maxTokens,
         response_format: { type: 'json_object' },
       });
 
@@ -1060,7 +1061,7 @@ export class AiService {
       clinicId,
       userId,
       type: 'consent_form',
-    });
+    }, 4000);
 
     const title = String(result['title'] ?? '').trim();
     const body = (result['body'] && typeof result['body'] === 'object' ? result['body'] : null) as

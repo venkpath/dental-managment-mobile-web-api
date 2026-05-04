@@ -36,6 +36,12 @@ export declare class ClinicController {
         currency_code: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
+        custom_patient_limit: number | null;
+        custom_appointment_limit: number | null;
+        custom_invoice_limit: number | null;
+        custom_treatment_limit: number | null;
+        custom_prescription_limit: number | null;
+        custom_consultation_limit: number | null;
     }>;
     getMyClinic(user: RequestUser): Promise<{
         id: string;
@@ -61,6 +67,12 @@ export declare class ClinicController {
         currency_code: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
+        custom_patient_limit: number | null;
+        custom_appointment_limit: number | null;
+        custom_invoice_limit: number | null;
+        custom_treatment_limit: number | null;
+        custom_prescription_limit: number | null;
+        custom_consultation_limit: number | null;
     }>;
     getMyFeatures(user: RequestUser): Promise<{
         plan: {
@@ -100,6 +112,12 @@ export declare class ClinicController {
         currency_code: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
+        custom_patient_limit: number | null;
+        custom_appointment_limit: number | null;
+        custom_invoice_limit: number | null;
+        custom_treatment_limit: number | null;
+        custom_prescription_limit: number | null;
+        custom_consultation_limit: number | null;
     }>;
     findAll(): Promise<{
         id: string;
@@ -125,6 +143,12 @@ export declare class ClinicController {
         currency_code: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
+        custom_patient_limit: number | null;
+        custom_appointment_limit: number | null;
+        custom_invoice_limit: number | null;
+        custom_treatment_limit: number | null;
+        custom_prescription_limit: number | null;
+        custom_consultation_limit: number | null;
     }[]>;
     findOne(id: string): Promise<{
         id: string;
@@ -150,6 +174,12 @@ export declare class ClinicController {
         currency_code: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
+        custom_patient_limit: number | null;
+        custom_appointment_limit: number | null;
+        custom_invoice_limit: number | null;
+        custom_treatment_limit: number | null;
+        custom_prescription_limit: number | null;
+        custom_consultation_limit: number | null;
     }>;
     update(id: string, dto: UpdateClinicDto): Promise<{
         id: string;
@@ -175,6 +205,12 @@ export declare class ClinicController {
         currency_code: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
+        custom_patient_limit: number | null;
+        custom_appointment_limit: number | null;
+        custom_invoice_limit: number | null;
+        custom_treatment_limit: number | null;
+        custom_prescription_limit: number | null;
+        custom_consultation_limit: number | null;
     }>;
     updateSubscription(id: string, dto: UpdateSubscriptionDto): Promise<{
         id: string;
@@ -200,6 +236,12 @@ export declare class ClinicController {
         currency_code: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
+        custom_patient_limit: number | null;
+        custom_appointment_limit: number | null;
+        custom_invoice_limit: number | null;
+        custom_treatment_limit: number | null;
+        custom_prescription_limit: number | null;
+        custom_consultation_limit: number | null;
     }>;
     uploadLogo(user: RequestUser, file: Express.Multer.File): Promise<{
         id: string;
@@ -225,6 +267,12 @@ export declare class ClinicController {
         currency_code: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
+        custom_patient_limit: number | null;
+        custom_appointment_limit: number | null;
+        custom_invoice_limit: number | null;
+        custom_treatment_limit: number | null;
+        custom_prescription_limit: number | null;
+        custom_consultation_limit: number | null;
     }>;
     serveLogo(clinicId: string, filename: string, res: Response): Promise<void>;
 }

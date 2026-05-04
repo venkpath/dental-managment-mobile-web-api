@@ -55,6 +55,12 @@ export declare class SuperAdminService {
             currency_code: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
+            custom_patient_limit: number | null;
+            custom_appointment_limit: number | null;
+            custom_invoice_limit: number | null;
+            custom_treatment_limit: number | null;
+            custom_prescription_limit: number | null;
+            custom_consultation_limit: number | null;
         })[];
     }>;
     listClinics(params: {
@@ -98,6 +104,12 @@ export declare class SuperAdminService {
             currency_code: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
+            custom_patient_limit: number | null;
+            custom_appointment_limit: number | null;
+            custom_invoice_limit: number | null;
+            custom_treatment_limit: number | null;
+            custom_prescription_limit: number | null;
+            custom_consultation_limit: number | null;
         })[];
         meta: {
             total: number;
@@ -126,6 +138,7 @@ export declare class SuperAdminService {
             name: string;
             created_at: Date;
             updated_at: Date;
+            max_invoices_per_month: number | null;
             price_monthly: import("@prisma/client-runtime-utils").Decimal;
             price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
             max_branches: number;
@@ -134,11 +147,12 @@ export declare class SuperAdminService {
             ai_overage_cap: number;
             max_patients_per_month: number | null;
             max_appointments_per_month: number | null;
+            max_treatments_per_month: number | null;
+            max_prescriptions_per_month: number | null;
+            max_consultations_per_month: number | null;
             whatsapp_included_monthly: number | null;
             whatsapp_hard_limit_monthly: number | null;
             allow_whatsapp_overage_billing: boolean;
-            max_invoices_per_month: number | null;
-            max_treatments_per_month: number | null;
             razorpay_plan_id: string | null;
             razorpay_plan_id_yearly: string | null;
         }) | null;
@@ -208,6 +222,12 @@ export declare class SuperAdminService {
         currency_code: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
+        custom_patient_limit: number | null;
+        custom_appointment_limit: number | null;
+        custom_invoice_limit: number | null;
+        custom_treatment_limit: number | null;
+        custom_prescription_limit: number | null;
+        custom_consultation_limit: number | null;
     }>;
     onboardClinic(dto: {
         clinic_name: string;
@@ -248,6 +268,12 @@ export declare class SuperAdminService {
             currency_code: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
+            custom_patient_limit: number | null;
+            custom_appointment_limit: number | null;
+            custom_invoice_limit: number | null;
+            custom_treatment_limit: number | null;
+            custom_prescription_limit: number | null;
+            custom_consultation_limit: number | null;
         };
         branch: {
             id: string;
@@ -290,6 +316,32 @@ export declare class SuperAdminService {
     deleteClinic(id: string): Promise<{
         deleted: boolean;
         clinic_name: string;
+    }>;
+    updateClinicLimits(clinicId: string, dto: {
+        custom_patient_limit?: number | null;
+        custom_appointment_limit?: number | null;
+        custom_invoice_limit?: number | null;
+        custom_treatment_limit?: number | null;
+        custom_prescription_limit?: number | null;
+        custom_consultation_limit?: number | null;
+    }): Promise<{
+        id: string;
+        name: string;
+        plan: {
+            name: string;
+            max_invoices_per_month: number | null;
+            max_patients_per_month: number | null;
+            max_appointments_per_month: number | null;
+            max_treatments_per_month: number | null;
+            max_prescriptions_per_month: number | null;
+            max_consultations_per_month: number | null;
+        } | null;
+        custom_patient_limit: number | null;
+        custom_appointment_limit: number | null;
+        custom_invoice_limit: number | null;
+        custom_treatment_limit: number | null;
+        custom_prescription_limit: number | null;
+        custom_consultation_limit: number | null;
     }>;
     changePassword(adminId: string, currentPassword: string, newPassword: string): Promise<{
         message: string;

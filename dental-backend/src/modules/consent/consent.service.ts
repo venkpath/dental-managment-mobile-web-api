@@ -575,14 +575,22 @@ export class ConsentService {
           'Restart the backend to seed default templates, then submit it for Meta approval.',
       );
     }
+    // Do NOT pass template_id: the communication service would render the template
+    // body with actual variables before persisting, storing the plaintext OTP in
+    // CommunicationMessage.body. Instead, use whatsapp_template_name metadata so
+    // the delivery path sends the real code to Meta while the stored body stays safe.
     await this.communication.sendMessage(consent.clinic_id, {
       patient_id: consent.patient_id,
       channel: MessageChannel.WHATSAPP,
       category: MessageCategory.TRANSACTIONAL,
-      template_id: tpl.id,
-      body: `OTP Code: ${code}. This is your OTP code for ${consent.clinic.name}. For your security, do not share this code.`,
-      variables: { otp: code, clinic_name: consent.clinic.name },
-      metadata: { consent_id: consent.id, type: 'consent_otp' },
+      body: `Consent verification OTP sent for ${consent.clinic.name}`,
+      variables: { '1': code, '2': consent.clinic.name },
+      metadata: {
+        consent_id: consent.id,
+        type: 'consent_otp',
+        whatsapp_template_name: tpl.template_name,
+        whatsapp_language: tpl.language || 'en_US',
+      },
     });
 
     return {

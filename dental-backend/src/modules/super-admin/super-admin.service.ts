@@ -428,6 +428,56 @@ export class SuperAdminService {
     return { deleted: true, clinic_name: clinic.name };
   }
 
+  // ─── Per-clinic Monthly Limit Overrides ───
+
+  async updateClinicLimits(
+    clinicId: string,
+    dto: {
+      custom_patient_limit?: number | null;
+      custom_appointment_limit?: number | null;
+      custom_invoice_limit?: number | null;
+      custom_treatment_limit?: number | null;
+      custom_prescription_limit?: number | null;
+      custom_consultation_limit?: number | null;
+    },
+  ) {
+    const clinic = await this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { id: true } });
+    if (!clinic) throw new NotFoundException(`Clinic ${clinicId} not found`);
+
+    return this.prisma.clinic.update({
+      where: { id: clinicId },
+      data: {
+        ...(dto.custom_patient_limit !== undefined && { custom_patient_limit: dto.custom_patient_limit }),
+        ...(dto.custom_appointment_limit !== undefined && { custom_appointment_limit: dto.custom_appointment_limit }),
+        ...(dto.custom_invoice_limit !== undefined && { custom_invoice_limit: dto.custom_invoice_limit }),
+        ...(dto.custom_treatment_limit !== undefined && { custom_treatment_limit: dto.custom_treatment_limit }),
+        ...(dto.custom_prescription_limit !== undefined && { custom_prescription_limit: dto.custom_prescription_limit }),
+        ...(dto.custom_consultation_limit !== undefined && { custom_consultation_limit: dto.custom_consultation_limit }),
+      },
+      select: {
+        id: true,
+        name: true,
+        custom_patient_limit: true,
+        custom_appointment_limit: true,
+        custom_invoice_limit: true,
+        custom_treatment_limit: true,
+        custom_prescription_limit: true,
+        custom_consultation_limit: true,
+        plan: {
+          select: {
+            name: true,
+            max_patients_per_month: true,
+            max_appointments_per_month: true,
+            max_invoices_per_month: true,
+            max_treatments_per_month: true,
+            max_prescriptions_per_month: true,
+            max_consultations_per_month: true,
+          },
+        },
+      },
+    });
+  }
+
   // ─── Change Password ───
 
   async changePassword(adminId: string, currentPassword: string, newPassword: string) {

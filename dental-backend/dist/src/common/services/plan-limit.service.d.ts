@@ -1,5 +1,5 @@
 import { PrismaService } from '../../database/prisma.service.js';
-type MonthlyResource = 'patients' | 'appointments' | 'invoices' | 'treatments';
+type MonthlyResource = 'patients' | 'appointments' | 'invoices' | 'treatments' | 'prescriptions' | 'consultations';
 export declare class PlanLimitService {
     private readonly prisma;
     constructor(prisma: PrismaService);
