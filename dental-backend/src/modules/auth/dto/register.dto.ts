@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsOptional, MaxLength, MinLength, IsIn } from 'class-validator';
+import { IsEmail, IsString, IsOptional, MaxLength, MinLength, IsIn, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RegisterClinicDto {
@@ -12,7 +12,7 @@ export class RegisterClinicDto {
   @MaxLength(255)
   clinic_email!: string;
 
-  @ApiPropertyOptional({ example: '+91-9876543210', maxLength: 50 })
+  @ApiPropertyOptional({ example: '9876543210', maxLength: 50 })
   @IsOptional()
   @IsString()
   @MaxLength(50)
@@ -51,6 +51,11 @@ export class RegisterClinicDto {
   @IsEmail()
   @MaxLength(255)
   admin_email!: string;
+
+  @ApiProperty({ example: '9876543210', description: 'Admin mobile number (10 digits, used for WhatsApp)' })
+  @IsString()
+  @Matches(/^[6-9]\d{9}$/, { message: 'Enter a valid 10-digit Indian mobile number' })
+  admin_phone!: string;
 
   @ApiProperty({ example: 'StrongP@ss1', minLength: 8 })
   @IsString()

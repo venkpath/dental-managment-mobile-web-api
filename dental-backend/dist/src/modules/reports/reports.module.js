@@ -11,11 +11,13 @@ const common_1 = require("@nestjs/common");
 const reports_controller_js_1 = require("./reports.controller.js");
 const reports_service_js_1 = require("./reports.service.js");
 const daily_summary_cron_js_1 = require("./daily-summary.cron.js");
+const communication_module_js_1 = require("../communication/communication.module.js");
 let ReportsModule = class ReportsModule {
 };
 exports.ReportsModule = ReportsModule;
 exports.ReportsModule = ReportsModule = __decorate([
     (0, common_1.Module)({
+        imports: [communication_module_js_1.CommunicationModule],
         controllers: [reports_controller_js_1.ReportsController],
         providers: [reports_service_js_1.ReportsService, daily_summary_cron_js_1.DailySummaryCronService],
         exports: [reports_service_js_1.ReportsService, daily_summary_cron_js_1.DailySummaryCronService],

@@ -23,12 +23,13 @@ class OnboardClinicDto {
     country;
     admin_name;
     admin_email;
+    admin_phone;
     admin_password;
     plan_id;
     billing_cycle;
     has_own_waba;
     static _OPENAPI_METADATA_FACTORY() {
-        return { clinic_name: { required: true, type: () => String, maxLength: 255 }, clinic_email: { required: true, type: () => String, maxLength: 255, format: "email" }, clinic_phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, admin_name: { required: true, type: () => String, maxLength: 255 }, admin_email: { required: true, type: () => String, maxLength: 255, format: "email" }, admin_password: { required: true, type: () => String, minLength: 8 }, plan_id: { required: false, type: () => String, format: "uuid" }, billing_cycle: { required: false, type: () => Object, enum: ['monthly', 'yearly'] }, has_own_waba: { required: false, type: () => Boolean } };
+        return { clinic_name: { required: true, type: () => String, maxLength: 255 }, clinic_email: { required: true, type: () => String, maxLength: 255, format: "email" }, clinic_phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, admin_name: { required: true, type: () => String, maxLength: 255 }, admin_email: { required: true, type: () => String, maxLength: 255, format: "email" }, admin_phone: { required: true, type: () => String, pattern: "/^[6-9]\\d{9}$/" }, admin_password: { required: true, type: () => String, minLength: 8 }, plan_id: { required: false, type: () => String, format: "uuid" }, billing_cycle: { required: false, type: () => Object, enum: ['monthly', 'yearly'] }, has_own_waba: { required: false, type: () => Boolean } };
     }
 }
 exports.OnboardClinicDto = OnboardClinicDto;
@@ -95,6 +96,13 @@ __decorate([
     (0, class_validator_1.MaxLength)(255),
     __metadata("design:type", String)
 ], OnboardClinicDto.prototype, "admin_email", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: '9876543210', description: 'Admin mobile number (10 digits)' }),
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^[6-9]\d{9}$/, { message: 'Enter a valid 10-digit Indian mobile number' }),
+    __metadata("design:type", String)
+], OnboardClinicDto.prototype, "admin_phone", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ example: 'SecurePass123' }),
     (0, class_validator_1.IsNotEmpty)(),

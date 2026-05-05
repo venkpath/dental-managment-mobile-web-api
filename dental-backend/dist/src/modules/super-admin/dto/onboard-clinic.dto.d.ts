@@ -8,6 +8,7 @@ export declare class OnboardClinicDto {
     country?: string;
     admin_name: string;
     admin_email: string;
+    admin_phone: string;
     admin_password: string;
     plan_id?: string;
     billing_cycle?: 'monthly' | 'yearly';

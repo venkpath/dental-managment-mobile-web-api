@@ -210,6 +210,7 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
                 data: {
                     name: dto.admin_name,
                     email: dto.admin_email,
+                    phone: dto.admin_phone,
                     password_hash: passwordHash,
                     role: 'SuperAdmin',
                     clinic_id: clinic.id,

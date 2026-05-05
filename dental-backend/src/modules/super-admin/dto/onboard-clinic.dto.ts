@@ -1,4 +1,4 @@
-import { IsBoolean, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class OnboardClinicDto {
@@ -55,6 +55,12 @@ export class OnboardClinicDto {
   @IsEmail()
   @MaxLength(255)
   admin_email!: string;
+
+  @ApiProperty({ example: '9876543210', description: 'Admin mobile number (10 digits)' })
+  @IsNotEmpty()
+  @IsString()
+  @Matches(/^[6-9]\d{9}$/, { message: 'Enter a valid 10-digit Indian mobile number' })
+  admin_phone!: string;
 
   @ApiProperty({ example: 'SecurePass123' })
   @IsNotEmpty()

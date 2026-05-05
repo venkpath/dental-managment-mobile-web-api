@@ -199,6 +199,7 @@ export class SuperAdminService {
     country?: string;
     admin_name: string;
     admin_email: string;
+    admin_phone: string;
     admin_password: string;
     plan_id?: string;
     billing_cycle?: 'monthly' | 'yearly';
@@ -256,6 +257,7 @@ export class SuperAdminService {
         data: {
           name: dto.admin_name,
           email: dto.admin_email,
+          phone: dto.admin_phone,
           password_hash: passwordHash,
           role: 'SuperAdmin',
           clinic_id: clinic.id,

@@ -21,8 +21,7 @@ const openai_1 = __importDefault(require("openai"));
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const reports_service_js_1 = require("./reports.service.js");
 const email_provider_js_1 = require("../communication/providers/email.provider.js");
-const whatsapp_provider_js_1 = require("../communication/providers/whatsapp.provider.js");
-const communication_service_js_1 = require("../communication/communication.service.js");
+const communication_producer_js_1 = require("../communication/communication.producer.js");
 const PLATFORM_CLINIC_ID = '__platform__';
 exports.DAILY_SUMMARY_WA_TEMPLATE = 'daily_clinic_summary';
 const NEW_CLINIC_DAYS = 7;
@@ -30,17 +29,15 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
     prisma;
     reportsService;
     emailProvider;
-    whatsAppProvider;
-    communicationService;
+    communicationProducer;
     config;
     logger = new common_1.Logger(DailySummaryCronService_1.name);
     openai;
-    constructor(prisma, reportsService, emailProvider, whatsAppProvider, communicationService, config) {
+    constructor(prisma, reportsService, emailProvider, communicationProducer, config) {
         this.prisma = prisma;
         this.reportsService = reportsService;
         this.emailProvider = emailProvider;
-        this.whatsAppProvider = whatsAppProvider;
-        this.communicationService = communicationService;
+        this.communicationProducer = communicationProducer;
         this.config = config;
         const apiKey = this.config.get('OPENAI_API_KEY');
         this.openai = apiKey ? new openai_1.default({ apiKey }) : null;
@@ -140,12 +137,12 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
                                 this.logger.warn(`Email failed for ${recipient.email}: ${err.message}`);
                             }
                         }
-                        if (recipient.phone)
-                            await this.communicationService.initClinicProviders(clinic.id);
-                        if (recipient.phone && this.whatsAppProvider.isConfigured(clinic.id)) {
+                        if (recipient.phone) {
                             try {
-                                const waResult = await this.whatsAppProvider.send({
+                                await this.communicationProducer.enqueue({
+                                    messageId: `daily-summary-${clinic.id}-${recipient.phone}-${Date.now()}`,
                                     clinicId: clinic.id,
+                                    channel: 'whatsapp',
                                     to: recipient.phone,
                                     body: '',
                                     templateId: exports.DAILY_SUMMARY_WA_TEMPLATE,
@@ -158,16 +155,12 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
                                         '5': financeLine,
                                         '6': aiInsight,
                                     },
+                                    metadata: { type: 'daily_summary' },
                                 });
-                                if (waResult.success) {
-                                    waSent++;
-                                }
-                                else {
-                                    this.logger.warn(`WhatsApp failed for ${recipient.phone} (${clinic.name}): ${waResult.error}`);
-                                }
+                                waSent++;
                             }
                             catch (err) {
-                                this.logger.warn(`WhatsApp failed for ${recipient.phone}: ${err.message}`);
+                                this.logger.warn(`WhatsApp enqueue failed for ${recipient.phone}: ${err.message}`);
                             }
                         }
                     }
@@ -421,8 +414,7 @@ exports.DailySummaryCronService = DailySummaryCronService = DailySummaryCronServ
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         reports_service_js_1.ReportsService,
         email_provider_js_1.EmailProvider,
-        whatsapp_provider_js_1.WhatsAppProvider,
-        communication_service_js_1.CommunicationService,
+        communication_producer_js_1.CommunicationProducer,
         config_1.ConfigService])
 ], DailySummaryCronService);
 //# sourceMappingURL=daily-summary.cron.js.map

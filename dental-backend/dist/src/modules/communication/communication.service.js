@@ -897,9 +897,6 @@ let CommunicationService = class CommunicationService {
         const [h, m] = time.split(':').map(Number);
         return h * 60 + m;
     }
-    async initClinicProviders(clinicId) {
-        return this.ensureProvidersConfigured(clinicId);
-    }
     async ensureProvidersConfigured(clinicId) {
         if (this.emailProvider.isConfigured(clinicId) &&
             this.smsProvider.isConfigured(clinicId) &&

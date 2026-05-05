@@ -205,6 +205,7 @@ let AuthService = AuthService_1 = class AuthService {
                     branch_id: branch.id,
                     name: dto.admin_name,
                     email: dto.admin_email,
+                    phone: dto.admin_phone,
                     password_hash: await this.passwordService.hash(dto.admin_password),
                     role: 'SuperAdmin',
                     status: 'active',
