@@ -9,9 +9,10 @@ import { AuthModule } from '../auth/auth.module.js';
 import { ClinicModule } from '../clinic/clinic.module.js';
 import { AutomationModule } from '../automation/automation.module.js';
 import { BranchModule } from '../branch/branch.module.js';
+import { ReportsModule } from '../reports/reports.module.js';
 
 @Module({
-  imports: [AuthModule, ClinicModule, AutomationModule, BranchModule],
+  imports: [AuthModule, ClinicModule, AutomationModule, BranchModule, ReportsModule],
   controllers: [SuperAdminController, PlatformTemplateController],
   providers: [SuperAdminService, SuperAdminAuthService, SuperAdminWhatsAppService, PlatformTemplateService],
   exports: [SuperAdminService],

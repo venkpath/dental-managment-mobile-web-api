@@ -15,11 +15,11 @@ export declare class PlatformBillingController {
             clinic_id: string;
             currency: string;
             period_start: Date;
-            plan_name: string;
-            total_amount: import("@prisma/client-runtime-utils").Decimal;
             invoice_number: string;
+            total_amount: import("@prisma/client-runtime-utils").Decimal;
             tax_amount: import("@prisma/client-runtime-utils").Decimal;
             issued_at: Date;
+            plan_name: string;
             period_end: Date;
             subtotal: import("@prisma/client-runtime-utils").Decimal;
             tax_rate: import("@prisma/client-runtime-utils").Decimal;
@@ -55,11 +55,11 @@ export declare class PlatformBillingController {
         clinic_id: string;
         currency: string;
         period_start: Date;
-        plan_name: string;
-        total_amount: import("@prisma/client-runtime-utils").Decimal;
         invoice_number: string;
+        total_amount: import("@prisma/client-runtime-utils").Decimal;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         issued_at: Date;
+        plan_name: string;
         period_end: Date;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
         tax_rate: import("@prisma/client-runtime-utils").Decimal;

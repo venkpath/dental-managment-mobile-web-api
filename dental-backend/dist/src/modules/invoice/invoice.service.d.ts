@@ -82,8 +82,8 @@ export declare class InvoiceService {
         created_at: Date;
         updated_at: Date;
         notes: string | null;
-        invoice_id: string;
         total_amount: Prisma.Decimal;
+        invoice_id: string;
         num_installments: number;
     }>;
     deleteInstallmentPlan(clinicId: string, invoiceId: string): Promise<{

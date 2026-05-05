@@ -18,12 +18,13 @@ const auth_module_js_1 = require("../auth/auth.module.js");
 const clinic_module_js_1 = require("../clinic/clinic.module.js");
 const automation_module_js_1 = require("../automation/automation.module.js");
 const branch_module_js_1 = require("../branch/branch.module.js");
+const reports_module_js_1 = require("../reports/reports.module.js");
 let SuperAdminModule = class SuperAdminModule {
 };
 exports.SuperAdminModule = SuperAdminModule;
 exports.SuperAdminModule = SuperAdminModule = __decorate([
     (0, common_1.Module)({
-        imports: [auth_module_js_1.AuthModule, clinic_module_js_1.ClinicModule, automation_module_js_1.AutomationModule, branch_module_js_1.BranchModule],
+        imports: [auth_module_js_1.AuthModule, clinic_module_js_1.ClinicModule, automation_module_js_1.AutomationModule, branch_module_js_1.BranchModule, reports_module_js_1.ReportsModule],
         controllers: [super_admin_controller_js_1.SuperAdminController, platform_template_controller_js_1.PlatformTemplateController],
         providers: [super_admin_service_js_1.SuperAdminService, super_admin_auth_service_js_1.SuperAdminAuthService, super_admin_whatsapp_service_js_1.SuperAdminWhatsAppService, platform_template_service_js_1.PlatformTemplateService],
         exports: [super_admin_service_js_1.SuperAdminService],

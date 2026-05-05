@@ -5,7 +5,7 @@ import OpenAI from 'openai';
 import { PrismaService } from '../../database/prisma.service.js';
 import { ReportsService } from './reports.service.js';
 import { EmailProvider } from '../communication/providers/email.provider.js';
-import { WhatsAppProvider } from '../communication/providers/whatsapp.provider.js';
+import { CommunicationProducer } from '../communication/communication.producer.js';
 
 const PLATFORM_CLINIC_ID = '__platform__';
 export const DAILY_SUMMARY_WA_TEMPLATE = 'daily_clinic_summary';
@@ -22,7 +22,7 @@ export class DailySummaryCronService {
     private readonly prisma: PrismaService,
     private readonly reportsService: ReportsService,
     private readonly emailProvider: EmailProvider,
-    private readonly whatsAppProvider: WhatsAppProvider,
+    private readonly communicationProducer: CommunicationProducer,
     private readonly config: ConfigService,
   ) {
     const apiKey = this.config.get<string>('OPENAI_API_KEY');
@@ -151,10 +151,12 @@ export class DailySummaryCronService {
               }
             }
 
-            if (recipient.phone && this.whatsAppProvider.isConfigured(clinic.id)) {
+            if (recipient.phone) {
               try {
-                const waResult = await this.whatsAppProvider.send({
+                await this.communicationProducer.enqueue({
+                  messageId: `daily-summary-${clinic.id}-${recipient.phone}-${Date.now()}`,
                   clinicId: clinic.id,
+                  channel: 'whatsapp',
                   to: recipient.phone,
                   body: '',
                   templateId: DAILY_SUMMARY_WA_TEMPLATE,
@@ -167,14 +169,11 @@ export class DailySummaryCronService {
                     '5': financeLine,
                     '6': aiInsight,
                   },
+                  metadata: { type: 'daily_summary' },
                 });
-                if (waResult.success) {
-                  waSent++;
-                } else {
-                  this.logger.warn(`WhatsApp failed for ${recipient.phone} (${clinic.name}): ${waResult.error}`);
-                }
+                waSent++;
               } catch (err) {
-                this.logger.warn(`WhatsApp failed for ${recipient.phone}: ${(err as Error).message}`);
+                this.logger.warn(`WhatsApp enqueue failed for ${recipient.phone}: ${(err as Error).message}`);
               }
             }
           }

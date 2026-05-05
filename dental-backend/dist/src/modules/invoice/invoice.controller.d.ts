@@ -21,11 +21,11 @@ export declare class InvoiceController {
         clinic_id: string;
         branch_id: string;
         patient_id: string;
-        total_amount: import("@prisma/client-runtime-utils").Decimal;
         dentist_id: string | null;
         created_by_user_id: string | null;
         treatment_date: Date | null;
         invoice_number: string;
+        total_amount: import("@prisma/client-runtime-utils").Decimal;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
         net_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -46,11 +46,11 @@ export declare class InvoiceController {
         clinic_id: string;
         branch_id: string;
         patient_id: string;
-        total_amount: import("@prisma/client-runtime-utils").Decimal;
         dentist_id: string | null;
         created_by_user_id: string | null;
         treatment_date: Date | null;
         invoice_number: string;
+        total_amount: import("@prisma/client-runtime-utils").Decimal;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
         net_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -209,26 +209,6 @@ export declare class InvoiceController {
             unit_price: import("@prisma/client-runtime-utils").Decimal;
             total_price: import("@prisma/client-runtime-utils").Decimal;
         })[];
-        payments: ({
-            installment_item: {
-                id: string;
-                status: string;
-                created_at: Date;
-                amount: import("@prisma/client-runtime-utils").Decimal;
-                due_date: Date;
-                paid_at: Date | null;
-                installment_plan_id: string;
-                installment_number: number;
-            } | null;
-        } & {
-            id: string;
-            amount: import("@prisma/client-runtime-utils").Decimal;
-            method: string;
-            notes: string | null;
-            paid_at: Date;
-            invoice_id: string;
-            installment_item_id: string | null;
-        })[];
         created_by: {
             id: string;
             email: string;
@@ -247,13 +227,33 @@ export declare class InvoiceController {
             profile_photo_url: string | null;
             branch_id: string | null;
         } | null;
+        payments: ({
+            installment_item: {
+                id: string;
+                status: string;
+                created_at: Date;
+                amount: import("@prisma/client-runtime-utils").Decimal;
+                due_date: Date;
+                paid_at: Date | null;
+                installment_plan_id: string;
+                installment_number: number;
+            } | null;
+        } & {
+            id: string;
+            amount: import("@prisma/client-runtime-utils").Decimal;
+            method: string;
+            notes: string | null;
+            invoice_id: string;
+            installment_item_id: string | null;
+            paid_at: Date;
+        })[];
         refunds: {
             id: string;
             clinic_id: string;
             amount: import("@prisma/client-runtime-utils").Decimal;
             method: string;
-            reason: string | null;
             invoice_id: string;
+            reason: string | null;
             payment_id: string | null;
             refunded_at: Date;
             refunded_by_user_id: string | null;
@@ -274,8 +274,8 @@ export declare class InvoiceController {
             created_at: Date;
             updated_at: Date;
             notes: string | null;
-            invoice_id: string;
             total_amount: import("@prisma/client-runtime-utils").Decimal;
+            invoice_id: string;
             num_installments: number;
         }) | null;
     } & {
@@ -286,11 +286,11 @@ export declare class InvoiceController {
         clinic_id: string;
         branch_id: string;
         patient_id: string;
-        total_amount: import("@prisma/client-runtime-utils").Decimal;
         dentist_id: string | null;
         created_by_user_id: string | null;
         treatment_date: Date | null;
         invoice_number: string;
+        total_amount: import("@prisma/client-runtime-utils").Decimal;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
         net_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -311,11 +311,11 @@ export declare class InvoiceController {
         clinic_id: string;
         branch_id: string;
         patient_id: string;
-        total_amount: import("@prisma/client-runtime-utils").Decimal;
         dentist_id: string | null;
         created_by_user_id: string | null;
         treatment_date: Date | null;
         invoice_number: string;
+        total_amount: import("@prisma/client-runtime-utils").Decimal;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
         net_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -336,11 +336,11 @@ export declare class InvoiceController {
         clinic_id: string;
         branch_id: string;
         patient_id: string;
-        total_amount: import("@prisma/client-runtime-utils").Decimal;
         dentist_id: string | null;
         created_by_user_id: string | null;
         treatment_date: Date | null;
         invoice_number: string;
+        total_amount: import("@prisma/client-runtime-utils").Decimal;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
         net_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -361,11 +361,11 @@ export declare class InvoiceController {
         clinic_id: string;
         branch_id: string;
         patient_id: string;
-        total_amount: import("@prisma/client-runtime-utils").Decimal;
         dentist_id: string | null;
         created_by_user_id: string | null;
         treatment_date: Date | null;
         invoice_number: string;
+        total_amount: import("@prisma/client-runtime-utils").Decimal;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
         net_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -383,17 +383,17 @@ export declare class InvoiceController {
         amount: import("@prisma/client-runtime-utils").Decimal;
         method: string;
         notes: string | null;
-        paid_at: Date;
         invoice_id: string;
         installment_item_id: string | null;
+        paid_at: Date;
     }>;
     createRefund(clinicId: string, user: JwtPayload, id: string, dto: CreateRefundDto): Promise<{
         id: string;
         clinic_id: string;
         amount: import("@prisma/client-runtime-utils").Decimal;
         method: string;
-        reason: string | null;
         invoice_id: string;
+        reason: string | null;
         payment_id: string | null;
         refunded_at: Date;
         refunded_by_user_id: string | null;
@@ -414,8 +414,8 @@ export declare class InvoiceController {
         created_at: Date;
         updated_at: Date;
         notes: string | null;
-        invoice_id: string;
         total_amount: import("@prisma/client-runtime-utils").Decimal;
+        invoice_id: string;
         num_installments: number;
     }>;
     deleteInstallmentPlan(clinicId: string, id: string): Promise<{

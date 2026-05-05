@@ -23,6 +23,7 @@ const current_super_admin_decorator_js_1 = require("../../common/decorators/curr
 const super_admin_service_js_1 = require("./super-admin.service.js");
 const super_admin_auth_service_js_1 = require("./super-admin-auth.service.js");
 const super_admin_whatsapp_service_js_1 = require("./super-admin-whatsapp.service.js");
+const daily_summary_cron_js_1 = require("../reports/daily-summary.cron.js");
 const index_js_1 = require("./dto/index.js");
 const clinic_service_js_1 = require("../clinic/clinic.service.js");
 const index_js_2 = require("../clinic/dto/index.js");
@@ -44,7 +45,8 @@ let SuperAdminController = class SuperAdminController {
     branchService;
     whatsAppService;
     aiUsageService;
-    constructor(superAdminService, superAdminAuthService, clinicService, communicationService, automationService, branchService, whatsAppService, aiUsageService) {
+    dailySummaryCron;
+    constructor(superAdminService, superAdminAuthService, clinicService, communicationService, automationService, branchService, whatsAppService, aiUsageService, dailySummaryCron) {
         this.superAdminService = superAdminService;
         this.superAdminAuthService = superAdminAuthService;
         this.clinicService = clinicService;
@@ -53,6 +55,7 @@ let SuperAdminController = class SuperAdminController {
         this.branchService = branchService;
         this.whatsAppService = whatsAppService;
         this.aiUsageService = aiUsageService;
+        this.dailySummaryCron = dailySummaryCron;
     }
     async login(dto) {
         return this.superAdminAuthService.login(dto);
@@ -91,6 +94,10 @@ let SuperAdminController = class SuperAdminController {
     }
     async changePassword(admin, dto) {
         return this.superAdminService.changePassword(admin.id, dto.current_password, dto.new_password);
+    }
+    async triggerDailySummary() {
+        this.dailySummaryCron.sendDailySummaries().catch(() => undefined);
+        return { message: 'Daily summary dispatch started. Check server logs for delivery status.' };
     }
     async getAuditLogs(page, limit, clinicId, action) {
         return this.superAdminService.getAuditLogs({
@@ -324,6 +331,17 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "changePassword", null);
+__decorate([
+    (0, common_1.Post)('super-admins/daily-summary/trigger'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Manually trigger daily summary emails/WhatsApp (for testing)' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Daily summary dispatch started' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "triggerDailySummary", null);
 __decorate([
     (0, common_1.Get)('super-admins/audit-logs'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),
@@ -617,6 +635,7 @@ exports.SuperAdminController = SuperAdminController = __decorate([
         automation_service_js_1.AutomationService,
         branch_service_js_1.BranchService,
         super_admin_whatsapp_service_js_1.SuperAdminWhatsAppService,
-        ai_usage_service_js_1.AiUsageService])
+        ai_usage_service_js_1.AiUsageService,
+        daily_summary_cron_js_1.DailySummaryCronService])
 ], SuperAdminController);
 //# sourceMappingURL=super-admin.controller.js.map

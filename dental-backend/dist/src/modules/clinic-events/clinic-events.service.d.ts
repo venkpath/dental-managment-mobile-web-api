@@ -24,9 +24,9 @@ export declare class ClinicEventsService {
         clinic_id: string | null;
         offer_details: import("@prisma/client/runtime/client").JsonValue | null;
         template_id: string | null;
+        is_recurring: boolean;
         event_name: string;
         event_date: Date;
-        is_recurring: boolean;
         send_offer: boolean;
         occasion_message: string | null;
     })[]>;
@@ -38,9 +38,9 @@ export declare class ClinicEventsService {
         clinic_id: string | null;
         offer_details: import("@prisma/client/runtime/client").JsonValue | null;
         template_id: string | null;
+        is_recurring: boolean;
         event_name: string;
         event_date: Date;
-        is_recurring: boolean;
         send_offer: boolean;
         occasion_message: string | null;
     }>;
@@ -52,9 +52,9 @@ export declare class ClinicEventsService {
         clinic_id: string | null;
         offer_details: import("@prisma/client/runtime/client").JsonValue | null;
         template_id: string | null;
+        is_recurring: boolean;
         event_name: string;
         event_date: Date;
-        is_recurring: boolean;
         send_offer: boolean;
         occasion_message: string | null;
     }>;
@@ -66,9 +66,9 @@ export declare class ClinicEventsService {
         clinic_id: string | null;
         offer_details: import("@prisma/client/runtime/client").JsonValue | null;
         template_id: string | null;
+        is_recurring: boolean;
         event_name: string;
         event_date: Date;
-        is_recurring: boolean;
         send_offer: boolean;
         occasion_message: string | null;
     }>;
@@ -80,9 +80,9 @@ export declare class ClinicEventsService {
         clinic_id: string | null;
         offer_details: import("@prisma/client/runtime/client").JsonValue | null;
         template_id: string | null;
+        is_recurring: boolean;
         event_name: string;
         event_date: Date;
-        is_recurring: boolean;
         send_offer: boolean;
         occasion_message: string | null;
     }[]>;

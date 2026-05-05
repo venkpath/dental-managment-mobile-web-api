@@ -75,13 +75,13 @@ export declare class AiController {
             updated_at: Date;
             clinic_id: string;
             notes: string | null;
+            paid_at: Date | null;
             cycle_start: Date;
             cycle_end: Date;
             base_quota: number;
             overage_requests_count: number;
             approved_requests_count: number;
             total_cost_inr: import("@prisma/client-runtime-utils").Decimal;
-            paid_at: Date | null;
             paid_by_super_admin_id: string | null;
             payment_reference: string | null;
         } | null;

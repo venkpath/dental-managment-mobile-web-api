@@ -388,6 +388,7 @@ export declare class CommunicationService {
     private getRecipient;
     private createSkippedMessage;
     private timeToMinutes;
+    initClinicProviders(clinicId: string): Promise<void>;
     private ensureProvidersConfigured;
     private loadAndConfigureProviders;
     private configureProviders;

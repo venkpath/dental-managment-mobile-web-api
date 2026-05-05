@@ -1,6 +1,7 @@
 import { SuperAdminService } from './super-admin.service.js';
 import { SuperAdminAuthService } from './super-admin-auth.service.js';
 import { SuperAdminWhatsAppService } from './super-admin-whatsapp.service.js';
+import { DailySummaryCronService } from '../reports/daily-summary.cron.js';
 import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto, UpdateClinicLimitsDto } from './dto/index.js';
 import { ClinicService } from '../clinic/clinic.service.js';
 import { UpdateSubscriptionDto } from '../clinic/dto/index.js';
@@ -22,7 +23,8 @@ export declare class SuperAdminController {
     private readonly branchService;
     private readonly whatsAppService;
     private readonly aiUsageService;
-    constructor(superAdminService: SuperAdminService, superAdminAuthService: SuperAdminAuthService, clinicService: ClinicService, communicationService: CommunicationService, automationService: AutomationService, branchService: BranchService, whatsAppService: SuperAdminWhatsAppService, aiUsageService: AiUsageService);
+    private readonly dailySummaryCron;
+    constructor(superAdminService: SuperAdminService, superAdminAuthService: SuperAdminAuthService, clinicService: ClinicService, communicationService: CommunicationService, automationService: AutomationService, branchService: BranchService, whatsAppService: SuperAdminWhatsAppService, aiUsageService: AiUsageService, dailySummaryCron: DailySummaryCronService);
     login(dto: LoginSuperAdminDto): Promise<import("./super-admin-auth.service.js").SuperAdminLoginResponse>;
     create(dto: CreateSuperAdminDto): Promise<Omit<{
         id: string;
@@ -379,6 +381,9 @@ export declare class SuperAdminController {
         current_password: string;
         new_password: string;
     }): Promise<{
+        message: string;
+    }>;
+    triggerDailySummary(): Promise<{
         message: string;
     }>;
     getAuditLogs(page?: string, limit?: string, clinicId?: string, action?: string): Promise<{
@@ -784,13 +789,13 @@ export declare class SuperAdminController {
         updated_at: Date;
         clinic_id: string;
         notes: string | null;
+        paid_at: Date | null;
         cycle_start: Date;
         cycle_end: Date;
         base_quota: number;
         overage_requests_count: number;
         approved_requests_count: number;
         total_cost_inr: import("@prisma/client-runtime-utils").Decimal;
-        paid_at: Date | null;
         paid_by_super_admin_id: string | null;
         payment_reference: string | null;
     })[]>;
@@ -806,13 +811,13 @@ export declare class SuperAdminController {
         updated_at: Date;
         clinic_id: string;
         notes: string | null;
+        paid_at: Date | null;
         cycle_start: Date;
         cycle_end: Date;
         base_quota: number;
         overage_requests_count: number;
         approved_requests_count: number;
         total_cost_inr: import("@prisma/client-runtime-utils").Decimal;
-        paid_at: Date | null;
         paid_by_super_admin_id: string | null;
         payment_reference: string | null;
     }>;
@@ -827,13 +832,13 @@ export declare class SuperAdminController {
         updated_at: Date;
         clinic_id: string;
         notes: string | null;
+        paid_at: Date | null;
         cycle_start: Date;
         cycle_end: Date;
         base_quota: number;
         overage_requests_count: number;
         approved_requests_count: number;
         total_cost_inr: import("@prisma/client-runtime-utils").Decimal;
-        paid_at: Date | null;
         paid_by_super_admin_id: string | null;
         payment_reference: string | null;
     }>;

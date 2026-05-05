@@ -22,6 +22,7 @@ const prisma_service_js_1 = require("../../database/prisma.service.js");
 const reports_service_js_1 = require("./reports.service.js");
 const email_provider_js_1 = require("../communication/providers/email.provider.js");
 const whatsapp_provider_js_1 = require("../communication/providers/whatsapp.provider.js");
+const communication_service_js_1 = require("../communication/communication.service.js");
 const PLATFORM_CLINIC_ID = '__platform__';
 exports.DAILY_SUMMARY_WA_TEMPLATE = 'daily_clinic_summary';
 const NEW_CLINIC_DAYS = 7;
@@ -30,14 +31,16 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
     reportsService;
     emailProvider;
     whatsAppProvider;
+    communicationService;
     config;
     logger = new common_1.Logger(DailySummaryCronService_1.name);
     openai;
-    constructor(prisma, reportsService, emailProvider, whatsAppProvider, config) {
+    constructor(prisma, reportsService, emailProvider, whatsAppProvider, communicationService, config) {
         this.prisma = prisma;
         this.reportsService = reportsService;
         this.emailProvider = emailProvider;
         this.whatsAppProvider = whatsAppProvider;
+        this.communicationService = communicationService;
         this.config = config;
         const apiKey = this.config.get('OPENAI_API_KEY');
         this.openai = apiKey ? new openai_1.default({ apiKey }) : null;
@@ -137,6 +140,8 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
                                 this.logger.warn(`Email failed for ${recipient.email}: ${err.message}`);
                             }
                         }
+                        if (recipient.phone)
+                            await this.communicationService.initClinicProviders(clinic.id);
                         if (recipient.phone && this.whatsAppProvider.isConfigured(clinic.id)) {
                             try {
                                 const waResult = await this.whatsAppProvider.send({
@@ -417,6 +422,7 @@ exports.DailySummaryCronService = DailySummaryCronService = DailySummaryCronServ
         reports_service_js_1.ReportsService,
         email_provider_js_1.EmailProvider,
         whatsapp_provider_js_1.WhatsAppProvider,
+        communication_service_js_1.CommunicationService,
         config_1.ConfigService])
 ], DailySummaryCronService);
 //# sourceMappingURL=daily-summary.cron.js.map

@@ -7,6 +7,7 @@ import { CurrentSuperAdmin } from '../../common/decorators/current-super-admin.d
 import { SuperAdminService } from './super-admin.service.js';
 import { SuperAdminAuthService } from './super-admin-auth.service.js';
 import { SuperAdminWhatsAppService } from './super-admin-whatsapp.service.js';
+import { DailySummaryCronService } from '../reports/daily-summary.cron.js';
 import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto, UpdateClinicLimitsDto } from './dto/index.js';
 import { ClinicService } from '../clinic/clinic.service.js';
 import { UpdateSubscriptionDto } from '../clinic/dto/index.js';
@@ -32,6 +33,7 @@ export class SuperAdminController {
     private readonly branchService: BranchService,
     private readonly whatsAppService: SuperAdminWhatsAppService,
     private readonly aiUsageService: AiUsageService,
+    private readonly dailySummaryCron: DailySummaryCronService,
   ) {}
 
   // ─── Auth ───
@@ -149,6 +151,19 @@ export class SuperAdminController {
     @Body() dto: { current_password: string; new_password: string },
   ) {
     return this.superAdminService.changePassword(admin.id, dto.current_password, dto.new_password);
+  }
+
+  // ─── Daily Summary Manual Trigger ───
+
+  @Post('super-admins/daily-summary/trigger')
+  @SuperAdmin()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Manually trigger daily summary emails/WhatsApp (for testing)' })
+  @ApiOkResponse({ description: 'Daily summary dispatch started' })
+  async triggerDailySummary() {
+    // Fire-and-forget — returns immediately, runs in background
+    this.dailySummaryCron.sendDailySummaries().catch(() => undefined);
+    return { message: 'Daily summary dispatch started. Check server logs for delivery status.' };
   }
 
   // ─── Audit Log ───
