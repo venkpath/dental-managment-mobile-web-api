@@ -247,6 +247,7 @@ export declare class SuperAdminService {
         plan_id?: string;
         billing_cycle?: 'monthly' | 'yearly';
         has_own_waba?: boolean;
+        is_doctor?: boolean;
     }): Promise<{
         clinic: {
             id: string;

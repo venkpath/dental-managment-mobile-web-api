@@ -26,6 +26,7 @@ const userSelect = {
     status: true,
     email_verified: true,
     phone_verified: true,
+    is_doctor: true,
     license_number: true,
     signature_url: true,
     profile_photo_url: true,
@@ -154,14 +155,23 @@ let UserService = class UserService {
         const where = { clinic_id: clinicId };
         if (role) {
             const roles = role.split(',').map((r) => r.trim()).filter(Boolean);
-            where.role = roles.length > 1 ? { in: roles } : roles[0];
+            const isDoctorQuery = roles.some((r) => r.toLowerCase() === 'dentist' || r.toLowerCase() === 'consultant');
+            if (isDoctorQuery) {
+                where.AND = [
+                    ...(where.AND ?? []),
+                    { OR: [{ role: roles.length > 1 ? { in: roles } : roles[0] }, { is_doctor: true }] },
+                ];
+            }
+            else {
+                where.role = roles.length > 1 ? { in: roles } : roles[0];
+            }
         }
         if (branchId)
             where.branch_id = branchId;
         if (search) {
-            where.OR = [
-                { name: { contains: search, mode: 'insensitive' } },
-                { email: { contains: search, mode: 'insensitive' } },
+            where.AND = [
+                ...(where.AND ?? []),
+                { OR: [{ name: { contains: search, mode: 'insensitive' } }, { email: { contains: search, mode: 'insensitive' } }] },
             ];
         }
         const users = await this.prisma.user.findMany({

@@ -28,8 +28,9 @@ class OnboardClinicDto {
     plan_id;
     billing_cycle;
     has_own_waba;
+    is_doctor;
     static _OPENAPI_METADATA_FACTORY() {
-        return { clinic_name: { required: true, type: () => String, maxLength: 255 }, clinic_email: { required: true, type: () => String, maxLength: 255, format: "email" }, clinic_phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, admin_name: { required: true, type: () => String, maxLength: 255 }, admin_email: { required: true, type: () => String, maxLength: 255, format: "email" }, admin_phone: { required: true, type: () => String, pattern: "/^\\+[1-9]\\d{6,14}$/" }, admin_password: { required: true, type: () => String, minLength: 8 }, plan_id: { required: false, type: () => String, format: "uuid" }, billing_cycle: { required: false, type: () => Object, enum: ['monthly', 'yearly'] }, has_own_waba: { required: false, type: () => Boolean } };
+        return { clinic_name: { required: true, type: () => String, maxLength: 255 }, clinic_email: { required: true, type: () => String, maxLength: 255, format: "email" }, clinic_phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, admin_name: { required: true, type: () => String, maxLength: 255 }, admin_email: { required: true, type: () => String, maxLength: 255, format: "email" }, admin_phone: { required: true, type: () => String, pattern: "/^\\+[1-9]\\d{6,14}$/" }, admin_password: { required: true, type: () => String, minLength: 8 }, plan_id: { required: false, type: () => String, format: "uuid" }, billing_cycle: { required: false, type: () => Object, enum: ['monthly', 'yearly'] }, has_own_waba: { required: false, type: () => Boolean }, is_doctor: { required: false, type: () => Boolean } };
     }
 }
 exports.OnboardClinicDto = OnboardClinicDto;
@@ -128,4 +129,10 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], OnboardClinicDto.prototype, "has_own_waba", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: false, description: 'Set to true if the admin is also a practicing dentist — they will appear in doctor dropdowns.' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], OnboardClinicDto.prototype, "is_doctor", void 0);
 //# sourceMappingURL=onboard-clinic.dto.js.map

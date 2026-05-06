@@ -13,6 +13,7 @@ export declare class CreateUserDto {
     password?: string;
     phone?: string;
     role: UserRole;
+    is_doctor?: boolean;
     license_number?: string;
     signature_url?: string;
 }

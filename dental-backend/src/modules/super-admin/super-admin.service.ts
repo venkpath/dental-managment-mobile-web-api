@@ -204,6 +204,7 @@ export class SuperAdminService {
     plan_id?: string;
     billing_cycle?: 'monthly' | 'yearly';
     has_own_waba?: boolean;
+    is_doctor?: boolean;
   }) {
     const existingClinic = await this.prisma.clinic.findFirst({
       where: { email: dto.clinic_email },
@@ -260,6 +261,7 @@ export class SuperAdminService {
           phone: dto.admin_phone,
           password_hash: passwordHash,
           role: 'SuperAdmin',
+          is_doctor: dto.is_doctor ?? false,
           clinic_id: clinic.id,
           branch_id: branch.id,
         },

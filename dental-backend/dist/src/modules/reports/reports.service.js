@@ -276,7 +276,7 @@ let ReportsService = class ReportsService {
         ) AS revenue_generated
       FROM users u
       WHERE u.clinic_id = ${clinicId}::uuid
-        AND u.role IN ('Dentist', 'Consultant')
+        AND (u.role IN ('Dentist', 'Consultant') OR u.is_doctor = true)
         AND u.status = 'active'
         ${dentistFilter ? client_1.Prisma.sql `AND u.id = ${dentistFilter}::uuid` : client_1.Prisma.empty}
         ${branchFilter ? client_1.Prisma.sql `AND (u.branch_id = ${branchFilter}::uuid OR u.branch_id IS NULL)` : client_1.Prisma.empty}

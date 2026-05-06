@@ -485,7 +485,7 @@ let AiService = AiService_1 = class AiService {
                 take: 10,
             }),
             this.prisma.user.findMany({
-                where: { clinic_id: clinicId, role: { in: ['Dentist', 'Consultant'] } },
+                where: { clinic_id: clinicId, OR: [{ role: { in: ['Dentist', 'Consultant'] } }, { is_doctor: true }] },
                 select: {
                     name: true,
                     appointments: {

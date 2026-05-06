@@ -13,4 +13,5 @@ export declare class OnboardClinicDto {
     plan_id?: string;
     billing_cycle?: 'monthly' | 'yearly';
     has_own_waba?: boolean;
+    is_doctor?: boolean;
 }

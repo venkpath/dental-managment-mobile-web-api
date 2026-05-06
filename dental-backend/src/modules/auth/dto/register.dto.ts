@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsOptional, MaxLength, MinLength, IsIn, Matches } from 'class-validator';
+import { IsEmail, IsString, IsOptional, IsBoolean, MaxLength, MinLength, IsIn, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RegisterClinicDto {
@@ -61,6 +61,11 @@ export class RegisterClinicDto {
   @IsString()
   @MinLength(8)
   admin_password!: string;
+
+  @ApiPropertyOptional({ description: 'Set to true if the registering admin is also a practicing dentist — they will appear in doctor dropdowns', example: false })
+  @IsOptional()
+  @IsBoolean()
+  is_doctor?: boolean;
 
   @ApiPropertyOptional({ example: 'starter', description: 'Plan key: free, starter, professional, enterprise. Defaults to trial.' })
   @IsOptional()

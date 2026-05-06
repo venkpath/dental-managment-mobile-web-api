@@ -82,4 +82,9 @@ export class OnboardClinicDto {
   @IsOptional()
   @IsBoolean()
   has_own_waba?: boolean;
+
+  @ApiPropertyOptional({ example: false, description: 'Set to true if the admin is also a practicing dentist — they will appear in doctor dropdowns.' })
+  @IsOptional()
+  @IsBoolean()
+  is_doctor?: boolean;
 }

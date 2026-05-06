@@ -29,10 +29,11 @@ class CreateUserDto {
     password;
     phone;
     role;
+    is_doctor;
     license_number;
     signature_url;
     static _OPENAPI_METADATA_FACTORY() {
-        return { branch_id: { required: false, type: () => String, format: "uuid" }, name: { required: true, type: () => String, maxLength: 255 }, email: { required: true, type: () => String, maxLength: 255, format: "email" }, password: { required: false, type: () => String, minLength: 8 }, phone: { required: false, type: () => String, maxLength: 20 }, role: { required: true, enum: require("./create-user.dto").UserRole }, license_number: { required: false, type: () => String, maxLength: 100 }, signature_url: { required: false, type: () => String, maxLength: 500 } };
+        return { branch_id: { required: false, type: () => String, format: "uuid" }, name: { required: true, type: () => String, maxLength: 255 }, email: { required: true, type: () => String, maxLength: 255, format: "email" }, password: { required: false, type: () => String, minLength: 8 }, phone: { required: false, type: () => String, maxLength: 20 }, role: { required: true, enum: require("./create-user.dto").UserRole }, is_doctor: { required: false, type: () => Boolean }, license_number: { required: false, type: () => String, maxLength: 100 }, signature_url: { required: false, type: () => String, maxLength: 500 } };
     }
 }
 exports.CreateUserDto = CreateUserDto;
@@ -73,6 +74,12 @@ __decorate([
     (0, class_validator_1.IsEnum)(UserRole),
     __metadata("design:type", String)
 ], CreateUserDto.prototype, "role", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Mark as doctor regardless of role — appears in doctor dropdowns and receives dentist reminders', example: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CreateUserDto.prototype, "is_doctor", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 'KDC-12345', description: 'Doctor registration / license number printed on prescription PDFs', maxLength: 100 }),
     (0, class_validator_1.IsOptional)(),

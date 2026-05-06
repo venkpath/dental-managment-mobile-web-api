@@ -260,6 +260,7 @@ model User {
   phone_verified    Boolean  @default(false)
   // Doctor-specific (optional). Printed on prescription PDFs:
   // signature_url is an S3 key for an uploaded signature image.
+  is_doctor         Boolean  @default(false)
   license_number    String?  @db.VarChar(100)
   signature_url     String?  @db.VarChar(500)
   // S3 key for the staff member's profile photo (private; served via presigned URL).

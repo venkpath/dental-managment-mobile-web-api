@@ -138,6 +138,7 @@ export declare class InvoiceController {
             role: string;
             email_verified: boolean;
             phone_verified: boolean;
+            is_doctor: boolean;
             license_number: string | null;
             signature_url: string | null;
             profile_photo_url: string | null;
@@ -178,6 +179,7 @@ export declare class InvoiceController {
                     role: string;
                     email_verified: boolean;
                     phone_verified: boolean;
+                    is_doctor: boolean;
                     license_number: string | null;
                     signature_url: string | null;
                     profile_photo_url: string | null;
@@ -223,6 +225,7 @@ export declare class InvoiceController {
             role: string;
             email_verified: boolean;
             phone_verified: boolean;
+            is_doctor: boolean;
             license_number: string | null;
             signature_url: string | null;
             profile_photo_url: string | null;

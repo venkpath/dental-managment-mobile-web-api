@@ -213,6 +213,7 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
                     phone: dto.admin_phone,
                     password_hash: passwordHash,
                     role: 'SuperAdmin',
+                    is_doctor: dto.is_doctor ?? false,
                     clinic_id: clinic.id,
                     branch_id: branch.id,
                 },

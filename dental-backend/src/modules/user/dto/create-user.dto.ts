@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsUUID, IsOptional, IsEnum, MaxLength, MinLength } from 'class-validator';
+import { IsString, IsEmail, IsUUID, IsOptional, IsEnum, IsBoolean, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum UserRole {
@@ -41,6 +41,11 @@ export class CreateUserDto {
   @ApiProperty({ enum: UserRole, example: UserRole.DENTIST })
   @IsEnum(UserRole)
   role!: UserRole;
+
+  @ApiPropertyOptional({ description: 'Mark as doctor regardless of role — appears in doctor dropdowns and receives dentist reminders', example: false })
+  @IsOptional()
+  @IsBoolean()
+  is_doctor?: boolean;
 
   @ApiPropertyOptional({ example: 'KDC-12345', description: 'Doctor registration / license number printed on prescription PDFs', maxLength: 100 })
   @IsOptional()

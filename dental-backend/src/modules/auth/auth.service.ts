@@ -253,6 +253,7 @@ export class AuthService {
           phone: dto.admin_phone,
           password_hash: await this.passwordService.hash(dto.admin_password),
           role: 'SuperAdmin',
+          is_doctor: dto.is_doctor ?? false,
           status: 'active',
         },
         select: {

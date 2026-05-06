@@ -404,7 +404,7 @@ export class ReportsService {
         ) AS revenue_generated
       FROM users u
       WHERE u.clinic_id = ${clinicId}::uuid
-        AND u.role IN ('Dentist', 'Consultant')
+        AND (u.role IN ('Dentist', 'Consultant') OR u.is_doctor = true)
         AND u.status = 'active'
         ${dentistFilter ? Prisma.sql`AND u.id = ${dentistFilter}::uuid` : Prisma.empty}
         ${branchFilter ? Prisma.sql`AND (u.branch_id = ${branchFilter}::uuid OR u.branch_id IS NULL)` : Prisma.empty}
