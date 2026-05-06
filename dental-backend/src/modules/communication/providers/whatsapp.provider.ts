@@ -102,21 +102,19 @@ export class WhatsAppProvider implements ChannelProvider {
 
     try {
       const { config } = ctx;
-      // Strip non-numeric chars, then ensure Indian country code (91) is prefixed.
-      // Patients are stored as 10-digit numbers (e.g. 9876543210) but Meta requires
-      // full international format without + (e.g. 919876543210).
-      let destination = options.to.replace(/[^0-9]/g, '');
-
-      // Indian phone normalization: Meta requires full international format without +
-      // Case 1: 10-digit number → prefix 91 (e.g. 9876543210 → 919876543210)
-      if (destination.length === 10) {
-        destination = '91' + destination;
+      // Normalise to Meta's required format: digits only, no + (e.g. 919876543210).
+      let destination: string;
+      if (options.to.startsWith('+')) {
+        // E.164 format — strip the + (e.g. +919876543210 → 919876543210)
+        destination = options.to.slice(1);
+      } else {
+        destination = options.to.replace(/[^0-9]/g, '');
+        if (destination.length === 10) {
+          destination = '91' + destination;
+        } else if (destination.length === 11 && destination.startsWith('0')) {
+          destination = '91' + destination.slice(1);
+        }
       }
-      // Case 2: 11-digit starting with 0 → strip 0, prefix 91 (e.g. 09876543210)
-      else if (destination.length === 11 && destination.startsWith('0')) {
-        destination = '91' + destination.slice(1);
-      }
-      // Case 3: 12-digit with 91 prefix already — no change needed
 
       // Determine message type based on options
       const interactiveButtons = options.metadata?.['interactive_buttons'] as WhatsAppInteractiveButton[] | undefined;
@@ -151,6 +149,7 @@ export class WhatsAppProvider implements ChannelProvider {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(messagePayload),
+        signal: AbortSignal.timeout(15000),
       });
 
       const data = await response.json() as Record<string, unknown>;
@@ -198,17 +197,8 @@ export class WhatsAppProvider implements ChannelProvider {
     }
 
     try {
-      // Meta requires numbered variables {{1}}, {{2}} — convert named vars like {{patient_name}} → {{1}}
       const varOrder: string[] = [];
-      const toNumbered = (text: string) =>
-        text.replace(/\{\{(\w+)\}\}/g, (_, name) => {
-          let idx = varOrder.indexOf(name);
-          if (idx === -1) { varOrder.push(name); idx = varOrder.length - 1; }
-          return `{{${idx + 1}}}`;
-        });
-
-      const metaBody = toNumbered(templateData.body);
-      // varOrder is now populated with all body variables in order
+      const metaBody = this.convertToNumberedVars(templateData.body, varOrder);
 
       // Use caller-supplied sample values (required by Meta to avoid rejection).
       // variableSamples is ordered to match body variables: index 0 = {{1}}, index 1 = {{2}}, etc.
@@ -217,7 +207,7 @@ export class WhatsAppProvider implements ChannelProvider {
 
       // Header variables tracked separately (header is converted after body, shares varOrder)
       const headerVarsBefore = varOrder.length;
-      const metaHeader = templateData.header ? toNumbered(templateData.header) : undefined;
+      const metaHeader = templateData.header ? this.convertToNumberedVars(templateData.header, varOrder) : undefined;
       const headerSamples = varOrder.slice(headerVarsBefore).map((_, idx) =>
         suppliedSamples[headerVarsBefore + idx] || `value${headerVarsBefore + idx + 1}`,
       );
@@ -248,6 +238,7 @@ export class WhatsAppProvider implements ChannelProvider {
           'Authorization': `Bearer ${config.accessToken}`,
           'Content-Type': 'application/json',
         },
+        signal: AbortSignal.timeout(15000),
         body: JSON.stringify({
           name: templateData.elementName,
           language: templateData.languageCode,
@@ -308,6 +299,7 @@ export class WhatsAppProvider implements ChannelProvider {
       while (url) {
         const response = await fetch(url, {
           headers: { 'Authorization': `Bearer ${config.accessToken}` },
+          signal: AbortSignal.timeout(15000),
         });
 
         const data = await response.json() as Record<string, unknown>;
@@ -357,6 +349,7 @@ export class WhatsAppProvider implements ChannelProvider {
         `${META_GRAPH_API}/${config.wabaId}/message_templates?name=${encodeURIComponent(templateName)}`,
         {
           headers: { 'Authorization': `Bearer ${config.accessToken}` },
+          signal: AbortSignal.timeout(15000),
         },
       );
 
@@ -392,6 +385,7 @@ export class WhatsAppProvider implements ChannelProvider {
         {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${config.accessToken}` },
+          signal: AbortSignal.timeout(15000),
         },
       );
 
@@ -424,21 +418,13 @@ export class WhatsAppProvider implements ChannelProvider {
     const { config } = ctx;
 
     try {
-      // Meta requires numbered variables — convert named vars
       const varOrder: string[] = [];
-      const toNumbered = (text: string) =>
-        text.replace(/\{\{(\w+)\}\}/g, (_, name) => {
-          let idx = varOrder.indexOf(name);
-          if (idx === -1) { varOrder.push(name); idx = varOrder.length - 1; }
-          return `{{${idx + 1}}}`;
-        });
-
       const components: Array<Record<string, unknown>> = [];
 
       if (templateData.header) {
-        components.push({ type: 'HEADER', format: 'TEXT', text: toNumbered(templateData.header) });
+        components.push({ type: 'HEADER', format: 'TEXT', text: this.convertToNumberedVars(templateData.header, varOrder) });
       }
-      components.push({ type: 'BODY', text: toNumbered(templateData.body) });
+      components.push({ type: 'BODY', text: this.convertToNumberedVars(templateData.body, varOrder) });
       if (templateData.footer) {
         components.push({ type: 'FOOTER', text: templateData.footer });
       }
@@ -455,6 +441,7 @@ export class WhatsAppProvider implements ChannelProvider {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000),
       });
 
       const data = await response.json() as Record<string, unknown>;
@@ -468,6 +455,18 @@ export class WhatsAppProvider implements ChannelProvider {
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
+  }
+
+  // ─── Private Helpers ───
+
+  /** Convert named template vars like {{patient_name}} → {{1}}, {{2}}, … (Meta format).
+   *  varOrder is mutated in-place so the caller can track which vars appeared. */
+  private convertToNumberedVars(text: string, varOrder: string[]): string {
+    return text.replace(/\{\{(\w+)\}\}/g, (_, name) => {
+      let idx = varOrder.indexOf(name);
+      if (idx === -1) { varOrder.push(name); idx = varOrder.length - 1; }
+      return `{{${idx + 1}}}`;
+    });
   }
 
   // ─── Private Payload Builders (Meta Cloud API format) ───
@@ -645,11 +644,16 @@ export class WhatsAppProvider implements ChannelProvider {
       return { success: false, error: 'WhatsApp not configured for this clinic' };
     }
 
-    let destination = to.replace(/[^0-9]/g, '');
-    if (destination.length === 10) {
-      destination = '91' + destination;
-    } else if (destination.length === 11 && destination.startsWith('0')) {
-      destination = '91' + destination.slice(1);
+    let destination: string;
+    if (to.startsWith('+')) {
+      destination = to.slice(1);
+    } else {
+      destination = to.replace(/[^0-9]/g, '');
+      if (destination.length === 10) {
+        destination = '91' + destination;
+      } else if (destination.length === 11 && destination.startsWith('0')) {
+        destination = '91' + destination.slice(1);
+      }
     }
 
     const payload = {

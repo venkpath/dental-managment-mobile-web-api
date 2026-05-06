@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Patch, Delete, Param, Query, HttpCode, HttpStatus, ParseUUIDPipe } from '@nestjs/common';
+import { Body, Controller, Get, Post, Patch, Delete, Param, Query, HttpCode, HttpStatus, ParseUUIDPipe, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiConflictResponse, ApiResponse } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../common/decorators/public.decorator.js';
@@ -24,6 +24,8 @@ import { UpdateBranchSchedulingDto } from '../branch/dto/update-branch-schedulin
 @ApiTags('Super Admin')
 @Controller()
 export class SuperAdminController {
+  private readonly logger = new Logger(SuperAdminController.name);
+
   constructor(
     private readonly superAdminService: SuperAdminService,
     private readonly superAdminAuthService: SuperAdminAuthService,
@@ -160,10 +162,12 @@ export class SuperAdminController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Manually trigger daily summary emails/WhatsApp (for testing)' })
   @ApiOkResponse({ description: 'Daily summary dispatch started' })
-  async triggerDailySummary() {
-    // Fire-and-forget — returns immediately, runs in background
-    this.dailySummaryCron.sendDailySummaries().catch(() => undefined);
-    return { message: 'Daily summary dispatch started. Check server logs for delivery status.' };
+  async triggerDailySummary(@Body() body?: { channels?: ('email' | 'whatsapp')[] }) {
+    const channels = body?.channels?.length ? body.channels : (['email', 'whatsapp'] as ('email' | 'whatsapp')[]);
+    this.dailySummaryCron.sendDailySummaries(channels).catch((e: Error) =>
+      this.logger.error(`Daily summary trigger failed: ${e.message}`),
+    );
+    return { message: `Daily summary dispatch started (${channels.join(' + ')}). Check server logs for delivery status.` };
   }
 
   // ─── Audit Log ───

@@ -76,6 +76,7 @@ export declare class WhatsAppProvider implements ChannelProvider {
         success: boolean;
         error?: string;
     }>;
+    private convertToNumberedVars;
     private buildTextPayload;
     private buildTemplatePayload;
     private buildInteractivePayload;

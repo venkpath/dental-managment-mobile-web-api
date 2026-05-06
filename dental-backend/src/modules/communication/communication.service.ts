@@ -505,13 +505,19 @@ export class CommunicationService {
   }
 
   async updateMessageStatus(messageId: string, status: string) {
-    return this.prisma.communicationMessage.update({
-      where: { id: messageId },
-      data: {
-        status,
-        sent_at: status === 'sent' ? new Date() : undefined,
-      },
-    });
+    try {
+      return await this.prisma.communicationMessage.update({
+        where: { id: messageId },
+        data: {
+          status,
+          sent_at: status === 'sent' ? new Date() : undefined,
+        },
+      });
+    } catch (err: unknown) {
+      // P2025 = record not found (e.g. system-level jobs with no pre-created DB record)
+      if ((err as { code?: string })?.code === 'P2025') return;
+      throw err;
+    }
   }
 
   // ─── Patient Preferences ───
@@ -1219,6 +1225,10 @@ export class CommunicationService {
    * to prevent race conditions where concurrent requests trigger duplicate
    * DB reads and configuration.
    */
+  async ensureClinicProviders(clinicId: string): Promise<void> {
+    return this.ensureProvidersConfigured(clinicId);
+  }
+
   private async ensureProvidersConfigured(clinicId: string): Promise<void> {
     // Fast path: already configured
     if (this.emailProvider.isConfigured(clinicId) &&

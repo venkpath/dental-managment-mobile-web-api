@@ -15,6 +15,7 @@ var DailySummaryCronService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DailySummaryCronService = exports.DAILY_SUMMARY_WA_TEMPLATE = void 0;
 const common_1 = require("@nestjs/common");
+const crypto_1 = require("crypto");
 const schedule_1 = require("@nestjs/schedule");
 const config_1 = require("@nestjs/config");
 const openai_1 = __importDefault(require("openai"));
@@ -60,9 +61,11 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
         }
         return false;
     }
-    async sendDailySummaries() {
-        this.logger.log('Starting daily summary cron...');
-        const emailReady = this.ensureEmailConfigured();
+    async sendDailySummaries(channels = ['email', 'whatsapp']) {
+        this.logger.log(`Starting daily summary cron... channels: ${channels.join(', ')}`);
+        const sendEmail = channels.includes('email');
+        const sendWhatsApp = channels.includes('whatsapp');
+        const emailReady = sendEmail && this.ensureEmailConfigured();
         const now = new Date();
         const pad = (n) => String(n).padStart(2, '0');
         const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
@@ -117,7 +120,7 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
                     const statsLine = `Yesterday: ${summary.today_appointments} appointments, ${currency(summary.today_revenue)} revenue | Today: ${todayAppointments} scheduled`;
                     const financeLine = `Outstanding: ${currency(summary.outstanding_amount)} · Month revenue: ${currency(summary.this_month_revenue)} · Expenses: ${currency(summary.this_month_expenses)} · Net profit: ${currency(summary.net_profit)}`;
                     for (const recipient of recipients) {
-                        if (emailReady && recipient.email) {
+                        if (sendEmail && emailReady && recipient.email) {
                             try {
                                 const html = this.buildEmailHtml(clinic.name, recipient.name, summary, todayAppointments, yesterdayLabel, aiInsight, clinicAgeDays);
                                 await this.emailProvider.send({
@@ -137,10 +140,10 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
                                 this.logger.warn(`Email failed for ${recipient.email}: ${err.message}`);
                             }
                         }
-                        if (recipient.phone) {
+                        if (sendWhatsApp && recipient.phone) {
                             try {
                                 await this.communicationProducer.enqueue({
-                                    messageId: `daily-summary-${clinic.id}-${recipient.phone}-${Date.now()}`,
+                                    messageId: (0, crypto_1.randomUUID)(),
                                     clinicId: clinic.id,
                                     channel: 'whatsapp',
                                     to: recipient.phone,
@@ -406,7 +409,7 @@ exports.DailySummaryCronService = DailySummaryCronService;
 __decorate([
     (0, schedule_1.Cron)('0 0 8 * * *', { timeZone: 'Asia/Kolkata' }),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Array]),
     __metadata("design:returntype", Promise)
 ], DailySummaryCronService.prototype, "sendDailySummaries", null);
 exports.DailySummaryCronService = DailySummaryCronService = DailySummaryCronService_1 = __decorate([

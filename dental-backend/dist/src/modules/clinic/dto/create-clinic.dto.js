@@ -24,8 +24,9 @@ class CreateClinicDto {
     pincode;
     logo_url;
     currency_code;
+    default_phone_country;
     static _OPENAPI_METADATA_FACTORY() {
-        return { name: { required: true, type: () => String, maxLength: 255 }, email: { required: true, type: () => String, maxLength: 255, format: "email" }, phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, pincode: { required: false, type: () => String, maxLength: 10 }, logo_url: { required: false, type: () => String }, currency_code: { required: false, type: () => String, maxLength: 10 } };
+        return { name: { required: true, type: () => String, maxLength: 255 }, email: { required: true, type: () => String, maxLength: 255, format: "email" }, phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, pincode: { required: false, type: () => String, maxLength: 10 }, logo_url: { required: false, type: () => String }, currency_code: { required: false, type: () => String, maxLength: 10 }, default_phone_country: { required: false, type: () => String, pattern: "/^[a-z]{2}$/" } };
     }
 }
 exports.CreateClinicDto = CreateClinicDto;
@@ -96,4 +97,10 @@ __decorate([
     (0, class_validator_1.MaxLength)(10),
     __metadata("design:type", String)
 ], CreateClinicDto.prototype, "currency_code", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Default phone country ISO2 code (e.g. in, us, gb)', example: 'in' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.Matches)(/^[a-z]{2}$/, { message: 'Must be a lowercase ISO 3166-1 alpha-2 code (e.g. in, us, gb)' }),
+    __metadata("design:type", String)
+], CreateClinicDto.prototype, "default_phone_country", void 0);
 //# sourceMappingURL=create-clinic.dto.js.map

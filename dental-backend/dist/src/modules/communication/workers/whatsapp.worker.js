@@ -65,7 +65,6 @@ let WhatsAppWorker = WhatsAppWorker_1 = class WhatsAppWorker extends bullmq_1.Wo
                         error_message: result.error,
                     }),
                 ]);
-                this.logger.warn(`WhatsApp failed: ${messageId} → ${to}: ${result.error}`);
                 throw new Error(result.error);
             }
         }

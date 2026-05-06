@@ -28,7 +28,7 @@ class RegisterClinicDto {
     plan_key;
     billing_cycle;
     static _OPENAPI_METADATA_FACTORY() {
-        return { clinic_name: { required: true, type: () => String, maxLength: 255 }, clinic_email: { required: true, type: () => String, maxLength: 255, format: "email" }, clinic_phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, admin_name: { required: true, type: () => String, maxLength: 255 }, admin_email: { required: true, type: () => String, maxLength: 255, format: "email" }, admin_phone: { required: true, type: () => String, pattern: "/^[6-9]\\d{9}$/" }, admin_password: { required: true, type: () => String, minLength: 8 }, plan_key: { required: false, type: () => String, maxLength: 50 }, billing_cycle: { required: false, type: () => Object, enum: ['monthly', 'yearly'] } };
+        return { clinic_name: { required: true, type: () => String, maxLength: 255 }, clinic_email: { required: true, type: () => String, maxLength: 255, format: "email" }, clinic_phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, admin_name: { required: true, type: () => String, maxLength: 255 }, admin_email: { required: true, type: () => String, maxLength: 255, format: "email" }, admin_phone: { required: true, type: () => String, pattern: "/^\\+[1-9]\\d{6,14}$/" }, admin_password: { required: true, type: () => String, minLength: 8 }, plan_key: { required: false, type: () => String, maxLength: 50 }, billing_cycle: { required: false, type: () => Object, enum: ['monthly', 'yearly'] } };
     }
 }
 exports.RegisterClinicDto = RegisterClinicDto;
@@ -92,9 +92,9 @@ __decorate([
     __metadata("design:type", String)
 ], RegisterClinicDto.prototype, "admin_email", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '9876543210', description: 'Admin mobile number (10 digits, used for WhatsApp)' }),
+    (0, swagger_1.ApiProperty)({ example: '+919876543210', description: 'Admin mobile in E.164 format (used for WhatsApp)' }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Matches)(/^[6-9]\d{9}$/, { message: 'Enter a valid 10-digit Indian mobile number' }),
+    (0, class_validator_1.Matches)(/^\+[1-9]\d{6,14}$/, { message: 'Enter a valid phone number with country code (e.g. +919876543210)' }),
     __metadata("design:type", String)
 ], RegisterClinicDto.prototype, "admin_phone", void 0);
 __decorate([

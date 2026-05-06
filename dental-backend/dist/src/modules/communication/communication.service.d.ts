@@ -234,7 +234,7 @@ export declare class CommunicationService {
         skip_reason: string | null;
         wa_message_id: string | null;
         sent_at: Date | null;
-    }>;
+    } | undefined>;
     getPatientPreferences(clinicId: string, patientId: string): Promise<{
         id: string;
         created_at: Date;
@@ -388,6 +388,7 @@ export declare class CommunicationService {
     private getRecipient;
     private createSkippedMessage;
     private timeToMinutes;
+    ensureClinicProviders(clinicId: string): Promise<void>;
     private ensureProvidersConfigured;
     private loadAndConfigureProviders;
     private configureProviders;

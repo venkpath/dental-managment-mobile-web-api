@@ -24,6 +24,7 @@ export declare class SuperAdminController {
     private readonly whatsAppService;
     private readonly aiUsageService;
     private readonly dailySummaryCron;
+    private readonly logger;
     constructor(superAdminService: SuperAdminService, superAdminAuthService: SuperAdminAuthService, clinicService: ClinicService, communicationService: CommunicationService, automationService: AutomationService, branchService: BranchService, whatsAppService: SuperAdminWhatsAppService, aiUsageService: AiUsageService, dailySummaryCron: DailySummaryCronService);
     login(dto: LoginSuperAdminDto): Promise<import("./super-admin-auth.service.js").SuperAdminLoginResponse>;
     create(dto: CreateSuperAdminDto): Promise<Omit<{
@@ -82,6 +83,7 @@ export declare class SuperAdminController {
             has_own_waba: boolean;
             logo_url: string | null;
             currency_code: string;
+            default_phone_country: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_patient_limit: number | null;
@@ -126,6 +128,7 @@ export declare class SuperAdminController {
             has_own_waba: boolean;
             logo_url: string | null;
             currency_code: string;
+            default_phone_country: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_patient_limit: number | null;
@@ -244,6 +247,7 @@ export declare class SuperAdminController {
         has_own_waba: boolean;
         logo_url: string | null;
         currency_code: string;
+        default_phone_country: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_patient_limit: number | null;
@@ -275,6 +279,7 @@ export declare class SuperAdminController {
         has_own_waba: boolean;
         logo_url: string | null;
         currency_code: string;
+        default_phone_country: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_patient_limit: number | null;
@@ -307,6 +312,7 @@ export declare class SuperAdminController {
             has_own_waba: boolean;
             logo_url: string | null;
             currency_code: string;
+            default_phone_country: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_patient_limit: number | null;
@@ -383,7 +389,9 @@ export declare class SuperAdminController {
     }): Promise<{
         message: string;
     }>;
-    triggerDailySummary(): Promise<{
+    triggerDailySummary(body?: {
+        channels?: ('email' | 'whatsapp')[];
+    }): Promise<{
         message: string;
     }>;
     getAuditLogs(page?: string, limit?: string, clinicId?: string, action?: string): Promise<{

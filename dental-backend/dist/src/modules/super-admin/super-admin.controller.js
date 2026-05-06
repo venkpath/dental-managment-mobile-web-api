@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var SuperAdminController_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SuperAdminController = void 0;
 const openapi = require("@nestjs/swagger");
@@ -36,7 +37,7 @@ const upsert_automation_rule_dto_js_1 = require("../automation/dto/upsert-automa
 const create_branch_dto_js_1 = require("../branch/dto/create-branch.dto.js");
 const update_branch_dto_js_1 = require("../branch/dto/update-branch.dto.js");
 const update_branch_scheduling_dto_js_1 = require("../branch/dto/update-branch-scheduling.dto.js");
-let SuperAdminController = class SuperAdminController {
+let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     superAdminService;
     superAdminAuthService;
     clinicService;
@@ -46,6 +47,7 @@ let SuperAdminController = class SuperAdminController {
     whatsAppService;
     aiUsageService;
     dailySummaryCron;
+    logger = new common_1.Logger(SuperAdminController_1.name);
     constructor(superAdminService, superAdminAuthService, clinicService, communicationService, automationService, branchService, whatsAppService, aiUsageService, dailySummaryCron) {
         this.superAdminService = superAdminService;
         this.superAdminAuthService = superAdminAuthService;
@@ -95,9 +97,10 @@ let SuperAdminController = class SuperAdminController {
     async changePassword(admin, dto) {
         return this.superAdminService.changePassword(admin.id, dto.current_password, dto.new_password);
     }
-    async triggerDailySummary() {
-        this.dailySummaryCron.sendDailySummaries().catch(() => undefined);
-        return { message: 'Daily summary dispatch started. Check server logs for delivery status.' };
+    async triggerDailySummary(body) {
+        const channels = body?.channels?.length ? body.channels : ['email', 'whatsapp'];
+        this.dailySummaryCron.sendDailySummaries(channels).catch((e) => this.logger.error(`Daily summary trigger failed: ${e.message}`));
+        return { message: `Daily summary dispatch started (${channels.join(' + ')}). Check server logs for delivery status.` };
     }
     async getAuditLogs(page, limit, clinicId, action) {
         return this.superAdminService.getAuditLogs({
@@ -338,8 +341,9 @@ __decorate([
     (0, swagger_1.ApiOperation)({ summary: 'Manually trigger daily summary emails/WhatsApp (for testing)' }),
     (0, swagger_1.ApiOkResponse)({ description: 'Daily summary dispatch started' }),
     openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
+    __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "triggerDailySummary", null);
 __decorate([
@@ -625,7 +629,7 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, Object]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "waiveOverageCharge", null);
-exports.SuperAdminController = SuperAdminController = __decorate([
+exports.SuperAdminController = SuperAdminController = SuperAdminController_1 = __decorate([
     (0, swagger_1.ApiTags)('Super Admin'),
     (0, common_1.Controller)(),
     __metadata("design:paramtypes", [super_admin_service_js_1.SuperAdminService,

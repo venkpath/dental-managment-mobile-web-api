@@ -56,10 +56,10 @@ export class OnboardClinicDto {
   @MaxLength(255)
   admin_email!: string;
 
-  @ApiProperty({ example: '9876543210', description: 'Admin mobile number (10 digits)' })
+  @ApiProperty({ example: '+919876543210', description: 'Admin mobile in E.164 format (used for WhatsApp)' })
   @IsNotEmpty()
   @IsString()
-  @Matches(/^[6-9]\d{9}$/, { message: 'Enter a valid 10-digit Indian mobile number' })
+  @Matches(/^\+[1-9]\d{6,14}$/, { message: 'Enter a valid phone number with country code (e.g. +919876543210)' })
   admin_phone!: string;
 
   @ApiProperty({ example: 'SecurePass123' })

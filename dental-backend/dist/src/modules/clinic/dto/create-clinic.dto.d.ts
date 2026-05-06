@@ -9,4 +9,5 @@ export declare class CreateClinicDto {
     pincode?: string;
     logo_url?: string;
     currency_code?: string;
+    default_phone_country?: string;
 }

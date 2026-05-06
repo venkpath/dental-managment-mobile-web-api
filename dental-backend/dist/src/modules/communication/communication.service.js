@@ -378,13 +378,20 @@ let CommunicationService = class CommunicationService {
         return this.prisma.communicationLog.create({ data: logData });
     }
     async updateMessageStatus(messageId, status) {
-        return this.prisma.communicationMessage.update({
-            where: { id: messageId },
-            data: {
-                status,
-                sent_at: status === 'sent' ? new Date() : undefined,
-            },
-        });
+        try {
+            return await this.prisma.communicationMessage.update({
+                where: { id: messageId },
+                data: {
+                    status,
+                    sent_at: status === 'sent' ? new Date() : undefined,
+                },
+            });
+        }
+        catch (err) {
+            if (err?.code === 'P2025')
+                return;
+            throw err;
+        }
     }
     async getPatientPreferences(clinicId, patientId) {
         const patient = await this.prisma.patient.findFirst({
@@ -896,6 +903,9 @@ let CommunicationService = class CommunicationService {
     timeToMinutes(time) {
         const [h, m] = time.split(':').map(Number);
         return h * 60 + m;
+    }
+    async ensureClinicProviders(clinicId) {
+        return this.ensureProvidersConfigured(clinicId);
     }
     async ensureProvidersConfigured(clinicId) {
         if (this.emailProvider.isConfigured(clinicId) &&

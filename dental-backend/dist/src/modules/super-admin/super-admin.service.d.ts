@@ -53,6 +53,7 @@ export declare class SuperAdminService {
             has_own_waba: boolean;
             logo_url: string | null;
             currency_code: string;
+            default_phone_country: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_patient_limit: number | null;
@@ -102,6 +103,7 @@ export declare class SuperAdminService {
             has_own_waba: boolean;
             logo_url: string | null;
             currency_code: string;
+            default_phone_country: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_patient_limit: number | null;
@@ -220,6 +222,7 @@ export declare class SuperAdminService {
         has_own_waba: boolean;
         logo_url: string | null;
         currency_code: string;
+        default_phone_country: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_patient_limit: number | null;
@@ -267,6 +270,7 @@ export declare class SuperAdminService {
             has_own_waba: boolean;
             logo_url: string | null;
             currency_code: string;
+            default_phone_country: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_patient_limit: number | null;

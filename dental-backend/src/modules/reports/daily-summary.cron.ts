@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
@@ -52,9 +53,11 @@ export class DailySummaryCronService {
   }
 
   @Cron('0 0 8 * * *', { timeZone: 'Asia/Kolkata' })
-  async sendDailySummaries(): Promise<void> {
-    this.logger.log('Starting daily summary cron...');
-    const emailReady = this.ensureEmailConfigured();
+  async sendDailySummaries(channels: ('email' | 'whatsapp')[] = ['email', 'whatsapp']): Promise<void> {
+    this.logger.log(`Starting daily summary cron... channels: ${channels.join(', ')}`);
+    const sendEmail = channels.includes('email');
+    const sendWhatsApp = channels.includes('whatsapp');
+    const emailReady = sendEmail && this.ensureEmailConfigured();
 
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -128,7 +131,7 @@ export class DailySummaryCronService {
           const financeLine = `Outstanding: ${currency(summary.outstanding_amount)} · Month revenue: ${currency(summary.this_month_revenue)} · Expenses: ${currency(summary.this_month_expenses)} · Net profit: ${currency(summary.net_profit)}`;
 
           for (const recipient of recipients) {
-            if (emailReady && recipient.email) {
+            if (sendEmail && emailReady && recipient.email) {
               try {
                 const html = this.buildEmailHtml(
                   clinic.name, recipient.name, summary, todayAppointments,
@@ -151,10 +154,10 @@ export class DailySummaryCronService {
               }
             }
 
-            if (recipient.phone) {
+            if (sendWhatsApp && recipient.phone) {
               try {
                 await this.communicationProducer.enqueue({
-                  messageId: `daily-summary-${clinic.id}-${recipient.phone}-${Date.now()}`,
+                  messageId: randomUUID(),
                   clinicId: clinic.id,
                   channel: 'whatsapp',
                   to: recipient.phone,

@@ -14,7 +14,7 @@ export declare class DailySummaryCronService {
     private readonly openai;
     constructor(prisma: PrismaService, reportsService: ReportsService, emailProvider: EmailProvider, communicationProducer: CommunicationProducer, config: ConfigService);
     private ensureEmailConfigured;
-    sendDailySummaries(): Promise<void>;
+    sendDailySummaries(channels?: ('email' | 'whatsapp')[]): Promise<void>;
     private getSevenDayAverage;
     private generateAiInsight;
     private buildEmailHtml;

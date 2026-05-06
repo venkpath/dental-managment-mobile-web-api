@@ -60,12 +60,18 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
         }
         try {
             const { config } = ctx;
-            let destination = options.to.replace(/[^0-9]/g, '');
-            if (destination.length === 10) {
-                destination = '91' + destination;
+            let destination;
+            if (options.to.startsWith('+')) {
+                destination = options.to.slice(1);
             }
-            else if (destination.length === 11 && destination.startsWith('0')) {
-                destination = '91' + destination.slice(1);
+            else {
+                destination = options.to.replace(/[^0-9]/g, '');
+                if (destination.length === 10) {
+                    destination = '91' + destination;
+                }
+                else if (destination.length === 11 && destination.startsWith('0')) {
+                    destination = '91' + destination.slice(1);
+                }
             }
             const interactiveButtons = options.metadata?.['interactive_buttons'];
             const mediaOptions = options.metadata?.['media'];
@@ -97,6 +103,7 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(messagePayload),
+                signal: AbortSignal.timeout(15000),
             });
             const data = await response.json();
             this.logger.log(`[WhatsApp Meta] Response (${response.status}): ${JSON.stringify(data).substring(0, 500)}`);
@@ -130,19 +137,11 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
         }
         try {
             const varOrder = [];
-            const toNumbered = (text) => text.replace(/\{\{(\w+)\}\}/g, (_, name) => {
-                let idx = varOrder.indexOf(name);
-                if (idx === -1) {
-                    varOrder.push(name);
-                    idx = varOrder.length - 1;
-                }
-                return `{{${idx + 1}}}`;
-            });
-            const metaBody = toNumbered(templateData.body);
+            const metaBody = this.convertToNumberedVars(templateData.body, varOrder);
             const suppliedSamples = templateData.variableSamples || [];
             const bodySamples = varOrder.map((_, idx) => suppliedSamples[idx] || `value${idx + 1}`);
             const headerVarsBefore = varOrder.length;
-            const metaHeader = templateData.header ? toNumbered(templateData.header) : undefined;
+            const metaHeader = templateData.header ? this.convertToNumberedVars(templateData.header, varOrder) : undefined;
             const headerSamples = varOrder.slice(headerVarsBefore).map((_, idx) => suppliedSamples[headerVarsBefore + idx] || `value${headerVarsBefore + idx + 1}`);
             const components = [];
             if (metaHeader) {
@@ -166,6 +165,7 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
                     'Authorization': `Bearer ${config.accessToken}`,
                     'Content-Type': 'application/json',
                 },
+                signal: AbortSignal.timeout(15000),
                 body: JSON.stringify({
                     name: templateData.elementName,
                     language: templateData.languageCode,
@@ -197,6 +197,7 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             while (url) {
                 const response = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${config.accessToken}` },
+                    signal: AbortSignal.timeout(15000),
                 });
                 const data = await response.json();
                 if (!response.ok) {
@@ -235,6 +236,7 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
         try {
             const response = await fetch(`${META_GRAPH_API}/${config.wabaId}/message_templates?name=${encodeURIComponent(templateName)}`, {
                 headers: { 'Authorization': `Bearer ${config.accessToken}` },
+                signal: AbortSignal.timeout(15000),
             });
             const data = await response.json();
             const templates = (data.data || []);
@@ -261,6 +263,7 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             const response = await fetch(`${META_GRAPH_API}/${config.wabaId}/message_templates?name=${encodeURIComponent(templateName)}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${config.accessToken}` },
+                signal: AbortSignal.timeout(15000),
             });
             const data = await response.json();
             if (response.ok && data.success) {
@@ -280,19 +283,11 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
         const { config } = ctx;
         try {
             const varOrder = [];
-            const toNumbered = (text) => text.replace(/\{\{(\w+)\}\}/g, (_, name) => {
-                let idx = varOrder.indexOf(name);
-                if (idx === -1) {
-                    varOrder.push(name);
-                    idx = varOrder.length - 1;
-                }
-                return `{{${idx + 1}}}`;
-            });
             const components = [];
             if (templateData.header) {
-                components.push({ type: 'HEADER', format: 'TEXT', text: toNumbered(templateData.header) });
+                components.push({ type: 'HEADER', format: 'TEXT', text: this.convertToNumberedVars(templateData.header, varOrder) });
             }
-            components.push({ type: 'BODY', text: toNumbered(templateData.body) });
+            components.push({ type: 'BODY', text: this.convertToNumberedVars(templateData.body, varOrder) });
             if (templateData.footer) {
                 components.push({ type: 'FOOTER', text: templateData.footer });
             }
@@ -307,6 +302,7 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(payload),
+                signal: AbortSignal.timeout(15000),
             });
             const data = await response.json();
             if (response.ok && data.success) {
@@ -318,6 +314,16 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
         catch (error) {
             return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
         }
+    }
+    convertToNumberedVars(text, varOrder) {
+        return text.replace(/\{\{(\w+)\}\}/g, (_, name) => {
+            let idx = varOrder.indexOf(name);
+            if (idx === -1) {
+                varOrder.push(name);
+                idx = varOrder.length - 1;
+            }
+            return `{{${idx + 1}}}`;
+        });
     }
     buildTextPayload(destination, body) {
         return {
@@ -461,12 +467,18 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
         if (!ctx) {
             return { success: false, error: 'WhatsApp not configured for this clinic' };
         }
-        let destination = to.replace(/[^0-9]/g, '');
-        if (destination.length === 10) {
-            destination = '91' + destination;
+        let destination;
+        if (to.startsWith('+')) {
+            destination = to.slice(1);
         }
-        else if (destination.length === 11 && destination.startsWith('0')) {
-            destination = '91' + destination.slice(1);
+        else {
+            destination = to.replace(/[^0-9]/g, '');
+            if (destination.length === 10) {
+                destination = '91' + destination;
+            }
+            else if (destination.length === 11 && destination.startsWith('0')) {
+                destination = '91' + destination.slice(1);
+            }
         }
         const payload = {
             messaging_product: 'whatsapp',
