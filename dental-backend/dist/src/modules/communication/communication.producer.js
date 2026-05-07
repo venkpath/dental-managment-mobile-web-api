@@ -27,14 +27,14 @@ let CommunicationProducer = CommunicationProducer_1 = class CommunicationProduce
         this.smsQueue = smsQueue;
         this.whatsappQueue = whatsappQueue;
     }
-    async enqueue(job) {
+    async enqueue(job, options) {
         const queue = this.getQueue(job.channel);
         if (!queue) {
             this.logger.warn(`No queue for channel: ${job.channel}`);
             return;
         }
         const jobOptions = {
-            attempts: 3,
+            attempts: options?.attempts ?? 3,
             backoff: { type: 'exponential', delay: 5000 },
             removeOnComplete: 100,
             removeOnFail: 500,

@@ -119,6 +119,7 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
                     const currency = (n) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
                     const statsLine = `Yesterday: ${summary.today_appointments} appointments, ${currency(summary.today_revenue)} revenue | Today: ${todayAppointments} scheduled`;
                     const financeLine = `Outstanding: ${currency(summary.outstanding_amount)} · Month revenue: ${currency(summary.this_month_revenue)} · Expenses: ${currency(summary.this_month_expenses)} · Net profit: ${currency(summary.net_profit)}`;
+                    const seenPhones = new Set();
                     for (const recipient of recipients) {
                         if (sendEmail && emailReady && recipient.email) {
                             try {
@@ -140,7 +141,8 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
                                 this.logger.warn(`Email failed for ${recipient.email}: ${err.message}`);
                             }
                         }
-                        if (sendWhatsApp && recipient.phone) {
+                        if (sendWhatsApp && recipient.phone && !seenPhones.has(recipient.phone)) {
+                            seenPhones.add(recipient.phone);
                             try {
                                 await this.communicationProducer.enqueue({
                                     messageId: (0, crypto_1.randomUUID)(),
@@ -159,7 +161,7 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
                                         '6': aiInsight,
                                     },
                                     metadata: { type: 'daily_summary' },
-                                });
+                                }, { attempts: 1 });
                                 waSent++;
                             }
                             catch (err) {

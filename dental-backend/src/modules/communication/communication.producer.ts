@@ -31,7 +31,7 @@ export class CommunicationProducer {
     @InjectQueue(QUEUE_NAMES.COMMUNICATION_WHATSAPP) private readonly whatsappQueue: Queue,
   ) {}
 
-  async enqueue(job: CommunicationJobData): Promise<void> {
+  async enqueue(job: CommunicationJobData, options?: { attempts?: number }): Promise<void> {
     const queue = this.getQueue(job.channel);
     if (!queue) {
       this.logger.warn(`No queue for channel: ${job.channel}`);
@@ -39,7 +39,7 @@ export class CommunicationProducer {
     }
 
     const jobOptions: Record<string, unknown> = {
-      attempts: 3,
+      attempts: options?.attempts ?? 3,
       backoff: { type: 'exponential', delay: 5000 },
       removeOnComplete: 100,
       removeOnFail: 500,

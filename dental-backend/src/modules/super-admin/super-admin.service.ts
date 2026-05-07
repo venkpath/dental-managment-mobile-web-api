@@ -561,4 +561,135 @@ export class SuperAdminService {
       select: { id: true, name: true, ai_usage_count: true },
     });
   }
+
+  // ─── Platform Message Dashboard ───
+
+  async listMessages(params: {
+    channel?: string;
+    status?: string;
+    clinicId?: string;
+    from?: string;
+    toDate?: string;
+    page: number;
+    limit: number;
+  }) {
+    const { channel, status, clinicId, from, toDate, page, limit } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Record<string, unknown> = {};
+    if (channel) where.channel = channel;
+    if (status) where.status = status;
+    if (clinicId) where.clinic_id = clinicId;
+    if (from || toDate) {
+      where.created_at = {
+        ...(from ? { gte: new Date(from) } : {}),
+        ...(toDate ? { lte: new Date(toDate + 'T23:59:59.999Z') } : {}),
+      };
+    }
+
+    const [total, messages] = await Promise.all([
+      this.prisma.communicationMessage.count({ where }),
+      this.prisma.communicationMessage.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          clinic_id: true,
+          channel: true,
+          status: true,
+          recipient: true,
+          category: true,
+          created_at: true,
+          sent_at: true,
+          wa_message_id: true,
+          metadata: true,
+          clinic: { select: { name: true } },
+        },
+      }),
+    ]);
+
+    return {
+      data: messages,
+      meta: { total, page, limit, pages: Math.ceil(total / limit) },
+    };
+  }
+
+  async messageStats(params: { channel?: string; from?: string; toDate?: string }) {
+    const { channel, from, toDate } = params;
+
+    const dateFilter: Record<string, unknown> = {};
+    if (from || toDate) {
+      dateFilter.created_at = {
+        ...(from ? { gte: new Date(from) } : {}),
+        ...(toDate ? { lte: new Date(toDate + 'T23:59:59.999Z') } : {}),
+      };
+    }
+
+    const channelFilter = channel ? { channel } : {};
+    const baseWhere = { ...channelFilter, ...dateFilter };
+
+    const [total, byStatus, byChannel, byClinic, recentByDay] = await Promise.all([
+      this.prisma.communicationMessage.count({ where: baseWhere }),
+
+      this.prisma.communicationMessage.groupBy({
+        by: ['status'],
+        where: baseWhere,
+        _count: { id: true },
+      }),
+
+      this.prisma.communicationMessage.groupBy({
+        by: ['channel'],
+        where: dateFilter,
+        _count: { id: true },
+      }),
+
+      this.prisma.communicationMessage.groupBy({
+        by: ['clinic_id'],
+        where: baseWhere,
+        _count: { id: true },
+        orderBy: { _count: { id: 'desc' } },
+        take: 10,
+      }),
+
+      // Last 7 days daily counts
+      channel
+        ? this.prisma.$queryRaw<{ day: string; count: bigint }[]>`
+            SELECT DATE("created_at") as day, COUNT(*) as count
+            FROM "communication_messages"
+            WHERE "created_at" >= NOW() - INTERVAL '7 days'
+              AND "channel" = ${channel}
+            GROUP BY DATE("created_at")
+            ORDER BY day DESC
+          `
+        : this.prisma.$queryRaw<{ day: string; count: bigint }[]>`
+            SELECT DATE("created_at") as day, COUNT(*) as count
+            FROM "communication_messages"
+            WHERE "created_at" >= NOW() - INTERVAL '7 days'
+            GROUP BY DATE("created_at")
+            ORDER BY day DESC
+          `,
+    ]);
+
+    // Resolve clinic names for top clinics
+    const clinicIds = byClinic.map((r) => r.clinic_id);
+    const clinics = await this.prisma.clinic.findMany({
+      where: { id: { in: clinicIds } },
+      select: { id: true, name: true },
+    });
+    const clinicMap = Object.fromEntries(clinics.map((c) => [c.id, c.name]));
+
+    return {
+      total,
+      byStatus: Object.fromEntries(byStatus.map((r) => [r.status, r._count.id])),
+      byChannel: Object.fromEntries(byChannel.map((r) => [r.channel, r._count.id])),
+      topClinics: byClinic.map((r) => ({
+        clinicId: r.clinic_id,
+        clinicName: clinicMap[r.clinic_id] ?? r.clinic_id,
+        count: r._count.id,
+      })),
+      dailyTrend: recentByDay.map((r) => ({ day: r.day, count: Number(r.count) })),
+    };
+  }
 }

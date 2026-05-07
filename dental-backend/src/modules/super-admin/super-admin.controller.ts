@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Patch, Delete, Param, Query, HttpCode, HttpStatus, ParseUUIDPipe, Logger } from '@nestjs/common';
+import { Body, Controller, Get, Post, Patch, Delete, Param, Query, HttpCode, HttpStatus, ParseUUIDPipe, Logger, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiConflictResponse, ApiResponse } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../common/decorators/public.decorator.js';
@@ -168,6 +168,34 @@ export class SuperAdminController {
       this.logger.error(`Daily summary trigger failed: ${e.message}`),
     );
     return { message: `Daily summary dispatch started (${channels.join(' + ')}). Check server logs for delivery status.` };
+  }
+
+  // ─── Platform Message Logs ───
+
+  @Get('super-admins/messages')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'List all outbound messages across all clinics (filterable)' })
+  async listMessages(
+    @Query('channel') channel?: string,
+    @Query('status') status?: string,
+    @Query('clinic_id') clinicId?: string,
+    @Query('from') from?: string,
+    @Query('to_date') toDate?: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page = 1,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit = 50,
+  ) {
+    return this.superAdminService.listMessages({ channel, status, clinicId, from, toDate, page, limit });
+  }
+
+  @Get('super-admins/messages/stats')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Aggregated message stats across all clinics' })
+  async messageStats(
+    @Query('channel') channel?: string,
+    @Query('from') from?: string,
+    @Query('to_date') toDate?: string,
+  ) {
+    return this.superAdminService.messageStats({ channel, from, toDate });
   }
 
   // ─── Audit Log ───

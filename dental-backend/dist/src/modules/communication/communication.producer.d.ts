@@ -20,7 +20,9 @@ export declare class CommunicationProducer {
     private readonly whatsappQueue;
     private readonly logger;
     constructor(emailQueue: Queue, smsQueue: Queue, whatsappQueue: Queue);
-    enqueue(job: CommunicationJobData): Promise<void>;
+    enqueue(job: CommunicationJobData, options?: {
+        attempts?: number;
+    }): Promise<void>;
     enqueueBulk(jobs: CommunicationJobData[]): Promise<void>;
     private getQueue;
 }

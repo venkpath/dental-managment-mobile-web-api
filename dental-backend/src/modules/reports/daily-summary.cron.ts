@@ -130,6 +130,9 @@ export class DailySummaryCronService {
           const statsLine = `Yesterday: ${summary.today_appointments} appointments, ${currency(summary.today_revenue)} revenue | Today: ${todayAppointments} scheduled`;
           const financeLine = `Outstanding: ${currency(summary.outstanding_amount)} · Month revenue: ${currency(summary.this_month_revenue)} · Expenses: ${currency(summary.this_month_expenses)} · Net profit: ${currency(summary.net_profit)}`;
 
+          // Deduplicate by phone for WhatsApp — same number on SuperAdmin + Admin
+          // would otherwise receive duplicate messages per run.
+          const seenPhones = new Set<string>();
           for (const recipient of recipients) {
             if (sendEmail && emailReady && recipient.email) {
               try {
@@ -154,7 +157,8 @@ export class DailySummaryCronService {
               }
             }
 
-            if (sendWhatsApp && recipient.phone) {
+            if (sendWhatsApp && recipient.phone && !seenPhones.has(recipient.phone)) {
+              seenPhones.add(recipient.phone);
               try {
                 await this.communicationProducer.enqueue({
                   messageId: randomUUID(),
@@ -173,7 +177,7 @@ export class DailySummaryCronService {
                     '6': aiInsight,
                   },
                   metadata: { type: 'daily_summary' },
-                });
+                }, { attempts: 1 }); // no retries — stale daily data should not fire the next day
                 waSent++;
               } catch (err) {
                 this.logger.warn(`WhatsApp enqueue failed for ${recipient.phone}: ${(err as Error).message}`);
