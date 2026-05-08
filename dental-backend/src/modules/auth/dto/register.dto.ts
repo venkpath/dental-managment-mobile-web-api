@@ -67,6 +67,12 @@ export class RegisterClinicDto {
   @IsBoolean()
   is_doctor?: boolean;
 
+  @ApiPropertyOptional({ example: 'KDC-123456', description: 'Dental council registration / license number (only relevant when is_doctor is true)', maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  license_number?: string;
+
   @ApiPropertyOptional({ example: 'starter', description: 'Plan key: free, starter, professional, enterprise. Defaults to trial.' })
   @IsOptional()
   @IsString()

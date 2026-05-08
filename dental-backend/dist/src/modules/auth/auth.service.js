@@ -209,6 +209,7 @@ let AuthService = AuthService_1 = class AuthService {
                     password_hash: await this.passwordService.hash(dto.admin_password),
                     role: 'SuperAdmin',
                     is_doctor: dto.is_doctor ?? false,
+                    license_number: dto.is_doctor ? (dto.license_number ?? null) : null,
                     status: 'active',
                 },
                 select: {
