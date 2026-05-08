@@ -15,14 +15,13 @@ var DailySummaryCronService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DailySummaryCronService = exports.DAILY_SUMMARY_WA_TEMPLATE = void 0;
 const common_1 = require("@nestjs/common");
-const crypto_1 = require("crypto");
 const schedule_1 = require("@nestjs/schedule");
 const config_1 = require("@nestjs/config");
 const openai_1 = __importDefault(require("openai"));
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const reports_service_js_1 = require("./reports.service.js");
 const email_provider_js_1 = require("../communication/providers/email.provider.js");
-const communication_producer_js_1 = require("../communication/communication.producer.js");
+const communication_service_js_1 = require("../communication/communication.service.js");
 const PLATFORM_CLINIC_ID = '__platform__';
 exports.DAILY_SUMMARY_WA_TEMPLATE = 'daily_clinic_summary';
 const NEW_CLINIC_DAYS = 7;
@@ -30,15 +29,15 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
     prisma;
     reportsService;
     emailProvider;
-    communicationProducer;
+    communicationService;
     config;
     logger = new common_1.Logger(DailySummaryCronService_1.name);
     openai;
-    constructor(prisma, reportsService, emailProvider, communicationProducer, config) {
+    constructor(prisma, reportsService, emailProvider, communicationService, config) {
         this.prisma = prisma;
         this.reportsService = reportsService;
         this.emailProvider = emailProvider;
-        this.communicationProducer = communicationProducer;
+        this.communicationService = communicationService;
         this.config = config;
         const apiKey = this.config.get('OPENAI_API_KEY');
         this.openai = apiKey ? new openai_1.default({ apiKey }) : null;
@@ -144,12 +143,11 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
                         if (sendWhatsApp && recipient.phone && !seenPhones.has(recipient.phone)) {
                             seenPhones.add(recipient.phone);
                             try {
-                                await this.communicationProducer.enqueue({
-                                    messageId: (0, crypto_1.randomUUID)(),
+                                await this.communicationService.enqueueSystemMessage({
                                     clinicId: clinic.id,
                                     channel: 'whatsapp',
                                     to: recipient.phone,
-                                    body: '',
+                                    category: 'daily_summary',
                                     templateId: exports.DAILY_SUMMARY_WA_TEMPLATE,
                                     language: 'en',
                                     variables: {
@@ -161,7 +159,8 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
                                         '6': aiInsight,
                                     },
                                     metadata: { type: 'daily_summary' },
-                                }, { attempts: 1 });
+                                    jobOptions: { attempts: 1 },
+                                });
                                 waSent++;
                             }
                             catch (err) {
@@ -419,7 +418,7 @@ exports.DailySummaryCronService = DailySummaryCronService = DailySummaryCronServ
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         reports_service_js_1.ReportsService,
         email_provider_js_1.EmailProvider,
-        communication_producer_js_1.CommunicationProducer,
+        communication_service_js_1.CommunicationService,
         config_1.ConfigService])
 ], DailySummaryCronService);
 //# sourceMappingURL=daily-summary.cron.js.map

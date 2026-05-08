@@ -22,6 +22,9 @@ export class WhatsAppWorker extends WorkerHost {
 
     this.logger.debug(`Processing WhatsApp job: ${messageId} → ${to} (template: ${templateId || 'none'}, vars: ${variables ? Object.keys(variables).length : 0}, lang: ${language || 'en'})`);
 
+    // Reload provider config from DB if the server restarted and the in-memory map is empty.
+    await this.communicationService.ensureClinicProviders(clinicId);
+
     try {
       const result = await this.whatsappProvider.send({
         to,

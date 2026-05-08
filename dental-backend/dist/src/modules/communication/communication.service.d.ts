@@ -215,7 +215,7 @@ export declare class CommunicationService {
         delivered_at: Date | null;
         read_at: Date | null;
         failed_at: Date | null;
-    }>;
+    } | undefined>;
     updateMessageStatus(messageId: string, status: string): Promise<{
         id: string;
         status: string;
@@ -388,6 +388,20 @@ export declare class CommunicationService {
     private getRecipient;
     private createSkippedMessage;
     private timeToMinutes;
+    enqueueSystemMessage(opts: {
+        clinicId: string;
+        channel: string;
+        to: string;
+        category: string;
+        templateId?: string;
+        variables?: Record<string, string>;
+        language?: string;
+        body?: string;
+        metadata?: Record<string, unknown>;
+        jobOptions?: {
+            attempts?: number;
+        };
+    }): Promise<string>;
     ensureClinicProviders(clinicId: string): Promise<void>;
     private ensureProvidersConfigured;
     private loadAndConfigureProviders;

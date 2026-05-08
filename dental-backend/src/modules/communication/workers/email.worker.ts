@@ -22,6 +22,9 @@ export class EmailWorker extends WorkerHost {
 
     this.logger.debug(`Processing email job: ${messageId} → ${to}`);
 
+    // Reload provider config from DB if the server restarted and the in-memory map is empty.
+    await this.communicationService.ensureClinicProviders(clinicId);
+
     try {
       const result = await this.emailProvider.send({
         to,

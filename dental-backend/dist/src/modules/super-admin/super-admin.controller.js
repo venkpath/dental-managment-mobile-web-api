@@ -102,6 +102,12 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
         this.dailySummaryCron.sendDailySummaries(channels).catch((e) => this.logger.error(`Daily summary trigger failed: ${e.message}`));
         return { message: `Daily summary dispatch started (${channels.join(' + ')}). Check server logs for delivery status.` };
     }
+    async listMessages(channel, status, clinicId, from, toDate, page = 1, limit = 50) {
+        return this.superAdminService.listMessages({ channel, status, clinicId, from, toDate, page, limit });
+    }
+    async messageStats(channel, from, toDate) {
+        return this.superAdminService.messageStats({ channel, from, toDate });
+    }
     async getAuditLogs(page, limit, clinicId, action) {
         return this.superAdminService.getAuditLogs({
             page: page ? parseInt(page, 10) : 1,
@@ -346,6 +352,34 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "triggerDailySummary", null);
+__decorate([
+    (0, common_1.Get)('super-admins/messages'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List all outbound messages across all clinics (filterable)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Query)('channel')),
+    __param(1, (0, common_1.Query)('status')),
+    __param(2, (0, common_1.Query)('clinic_id')),
+    __param(3, (0, common_1.Query)('from')),
+    __param(4, (0, common_1.Query)('to_date')),
+    __param(5, (0, common_1.Query)('page', new common_1.DefaultValuePipe(1), common_1.ParseIntPipe)),
+    __param(6, (0, common_1.Query)('limit', new common_1.DefaultValuePipe(50), common_1.ParseIntPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, String, String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "listMessages", null);
+__decorate([
+    (0, common_1.Get)('super-admins/messages/stats'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Aggregated message stats across all clinics' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Query)('channel')),
+    __param(1, (0, common_1.Query)('from')),
+    __param(2, (0, common_1.Query)('to_date')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "messageStats", null);
 __decorate([
     (0, common_1.Get)('super-admins/audit-logs'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),

@@ -28,6 +28,7 @@ let EmailWorker = EmailWorker_1 = class EmailWorker extends bullmq_1.WorkerHost 
     async process(job) {
         const { messageId, clinicId, to, subject, body, html } = job.data;
         this.logger.debug(`Processing email job: ${messageId} → ${to}`);
+        await this.communicationService.ensureClinicProviders(clinicId);
         try {
             const result = await this.emailProvider.send({
                 to,

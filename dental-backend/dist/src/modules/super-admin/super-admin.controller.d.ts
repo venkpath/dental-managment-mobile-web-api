@@ -394,6 +394,47 @@ export declare class SuperAdminController {
     }): Promise<{
         message: string;
     }>;
+    listMessages(channel?: string, status?: string, clinicId?: string, from?: string, toDate?: string, page?: number, limit?: number): Promise<{
+        data: {
+            id: string;
+            status: string;
+            created_at: Date;
+            clinic: {
+                name: string;
+            };
+            clinic_id: string;
+            channel: string;
+            category: string;
+            metadata: import("@prisma/client/runtime/client").JsonValue;
+            recipient: string;
+            wa_message_id: string | null;
+            sent_at: Date | null;
+        }[];
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            pages: number;
+        };
+    }>;
+    messageStats(channel?: string, from?: string, toDate?: string): Promise<{
+        total: number;
+        byStatus: {
+            [k: string]: number;
+        };
+        byChannel: {
+            [k: string]: number;
+        };
+        topClinics: {
+            clinicId: string;
+            clinicName: string;
+            count: number;
+        }[];
+        dailyTrend: {
+            day: string;
+            count: number;
+        }[];
+    }>;
     getAuditLogs(page?: string, limit?: string, clinicId?: string, action?: string): Promise<{
         data: {
             id: string;

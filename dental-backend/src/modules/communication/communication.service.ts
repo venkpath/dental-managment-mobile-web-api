@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac } from 'crypto';
+import { createHmac, randomUUID } from 'crypto';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service.js';
 import { paginate } from '../../common/interfaces/paginated-result.interface.js';
@@ -501,7 +501,13 @@ export class CommunicationService {
     if (data.status === 'read') logData.read_at = new Date();
     if (data.status === 'failed') logData.failed_at = new Date();
 
-    return this.prisma.communicationLog.create({ data: logData });
+    try {
+      return await this.prisma.communicationLog.create({ data: logData });
+    } catch (err: unknown) {
+      // P2025 = parent CommunicationMessage not found (system-level jobs with no pre-created DB record)
+      if ((err as { code?: string })?.code === 'P2025') return;
+      throw err;
+    }
   }
 
   async updateMessageStatus(messageId: string, status: string) {
@@ -1216,6 +1222,55 @@ export class CommunicationService {
   private timeToMinutes(time: string): number {
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;
+  }
+
+  // ─── System-level message enqueue (creates DB record + enqueues job) ───
+
+  /**
+   * Create a CommunicationMessage record and enqueue the job.
+   * Use this for system-initiated messages (crons, etc.) that bypass the
+   * full SendMessageDto flow so they appear in the message dashboard.
+   */
+  async enqueueSystemMessage(opts: {
+    clinicId: string;
+    channel: string;
+    to: string;
+    category: string;
+    templateId?: string;
+    variables?: Record<string, string>;
+    language?: string;
+    body?: string;
+    metadata?: Record<string, unknown>;
+    jobOptions?: { attempts?: number };
+  }): Promise<string> {
+    const messageId = randomUUID();
+
+    await this.prisma.communicationMessage.create({
+      data: {
+        id: messageId,
+        clinic_id: opts.clinicId,
+        channel: opts.channel,
+        category: opts.category,
+        recipient: opts.to,
+        body: opts.body || '',
+        status: 'queued',
+        metadata: opts.metadata ? JSON.parse(JSON.stringify(opts.metadata)) : undefined,
+      },
+    });
+
+    await this.producer.enqueue({
+      messageId,
+      clinicId: opts.clinicId,
+      channel: opts.channel,
+      to: opts.to,
+      body: opts.body || '',
+      templateId: opts.templateId,
+      variables: opts.variables,
+      language: opts.language,
+      metadata: opts.metadata,
+    }, opts.jobOptions);
+
+    return messageId;
   }
 
   // ─── Provider Configuration (race-safe, per-clinic) ───

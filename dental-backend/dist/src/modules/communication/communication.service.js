@@ -375,7 +375,14 @@ let CommunicationService = class CommunicationService {
             logData.read_at = new Date();
         if (data.status === 'failed')
             logData.failed_at = new Date();
-        return this.prisma.communicationLog.create({ data: logData });
+        try {
+            return await this.prisma.communicationLog.create({ data: logData });
+        }
+        catch (err) {
+            if (err?.code === 'P2025')
+                return;
+            throw err;
+        }
     }
     async updateMessageStatus(messageId, status) {
         try {
@@ -903,6 +910,33 @@ let CommunicationService = class CommunicationService {
     timeToMinutes(time) {
         const [h, m] = time.split(':').map(Number);
         return h * 60 + m;
+    }
+    async enqueueSystemMessage(opts) {
+        const messageId = (0, crypto_1.randomUUID)();
+        await this.prisma.communicationMessage.create({
+            data: {
+                id: messageId,
+                clinic_id: opts.clinicId,
+                channel: opts.channel,
+                category: opts.category,
+                recipient: opts.to,
+                body: opts.body || '',
+                status: 'queued',
+                metadata: opts.metadata ? JSON.parse(JSON.stringify(opts.metadata)) : undefined,
+            },
+        });
+        await this.producer.enqueue({
+            messageId,
+            clinicId: opts.clinicId,
+            channel: opts.channel,
+            to: opts.to,
+            body: opts.body || '',
+            templateId: opts.templateId,
+            variables: opts.variables,
+            language: opts.language,
+            metadata: opts.metadata,
+        }, opts.jobOptions);
+        return messageId;
     }
     async ensureClinicProviders(clinicId) {
         return this.ensureProvidersConfigured(clinicId);

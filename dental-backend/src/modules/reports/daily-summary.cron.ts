@@ -1,12 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { randomUUID } from 'crypto';
 import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { PrismaService } from '../../database/prisma.service.js';
 import { ReportsService } from './reports.service.js';
 import { EmailProvider } from '../communication/providers/email.provider.js';
-import { CommunicationProducer } from '../communication/communication.producer.js';
+import { CommunicationService } from '../communication/communication.service.js';
 
 const PLATFORM_CLINIC_ID = '__platform__';
 export const DAILY_SUMMARY_WA_TEMPLATE = 'daily_clinic_summary';
@@ -23,7 +22,7 @@ export class DailySummaryCronService {
     private readonly prisma: PrismaService,
     private readonly reportsService: ReportsService,
     private readonly emailProvider: EmailProvider,
-    private readonly communicationProducer: CommunicationProducer,
+    private readonly communicationService: CommunicationService,
     private readonly config: ConfigService,
   ) {
     const apiKey = this.config.get<string>('OPENAI_API_KEY');
@@ -160,12 +159,11 @@ export class DailySummaryCronService {
             if (sendWhatsApp && recipient.phone && !seenPhones.has(recipient.phone)) {
               seenPhones.add(recipient.phone);
               try {
-                await this.communicationProducer.enqueue({
-                  messageId: randomUUID(),
+                await this.communicationService.enqueueSystemMessage({
                   clinicId: clinic.id,
                   channel: 'whatsapp',
                   to: recipient.phone,
-                  body: '',
+                  category: 'daily_summary',
                   templateId: DAILY_SUMMARY_WA_TEMPLATE,
                   language: 'en',
                   variables: {
@@ -177,7 +175,8 @@ export class DailySummaryCronService {
                     '6': aiInsight,
                   },
                   metadata: { type: 'daily_summary' },
-                }, { attempts: 1 }); // no retries — stale daily data should not fire the next day
+                  jobOptions: { attempts: 1 }, // no retries — stale daily data should not fire the next day
+                });
                 waSent++;
               } catch (err) {
                 this.logger.warn(`WhatsApp enqueue failed for ${recipient.phone}: ${(err as Error).message}`);
