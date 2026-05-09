@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { TreatmentService } from './treatment.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 import { TreatmentStatus } from './dto/index.js';
 
 const clinicId = '123e4567-e89b-12d3-a456-426614174000';
@@ -38,8 +39,11 @@ const mockPrismaService = {
     findMany: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
+    count: jest.fn(),
   },
 };
+
+const mockPlanLimit = { enforceMonthlyCap: jest.fn().mockResolvedValue(undefined) };
 
 describe('TreatmentService', () => {
   let service: TreatmentService;
@@ -49,6 +53,7 @@ describe('TreatmentService', () => {
       providers: [
         TreatmentService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: PlanLimitService, useValue: mockPlanLimit },
       ],
     }).compile();
 
@@ -60,6 +65,7 @@ describe('TreatmentService', () => {
     mockPrismaService.user.findUnique.mockResolvedValue({ id: dentistId, clinic_id: clinicId });
     mockPrismaService.treatment.findUnique.mockResolvedValue(mockTreatment);
     mockPrismaService.treatment.findMany.mockResolvedValue([mockTreatment]);
+    mockPrismaService.treatment.count.mockResolvedValue(1);
     mockPrismaService.treatment.create.mockResolvedValue(mockTreatment);
     mockPrismaService.treatment.update.mockResolvedValue({ ...mockTreatment, status: 'completed' });
   });
@@ -105,12 +111,16 @@ describe('TreatmentService', () => {
   });
 
   describe('findAll', () => {
-    it('should return treatments filtered by clinicId', async () => {
+    it('should return paginated treatments filtered by clinicId', async () => {
       const result = await service.findAll(clinicId, {});
-      expect(result).toEqual([mockTreatment]);
+      expect(result).toEqual({
+        data: [mockTreatment],
+        meta: { page: 1, limit: 20, total: 1, total_pages: 1 },
+      });
       expect(mockPrismaService.treatment.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { clinic_id: clinicId } }),
       );
+      expect(mockPrismaService.treatment.count).toHaveBeenCalled();
     });
 
     it('should filter by status', async () => {

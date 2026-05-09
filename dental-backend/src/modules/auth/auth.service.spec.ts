@@ -1,11 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service.js';
 import { UserService } from '../user/user.service.js';
 import { PasswordService } from '../../common/services/password.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { AuditLogService } from '../audit-log/audit-log.service.js';
+import { CommunicationService } from '../communication/communication.service.js';
+import { SmsProvider } from '../communication/providers/sms.provider.js';
+import { EmailProvider } from '../communication/providers/email.provider.js';
 
 const clinicId = '123e4567-e89b-12d3-a456-426614174000';
 const branchId = 'aaa11111-bbbb-cccc-dddd-eeeeeeeeeeee';
@@ -16,9 +20,12 @@ const mockUser = {
   branch_id: branchId,
   name: 'Dr. Jane Smith',
   email: 'jane@clinic.com',
+  phone: '9876543210',
   password_hash: '$2b$12$hashedpassword',
   role: 'Dentist',
   status: 'active',
+  email_verified: true,
+  phone_verified: false,
   created_at: new Date(),
   updated_at: new Date(),
 };
@@ -46,6 +53,10 @@ const mockPrismaService = {
 const mockAuditLogService = {
   log: jest.fn().mockResolvedValue({}),
 };
+const mockConfigService = { get: jest.fn().mockReturnValue('test-secret') };
+const mockCommunicationService = { sendMessage: jest.fn().mockResolvedValue({}) };
+const mockSmsProvider = { send: jest.fn().mockResolvedValue({}) };
+const mockEmailProvider = { send: jest.fn().mockResolvedValue({}) };
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -57,8 +68,12 @@ describe('AuthService', () => {
         { provide: UserService, useValue: mockUserService },
         { provide: PasswordService, useValue: mockPasswordService },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: ConfigService, useValue: mockConfigService },
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: AuditLogService, useValue: mockAuditLogService },
+        { provide: CommunicationService, useValue: mockCommunicationService },
+        { provide: SmsProvider, useValue: mockSmsProvider },
+        { provide: EmailProvider, useValue: mockEmailProvider },
       ],
     }).compile();
 
@@ -80,7 +95,7 @@ describe('AuthService', () => {
       const result = await service.login(loginDto);
 
       expect(result.access_token).toBe('mock.jwt.token');
-      expect(result.user).toEqual({
+      expect(result.user).toEqual(expect.objectContaining({
         id: mockUser.id,
         clinic_id: mockUser.clinic_id,
         branch_id: mockUser.branch_id,
@@ -88,7 +103,9 @@ describe('AuthService', () => {
         email: mockUser.email,
         role: mockUser.role,
         status: mockUser.status,
-      });
+        email_verified: mockUser.email_verified,
+        phone_verified: mockUser.phone_verified,
+      }));
       expect(result.user).not.toHaveProperty('password_hash');
     });
 

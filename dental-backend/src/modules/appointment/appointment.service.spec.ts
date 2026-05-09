@@ -2,6 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { AppointmentService } from './appointment.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { AppointmentNotificationService } from './appointment-notification.service.js';
+import { AppointmentReminderProducer } from './appointment-reminder.producer.js';
+import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 import { AppointmentStatus } from './dto/index.js';
 
 const clinicId = '123e4567-e89b-12d3-a456-426614174000';
@@ -10,13 +13,18 @@ const patientId = 'bbb22222-cccc-dddd-eeee-ffffffffffff';
 const dentistId = 'ccc33333-dddd-eeee-ffff-aaaaaaaaaaaa';
 const otherClinicId = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 
+// Use a date 14 days from now so it's always within the 30-day advance booking window
+const futureApptDate = new Date();
+futureApptDate.setDate(futureApptDate.getDate() + 14);
+const futureDateStr = futureApptDate.toISOString().split('T')[0];
+
 const mockAppointment = {
   id: 'ddd44444-eeee-ffff-aaaa-bbbbbbbbbbbb',
   clinic_id: clinicId,
   branch_id: branchId,
   patient_id: patientId,
   dentist_id: dentistId,
-  appointment_date: new Date('2026-03-15'),
+  appointment_date: futureApptDate,
   start_time: '09:00',
   end_time: '09:30',
   status: 'scheduled',
@@ -43,6 +51,20 @@ const mockPrismaService = {
   },
 };
 
+const mockNotificationService = {
+  sendConfirmation: jest.fn().mockResolvedValue(undefined),
+  sendCancellation: jest.fn().mockResolvedValue(undefined),
+  sendReschedule: jest.fn().mockResolvedValue(undefined),
+  sendDentistConfirmation: jest.fn().mockResolvedValue(undefined),
+  sendDentistReminder: jest.fn().mockResolvedValue(undefined),
+};
+const mockReminderProducer = {
+  scheduleReminders: jest.fn().mockResolvedValue(undefined),
+  cancelReminders: jest.fn().mockResolvedValue(undefined),
+  rescheduleReminders: jest.fn().mockResolvedValue(undefined),
+};
+const mockPlanLimit = { enforceMonthlyCap: jest.fn().mockResolvedValue(undefined) };
+
 describe('AppointmentService', () => {
   let service: AppointmentService;
 
@@ -51,6 +73,9 @@ describe('AppointmentService', () => {
       providers: [
         AppointmentService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: AppointmentNotificationService, useValue: mockNotificationService },
+        { provide: AppointmentReminderProducer, useValue: mockReminderProducer },
+        { provide: PlanLimitService, useValue: mockPlanLimit },
       ],
     }).compile();
 
@@ -78,7 +103,7 @@ describe('AppointmentService', () => {
       branch_id: branchId,
       patient_id: patientId,
       dentist_id: dentistId,
-      appointment_date: '2026-03-15',
+      appointment_date: futureDateStr,
       start_time: '09:00',
       end_time: '09:30',
     };

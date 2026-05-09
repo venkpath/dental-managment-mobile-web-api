@@ -2,6 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { PrescriptionService } from './prescription.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { PrescriptionPdfService } from './prescription-pdf.service.js';
+import { S3Service } from '../../common/services/s3.service.js';
+import { CommunicationService } from '../communication/communication.service.js';
+import { AutomationService } from '../automation/automation.service.js';
+import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 
 const clinicId = '123e4567-e89b-12d3-a456-426614174000';
 const branchId = 'aaa11111-bbbb-cccc-dddd-eeeeeeeeeeee';
@@ -46,6 +51,12 @@ const mockPrismaService = {
   $transaction: jest.fn(),
 };
 
+const mockPdfService = { generate: jest.fn().mockResolvedValue(Buffer.from('pdf')) };
+const mockS3Service = { upload: jest.fn().mockResolvedValue('s3://key'), getSignedUrl: jest.fn().mockResolvedValue('https://url') };
+const mockCommunicationService = { sendMessage: jest.fn().mockResolvedValue({}) };
+const mockAutomationService = { getRuleConfig: jest.fn().mockResolvedValue({ is_enabled: false }) };
+const mockPlanLimit = { enforceMonthlyCap: jest.fn().mockResolvedValue(undefined) };
+
 describe('PrescriptionService', () => {
   let service: PrescriptionService;
 
@@ -54,6 +65,11 @@ describe('PrescriptionService', () => {
       providers: [
         PrescriptionService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: PrescriptionPdfService, useValue: mockPdfService },
+        { provide: S3Service, useValue: mockS3Service },
+        { provide: CommunicationService, useValue: mockCommunicationService },
+        { provide: AutomationService, useValue: mockAutomationService },
+        { provide: PlanLimitService, useValue: mockPlanLimit },
       ],
     }).compile();
 

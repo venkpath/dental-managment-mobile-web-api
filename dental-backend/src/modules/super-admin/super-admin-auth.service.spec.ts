@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { SuperAdminAuthService } from './super-admin-auth.service.js';
 import { SuperAdminService } from './super-admin.service.js';
 import { PasswordService } from '../../common/services/password.service.js';
+import { PrismaService } from '../../database/prisma.service.js';
 
 const mockSuperAdmin = {
   id: '123e4567-e89b-12d3-a456-426614174000',
@@ -26,6 +27,7 @@ const mockPasswordService = {
 const mockJwtService = {
   signAsync: jest.fn().mockResolvedValue('mock.super.admin.token'),
 };
+const mockPrisma = { superAdmin: { findUnique: jest.fn() } };
 
 describe('SuperAdminAuthService', () => {
   let service: SuperAdminAuthService;
@@ -37,6 +39,7 @@ describe('SuperAdminAuthService', () => {
         { provide: SuperAdminService, useValue: mockSuperAdminService },
         { provide: PasswordService, useValue: mockPasswordService },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 

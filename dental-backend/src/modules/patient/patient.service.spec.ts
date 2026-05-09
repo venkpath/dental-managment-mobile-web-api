@@ -2,6 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { PatientService } from './patient.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { ConfigService } from '@nestjs/config';
+import { PlanLimitService } from '../../common/services/plan-limit.service.js';
+import { S3Service } from '../../common/services/s3.service.js';
 import { Gender } from './dto/index.js';
 
 const clinicId = '123e4567-e89b-12d3-a456-426614174000';
@@ -41,6 +44,10 @@ const mockPrismaService = {
   },
 };
 
+const mockConfig = { get: jest.fn().mockReturnValue('test-key') };
+const mockPlanLimit = { enforceMonthlyCap: jest.fn().mockResolvedValue(undefined) };
+const mockS3Service = { getSignedUrl: jest.fn().mockResolvedValue('https://signed.url') };
+
 describe('PatientService', () => {
   let service: PatientService;
 
@@ -49,6 +56,9 @@ describe('PatientService', () => {
       providers: [
         PatientService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: ConfigService, useValue: mockConfig },
+        { provide: PlanLimitService, useValue: mockPlanLimit },
+        { provide: S3Service, useValue: mockS3Service },
       ],
     }).compile();
 

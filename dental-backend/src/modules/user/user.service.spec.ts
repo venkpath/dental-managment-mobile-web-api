@@ -3,6 +3,7 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { UserService } from './user.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { PasswordService } from '../../common/services/password.service.js';
+import { S3Service } from '../../common/services/s3.service.js';
 import { UserRole } from './dto/index.js';
 
 const clinicId = '123e4567-e89b-12d3-a456-426614174000';
@@ -17,6 +18,8 @@ const mockUser = {
   email: 'jane@clinic.com',
   role: 'Dentist',
   status: 'active',
+  signature_url: null,
+  profile_photo_url: null,
   created_at: new Date(),
   updated_at: new Date(),
 };
@@ -37,6 +40,8 @@ const mockPasswordService = {
   verify: jest.fn().mockResolvedValue(true),
 };
 
+const mockS3Service = { getSignedUrl: jest.fn().mockResolvedValue('https://signed.url') };
+
 describe('UserService', () => {
   let service: UserService;
 
@@ -46,6 +51,7 @@ describe('UserService', () => {
         UserService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: PasswordService, useValue: mockPasswordService },
+        { provide: S3Service, useValue: mockS3Service },
       ],
     }).compile();
 

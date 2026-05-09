@@ -2,6 +2,7 @@ import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FeatureGuard } from '../common/guards/feature.guard.js';
 import { AiUsageGuard } from '../common/guards/ai-usage.guard.js';
+import { AiUsageService } from '../modules/ai/ai-usage.service.js';
 
 /**
  * Integration Tests: Feature Guard & AI Quota Enforcement
@@ -157,23 +158,15 @@ describe('Integration: Feature Guard Enforcement', () => {
 // ==========================================
 describe('Integration: AI Quota Enforcement', () => {
   let aiUsageGuard: AiUsageGuard;
-  let mockPrisma: any;
+  let mockAiUsageService: { reserveSlot: jest.Mock };
 
-  beforeEach(async () => {
-    mockPrisma = {
-      clinic: {
-        findUnique: jest.fn(),
-        update: jest.fn(),
-        updateMany: jest.fn(),
-      },
-      plan: { findUnique: jest.fn() },
-      planFeature: { findFirst: jest.fn() },
-    };
+  beforeEach(() => {
+    mockAiUsageService = { reserveSlot: jest.fn().mockResolvedValue(undefined) };
   });
 
   function buildGuard(trackUsage: boolean | undefined) {
     const reflector = createMockReflector(trackUsage);
-    return new AiUsageGuard(reflector, mockPrisma);
+    return new AiUsageGuard(reflector, mockAiUsageService as unknown as AiUsageService);
   }
 
   it('should skip tracking when @TrackAiUsage is not set', async () => {
@@ -181,7 +174,7 @@ describe('Integration: AI Quota Enforcement', () => {
     const ctx = createMockExecutionContext({ user: { userId, clinicId, role: 'dentist' } });
     const result = await aiUsageGuard.canActivate(ctx);
     expect(result).toBe(true);
-    expect(mockPrisma.clinic.findUnique).not.toHaveBeenCalled();
+    expect(mockAiUsageService.reserveSlot).not.toHaveBeenCalled();
   });
 
   it('should allow super admin to bypass AI tracking', async () => {
@@ -189,7 +182,7 @@ describe('Integration: AI Quota Enforcement', () => {
     const ctx = createMockExecutionContext({ superAdmin: { id: 'sa-1' } });
     const result = await aiUsageGuard.canActivate(ctx);
     expect(result).toBe(true);
-    expect(mockPrisma.clinic.findUnique).not.toHaveBeenCalled();
+    expect(mockAiUsageService.reserveSlot).not.toHaveBeenCalled();
   });
 
   it('should deny when user is not authenticated', async () => {
@@ -200,54 +193,36 @@ describe('Integration: AI Quota Enforcement', () => {
 
   it('should deny when clinic has no plan', async () => {
     aiUsageGuard = buildGuard(true);
-    mockPrisma.clinic.findUnique.mockResolvedValue({ id: clinicId, plan_id: null });
-
-    const ctx = createMockExecutionContext({
-      user: { userId, clinicId, role: 'dentist' },
-    });
+    mockAiUsageService.reserveSlot.mockRejectedValueOnce(
+      new ForbiddenException('Clinic has no active plan'),
+    );
+    const ctx = createMockExecutionContext({ user: { userId, clinicId, role: 'dentist' } });
     await expect(aiUsageGuard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
   it('should deny when plan does not exist', async () => {
     aiUsageGuard = buildGuard(true);
-    mockPrisma.clinic.findUnique.mockResolvedValue({ id: clinicId, plan_id: planId });
-    mockPrisma.plan.findUnique.mockResolvedValue(null);
-
-    const ctx = createMockExecutionContext({
-      user: { userId, clinicId, role: 'dentist' },
-    });
+    mockAiUsageService.reserveSlot.mockRejectedValueOnce(
+      new ForbiddenException('Plan not found'),
+    );
+    const ctx = createMockExecutionContext({ user: { userId, clinicId, role: 'dentist' } });
     await expect(aiUsageGuard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
   it('should allow and increment when under quota', async () => {
     aiUsageGuard = buildGuard(true);
-    mockPrisma.clinic.findUnique.mockResolvedValue({ id: clinicId, plan_id: planId });
-    mockPrisma.plan.findUnique.mockResolvedValue({ ai_quota: 100 });
-    mockPrisma.clinic.updateMany.mockResolvedValue({ count: 1 }); // atomic increment succeeded
-
-    const ctx = createMockExecutionContext({
-      user: { userId, clinicId, role: 'dentist' },
-    });
+    const ctx = createMockExecutionContext({ user: { userId, clinicId, role: 'dentist' } });
     const result = await aiUsageGuard.canActivate(ctx);
     expect(result).toBe(true);
-    expect(mockPrisma.clinic.updateMany).toHaveBeenCalledWith({
-      where: {
-        id: clinicId,
-        ai_usage_count: { lt: 100 },
-      },
-      data: { ai_usage_count: { increment: 1 } },
-    });
+    expect(mockAiUsageService.reserveSlot).toHaveBeenCalledWith(clinicId);
   });
 
   it('should deny when AI quota is exhausted (atomic check)', async () => {
     aiUsageGuard = buildGuard(true);
-    mockPrisma.clinic.findUnique.mockResolvedValue({ id: clinicId, plan_id: planId });
-    mockPrisma.plan.findUnique.mockResolvedValue({ ai_quota: 50 });
-    mockPrisma.clinic.updateMany.mockResolvedValue({ count: 0 }); // quota exceeded
-
-    const ctx = createMockExecutionContext({
-      user: { userId, clinicId, role: 'dentist' },
-    });
+    mockAiUsageService.reserveSlot.mockRejectedValueOnce(
+      new ForbiddenException('AI usage quota exceeded for your current plan'),
+    );
+    const ctx = createMockExecutionContext({ user: { userId, clinicId, role: 'dentist' } });
     await expect(aiUsageGuard.canActivate(ctx)).rejects.toThrow(
       'AI usage quota exceeded for your current plan',
     );
@@ -255,42 +230,24 @@ describe('Integration: AI Quota Enforcement', () => {
 
   it('should allow unlimited usage when ai_quota is 0', async () => {
     aiUsageGuard = buildGuard(true);
-    mockPrisma.clinic.findUnique.mockResolvedValue({ id: clinicId, plan_id: planId });
-    mockPrisma.plan.findUnique.mockResolvedValue({ ai_quota: 0 }); // unlimited
-
-    const ctx = createMockExecutionContext({
-      user: { userId, clinicId, role: 'dentist' },
-    });
+    const ctx = createMockExecutionContext({ user: { userId, clinicId, role: 'dentist' } });
     const result = await aiUsageGuard.canActivate(ctx);
     expect(result).toBe(true);
-    expect(mockPrisma.clinic.update).toHaveBeenCalledWith({
-      where: { id: clinicId },
-      data: { ai_usage_count: { increment: 1 } },
-    });
-    // Should NOT use updateMany (quota check) when unlimited
-    expect(mockPrisma.clinic.updateMany).not.toHaveBeenCalled();
+    expect(mockAiUsageService.reserveSlot).toHaveBeenCalledWith(clinicId);
   });
 
   it('should handle concurrent requests with atomic quota enforcement', async () => {
     aiUsageGuard = buildGuard(true);
-    mockPrisma.clinic.findUnique.mockResolvedValue({ id: clinicId, plan_id: planId });
-    mockPrisma.plan.findUnique.mockResolvedValue({ ai_quota: 1 });
 
     // First request succeeds, second fails (simulating race condition)
-    mockPrisma.clinic.updateMany
-      .mockResolvedValueOnce({ count: 1 }) // first request gets the last slot
-      .mockResolvedValueOnce({ count: 0 }); // second request - quota now full
+    mockAiUsageService.reserveSlot
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new ForbiddenException('AI quota exhausted'));
 
-    const ctx1 = createMockExecutionContext({
-      user: { userId, clinicId, role: 'dentist' },
-    });
-    const ctx2 = createMockExecutionContext({
-      user: { userId, clinicId, role: 'dentist' },
-    });
+    const ctx1 = createMockExecutionContext({ user: { userId, clinicId, role: 'dentist' } });
+    const ctx2 = createMockExecutionContext({ user: { userId, clinicId, role: 'dentist' } });
 
-    const result1 = await aiUsageGuard.canActivate(ctx1);
-    expect(result1).toBe(true);
-
+    expect(await aiUsageGuard.canActivate(ctx1)).toBe(true);
     await expect(aiUsageGuard.canActivate(ctx2)).rejects.toThrow(ForbiddenException);
   });
 });

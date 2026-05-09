@@ -1,21 +1,14 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AiUsageGuard } from './ai-usage.guard.js';
-import { PrismaService } from '../../database/prisma.service.js';
+import { AiUsageService } from '../../modules/ai/ai-usage.service.js';
 
 const mockReflector = {
   getAllAndOverride: jest.fn(),
 };
 
-const mockPrismaService = {
-  clinic: {
-    findUnique: jest.fn(),
-    update: jest.fn(),
-    updateMany: jest.fn(),
-  },
-  plan: {
-    findUnique: jest.fn(),
-  },
+const mockAiUsageService = {
+  reserveSlot: jest.fn(),
 };
 
 function createMockContext(
@@ -37,9 +30,10 @@ describe('AiUsageGuard', () => {
   beforeEach(() => {
     guard = new AiUsageGuard(
       mockReflector as unknown as Reflector,
-      mockPrismaService as unknown as PrismaService,
+      mockAiUsageService as unknown as AiUsageService,
     );
     jest.clearAllMocks();
+    mockAiUsageService.reserveSlot.mockResolvedValue(undefined);
   });
 
   it('should be defined', () => {
@@ -51,6 +45,7 @@ describe('AiUsageGuard', () => {
     const context = createMockContext();
 
     expect(await guard.canActivate(context)).toBe(true);
+    expect(mockAiUsageService.reserveSlot).not.toHaveBeenCalled();
   });
 
   it('should allow access for super admins', async () => {
@@ -58,7 +53,7 @@ describe('AiUsageGuard', () => {
     const context = createMockContext(undefined, { id: 'admin-123' });
 
     expect(await guard.canActivate(context)).toBe(true);
-    expect(mockPrismaService.clinic.findUnique).not.toHaveBeenCalled();
+    expect(mockAiUsageService.reserveSlot).not.toHaveBeenCalled();
   });
 
   it('should throw ForbiddenException when no user on request', async () => {
@@ -68,81 +63,21 @@ describe('AiUsageGuard', () => {
     await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
   });
 
-  it('should throw ForbiddenException when clinic has no plan', async () => {
+  it('should throw ForbiddenException when quota exceeded', async () => {
     mockReflector.getAllAndOverride.mockReturnValue(true);
-    mockPrismaService.clinic.findUnique.mockResolvedValueOnce({
-      id: 'c1',
-      plan_id: null,
-    });
-    const context = createMockContext({
-      userId: 'u1',
-      clinicId: 'c1',
-      role: 'Admin',
-      branchId: null,
-    });
+    mockAiUsageService.reserveSlot.mockRejectedValueOnce(
+      new ForbiddenException('AI quota exceeded'),
+    );
+    const context = createMockContext({ clinicId: 'c1', userId: 'u1', role: 'Admin' });
 
     await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
   });
 
-  it('should throw ForbiddenException when quota exceeded (atomic check)', async () => {
+  it('should allow and call reserveSlot when within quota', async () => {
     mockReflector.getAllAndOverride.mockReturnValue(true);
-    mockPrismaService.clinic.findUnique.mockResolvedValueOnce({
-      id: 'c1',
-      plan_id: 'plan-1',
-    });
-    mockPrismaService.plan.findUnique.mockResolvedValueOnce({ ai_quota: 100 });
-    mockPrismaService.clinic.updateMany.mockResolvedValueOnce({ count: 0 });
-    const context = createMockContext({
-      userId: 'u1',
-      clinicId: 'c1',
-      role: 'Admin',
-      branchId: null,
-    });
-
-    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
-  });
-
-  it('should allow and increment atomically when within quota', async () => {
-    mockReflector.getAllAndOverride.mockReturnValue(true);
-    mockPrismaService.clinic.findUnique.mockResolvedValueOnce({
-      id: 'c1',
-      plan_id: 'plan-1',
-    });
-    mockPrismaService.plan.findUnique.mockResolvedValueOnce({ ai_quota: 100 });
-    mockPrismaService.clinic.updateMany.mockResolvedValueOnce({ count: 1 });
-    const context = createMockContext({
-      userId: 'u1',
-      clinicId: 'c1',
-      role: 'Admin',
-      branchId: null,
-    });
+    const context = createMockContext({ clinicId: 'c1', userId: 'u1', role: 'Admin' });
 
     expect(await guard.canActivate(context)).toBe(true);
-    expect(mockPrismaService.clinic.updateMany).toHaveBeenCalledWith({
-      where: { id: 'c1', ai_usage_count: { lt: 100 } },
-      data: { ai_usage_count: { increment: 1 } },
-    });
-  });
-
-  it('should allow unlimited usage when ai_quota is 0', async () => {
-    mockReflector.getAllAndOverride.mockReturnValue(true);
-    mockPrismaService.clinic.findUnique.mockResolvedValueOnce({
-      id: 'c1',
-      plan_id: 'plan-1',
-    });
-    mockPrismaService.plan.findUnique.mockResolvedValueOnce({ ai_quota: 0 });
-    mockPrismaService.clinic.update.mockResolvedValueOnce({});
-    const context = createMockContext({
-      userId: 'u1',
-      clinicId: 'c1',
-      role: 'Admin',
-      branchId: null,
-    });
-
-    expect(await guard.canActivate(context)).toBe(true);
-    expect(mockPrismaService.clinic.update).toHaveBeenCalledWith({
-      where: { id: 'c1' },
-      data: { ai_usage_count: { increment: 1 } },
-    });
+    expect(mockAiUsageService.reserveSlot).toHaveBeenCalledWith('c1');
   });
 });

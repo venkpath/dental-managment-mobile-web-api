@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Smart Dental Desk — Brochure 2026</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+
+@page { size: A4 landscape; margin: 0; }
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+
+body {
+  font-family:'Inter',-apple-system,sans-serif;
+  background:#fff;
+  -webkit-print-color-adjust:exact;
+  print-color-adjust:exact;
+}
+
+.sheet {
+  width:297mm; height:210mm;
+  display:flex; position:relative;
+  page-break-before:always; overflow:hidden;
+}
+.sheet:first-child { page-break-before:auto; }
+
+/* Fold guide — screen only */
+.sheet::after {
+  content:'';
+  position:absolute; top:0; left:148.5mm; bottom:0; width:0;
+  border-left:0.3pt dashed rgba(150,150,150,0.35);
+  pointer-events:none; z-index:200;
+}
+@media print { .sheet::after { display:none; } }
+
+.panel {
+  width:148.5mm; height:210mm;
+  overflow:hidden; flex-shrink:0;
+  position:relative; display:flex; flex-direction:column;
+}
+
+/* ═══════════════════════════════════════
+   FRONT COVER
+═══════════════════════════════════════ */
+.panel-front {
+  background:#070E28;
+  padding:9.5mm 10.5mm;
+}
+
+/* Decorative orbs */
+.f-orb1 {
+  position:absolute; pointer-events:none; border-radius:50%;
+  width:310px; height:310px; top:-115px; right:-85px;
+  background:radial-gradient(circle, rgba(37,99,235,.42) 0%, transparent 68%);
+}
+.f-orb2 {
+  position:absolute; pointer-events:none; border-radius:50%;
+  width:210px; height:210px; bottom:-65px; left:-45px;
+  background:radial-gradient(circle, rgba(8,145,178,.32) 0%, transparent 68%);
+}
+/* Dot grid texture */
+.f-dots {
+  position:absolute; inset:0; pointer-events:none;
+  background-image:radial-gradient(rgba(255,255,255,.055) 1px, transparent 1px);
+  background-size:15px 15px;
+}
+/* Faint watermark logo */
+.f-bg-mark {
+  position:absolute; bottom:-6%; right:-6%;
+  width:190px; height:190px; object-fit:contain;
+  opacity:.045; pointer-events:none;
+}
+
+/* Logo row */
+.f-logo { display:flex; align-items:center; gap:10px; position:relative; z-index:2; }
+.f-logo-box {
+  width:40px; height:40px; flex-shrink:0; background:#fff;
+  border-radius:10px; padding:4px; overflow:hidden;
+  box-shadow:0 4px 18px rgba(0,0,0,.5);
+}
+.f-logo-box img { width:100%; height:100%; object-fit:contain; display:block; }
+.f-logo-name { font-size:13px; font-weight:800; color:#fff; letter-spacing:-.3px; font-family:'Plus Jakarta Sans',sans-serif; }
+.f-logo-sub  { font-size:7px; color:rgba(255,255,255,.4); font-weight:500; margin-top:1px; }
+
+/* Body */
+.f-body { flex:1; display:flex; flex-direction:column; justify-content:center; position:relative; z-index:2; padding:5px 0; }
+
+.f-cat {
+  display:flex; align-items:center; gap:7px; margin-bottom:8px;
+}
+.f-cat-line { height:1px; width:16px; background:rgba(255,255,255,.2); }
+.f-cat-text { font-size:6.5px; font-weight:700; text-transform:uppercase; letter-spacing:.18em; color:rgba(255,255,255,.45); }
+
+.f-chip {
+  display:inline-flex; align-items:center; gap:5px;
+  background:rgba(96,165,250,.12); border:1px solid rgba(96,165,250,.25);
+  border-radius:100px; padding:3px 10px; margin-bottom:9px; width:fit-content;
+  font-size:6.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#93c5fd;
+}
+.f-chip-dot { width:5px; height:5px; border-radius:50%; background:#22d3ee; flex-shrink:0; }
+
+.f-h1 {
+  font-size:27px; font-weight:900; line-height:1.08; letter-spacing:-1px;
+  color:#fff; margin-bottom:9px; font-family:'Plus Jakarta Sans',sans-serif;
+}
+.f-h1 em {
+  font-style:normal;
+  background:linear-gradient(110deg,#60a5fa 0%,#38bdf8 55%,#67e8f9 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+.f-desc { font-size:9px; color:rgba(255,255,255,.48); line-height:1.72; margin-bottom:12px; }
+
+/* Highlight cards */
+.f-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:5.5px; }
+.f-card {
+  background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1);
+  border-top:2.5px solid rgba(96,165,250,.38); border-radius:8px; padding:8px 9px;
+}
+.f-card-ico {
+  width:24px; height:24px; border-radius:6px; background:rgba(255,255,255,.1);
+  display:flex; align-items:center; justify-content:center; margin-bottom:5px;
+}
+.f-card-name { font-size:8.5px; font-weight:700; color:#fff; margin-bottom:2px; font-family:'Plus Jakarta Sans',sans-serif; }
+.f-card-desc { font-size:7px; color:rgba(255,255,255,.42); line-height:1.5; }
+
+/* Footer */
+.f-foot { position:relative; z-index:2; }
+.f-sep  { border:none; border-top:1px solid rgba(255,255,255,.07); margin:0 0 7px; }
+.f-foot-row { display:flex; align-items:center; gap:8px; }
+.f-pills { display:flex; gap:3px; flex-wrap:wrap; flex:1; align-items:center; }
+.f-pill {
+  border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.06);
+  border-radius:20px; padding:2px 7px; font-size:6px; font-weight:600; color:rgba(255,255,255,.42);
+}
+.f-qr { display:flex; flex-direction:column; align-items:center; gap:3px; flex-shrink:0; }
+.f-qr-wrap { background:#fff; border-radius:6px; padding:3px; box-shadow:0 3px 14px rgba(0,0,0,.45); }
+.f-qr-wrap img { display:block; width:52px; height:52px; }
+.f-qr-label { font-size:6px; font-weight:700; color:rgba(255,255,255,.45); text-align:center; text-transform:uppercase; letter-spacing:.04em; line-height:1.4; }
+
+/* ═══════════════════════════════════════
+   BACK COVER
+═══════════════════════════════════════ */
+.panel-back {
+  background:#F7F9FC; padding:9.5mm 10.5mm; gap:9px;
+  border-right:0.5px solid #DDE3EC;
+}
+/* Top gradient accent */
+.b-accent { position:absolute; top:0; left:0; right:0; height:3.5px; background:linear-gradient(90deg,#1d4ed8 0%,#0891b2 100%); z-index:1; }
+/* Subtle dot pattern */
+.b-pattern {
+  position:absolute; inset:0; pointer-events:none; z-index:0;
+  background-image:radial-gradient(rgba(29,78,216,.03) 1px, transparent 1px);
+  background-size:18px 18px;
+}
+.b-z { position:relative; z-index:2; }
+
+/* Logo */
+.b-logo { display:flex; align-items:center; gap:10px; }
+.b-logo-box {
+  width:42px; height:42px; flex-shrink:0; background:#fff;
+  border-radius:12px; border:1.5px solid #E2E8F0;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 2px 10px rgba(0,0,0,.1); padding:5px; overflow:hidden;
+}
+.b-logo-box img { width:100%; height:100%; object-fit:contain; display:block; }
+.b-logo-name { font-size:13px; font-weight:800; color:#0F172A; letter-spacing:-.3px; font-family:'Plus Jakarta Sans',sans-serif; }
+.b-logo-sub  { font-size:7px; color:#64748B; font-weight:500; margin-top:1px; }
+
+.b-headline { font-size:17px; font-weight:900; color:#0F172A; line-height:1.22; font-family:'Plus Jakarta Sans',sans-serif; }
+.b-headline em { font-style:normal; background:linear-gradient(110deg,#1d4ed8,#0891b2); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.b-tagline { font-size:8.5px; color:#475569; line-height:1.65; margin-top:4px; }
+
+/* Trust list */
+.b-trust { list-style:none; display:flex; flex-direction:column; gap:5.5px; }
+.b-trust-item { display:flex; align-items:flex-start; gap:8px; }
+.b-trust-ico {
+  width:27px; height:27px; flex-shrink:0;
+  background:#EFF6FF; border-radius:8px; border:1px solid #BFDBFE;
+  display:flex; align-items:center; justify-content:center;
+}
+.b-trust-copy strong { font-size:8.5px; font-weight:700; color:#1E293B; display:block; }
+.b-trust-copy span   { font-size:7.5px; color:#64748B; line-height:1.45; }
+
+/* CTA block */
+.b-cta {
+  background:linear-gradient(135deg,#0F2056 0%,#1d4ed8 60%,#0891b2 100%);
+  border-radius:12px; padding:11px 14px; text-align:center; color:#fff;
+}
+.b-cta h3 { font-size:11.5px; font-weight:800; margin-bottom:3px; font-family:'Plus Jakarta Sans',sans-serif; }
+.b-cta p  { font-size:8px; color:rgba(255,255,255,.65); line-height:1.5; margin-bottom:6px; }
+.b-cta-url { font-size:10.5px; font-weight:800; }
+
+/* Contact rows */
+.b-contacts { display:flex; flex-direction:column; gap:4px; }
+.b-contact {
+  font-size:8px; color:#475569; display:flex; align-items:center; gap:7px;
+  background:#fff; border-radius:7px; border:1px solid #E2E8F0;
+  padding:5px 9px; box-shadow:0 1px 3px rgba(0,0,0,.04);
+}
+.b-contact b { color:#1E293B; font-weight:600; }
+.b-ico { flex-shrink:0; color:#1d4ed8; }
+
+/* ═══════════════════════════════════════
+   INSIDE LEFT — Features
+═══════════════════════════════════════ */
+.panel-inside-left {
+  background:#fff; border-right:1px solid #E2E8F0;
+  padding:8mm 9mm; display:flex; flex-direction:column;
+}
+
+.eyebrow {
+  display:inline-flex; align-items:center; gap:4px;
+  background:#EFF6FF; color:#1D4ED8; border:1px solid #BFDBFE;
+  border-radius:20px; padding:2px 10px;
+  font-size:6.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+  margin-bottom:4px; width:fit-content;
+}
+.il-title { font-size:14.5px; font-weight:900; color:#0F172A; letter-spacing:-.4px; margin-bottom:2px; font-family:'Plus Jakarta Sans',sans-serif; }
+.il-sub   { font-size:8px; color:#64748B; margin-bottom:7px; }
+
+/* Feature cards — left accent border */
+.feat-grid {
+  display:grid; grid-template-columns:1fr 1fr;
+  grid-template-rows:repeat(5,1fr);
+  gap:5px; flex:1; margin-bottom:8px;
+}
+.feat-card {
+  display:flex; align-items:flex-start; gap:7px;
+  background:#F8FAFC; border:1px solid #EEF2F8;
+  border-left:3px solid #1d4ed8;
+  border-radius:0 8px 8px 0; padding:7px 9px;
+}
+.feat-ico {
+  width:24px; height:24px; flex-shrink:0;
+  background:#EFF6FF; border-radius:6px;
+  display:flex; align-items:center; justify-content:center;
+}
+.feat-name { font-size:8.5px; font-weight:700; color:#1E293B; font-family:'Plus Jakarta Sans',sans-serif; }
+.feat-desc { font-size:7px; color:#64748B; line-height:1.4; margin-top:1px; }
+
+/* AI strip */
+.ai-strip {
+  background:linear-gradient(135deg,#050C22 0%,#0D2160 50%,#1d4ed8 100%);
+  border-radius:10px; padding:9px 12px; color:#fff;
+}
+.ai-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.ai-title { font-size:9px; font-weight:800; display:flex; align-items:center; gap:5px; font-family:'Plus Jakarta Sans',sans-serif; }
+.ai-badge {
+  font-size:5.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+  background:rgba(34,211,238,.18); border:1px solid rgba(34,211,238,.3); color:#67e8f9;
+  padding:1px 7px; border-radius:20px;
+}
+.ai-grid  { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; }
+.ai-feat  { display:flex; align-items:flex-start; gap:4px; font-size:7px; color:rgba(255,255,255,.72); line-height:1.4; }
+
+/* ═══════════════════════════════════════
+   INSIDE RIGHT — Pricing
+═══════════════════════════════════════ */
+.panel-inside-right {
+  background:#fff; padding:8mm 9mm; display:flex; flex-direction:column;
+}
+
+.ir-title { font-size:14.5px; font-weight:900; color:#0F172A; letter-spacing:-.4px; margin-bottom:2px; font-family:'Plus Jakarta Sans',sans-serif; }
+.ir-sub   { font-size:8px; color:#64748B; margin-bottom:7px; }
+
+.price-grid {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:6px; margin-bottom:6px; flex:1;
+}
+/* Pricing cards */
+.pc {
+  border:1.5px solid #E2E8F0; border-radius:11px; padding:9px 10px;
+  background:#FAFCFF; display:flex; flex-direction:column;
+}
+.pc.popular {
+  border-color:#1d4ed8;
+  background:linear-gradient(170deg,#EFF6FF 0%,#FAFCFF 55%);
+  box-shadow:0 0 0 1.5px #1d4ed8, 0 4px 24px rgba(29,78,216,.1);
+}
+.pc-pop-badge {
+  font-size:6.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+  color:#fff; background:linear-gradient(90deg,#1d4ed8,#0891b2);
+  border-radius:20px; padding:2px 9px; display:inline-block; margin-bottom:4px; width:fit-content;
+}
+.pc-name  { font-size:10px; font-weight:800; color:#0F172A; margin-bottom:3px; font-family:'Plus Jakarta Sans',sans-serif; }
+.pc-row2  { display:flex; align-items:baseline; gap:1px; margin-bottom:2px; }
+.pc-sym2  { font-size:9.5px; color:#64748B; font-weight:600; }
+.pc-amt   { font-size:19px; font-weight:900; color:#0F172A; letter-spacing:-.5px; }
+.pc-amt.blu { color:#1d4ed8; }
+.pc-period { font-size:7.5px; color:#94A3B8; }
+.pc-free {
+  font-size:19px; font-weight:900;
+  background:linear-gradient(135deg,#1d4ed8,#06b6d4);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+.pc-saving { font-size:6.5px; color:#059669; font-weight:600; margin-bottom:5px; }
+.pc-feats  { list-style:none; flex:1; }
+.pc-feats li { font-size:7.5px; color:#334155; display:flex; align-items:flex-start; gap:4px; margin-bottom:2.5px; line-height:1.35; }
+.chk { color:#16a34a; font-size:8px; flex-shrink:0; }
+.crs { color:#CBD5E1; font-size:8px; flex-shrink:0; }
+.dim { color:#94A3B8; }
+
+/* White-label strip */
+.wl-bar {
+  border:1.5px solid #BFDBFE; background:linear-gradient(90deg,#EFF6FF,#FAFCFF);
+  border-radius:10px; padding:8px 10px; display:flex; align-items:center; gap:8px; margin-bottom:5px;
+}
+.wl-t { font-size:6px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#1d4ed8; margin-bottom:1px; }
+.wl-h { font-size:12px; font-weight:800; color:#0F172A; font-family:'Plus Jakarta Sans',sans-serif; }
+.wl-p {
+  font-size:10.5px; font-weight:900;
+  background:linear-gradient(135deg,#1d4ed8,#06b6d4);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+.wl-feats { font-size:7px; color:#64748B; line-height:1.7; flex:1; }
+.wl-btn {
+  background:linear-gradient(135deg,#1d4ed8,#0891b2); color:#fff;
+  border-radius:8px; padding:6px 10px; font-size:7.5px; font-weight:700; white-space:nowrap; flex-shrink:0;
+}
+
+.price-note { font-size:6.5px; color:#94A3B8; text-align:center; margin-bottom:5px; }
+
+/* Bottom CTA */
+.cta-bar {
+  background:linear-gradient(135deg,#050C22 0%,#0D2160 50%,#1d4ed8 100%);
+  border-radius:10px; padding:10px 14px; color:#fff; text-align:center;
+}
+.cta-bar h3 { font-size:10.5px; font-weight:900; margin-bottom:3px; font-family:'Plus Jakarta Sans',sans-serif; }
+.cta-bar p  { font-size:7.5px; color:rgba(255,255,255,.52); margin-bottom:5px; line-height:1.5; }
+.cta-bar-checks { display:flex; justify-content:center; gap:7px; flex-wrap:wrap; margin-bottom:5px; }
+.cta-bar-check  { font-size:7px; color:rgba(255,255,255,.68); display:flex; align-items:center; gap:2px; }
+.cta-bar-url    { font-size:10px; font-weight:800; color:#7dd3fc; }
+
+/* Screen preview */
+@media screen {
+  body { background:#12172A; display:flex; flex-direction:column; align-items:center; padding:32px; gap:32px; }
+  .sheet { box-shadow:0 20px 80px rgba(0,0,0,.65); border-radius:3px; }
+}
+</style>
+</head>
+<body>
+
+<!-- SVG Icon Library -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5A2.25 2.25 0 015.25 5.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0V11.25A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5M12 12.75h.008v.008H12v-.008zm0 3h.008v.008H12v-.008zm-4.5 0h.008v.008H7.5v-.008zm0-3h.008v.008H7.5v-.008zm9 3h.008v.008h-.008v-.008zm0-3h.008v.008h-.008v-.008z"/>
+</symbol>
+<symbol id="i-tooth" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M9.5 3C8 3 6.5 4 6 5.5 5.5 7 5 8.8 5 10.5c0 2.2.7 4.2 1.3 5.8l.7 2.2c.4 1.3.6 2.3.6 3a.9.9 0 001.8 0c0-1 .2-2 .6-3.2L10.5 16h3l.5 2.3c.4 1.2.6 2.2.6 3.2a.9.9 0 001.8 0c0-.7.2-1.7.6-3l.7-2.2C18.3 14.7 19 12.7 19 10.5c0-1.7-.5-3.5-1-5C17.5 4 16 3 14.5 3c-.8 0-1.5.4-2 .9L12 5l-.5-.1C11 4.4 10.3 3 9.5 3z"/>
+</symbol>
+<symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z"/>
+</symbol>
+<symbol id="i-pills" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M9.75 3.75a3 3 0 00-4.243 0l-1.757 1.757a3 3 0 000 4.243l10.5 10.5a3 3 0 004.243 0l1.757-1.757a3 3 0 000-4.243L9.75 3.75zM7.5 11.25L12.75 6M15 11.25a3.75 3.75 0 100 7.5 3.75 3.75 0 000-7.5z"/>
+</symbol>
+<symbol id="i-receipt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M9 14.25l1.5-1.5m0 0l1.5-1.5m-1.5 1.5l-1.5-1.5m1.5 1.5l1.5 1.5M5.25 7.5A2.25 2.25 0 017.5 5.25h9a2.25 2.25 0 012.25 2.25v9a2.25 2.25 0 01-2.25 2.25H7.5A2.25 2.25 0 015.25 16.5V7.5zm3 2.25h6m-6 3h6"/>
+</symbol>
+<symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/>
+</symbol>
+<symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155"/>
+</symbol>
+<symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zm6.75-9.75c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v16.5c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V3.375zm6.75 6c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v10.5c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V9.375z"/>
+</symbol>
+<symbol id="i-building" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"/>
+</symbol>
+<symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"/>
+</symbol>
+<symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>
+</symbol>
+<symbol id="i-monitor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0H3"/>
+</symbol>
+<symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/>
+</symbol>
+<symbol id="i-rupee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M15 8.25H9m6 3H9m3 6l-3-3h1.5a3 3 0 100-6M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+</symbol>
+<symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"/>
+</symbol>
+<symbol id="i-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z"/>
+</symbol>
+<symbol id="i-trend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/>
+</symbol>
+<symbol id="i-megaphone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 008.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 001.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 010 3.46"/>
+</symbol>
+<symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253M3.284 14.253A8.959 8.959 0 013 12c0-1.544.39-2.998 1.079-4.264"/>
+</symbol>
+<symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/>
+</symbol>
+<symbol id="i-call" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/>
+</symbol>
+<symbol id="i-calendar2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0V11.25A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+</symbol>
+</defs>
+</svg>
+
+
+<!-- ═══════════════════════════════════════════
+     SHEET 1 — OUTSIDE  (print face-up)
+     Left = Back Cover   |   Right = Front Cover
+═══════════════════════════════════════════ -->
+<div class="sheet">
+
+  <!-- ── BACK COVER ── -->
+  <div class="panel panel-back">
+    <div class="b-accent"></div>
+    <div class="b-pattern"></div>
+
+    <div class="b-logo b-z">
+      <div class="b-logo-box">
+        <img src="dental-frontend/public/logo.png" alt="Smart Dental Desk"/>
+      </div>
+      <div>
+        <div class="b-logo-name">Smart Dental Desk</div>
+        <div class="b-logo-sub">AI-Powered Dental Management</div>
+      </div>
+    </div>
+
+    <div class="b-z">
+      <h2 class="b-headline">Transform Your Dental<br/>Practice <em>Today</em></h2>
+      <p class="b-tagline">One platform for appointments, billing, clinical records, AI notes, WhatsApp, and more — built for Indian dental clinics.</p>
+    </div>
+
+    <ul class="b-trust b-z">
+      <li class="b-trust-item">
+        <div class="b-trust-ico"><svg width="14" height="14" style="color:#1d4ed8"><use href="#i-shield"/></svg></div>
+        <div class="b-trust-copy">
+          <strong>Secure &amp; Compliant</strong>
+          <span>SSL encrypted, Indian cloud servers, daily backups, role-based access.</span>
+        </div>
+      </li>
+      <li class="b-trust-item">
+        <div class="b-trust-ico"><svg width="14" height="14" style="color:#1d4ed8"><use href="#i-monitor"/></svg></div>
+        <div class="b-trust-copy">
+          <strong>Web + Mobile App</strong>
+          <span>Works on any device — desktop, tablet, iOS &amp; Android.</span>
+        </div>
+      </li>
+      <li class="b-trust-item">
+        <div class="b-trust-ico"><svg width="14" height="14" style="color:#1d4ed8"><use href="#i-sparkle"/></svg></div>
+        <div class="b-trust-copy">
+          <strong>AI-Assisted Workflows</strong>
+          <span>SOAP notes, prescriptions, treatment plans &amp; chart analysis in seconds.</span>
+        </div>
+      </li>
+      <li class="b-trust-item">
+        <div class="b-trust-ico"><svg width="14" height="14" style="color:#1d4ed8"><use href="#i-chat"/></svg></div>
+        <div class="b-trust-copy">
+          <strong>WhatsApp &amp; SMS Built-in</strong>
+          <span>Automated reminders, campaigns &amp; patient follow-ups.</span>
+        </div>
+      </li>
+      <li class="b-trust-item">
+        <div class="b-trust-ico"><svg width="14" height="14" style="color:#1d4ed8"><use href="#i-rupee"/></svg></div>
+        <div class="b-trust-copy">
+          <strong>GST-Ready Billing</strong>
+          <span>Invoices, payment tracking, installments, expenses — all integrated.</span>
+        </div>
+      </li>
+    </ul>
+
+    <div class="b-cta b-z">
+      <h3>Start Your Free 14-Day Trial</h3>
+      <p>No credit card required. Free plan available forever.</p>
+      <div class="b-cta-url">smartdentaldesk.com/register</div>
+    </div>
+
+    <div class="b-contacts b-z">
+      <div class="b-contact">
+        <svg class="b-ico" width="12" height="12"><use href="#i-globe"/></svg>
+        <b>smartdentaldesk.com</b>
+      </div>
+      <div class="b-contact">
+        <svg class="b-ico" width="12" height="12"><use href="#i-mail"/></svg>
+        <b>support@smartdentaldesk.com</b>
+      </div>
+      <div class="b-contact">
+        <svg class="b-ico" width="12" height="12"><use href="#i-call"/></svg>
+        <b>+91 73532 30500 &nbsp;/&nbsp; +91 83309 90642</b>
+      </div>
+      <div class="b-contact">
+        <svg class="b-ico" width="12" height="12"><use href="#i-calendar2"/></svg>
+        <b>smartdentaldesk.com/demo</b>&nbsp;— Book a Live Demo
+      </div>
+    </div>
+  </div>
+
+  <!-- ── FRONT COVER ── -->
+  <div class="panel panel-front">
+    <div class="f-orb1"></div>
+    <div class="f-orb2"></div>
+    <div class="f-dots"></div>
+    <img class="f-bg-mark" src="dental-frontend/public/brocher.png" alt=""/>
+
+    <!-- Logo -->
+    <div class="f-logo">
+      <div class="f-logo-box">
+        <img src="dental-frontend/public/logo.png" alt="Smart Dental Desk"/>
+      </div>
+      <div>
+        <div class="f-logo-name">Smart Dental Desk</div>
+        <div class="f-logo-sub">AI-Powered Dental Management</div>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="f-body">
+      <div class="f-cat">
+        <div class="f-cat-line"></div>
+        <span class="f-cat-text">Dental Clinic Software</span>
+        <div class="f-cat-line"></div>
+      </div>
+
+      <div class="f-chip">
+        <span class="f-chip-dot"></span>
+        AI-Powered · Cloud-Based · Made for India
+      </div>
+
+      <h1 class="f-h1">
+        Manage Your Entire<br/>
+        Dental Practice from<br/>
+        <em>One Smart Platform</em>
+      </h1>
+
+      <p class="f-desc">
+        Everything your clinic needs — appointments, AI clinical notes, WhatsApp reminders, GST billing, dental charts &amp; more. All in one place.
+      </p>
+
+      <div class="f-grid">
+        <div class="f-card">
+          <div class="f-card-ico"><svg width="14" height="14" style="color:#7dd3fc"><use href="#i-sparkle"/></svg></div>
+          <div class="f-card-name">AI Clinical Notes</div>
+          <div class="f-card-desc">SOAP notes, prescriptions &amp; treatment plans drafted in seconds</div>
+        </div>
+        <div class="f-card">
+          <div class="f-card-ico"><svg width="14" height="14" style="color:#7dd3fc"><use href="#i-chat"/></svg></div>
+          <div class="f-card-name">WhatsApp Built-in</div>
+          <div class="f-card-desc">Automated reminders, follow-ups &amp; campaigns on autopilot</div>
+        </div>
+        <div class="f-card">
+          <div class="f-card-ico"><svg width="14" height="14" style="color:#7dd3fc"><use href="#i-rupee"/></svg></div>
+          <div class="f-card-name">GST-Ready Billing</div>
+          <div class="f-card-desc">Invoices, payment tracking, installments &amp; expense management</div>
+        </div>
+        <div class="f-card">
+          <div class="f-card-ico"><svg width="14" height="14" style="color:#7dd3fc"><use href="#i-calendar"/></svg></div>
+          <div class="f-card-name">Smart Appointments</div>
+          <div class="f-card-desc">Drag-and-drop calendar with auto-confirmations &amp; multi-doctor slots</div>
+        </div>
+        <div class="f-card">
+          <div class="f-card-ico"><svg width="14" height="14" style="color:#7dd3fc"><use href="#i-tooth"/></svg></div>
+          <div class="f-card-name">Dental Charts</div>
+          <div class="f-card-desc">Interactive tooth charting, condition tagging &amp; X-ray per tooth</div>
+        </div>
+        <div class="f-card">
+          <div class="f-card-ico"><svg width="14" height="14" style="color:#7dd3fc"><use href="#i-chart"/></svg></div>
+          <div class="f-card-name">Reports &amp; Insights</div>
+          <div class="f-card-desc">Revenue, collections &amp; appointment reports exportable to Excel</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="f-foot">
+      <hr class="f-sep"/>
+      <div class="f-foot-row">
+        <div class="f-pills">
+          <span class="f-pill">AI-Assisted</span>
+          <span class="f-pill">WhatsApp</span>
+          <span class="f-pill">Mobile Friendly</span>
+          <span class="f-pill">GST-Ready</span>
+          <span class="f-pill">Multi-Branch</span>
+          <span class="f-pill">Cloud-Based</span>
+        </div>
+        <div class="f-qr">
+          <div class="f-qr-wrap">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=104x104&data=https://smartdentaldesk.com/register&color=070E28&bgcolor=ffffff" alt="Scan to Register Free"/>
+          </div>
+          <div class="f-qr-label">Scan to<br/>Register Free</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /sheet 1 -->
+
+
+<!-- ═══════════════════════════════════════════
+     SHEET 2 — INSIDE  (print face-up on reverse)
+     Left = Features   |   Right = Pricing
+═══════════════════════════════════════════ -->
+<div class="sheet">
+
+  <!-- ── FEATURES ── -->
+  <div class="panel panel-inside-left">
+    <span class="eyebrow">Core Features</span>
+    <h2 class="il-title">Everything Your Clinic Needs</h2>
+    <p class="il-sub">A complete clinic operating system — from appointments to billing and beyond.</p>
+
+    <div class="feat-grid">
+      <div class="feat-card">
+        <div class="feat-ico"><svg width="14" height="14" style="color:#1d4ed8"><use href="#i-calendar"/></svg></div>
+        <div><div class="feat-name">Appointments</div><div class="feat-desc">Drag-and-drop calendar, auto-confirmations, multi-doctor slots.</div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-ico"><svg width="14" height="14" style="color:#1d4ed8"><use href="#i-tooth"/></svg></div>
+        <div><div class="feat-name">Dental Charts</div><div class="feat-desc">Interactive tooth charting, condition tagging, X-ray per tooth.</div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-ico"><svg width="14" height="14" style="color:#1d4ed8"><use href="#i-user"/></svg></div>
+        <div><div class="feat-name">Patient Records</div><div class="feat-desc">Full EMR — history, allergies, visits, prescriptions, X-rays.</div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-ico"><svg width="14" height="14" style="color:#1d4ed8"><use href="#i-pills"/></svg></div>
+        <div><div class="feat-name">Prescriptions</div><div class="feat-desc">Structured Rx &amp; multi-phase treatment plans. AI-assisted drafts.</div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-ico"><svg width="14" height="14" style="color:#1d4ed8"><use href="#i-rupee"/></svg></div>
+        <div><div class="feat-name">GST Invoicing</div><div class="feat-desc">Itemised invoices, GST breakdown, installment plans, expenses.</div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-ico"><svg width="14" height="14" style="color:#1d4ed8"><use href="#i-box"/></svg></div>
+        <div><div class="feat-name">Inventory</div><div class="feat-desc">Track supplies, low-stock alerts, usage logs &amp; suppliers.</div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-ico"><svg width="14" height="14" style="color:#1d4ed8"><use href="#i-chat"/></svg></div>
+        <div><div class="feat-name">WhatsApp &amp; SMS</div><div class="feat-desc">Reminders, 2-way inbox, campaigns &amp; automation.</div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-ico"><svg width="14" height="14" style="color:#1d4ed8"><use href="#i-chart"/></svg></div>
+        <div><div class="feat-name">Reports</div><div class="feat-desc">Revenue, appointments, collections — CSV &amp; Excel export.</div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-ico"><svg width="14" height="14" style="color:#1d4ed8"><use href="#i-building"/></svg></div>
+        <div><div class="feat-name">Multi-Branch</div><div class="feat-desc">All branches from one account with central dashboard.</div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-ico"><svg width="14" height="14" style="color:#1d4ed8"><use href="#i-phone"/></svg></div>
+        <div><div class="feat-name">Mobile Friendly</div><div class="feat-desc">Works on any device — phone, tablet or desktop browser.</div></div>
+      </div>
+    </div>
+
+    <!-- AI Strip -->
+    <div class="ai-strip">
+      <div class="ai-head">
+        <div class="ai-title">
+          <svg width="13" height="13" style="color:#7dd3fc"><use href="#i-sparkle"/></svg>
+          Built-in AI Features — Saves Hours Every Day
+        </div>
+        <span class="ai-badge">Beta Live</span>
+      </div>
+      <div class="ai-grid">
+        <div class="ai-feat"><svg width="11" height="11" style="color:#7dd3fc;flex-shrink:0"><use href="#i-mic"/></svg> AI SOAP &amp; Clinical Notes</div>
+        <div class="ai-feat"><svg width="11" height="11" style="color:#7dd3fc;flex-shrink:0"><use href="#i-pills"/></svg> AI Prescription Generator</div>
+        <div class="ai-feat"><svg width="11" height="11" style="color:#7dd3fc;flex-shrink:0"><use href="#i-clipboard"/></svg> AI Treatment Plan Drafts</div>
+        <div class="ai-feat"><svg width="11" height="11" style="color:#7dd3fc;flex-shrink:0"><use href="#i-tooth"/></svg> AI Dental Chart Analysis</div>
+        <div class="ai-feat"><svg width="11" height="11" style="color:#7dd3fc;flex-shrink:0"><use href="#i-trend"/></svg> AI Revenue Insights</div>
+        <div class="ai-feat"><svg width="11" height="11" style="color:#7dd3fc;flex-shrink:0"><use href="#i-megaphone"/></svg> AI Campaign Content</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PRICING ── -->
+  <div class="panel panel-inside-right">
+    <span class="eyebrow">Pricing Plans</span>
+    <h2 class="ir-title">Simple, Transparent Pricing</h2>
+    <p class="ir-sub">Start free. Upgrade as you grow. All prices in INR + GST. Annual billing saves 2 months.</p>
+
+    <div class="price-grid">
+      <!-- Free -->
+      <div class="pc">
+        <div class="pc-name">Free</div>
+        <div class="pc-row2"><span class="pc-free">Free</span></div>
+        <div class="pc-saving">Forever · No card needed</div>
+        <ul class="pc-feats">
+          <li><span class="chk">✓</span> 1 Branch, 2 Staff</li>
+          <li><span class="chk">✓</span> 10 patients/month</li>
+          <li><span class="chk">✓</span> Appointments, Records, Charts</li>
+          <li><span class="chk">✓</span> Prescriptions &amp; Invoicing</li>
+          <li><span class="chk">✓</span> 5 AI requests/month</li>
+          <li><span class="crs">✗</span> <span class="dim">No SMS / WhatsApp</span></li>
+        </ul>
+      </div>
+      <!-- Starter -->
+      <div class="pc">
+        <div class="pc-name">Starter</div>
+        <div class="pc-row2"><span class="pc-sym2">₹</span><span class="pc-amt">999</span><span class="pc-period">/mo</span></div>
+        <div class="pc-saving">₹9,990/yr — save 2 months</div>
+        <ul class="pc-feats">
+          <li><span class="chk">✓</span> 1 Branch, 5 Staff</li>
+          <li><span class="chk">✓</span> Unlimited patients &amp; appts</li>
+          <li><span class="chk">✓</span> SMS reminders</li>
+          <li><span class="chk">✓</span> GST-ready invoicing</li>
+          <li><span class="chk">✓</span> 15 AI requests/month</li>
+          <li><span class="crs">✗</span> <span class="dim">No WhatsApp / campaigns</span></li>
+        </ul>
+      </div>
+      <!-- Professional — Most Popular -->
+      <div class="pc popular">
+        <div class="pc-pop-badge">⭐ Most Popular</div>
+        <div class="pc-name">Professional</div>
+        <div class="pc-row2"><span class="pc-sym2">₹</span><span class="pc-amt blu">1,999</span><span class="pc-period">/mo</span></div>
+        <div class="pc-saving">₹19,990/yr — save 2 months</div>
+        <ul class="pc-feats">
+          <li><span class="chk">✓</span> 3 Branches, 15 Staff</li>
+          <li><span class="chk">✓</span> WhatsApp (400 msgs/mo)</li>
+          <li><span class="chk">✓</span> Marketing campaigns</li>
+          <li><span class="chk">✓</span> Automation &amp; birthday msgs</li>
+          <li><span class="chk">✓</span> 25 AI requests/month</li>
+          <li><span class="chk">✓</span> Priority support</li>
+        </ul>
+      </div>
+      <!-- Enterprise -->
+      <div class="pc">
+        <div class="pc-name">Enterprise</div>
+        <div class="pc-row2"><span class="pc-sym2">₹</span><span class="pc-amt">2,999</span><span class="pc-period">/mo</span></div>
+        <div class="pc-saving">₹29,990/yr — save 2 months</div>
+        <ul class="pc-feats">
+          <li><span class="chk">✓</span> 10 Branches, 50 Staff</li>
+          <li><span class="chk">✓</span> Own WABA + 2-way inbox</li>
+          <li><span class="chk">✓</span> Custom reports</li>
+          <li><span class="chk">✓</span> 50 AI requests/month</li>
+          <li><span class="chk">✓</span> Dedicated account manager</li>
+          <li><span class="chk">✓</span> SLA guarantee</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- White-label -->
+    <div class="wl-bar">
+      <div>
+        <div class="wl-t">Custom</div>
+        <div class="wl-h">White-Label</div>
+        <div class="wl-p">Talk to us</div>
+      </div>
+      <div class="wl-feats">Unlimited branches · White-label domain · Dedicated hosting · SSO · Custom integrations · On-site training · 99.9% SLA</div>
+      <div class="wl-btn">Contact Sales →</div>
+    </div>
+
+    <p class="price-note">All plans include: Unlimited storage · SSL encryption · Daily backups · Mobile app · Data export · 14-day trial on paid plans</p>
+
+    <!-- CTA Footer -->
+    <div class="cta-bar">
+      <h3>Start Your Free 14-Day Trial Today</h3>
+      <p>No credit card required. Cancel anytime. Your data always stays yours.</p>
+      <div class="cta-bar-checks">
+        <span class="cta-bar-check">✅ Free plan forever</span>
+        <span class="cta-bar-check">✅ 14-day trial on paid plans</span>
+        <span class="cta-bar-check">✅ No hidden fees</span>
+      </div>
+      <div class="cta-bar-url">smartdentaldesk.com/register</div>
+    </div>
+  </div>
+
+</div><!-- /sheet 2 -->
+</body>
+</html>

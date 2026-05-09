@@ -40,6 +40,7 @@ const mockPrismaService = {
   patient: { findUnique: jest.fn() },
   branch: { findUnique: jest.fn() },
   user: { findUnique: jest.fn() },
+  treatment: { findMany: jest.fn() },
   patientToothCondition: {
     findMany: jest.fn(),
     findUnique: jest.fn(),
@@ -69,6 +70,7 @@ describe('ToothChartService', () => {
     mockPrismaService.patient.findUnique.mockResolvedValue({ id: patientId, clinic_id: clinicId });
     mockPrismaService.branch.findUnique.mockResolvedValue({ id: branchId, clinic_id: clinicId });
     mockPrismaService.user.findUnique.mockResolvedValue({ id: dentistId, clinic_id: clinicId });
+    mockPrismaService.treatment.findMany.mockResolvedValue([]);
     mockPrismaService.patientToothCondition.findMany.mockResolvedValue([mockCondition]);
     mockPrismaService.patientToothCondition.findUnique.mockResolvedValue(mockCondition);
     mockPrismaService.patientToothCondition.create.mockResolvedValue(mockCondition);
@@ -95,11 +97,12 @@ describe('ToothChartService', () => {
   });
 
   describe('getPatientToothChart', () => {
-    it('should return teeth, surfaces, and conditions for a patient', async () => {
+    it('should return teeth, surfaces, conditions, and treatments for a patient', async () => {
       const result = await service.getPatientToothChart(clinicId, patientId);
       expect(result.teeth).toEqual([mockTooth]);
       expect(result.surfaces).toEqual([mockSurface]);
       expect(result.conditions).toEqual([mockCondition]);
+      expect(result.treatments).toEqual([]);
     });
 
     it('should throw NotFoundException if patient does not belong to clinic', async () => {

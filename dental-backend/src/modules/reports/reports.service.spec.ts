@@ -10,6 +10,7 @@ const mockPrismaService = {
   invoice: { count: jest.fn(), aggregate: jest.fn() },
   patient: { count: jest.fn() },
   expense: { aggregate: jest.fn() },
+  refund: { aggregate: jest.fn() },
   $queryRaw: jest.fn(),
 };
 
@@ -45,6 +46,9 @@ describe('ReportsService', () => {
       mockPrismaService.expense.aggregate.mockResolvedValue({
         _sum: { amount: 5000 },
       });
+      mockPrismaService.refund.aggregate.mockResolvedValue({
+        _sum: { amount: null },
+      });
       mockPrismaService.$queryRaw.mockResolvedValue([{ count: BigInt(2) }]);
     });
 
@@ -59,6 +63,7 @@ describe('ReportsService', () => {
         low_inventory_count: 2,
         this_month_expenses: 5000,
         this_month_revenue: 15000.5,
+        this_month_refunds: 0,
         net_profit: 15000.5 - 5000,
       });
     });
@@ -66,30 +71,34 @@ describe('ReportsService', () => {
     it('should filter appointments by clinic_id and today date', async () => {
       await service.getDashboardSummary(clinicId);
 
-      expect(mockPrismaService.appointment.count).toHaveBeenCalledWith({
-        where: {
-          clinic_id: clinicId,
-          appointment_date: {
-            gte: expect.any(Date),
-            lt: expect.any(Date),
-          },
-        },
-      });
+      expect(mockPrismaService.appointment.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            clinic_id: clinicId,
+            appointment_date: {
+              gte: expect.any(Date),
+              lt: expect.any(Date),
+            },
+          }),
+        }),
+      );
     });
 
     it('should filter payments by clinic_id and today date', async () => {
       await service.getDashboardSummary(clinicId);
 
-      expect(mockPrismaService.payment.aggregate).toHaveBeenCalledWith({
-        _sum: { amount: true },
-        where: {
-          invoice: { clinic_id: clinicId },
-          paid_at: {
-            gte: expect.any(Date),
-            lt: expect.any(Date),
-          },
-        },
-      });
+      expect(mockPrismaService.payment.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          _sum: { amount: true },
+          where: expect.objectContaining({
+            invoice: expect.objectContaining({ clinic_id: clinicId }),
+            paid_at: {
+              gte: expect.any(Date),
+              lt: expect.any(Date),
+            },
+          }),
+        }),
+      );
     });
 
     it('should filter pending invoices by clinic_id', async () => {
@@ -133,6 +142,7 @@ describe('ReportsService', () => {
       mockPrismaService.invoice.count.mockResolvedValue(0);
       mockPrismaService.invoice.aggregate.mockResolvedValue({ _sum: { net_amount: null } });
       mockPrismaService.expense.aggregate.mockResolvedValue({ _sum: { amount: null } });
+      mockPrismaService.refund.aggregate.mockResolvedValue({ _sum: { amount: null } });
       mockPrismaService.$queryRaw.mockResolvedValue([{ count: BigInt(0) }]);
 
       const result = await service.getDashboardSummary(clinicId);
@@ -145,6 +155,7 @@ describe('ReportsService', () => {
         low_inventory_count: 0,
         this_month_expenses: 0,
         this_month_revenue: 0,
+        this_month_refunds: 0,
         net_profit: 0,
       });
     });
@@ -154,12 +165,18 @@ describe('ReportsService', () => {
     const baseQuery = { start_date: '2026-03-01', end_date: '2026-03-31' };
 
     beforeEach(() => {
-      mockPrismaService.invoice.aggregate.mockResolvedValue({
-        _sum: { net_amount: 50000, tax_amount: 9000, discount_amount: 2000 },
-      });
+      // invoice.aggregate called 3x: paid, partially_paid, pending
+      mockPrismaService.invoice.aggregate
+        .mockResolvedValueOnce({ _sum: { net_amount: 50000, tax_amount: 9000, discount_amount: 2000 } })
+        .mockResolvedValueOnce({ _sum: { net_amount: 0, tax_amount: 0, discount_amount: 0 } })
+        .mockResolvedValueOnce({ _sum: { net_amount: 5000 } });
+      // invoice.count called 3x: pending, paid, partially_paid
       mockPrismaService.invoice.count
-        .mockResolvedValueOnce(3) // pending
-        .mockResolvedValueOnce(10); // paid
+        .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(10)
+        .mockResolvedValueOnce(0);
+      // payment.aggregate called once for total collected
+      mockPrismaService.payment.aggregate.mockResolvedValue({ _sum: { amount: 50000 } });
     });
 
     it('should return revenue report with all metrics', async () => {
@@ -169,6 +186,8 @@ describe('ReportsService', () => {
         total_revenue: 50000,
         paid_invoices: 10,
         pending_invoices: 3,
+        partially_paid_invoices: 0,
+        outstanding_amount: expect.any(Number),
         tax_collected: 9000,
         discount_given: 2000,
       });
@@ -177,52 +196,58 @@ describe('ReportsService', () => {
     it('should filter by clinic_id and date range', async () => {
       await service.getRevenueReport(clinicId, baseQuery);
 
-      expect(mockPrismaService.invoice.aggregate).toHaveBeenCalledWith({
-        _sum: { net_amount: true, tax_amount: true, discount_amount: true },
-        where: expect.objectContaining({
-          clinic_id: clinicId,
-          created_at: { gte: expect.any(Date), lte: expect.any(Date) },
-          status: 'paid',
+      expect(mockPrismaService.invoice.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          _sum: { net_amount: true, tax_amount: true, discount_amount: true },
+          where: expect.objectContaining({
+            clinic_id: clinicId,
+            created_at: { gte: expect.any(Date), lte: expect.any(Date) },
+            status: 'paid',
+          }),
         }),
-      });
+      );
     });
 
     it('should include branch_id filter when provided', async () => {
       const branchId = '223e4567-e89b-12d3-a456-426614174000';
       await service.getRevenueReport(clinicId, { ...baseQuery, branch_id: branchId });
 
-      expect(mockPrismaService.invoice.aggregate).toHaveBeenCalledWith({
-        _sum: { net_amount: true, tax_amount: true, discount_amount: true },
-        where: expect.objectContaining({
-          clinic_id: clinicId,
-          branch_id: branchId,
-          status: 'paid',
+      expect(mockPrismaService.invoice.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            clinic_id: clinicId,
+            branch_id: branchId,
+            status: 'paid',
+          }),
         }),
-      });
+      );
     });
 
     it('should include dentist_id filter via treatment relation when provided', async () => {
       const dentistId = '333e4567-e89b-12d3-a456-426614174000';
       await service.getRevenueReport(clinicId, { ...baseQuery, dentist_id: dentistId });
 
-      expect(mockPrismaService.invoice.aggregate).toHaveBeenCalledWith({
-        _sum: { net_amount: true, tax_amount: true, discount_amount: true },
-        where: expect.objectContaining({
-          clinic_id: clinicId,
-          items: { some: { treatment: { dentist_id: dentistId } } },
-          status: 'paid',
+      expect(mockPrismaService.invoice.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            clinic_id: clinicId,
+            items: { some: { treatment: { dentist_id: dentistId } } },
+            status: 'paid',
+          }),
         }),
-      });
+      );
     });
 
     it('should return zeros when no paid invoices exist', async () => {
-      mockPrismaService.invoice.aggregate.mockResolvedValue({
-        _sum: { net_amount: null, tax_amount: null, discount_amount: null },
-      });
+      mockPrismaService.invoice.aggregate
+        .mockReset()
+        .mockResolvedValue({ _sum: { net_amount: null, tax_amount: null, discount_amount: null } });
       mockPrismaService.invoice.count
         .mockReset()
-        .mockResolvedValueOnce(5) // pending
-        .mockResolvedValueOnce(0); // paid
+        .mockResolvedValueOnce(5)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0);
+      mockPrismaService.payment.aggregate.mockResolvedValue({ _sum: { amount: null } });
 
       const result = await service.getRevenueReport(clinicId, baseQuery);
 
@@ -230,6 +255,8 @@ describe('ReportsService', () => {
         total_revenue: 0,
         paid_invoices: 0,
         pending_invoices: 5,
+        partially_paid_invoices: 0,
+        outstanding_amount: 0,
         tax_collected: 0,
         discount_given: 0,
       });
@@ -240,15 +267,16 @@ describe('ReportsService', () => {
       const dentistId = '333e4567-e89b-12d3-a456-426614174000';
       await service.getRevenueReport(clinicId, { ...baseQuery, branch_id: branchId, dentist_id: dentistId });
 
-      expect(mockPrismaService.invoice.aggregate).toHaveBeenCalledWith({
-        _sum: { net_amount: true, tax_amount: true, discount_amount: true },
-        where: expect.objectContaining({
-          clinic_id: clinicId,
-          branch_id: branchId,
-          items: { some: { treatment: { dentist_id: dentistId } } },
-          status: 'paid',
+      expect(mockPrismaService.invoice.aggregate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            clinic_id: clinicId,
+            branch_id: branchId,
+            items: { some: { treatment: { dentist_id: dentistId } } },
+            status: 'paid',
+          }),
         }),
-      });
+      );
     });
   });
 

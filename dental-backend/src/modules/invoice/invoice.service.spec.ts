@@ -2,6 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { InvoiceService } from './invoice.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { CommunicationService } from '../communication/communication.service.js';
+import { AutomationService } from '../automation/automation.service.js';
+import { InvoicePdfService } from './invoice-pdf.service.js';
+import { S3Service } from '../../common/services/s3.service.js';
+import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 import { PaymentMethod, InvoiceStatus, InvoiceItemType } from './dto/index.js';
 
 const clinicId = '123e4567-e89b-12d3-a456-426614174000';
@@ -67,6 +72,12 @@ const mockPrismaService = {
   $transaction: jest.fn(),
 };
 
+const mockCommunicationService = { sendMessage: jest.fn().mockResolvedValue({}) };
+const mockAutomationService = { getRuleConfig: jest.fn().mockResolvedValue({ is_enabled: false }) };
+const mockInvoicePdfService = { generate: jest.fn().mockResolvedValue(Buffer.from('pdf')) };
+const mockS3Service = { upload: jest.fn().mockResolvedValue('s3://key'), getSignedUrl: jest.fn().mockResolvedValue('https://url') };
+const mockPlanLimit = { enforceMonthlyCap: jest.fn().mockResolvedValue(undefined) };
+
 describe('InvoiceService', () => {
   let service: InvoiceService;
 
@@ -75,6 +86,11 @@ describe('InvoiceService', () => {
       providers: [
         InvoiceService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: CommunicationService, useValue: mockCommunicationService },
+        { provide: AutomationService, useValue: mockAutomationService },
+        { provide: InvoicePdfService, useValue: mockInvoicePdfService },
+        { provide: S3Service, useValue: mockS3Service },
+        { provide: PlanLimitService, useValue: mockPlanLimit },
       ],
     }).compile();
 
@@ -251,7 +267,7 @@ describe('InvoiceService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should allow partial payment without marking as paid', async () => {
+    it('should allow partial payment and mark invoice as partially_paid', async () => {
       mockPrismaService.payment.aggregate.mockResolvedValueOnce({
         _sum: { amount: null },
       });
@@ -264,7 +280,9 @@ describe('InvoiceService', () => {
         amount: 1000,
       });
 
-      expect(mockPrismaService.invoice.update).not.toHaveBeenCalled();
+      expect(mockPrismaService.invoice.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'partially_paid' }) }),
+      );
     });
   });
 });

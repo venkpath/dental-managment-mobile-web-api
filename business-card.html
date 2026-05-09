@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Business Card — Smart Dental Desk</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0f172a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 36px;
+      font-family: 'Inter', sans-serif;
+      padding: 48px 20px;
+    }
+
+    .print-hint {
+      color: #475569;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    /* ── FRONT: 3.5 × 2 in → 630 × 360 px ── */
+    .card-front-wrap {
+      width: 630px;
+      height: 360px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+    }
+
+    .card-front {
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, #081236 0%, #122060 45%, #0d3060 75%, #091840 100%);
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-front::before {
+      content: '';
+      position: absolute;
+      width: 420px; height: 420px;
+      border-radius: 50%;
+      border: 55px solid rgba(1,148,208,0.06);
+      top: -160px; right: -120px;
+    }
+    .card-front::after {
+      content: '';
+      position: absolute;
+      width: 240px; height: 240px;
+      border-radius: 50%;
+      border: 40px solid rgba(1,208,158,0.05);
+      bottom: -90px; left: 40px;
+    }
+
+    .accent-bar {
+      width: 5px;
+      background: linear-gradient(180deg, #0194d0 0%, #01d09e 100%);
+      flex-shrink: 0;
+    }
+
+    .card-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 28px 36px 24px 28px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Brand */
+    .brand-block { display: flex; flex-direction: column; gap: 3px; }
+
+    .brand-name {
+      font-family: 'Poppins', sans-serif;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+      line-height: 1;
+    }
+    .brand-name .smart  { color: #0194d0; }
+    .brand-name .dental { color: #ffffff; }
+    .brand-name .desk   { color: #01d09e; }
+
+    .brand-sub {
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.38);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .ai-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(1,208,158,0.1);
+      border: 1px solid rgba(1,208,158,0.28);
+      border-radius: 20px;
+      padding: 3px 9px;
+      margin-top: 8px;
+      width: fit-content;
+    }
+    .ai-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: #01d09e;
+      animation: blink 2s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .ai-label { font-size: 11px; font-weight: 600; color: #01d09e; letter-spacing: 0.09em; }
+
+    /* Name */
+    .name-block { display: flex; flex-direction: column; gap: 2px; }
+
+    .person-name {
+      font-family: 'Poppins', sans-serif;
+      font-size: 30px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.4px;
+      line-height: 1;
+    }
+
+    .person-title { font-size: 13px; color: #64748b; letter-spacing: 0.06em; margin-top: 3px; }
+
+    .name-rule {
+      width: 42px; height: 2px;
+      background: linear-gradient(90deg, #0194d0, #01d09e);
+      margin-top: 7px;
+      border-radius: 2px;
+    }
+
+    /* Contacts */
+    .contact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 24px;
+    }
+
+    .contact-item { display: flex; align-items: center; gap: 7px; }
+
+    .ci-icon { width: 15px; height: 15px; flex-shrink: 0; }
+    .ci-icon svg { width: 100%; height: 100%; fill: #0194d0; }
+
+    .ci-text { font-size: 12px; color: #94a3b8; white-space: nowrap; }
+
+    /* Location */
+    .bottom-row { display: flex; align-items: center; gap: 5px; }
+    .bottom-row svg { width: 13px; height: 13px; fill: #01d09e; }
+    .bottom-row span { font-size: 12px; color: #01d09e; font-weight: 500; letter-spacing: 0.05em; }
+
+    /* ── BACK: 630 × 360 px ── */
+    .card-back-wrap {
+      width: 630px;
+      height: 360px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+    }
+
+    .card-back {
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, #081236 0%, #122060 55%, #0d3060 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-back::before {
+      content: '';
+      position: absolute;
+      width: 420px; height: 420px;
+      border-radius: 50%;
+      border: 55px solid rgba(1,148,208,0.06);
+      top: -160px; right: -120px;
+    }
+    .card-back::after {
+      content: '';
+      position: absolute;
+      width: 240px; height: 240px;
+      border-radius: 50%;
+      border: 40px solid rgba(1,208,158,0.05);
+      bottom: -90px; left: 40px;
+    }
+
+    /* Brand text on back */
+    .back-brand-name {
+      font-family: 'Poppins', sans-serif;
+      font-size: 42px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      line-height: 1;
+      z-index: 1;
+    }
+    .back-brand-name .smart  { color: #0194d0; }
+    .back-brand-name .dental { color: #ffffff; }
+    .back-brand-name .desk   { color: #01d09e; }
+
+    .back-rule {
+      width: 56px; height: 2px;
+      background: linear-gradient(90deg, #0194d0, #01d09e);
+      border-radius: 2px;
+      z-index: 1;
+    }
+
+    .back-brand-sub {
+      font-size: 12px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.3);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      z-index: 1;
+    }
+
+    /* Small QR — bottom-right corner */
+    .back-qr-corner {
+      position: absolute;
+      bottom: 16px;
+      right: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      z-index: 2;
+    }
+
+    .back-qr-wrapper {
+      background: #ffffff;
+      border-radius: 5px;
+      padding: 3px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+    }
+
+    .back-qr-label {
+      font-size: 9px;
+      color: rgba(255,255,255,0.3);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .back-qr-url {
+      font-size: 10px;
+      font-weight: 600;
+      color: #01d09e;
+      letter-spacing: 0.02em;
+    }
+
+    .back-strip {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #0194d0, #01d09e);
+      z-index: 3;
+    }
+
+    @media print {
+      body { background: white; padding: 0; gap: 0; }
+      .print-hint { display: none; }
+      .card-front-wrap, .card-back-wrap { box-shadow: none; border-radius: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <p class="print-hint">— Front —</p>
+
+  <!-- FRONT -->
+  <div class="card-front-wrap">
+    <div class="card-front">
+      <div class="accent-bar"></div>
+      <div class="card-body">
+
+        <div class="brand-block">
+          <div class="brand-name">
+            <span class="smart">Smart</span>&nbsp;<span class="dental">Dental</span>&nbsp;<span class="desk">Desk</span>
+          </div>
+          <div class="brand-sub">AI-Powered Dental Clinic Software</div>
+          <div class="ai-badge">
+            <div class="ai-dot"></div>
+            <span class="ai-label">AI Powered</span>
+          </div>
+        </div>
+
+        <div class="name-block">
+          <div class="person-name">P V Prasanth</div>
+          <div class="name-rule"></div>
+        </div>
+
+        <div class="contact-grid">
+          <div class="contact-item">
+            <div class="ci-icon"><svg viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg></div>
+            <span class="ci-text">+91 8330990642</span>
+          </div>
+          <div class="contact-item">
+            <div class="ci-icon"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></div>
+            <span class="ci-text">support@smartdentaldesk.com</span>
+          </div>
+          <div class="contact-item">
+            <div class="ci-icon"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg></div>
+            <span class="ci-text">www.smartdentaldesk.com</span>
+          </div>
+          <div class="contact-item">
+            <div class="ci-icon"><svg viewBox="0 0 24 24"><path d="M22.46 6c-.77.35-1.6.58-2.46.69.88-.53 1.56-1.37 1.88-2.38-.83.5-1.75.85-2.72 1.05C18.37 4.5 17.26 4 16 4c-2.35 0-4.27 1.92-4.27 4.29 0 .34.04.67.11.98C8.28 9.09 5.11 7.38 3 4.79c-.37.63-.58 1.37-.58 2.15 0 1.49.75 2.81 1.91 3.56-.71 0-1.37-.2-1.95-.5v.03c0 2.08 1.48 3.82 3.44 4.21a4.22 4.22 0 0 1-1.93.07 4.28 4.28 0 0 0 4 2.98 8.521 8.521 0 0 1-5.33 1.84c-.34 0-.68-.02-1.02-.06C3.44 20.29 5.7 21 8.12 21 16 21 20.33 14.46 20.33 8.79c0-.19 0-.37-.01-.56.84-.6 1.56-1.36 2.14-2.23z"/></svg></div>
+            <span class="ci-text">@smartdentaldesk</span>
+          </div>
+        </div>
+
+        <div class="bottom-row">
+          <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/></svg>
+          <span>Bangalore, India</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <p class="print-hint">— Back —</p>
+
+  <!-- BACK -->
+  <div class="card-back-wrap">
+    <div class="card-back">
+
+      <div class="back-brand-name">
+        <span class="smart">Smart</span>&nbsp;<span class="dental">Dental</span>&nbsp;<span class="desk">Desk</span>
+      </div>
+      <div class="back-rule"></div>
+      <div class="back-brand-sub">AI-Powered Dental Clinic Software</div>
+
+      <!-- QR encodes home page, label says Register -->
+      <div class="back-qr-corner">
+        <div class="back-qr-label">Scan to Register</div>
+        <div class="back-qr-url">smartdentaldesk.com/register</div>
+        <div class="back-qr-wrapper">
+          <div id="qr-back"></div>
+        </div>
+      </div>
+
+      <div class="back-strip"></div>
+    </div>
+  </div>
+
+  <script>
+    new QRCode(document.getElementById('qr-back'), {
+      text: 'https://smartdentaldesk.com',
+      width: 60,
+      height: 60,
+      colorDark: '#0194d0',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  </script>
+
+</body>
+</html>
