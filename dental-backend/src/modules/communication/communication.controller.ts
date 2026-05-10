@@ -17,6 +17,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiOperation, ApiHeader, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
+import { SkipThrottle } from '@nestjs/throttler';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
@@ -66,6 +67,7 @@ export class OptOutController {
 // ─── Public Webhook Controller (no auth — called by MSG91 / Meta WhatsApp Cloud API) ───
 
 @Public()
+@SkipThrottle()
 @ApiTags('Communication — Webhooks')
 @Controller('communication/webhooks')
 export class WebhookController {
