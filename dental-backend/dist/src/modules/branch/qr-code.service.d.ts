@@ -55,9 +55,9 @@ export declare class QrCodeService {
         };
     } & {
         id: string;
-        qr_code_token: string | null;
-        clinic_id: string;
         name: string;
+        created_at: Date;
+        updated_at: Date;
         phone: string | null;
         address: string | null;
         city: string | null;
@@ -80,9 +80,9 @@ export declare class QrCodeService {
         prescription_template_url: string | null;
         prescription_template_config: Prisma.JsonValue | null;
         prescription_template_enabled: boolean;
+        qr_code_token: string | null;
         qr_code_enabled: boolean;
         qr_code_generated_at: Date | null;
-        created_at: Date;
-        updated_at: Date;
+        clinic_id: string;
     }>;
 }
