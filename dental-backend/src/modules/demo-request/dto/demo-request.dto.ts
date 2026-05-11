@@ -14,7 +14,7 @@ export class CreateDemoRequestDto {
 
   @ApiProperty({ example: '9876543210' })
   @IsString()
-  @Matches(/^[0-9]{10}$/, { message: 'phone must be a valid 10-digit Indian number' })
+  @Matches(/^(?:91)?[0-9]{10}$/, { message: 'phone must be a valid 10-digit Indian number (with or without 91 prefix)' })
   phone!: string;
 
   @ApiPropertyOptional({ example: 'Smile Dental Clinic' })
