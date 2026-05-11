@@ -12,9 +12,9 @@ export class CreateDemoRequestDto {
   @MaxLength(255)
   email!: string;
 
-  @ApiProperty({ example: '9876543210' })
+  @ApiProperty({ example: '+919876543210' })
   @IsString()
-  @Matches(/^(?:91)?[0-9]{10}$/, { message: 'phone must be a valid 10-digit Indian number (with or without 91 prefix)' })
+  @Matches(/^(\+91|91)?[0-9]{10}$/, { message: 'phone must be a valid Indian phone number (e.g., +919876543210, 919876543210, or 9876543210)' })
   phone!: string;
 
   @ApiPropertyOptional({ example: 'Smile Dental Clinic' })

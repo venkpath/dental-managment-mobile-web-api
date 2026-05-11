@@ -21,7 +21,7 @@ class CreateDemoRequestDto {
     chairs;
     source;
     static _OPENAPI_METADATA_FACTORY() {
-        return { name: { required: true, type: () => String, maxLength: 200 }, email: { required: true, type: () => String, maxLength: 255, format: "email" }, phone: { required: true, type: () => String, pattern: "/^(?:91)?[0-9]{10}$/" }, clinicName: { required: false, type: () => String, maxLength: 255 }, chairs: { required: false, type: () => String, enum: ['1', '2-3', '4-6', '7+'] }, source: { required: false, type: () => String, enum: ['website', 'landing_page', 'referral'] } };
+        return { name: { required: true, type: () => String, maxLength: 200 }, email: { required: true, type: () => String, maxLength: 255, format: "email" }, phone: { required: true, type: () => String, pattern: "/^(\\+91|91)?[0-9]{10}$/" }, clinicName: { required: false, type: () => String, maxLength: 255 }, chairs: { required: false, type: () => String, enum: ['1', '2-3', '4-6', '7+'] }, source: { required: false, type: () => String, enum: ['website', 'landing_page', 'referral'] } };
     }
 }
 exports.CreateDemoRequestDto = CreateDemoRequestDto;
@@ -38,9 +38,9 @@ __decorate([
     __metadata("design:type", String)
 ], CreateDemoRequestDto.prototype, "email", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '9876543210' }),
+    (0, swagger_1.ApiProperty)({ example: '+919876543210' }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Matches)(/^(?:91)?[0-9]{10}$/, { message: 'phone must be a valid 10-digit Indian number (with or without 91 prefix)' }),
+    (0, class_validator_1.Matches)(/^(\+91|91)?[0-9]{10}$/, { message: 'phone must be a valid Indian phone number (e.g., +919876543210, 919876543210, or 9876543210)' }),
     __metadata("design:type", String)
 ], CreateDemoRequestDto.prototype, "phone", void 0);
 __decorate([
