@@ -8,18 +8,21 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BranchModule = void 0;
 const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
 const branch_controller_js_1 = require("./branch.controller.js");
 const branch_service_js_1 = require("./branch.service.js");
 const branch_prescription_template_service_js_1 = require("./branch-prescription-template.service.js");
 const prescription_pdf_service_js_1 = require("../prescription/prescription-pdf.service.js");
+const qr_code_service_js_1 = require("./qr-code.service.js");
 let BranchModule = class BranchModule {
 };
 exports.BranchModule = BranchModule;
 exports.BranchModule = BranchModule = __decorate([
     (0, common_1.Module)({
+        imports: [config_1.ConfigModule],
         controllers: [branch_controller_js_1.BranchController],
-        providers: [branch_service_js_1.BranchService, branch_prescription_template_service_js_1.BranchPrescriptionTemplateService, prescription_pdf_service_js_1.PrescriptionPdfService],
-        exports: [branch_service_js_1.BranchService],
+        providers: [branch_service_js_1.BranchService, branch_prescription_template_service_js_1.BranchPrescriptionTemplateService, prescription_pdf_service_js_1.PrescriptionPdfService, qr_code_service_js_1.QrCodeService],
+        exports: [branch_service_js_1.BranchService, qr_code_service_js_1.QrCodeService],
     })
 ], BranchModule);
 //# sourceMappingURL=branch.module.js.map

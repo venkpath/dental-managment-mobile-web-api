@@ -16,6 +16,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { BranchService } from './branch.service.js';
 import { BranchPrescriptionTemplateService } from './branch-prescription-template.service.js';
+import { QrCodeService } from './qr-code.service.js';
 import {
   CreateBranchDto,
   UpdateBranchDto,
@@ -37,6 +38,7 @@ export class BranchController {
   constructor(
     private readonly branchService: BranchService,
     private readonly templateService: BranchPrescriptionTemplateService,
+    private readonly qrCodeService: QrCodeService,
   ) {}
 
   @Post()
@@ -189,5 +191,39 @@ export class BranchController {
     res.setHeader('Cache-Control', 'private, max-age=300');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.sendFile(filePath);
+  }
+
+  // ─────────── Self-registration QR Code ───────────
+
+  @Post(':id/qr-code')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Generate (or regenerate) the self-registration QR code for a branch' })
+  @ApiCreatedResponse({ description: 'QR code generated with token, link, and base64 PNG' })
+  async generateQrCode(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.qrCodeService.generate(clinicId, id);
+  }
+
+  @Get(':id/qr-code')
+  @ApiOperation({ summary: 'Get the current QR code for a branch' })
+  @ApiOkResponse({ description: 'QR code details' })
+  async getQrCode(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.qrCodeService.get(clinicId, id);
+  }
+
+  @Delete(':id/qr-code')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Disable the self-registration QR code for a branch' })
+  @ApiOkResponse({ description: 'QR code disabled' })
+  async disableQrCode(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.qrCodeService.disable(clinicId, id);
   }
 }

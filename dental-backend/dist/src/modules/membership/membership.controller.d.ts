@@ -126,6 +126,9 @@ export declare class MembershipController {
             prescription_template_url: string | null;
             prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
             prescription_template_enabled: boolean;
+            qr_code_token: string | null;
+            qr_code_enabled: boolean;
+            qr_code_generated_at: Date | null;
             clinic_id: string;
         };
         membership_plan: {
@@ -351,6 +354,9 @@ export declare class MembershipController {
             prescription_template_url: string | null;
             prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
             prescription_template_enabled: boolean;
+            qr_code_token: string | null;
+            qr_code_enabled: boolean;
+            qr_code_generated_at: Date | null;
             clinic_id: string;
         };
         membership_plan: {
@@ -576,6 +582,9 @@ export declare class MembershipController {
             prescription_template_url: string | null;
             prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
             prescription_template_enabled: boolean;
+            qr_code_token: string | null;
+            qr_code_enabled: boolean;
+            qr_code_generated_at: Date | null;
             clinic_id: string;
         };
         membership_plan: {
@@ -926,6 +935,9 @@ export declare class MembershipController {
                 prescription_template_url: string | null;
                 prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
                 prescription_template_enabled: boolean;
+                qr_code_token: string | null;
+                qr_code_enabled: boolean;
+                qr_code_generated_at: Date | null;
                 clinic_id: string;
             };
             membership_plan: {
@@ -1110,6 +1122,9 @@ export declare class MembershipController {
                 prescription_template_url: string | null;
                 prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
                 prescription_template_enabled: boolean;
+                qr_code_token: string | null;
+                qr_code_enabled: boolean;
+                qr_code_generated_at: Date | null;
                 clinic_id: string;
             };
             membership_plan: {

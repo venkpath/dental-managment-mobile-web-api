@@ -111,6 +111,9 @@ export declare class MembershipService {
             prescription_template_url: string | null;
             prescription_template_config: Prisma.JsonValue | null;
             prescription_template_enabled: boolean;
+            qr_code_token: string | null;
+            qr_code_enabled: boolean;
+            qr_code_generated_at: Date | null;
             clinic_id: string;
         };
         membership_plan: {
@@ -336,6 +339,9 @@ export declare class MembershipService {
             prescription_template_url: string | null;
             prescription_template_config: Prisma.JsonValue | null;
             prescription_template_enabled: boolean;
+            qr_code_token: string | null;
+            qr_code_enabled: boolean;
+            qr_code_generated_at: Date | null;
             clinic_id: string;
         };
         membership_plan: {
@@ -561,6 +567,9 @@ export declare class MembershipService {
             prescription_template_url: string | null;
             prescription_template_config: Prisma.JsonValue | null;
             prescription_template_enabled: boolean;
+            qr_code_token: string | null;
+            qr_code_enabled: boolean;
+            qr_code_generated_at: Date | null;
             clinic_id: string;
         };
         membership_plan: {
@@ -911,6 +920,9 @@ export declare class MembershipService {
                 prescription_template_url: string | null;
                 prescription_template_config: Prisma.JsonValue | null;
                 prescription_template_enabled: boolean;
+                qr_code_token: string | null;
+                qr_code_enabled: boolean;
+                qr_code_generated_at: Date | null;
                 clinic_id: string;
             };
             membership_plan: {
@@ -1095,6 +1107,9 @@ export declare class MembershipService {
                 prescription_template_url: string | null;
                 prescription_template_config: Prisma.JsonValue | null;
                 prescription_template_enabled: boolean;
+                qr_code_token: string | null;
+                qr_code_enabled: boolean;
+                qr_code_generated_at: Date | null;
                 clinic_id: string;
             };
             membership_plan: {

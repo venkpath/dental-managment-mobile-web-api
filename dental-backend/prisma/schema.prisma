@@ -135,6 +135,11 @@ model Branch {
   prescription_template_config  Json?
   prescription_template_enabled Boolean @default(false)
 
+  // Self-registration QR code — patients scan this to register themselves.
+  qr_code_token        String?   @db.VarChar(20)
+  qr_code_enabled      Boolean   @default(false)
+  qr_code_generated_at DateTime?
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -154,6 +159,7 @@ model Branch {
   membership_enrollments MembershipEnrollment[]
   patient_consents       PatientConsent[]
 
+  @@unique([qr_code_token])
   @@index([clinic_id])
   @@map("branches")
 }

@@ -19,6 +19,7 @@ const swagger_1 = require("@nestjs/swagger");
 const platform_express_1 = require("@nestjs/platform-express");
 const branch_service_js_1 = require("./branch.service.js");
 const branch_prescription_template_service_js_1 = require("./branch-prescription-template.service.js");
+const qr_code_service_js_1 = require("./qr-code.service.js");
 const index_js_1 = require("./dto/index.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
@@ -27,9 +28,11 @@ const create_user_dto_js_1 = require("../user/dto/create-user.dto.js");
 let BranchController = class BranchController {
     branchService;
     templateService;
-    constructor(branchService, templateService) {
+    qrCodeService;
+    constructor(branchService, templateService, qrCodeService) {
         this.branchService = branchService;
         this.templateService = templateService;
+        this.qrCodeService = qrCodeService;
     }
     async create(clinicId, dto) {
         return this.branchService.create(clinicId, dto);
@@ -75,6 +78,15 @@ let BranchController = class BranchController {
         res.setHeader('Cache-Control', 'private, max-age=300');
         res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
         res.sendFile(filePath);
+    }
+    async generateQrCode(clinicId, id) {
+        return this.qrCodeService.generate(clinicId, id);
+    }
+    async getQrCode(clinicId, id) {
+        return this.qrCodeService.get(clinicId, id);
+    }
+    async disableQrCode(clinicId, id) {
+        return this.qrCodeService.disable(clinicId, id);
     }
 };
 exports.BranchController = BranchController;
@@ -228,6 +240,41 @@ __decorate([
     __metadata("design:paramtypes", [String, String, String, Object, Object]),
     __metadata("design:returntype", Promise)
 ], BranchController.prototype, "serveTemplateImage", null);
+__decorate([
+    (0, common_1.Post)(':id/qr-code'),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN, create_user_dto_js_1.UserRole.ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Generate (or regenerate) the self-registration QR code for a branch' }),
+    (0, swagger_1.ApiCreatedResponse)({ description: 'QR code generated with token, link, and base64 PNG' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], BranchController.prototype, "generateQrCode", null);
+__decorate([
+    (0, common_1.Get)(':id/qr-code'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get the current QR code for a branch' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'QR code details' }),
+    openapi.ApiResponse({ status: 200, type: Object }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], BranchController.prototype, "getQrCode", null);
+__decorate([
+    (0, common_1.Delete)(':id/qr-code'),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN, create_user_dto_js_1.UserRole.ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Disable the self-registration QR code for a branch' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'QR code disabled' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], BranchController.prototype, "disableQrCode", null);
 exports.BranchController = BranchController = __decorate([
     (0, swagger_1.ApiTags)('Branches'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' }),
@@ -235,6 +282,7 @@ exports.BranchController = BranchController = __decorate([
     (0, common_1.UseGuards)(require_clinic_guard_js_1.RequireClinicGuard),
     (0, common_1.Controller)('branches'),
     __metadata("design:paramtypes", [branch_service_js_1.BranchService,
-        branch_prescription_template_service_js_1.BranchPrescriptionTemplateService])
+        branch_prescription_template_service_js_1.BranchPrescriptionTemplateService,
+        qr_code_service_js_1.QrCodeService])
 ], BranchController);
 //# sourceMappingURL=branch.controller.js.map
