@@ -62,6 +62,12 @@ export declare class SuperAdminService {
             custom_treatment_limit: number | null;
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
+            last_active_at: Date | null;
+            is_suspended: boolean;
+            suspended_at: Date | null;
+            suspension_reason: string | null;
+            inactivity_reminder_30_sent: boolean;
+            inactivity_reminder_40_sent: boolean;
         })[];
     }>;
     listClinics(params: {
@@ -112,6 +118,12 @@ export declare class SuperAdminService {
             custom_treatment_limit: number | null;
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
+            last_active_at: Date | null;
+            is_suspended: boolean;
+            suspended_at: Date | null;
+            suspension_reason: string | null;
+            inactivity_reminder_30_sent: boolean;
+            inactivity_reminder_40_sent: boolean;
         })[];
         meta: {
             total: number;
@@ -234,6 +246,12 @@ export declare class SuperAdminService {
         custom_treatment_limit: number | null;
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
+        last_active_at: Date | null;
+        is_suspended: boolean;
+        suspended_at: Date | null;
+        suspension_reason: string | null;
+        inactivity_reminder_30_sent: boolean;
+        inactivity_reminder_40_sent: boolean;
     }>;
     onboardClinic(dto: {
         clinic_name: string;
@@ -283,6 +301,12 @@ export declare class SuperAdminService {
             custom_treatment_limit: number | null;
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
+            last_active_at: Date | null;
+            is_suspended: boolean;
+            suspended_at: Date | null;
+            suspension_reason: string | null;
+            inactivity_reminder_30_sent: boolean;
+            inactivity_reminder_40_sent: boolean;
         };
         branch: {
             id: string;
@@ -325,6 +349,14 @@ export declare class SuperAdminService {
     }>;
     private sendOnboardingWelcomeEmail;
     private sendOnboardingAdminAlertEmail;
+    suspendClinic(id: string, reason?: string): Promise<{
+        suspended: boolean;
+        clinic_name: string;
+    }>;
+    reactivateClinic(id: string): Promise<{
+        reactivated: boolean;
+        clinic_name: string;
+    }>;
     deleteClinic(id: string): Promise<{
         deleted: boolean;
         clinic_name: string;

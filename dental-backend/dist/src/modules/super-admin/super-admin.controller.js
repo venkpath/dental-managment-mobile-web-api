@@ -25,6 +25,7 @@ const super_admin_service_js_1 = require("./super-admin.service.js");
 const super_admin_auth_service_js_1 = require("./super-admin-auth.service.js");
 const super_admin_whatsapp_service_js_1 = require("./super-admin-whatsapp.service.js");
 const daily_summary_cron_js_1 = require("../reports/daily-summary.cron.js");
+const inactivity_cron_js_1 = require("./inactivity.cron.js");
 const index_js_1 = require("./dto/index.js");
 const clinic_service_js_1 = require("../clinic/clinic.service.js");
 const index_js_2 = require("../clinic/dto/index.js");
@@ -47,8 +48,9 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     whatsAppService;
     aiUsageService;
     dailySummaryCron;
+    inactivityCron;
     logger = new common_1.Logger(SuperAdminController_1.name);
-    constructor(superAdminService, superAdminAuthService, clinicService, communicationService, automationService, branchService, whatsAppService, aiUsageService, dailySummaryCron) {
+    constructor(superAdminService, superAdminAuthService, clinicService, communicationService, automationService, branchService, whatsAppService, aiUsageService, dailySummaryCron, inactivityCron) {
         this.superAdminService = superAdminService;
         this.superAdminAuthService = superAdminAuthService;
         this.clinicService = clinicService;
@@ -58,6 +60,7 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
         this.whatsAppService = whatsAppService;
         this.aiUsageService = aiUsageService;
         this.dailySummaryCron = dailySummaryCron;
+        this.inactivityCron = inactivityCron;
     }
     async login(dto) {
         return this.superAdminAuthService.login(dto);
@@ -87,6 +90,15 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     }
     async onboardClinic(dto) {
         return this.superAdminService.onboardClinic(dto);
+    }
+    async suspendClinic(id, body) {
+        return this.superAdminService.suspendClinic(id, body.reason);
+    }
+    async reactivateClinic(id) {
+        return this.superAdminService.reactivateClinic(id);
+    }
+    async triggerInactivityCheck() {
+        return this.inactivityCron.runNow();
     }
     async deleteClinic(id) {
         return this.superAdminService.deleteClinic(id);
@@ -305,6 +317,39 @@ __decorate([
     __metadata("design:paramtypes", [index_js_1.OnboardClinicDto]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "onboardClinic", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/clinics/:id/suspend'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Suspend a clinic account (blocks all logins)' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Clinic suspended' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "suspendClinic", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/clinics/:id/reactivate'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Reactivate a suspended clinic account' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Clinic reactivated' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "reactivateClinic", null);
+__decorate([
+    (0, common_1.Post)('super-admins/inactivity/trigger'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Manually run the inactivity check cron (for testing)' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "triggerInactivityCheck", null);
 __decorate([
     (0, common_1.Delete)('super-admins/clinics/:id'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),
@@ -674,6 +719,7 @@ exports.SuperAdminController = SuperAdminController = SuperAdminController_1 = _
         branch_service_js_1.BranchService,
         super_admin_whatsapp_service_js_1.SuperAdminWhatsAppService,
         ai_usage_service_js_1.AiUsageService,
-        daily_summary_cron_js_1.DailySummaryCronService])
+        daily_summary_cron_js_1.DailySummaryCronService,
+        inactivity_cron_js_1.InactivityCronService])
 ], SuperAdminController);
 //# sourceMappingURL=super-admin.controller.js.map

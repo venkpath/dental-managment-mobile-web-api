@@ -14,6 +14,7 @@ const super_admin_auth_service_js_1 = require("./super-admin-auth.service.js");
 const super_admin_whatsapp_service_js_1 = require("./super-admin-whatsapp.service.js");
 const platform_template_controller_js_1 = require("./platform-template.controller.js");
 const platform_template_service_js_1 = require("./platform-template.service.js");
+const inactivity_cron_js_1 = require("./inactivity.cron.js");
 const auth_module_js_1 = require("../auth/auth.module.js");
 const clinic_module_js_1 = require("../clinic/clinic.module.js");
 const automation_module_js_1 = require("../automation/automation.module.js");
@@ -26,7 +27,7 @@ exports.SuperAdminModule = SuperAdminModule = __decorate([
     (0, common_1.Module)({
         imports: [auth_module_js_1.AuthModule, clinic_module_js_1.ClinicModule, automation_module_js_1.AutomationModule, branch_module_js_1.BranchModule, reports_module_js_1.ReportsModule],
         controllers: [super_admin_controller_js_1.SuperAdminController, platform_template_controller_js_1.PlatformTemplateController],
-        providers: [super_admin_service_js_1.SuperAdminService, super_admin_auth_service_js_1.SuperAdminAuthService, super_admin_whatsapp_service_js_1.SuperAdminWhatsAppService, platform_template_service_js_1.PlatformTemplateService],
+        providers: [super_admin_service_js_1.SuperAdminService, super_admin_auth_service_js_1.SuperAdminAuthService, super_admin_whatsapp_service_js_1.SuperAdminWhatsAppService, platform_template_service_js_1.PlatformTemplateService, inactivity_cron_js_1.InactivityCronService],
         exports: [super_admin_service_js_1.SuperAdminService],
     })
 ], SuperAdminModule);

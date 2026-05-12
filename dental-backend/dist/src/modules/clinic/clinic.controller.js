@@ -38,7 +38,15 @@ let ClinicController = class ClinicController {
         return this.clinicService.create(dto);
     }
     async getMyClinic(user) {
-        return this.clinicService.findOne(user.clinicId);
+        const clinic = await this.clinicService.findOne(user.clinicId);
+        const baseline = clinic.last_active_at ?? clinic.created_at;
+        const daysInactive = Math.floor((Date.now() - baseline.getTime()) / (24 * 60 * 60 * 1000));
+        return {
+            ...clinic,
+            days_inactive: daysInactive,
+            inactivity_warning: !clinic.is_suspended && daysInactive >= 30,
+            days_until_suspension: clinic.is_suspended ? 0 : Math.max(0, 45 - daysInactive),
+        };
     }
     async getMyFeatures(user) {
         return this.clinicService.getFeatures(user.clinicId);

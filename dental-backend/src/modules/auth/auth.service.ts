@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { randomInt } from 'crypto';
@@ -103,6 +103,17 @@ export class AuthService {
 
     if (!passwordValid) {
       throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: user.clinic_id },
+      select: { is_suspended: true },
+    });
+    if (clinic?.is_suspended) {
+      throw new ForbiddenException({
+        code: 'ACCOUNT_SUSPENDED',
+        message: 'Your account has been suspended. Please contact Smart Dental Desk support to reactivate.',
+      });
     }
 
     const payload: JwtPayload = {

@@ -58,6 +58,8 @@ import { MembershipModule } from './modules/membership/membership.module.js';
 import { DemoRequestModule } from './modules/demo-request/demo-request.module.js';
 import { PlatformBillingModule } from './modules/platform-billing/platform-billing.module.js';
 import { BranchScopeInterceptor } from './common/interceptors/branch-scope.interceptor.js';
+import { ActivityTrackerInterceptor } from './common/interceptors/activity-tracker.interceptor.js';
+import { SuspensionGuard } from './common/guards/suspension.guard.js';
 // DISABLED: Google review auto-reply — pending Google Business Profile API approval.
 // Code lives at src/modules/google-reviews/ (excluded from compile via tsconfig).
 // import { GoogleReviewsModule } from './modules/google-reviews/google-reviews.module.js';
@@ -138,12 +140,14 @@ import razorpayConfig from './config/razorpay.config.js';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: SuspensionGuard },
     { provide: APP_GUARD, useClass: SuperAdminGuard },
     { provide: APP_GUARD, useClass: FeatureGuard },
     { provide: APP_GUARD, useClass: AiUsageGuard },
     { provide: APP_GUARD, useClass: SubscriptionGuard },
     { provide: APP_GUARD, useClass: CsrfGuard },
     { provide: APP_INTERCEPTOR, useClass: BranchScopeInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: ActivityTrackerInterceptor },
   ],
 })
 export class AppModule implements NestModule {

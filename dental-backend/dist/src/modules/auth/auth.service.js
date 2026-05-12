@@ -87,6 +87,16 @@ let AuthService = AuthService_1 = class AuthService {
         if (!passwordValid) {
             throw new common_1.UnauthorizedException('Invalid email or password');
         }
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: user.clinic_id },
+            select: { is_suspended: true },
+        });
+        if (clinic?.is_suspended) {
+            throw new common_1.ForbiddenException({
+                code: 'ACCOUNT_SUSPENDED',
+                message: 'Your account has been suspended. Please contact Smart Dental Desk support to reactivate.',
+            });
+        }
         const payload = {
             sub: user.id,
             type: 'user',

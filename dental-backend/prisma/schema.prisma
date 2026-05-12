@@ -42,6 +42,13 @@ model Clinic {
   custom_treatment_limit    Int?
   custom_prescription_limit Int?
   custom_consultation_limit Int?
+  // Inactivity tracking & suspension
+  last_active_at               DateTime?
+  is_suspended                 Boolean   @default(false)
+  suspended_at                 DateTime?
+  suspension_reason            String?   @db.VarChar(255)
+  inactivity_reminder_30_sent  Boolean   @default(false)
+  inactivity_reminder_40_sent  Boolean   @default(false)
   created_at          DateTime  @default(now())
   updated_at          DateTime  @updatedAt
 

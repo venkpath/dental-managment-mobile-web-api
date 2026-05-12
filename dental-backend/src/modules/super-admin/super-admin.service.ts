@@ -419,6 +419,43 @@ export class SuperAdminService {
     this.logger.log(`Onboarding admin alert email sent to ${this.adminEmail}`);
   }
 
+  // ─── Suspend / Reactivate Clinic ───
+
+  async suspendClinic(id: string, reason?: string) {
+    const clinic = await this.prisma.clinic.findUnique({ where: { id } });
+    if (!clinic) throw new NotFoundException('Clinic not found');
+
+    await this.prisma.clinic.update({
+      where: { id },
+      data: {
+        is_suspended: true,
+        suspended_at: new Date(),
+        suspension_reason: reason?.trim() || 'Manually suspended by super admin',
+      },
+    });
+
+    return { suspended: true, clinic_name: clinic.name };
+  }
+
+  async reactivateClinic(id: string) {
+    const clinic = await this.prisma.clinic.findUnique({ where: { id } });
+    if (!clinic) throw new NotFoundException('Clinic not found');
+
+    await this.prisma.clinic.update({
+      where: { id },
+      data: {
+        is_suspended: false,
+        suspended_at: null,
+        suspension_reason: null,
+        last_active_at: new Date(),
+        inactivity_reminder_30_sent: false,
+        inactivity_reminder_40_sent: false,
+      },
+    });
+
+    return { reactivated: true, clinic_name: clinic.name };
+  }
+
   // ─── Delete Clinic ───
 
   async deleteClinic(id: string) {

@@ -52,7 +52,17 @@ export class ClinicController {
   @ApiOperation({ summary: 'Get the current user\'s clinic details' })
   @ApiOkResponse({ description: 'Clinic details' })
   async getMyClinic(@CurrentUser() user: RequestUser) {
-    return this.clinicService.findOne(user.clinicId);
+    const clinic = await this.clinicService.findOne(user.clinicId);
+    // Reads aren't tracked as activity (only writes are), so surface a warning
+    // once a clinic has been write-inactive for 30+ days. Suspension hits at 45.
+    const baseline = clinic.last_active_at ?? clinic.created_at;
+    const daysInactive = Math.floor((Date.now() - baseline.getTime()) / (24 * 60 * 60 * 1000));
+    return {
+      ...clinic,
+      days_inactive: daysInactive,
+      inactivity_warning: !clinic.is_suspended && daysInactive >= 30,
+      days_until_suspension: clinic.is_suspended ? 0 : Math.max(0, 45 - daysInactive),
+    };
   }
 
   @Get('me/features')

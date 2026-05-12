@@ -43,8 +43,17 @@ export declare class ClinicController {
         custom_treatment_limit: number | null;
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
+        last_active_at: Date | null;
+        is_suspended: boolean;
+        suspended_at: Date | null;
+        suspension_reason: string | null;
+        inactivity_reminder_30_sent: boolean;
+        inactivity_reminder_40_sent: boolean;
     }>;
     getMyClinic(user: RequestUser): Promise<{
+        days_inactive: number;
+        inactivity_warning: boolean;
+        days_until_suspension: number;
         id: string;
         email: string;
         name: string;
@@ -75,6 +84,12 @@ export declare class ClinicController {
         custom_treatment_limit: number | null;
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
+        last_active_at: Date | null;
+        is_suspended: boolean;
+        suspended_at: Date | null;
+        suspension_reason: string | null;
+        inactivity_reminder_30_sent: boolean;
+        inactivity_reminder_40_sent: boolean;
     }>;
     getMyFeatures(user: RequestUser): Promise<{
         plan: {
@@ -121,6 +136,12 @@ export declare class ClinicController {
         custom_treatment_limit: number | null;
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
+        last_active_at: Date | null;
+        is_suspended: boolean;
+        suspended_at: Date | null;
+        suspension_reason: string | null;
+        inactivity_reminder_30_sent: boolean;
+        inactivity_reminder_40_sent: boolean;
     }>;
     findAll(): Promise<{
         id: string;
@@ -153,6 +174,12 @@ export declare class ClinicController {
         custom_treatment_limit: number | null;
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
+        last_active_at: Date | null;
+        is_suspended: boolean;
+        suspended_at: Date | null;
+        suspension_reason: string | null;
+        inactivity_reminder_30_sent: boolean;
+        inactivity_reminder_40_sent: boolean;
     }[]>;
     findOne(id: string): Promise<{
         id: string;
@@ -185,6 +212,12 @@ export declare class ClinicController {
         custom_treatment_limit: number | null;
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
+        last_active_at: Date | null;
+        is_suspended: boolean;
+        suspended_at: Date | null;
+        suspension_reason: string | null;
+        inactivity_reminder_30_sent: boolean;
+        inactivity_reminder_40_sent: boolean;
     }>;
     update(id: string, dto: UpdateClinicDto): Promise<{
         id: string;
@@ -217,6 +250,12 @@ export declare class ClinicController {
         custom_treatment_limit: number | null;
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
+        last_active_at: Date | null;
+        is_suspended: boolean;
+        suspended_at: Date | null;
+        suspension_reason: string | null;
+        inactivity_reminder_30_sent: boolean;
+        inactivity_reminder_40_sent: boolean;
     }>;
     updateSubscription(id: string, dto: UpdateSubscriptionDto): Promise<{
         id: string;
@@ -249,6 +288,12 @@ export declare class ClinicController {
         custom_treatment_limit: number | null;
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
+        last_active_at: Date | null;
+        is_suspended: boolean;
+        suspended_at: Date | null;
+        suspension_reason: string | null;
+        inactivity_reminder_30_sent: boolean;
+        inactivity_reminder_40_sent: boolean;
     }>;
     uploadLogo(user: RequestUser, file: Express.Multer.File): Promise<{
         id: string;
@@ -281,6 +326,12 @@ export declare class ClinicController {
         custom_treatment_limit: number | null;
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
+        last_active_at: Date | null;
+        is_suspended: boolean;
+        suspended_at: Date | null;
+        suspension_reason: string | null;
+        inactivity_reminder_30_sent: boolean;
+        inactivity_reminder_40_sent: boolean;
     }>;
     serveLogo(clinicId: string, filename: string, res: Response): Promise<void>;
 }

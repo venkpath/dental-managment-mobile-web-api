@@ -95,6 +95,12 @@ export declare class InvoiceController {
             custom_treatment_limit: number | null;
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
+            last_active_at: Date | null;
+            is_suspended: boolean;
+            suspended_at: Date | null;
+            suspension_reason: string | null;
+            inactivity_reminder_30_sent: boolean;
+            inactivity_reminder_40_sent: boolean;
         };
         branch: {
             id: string;

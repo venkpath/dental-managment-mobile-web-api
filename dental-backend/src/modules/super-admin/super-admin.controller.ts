@@ -8,6 +8,7 @@ import { SuperAdminService } from './super-admin.service.js';
 import { SuperAdminAuthService } from './super-admin-auth.service.js';
 import { SuperAdminWhatsAppService } from './super-admin-whatsapp.service.js';
 import { DailySummaryCronService } from '../reports/daily-summary.cron.js';
+import { InactivityCronService } from './inactivity.cron.js';
 import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto, UpdateClinicLimitsDto } from './dto/index.js';
 import { ClinicService } from '../clinic/clinic.service.js';
 import { UpdateSubscriptionDto } from '../clinic/dto/index.js';
@@ -36,6 +37,7 @@ export class SuperAdminController {
     private readonly whatsAppService: SuperAdminWhatsAppService,
     private readonly aiUsageService: AiUsageService,
     private readonly dailySummaryCron: DailySummaryCronService,
+    private readonly inactivityCron: InactivityCronService,
   ) {}
 
   // ─── Auth ───
@@ -121,6 +123,33 @@ export class SuperAdminController {
   @ApiCreatedResponse({ description: 'Clinic onboarded successfully' })
   async onboardClinic(@Body() dto: OnboardClinicDto) {
     return this.superAdminService.onboardClinic(dto);
+  }
+
+  @Patch('super-admins/clinics/:id/suspend')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Suspend a clinic account (blocks all logins)' })
+  @ApiOkResponse({ description: 'Clinic suspended' })
+  async suspendClinic(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { reason?: string },
+  ) {
+    return this.superAdminService.suspendClinic(id, body.reason);
+  }
+
+  @Patch('super-admins/clinics/:id/reactivate')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Reactivate a suspended clinic account' })
+  @ApiOkResponse({ description: 'Clinic reactivated' })
+  async reactivateClinic(@Param('id', ParseUUIDPipe) id: string) {
+    return this.superAdminService.reactivateClinic(id);
+  }
+
+  @Post('super-admins/inactivity/trigger')
+  @SuperAdmin()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Manually run the inactivity check cron (for testing)' })
+  async triggerInactivityCheck() {
+    return this.inactivityCron.runNow();
   }
 
   @Delete('super-admins/clinics/:id')

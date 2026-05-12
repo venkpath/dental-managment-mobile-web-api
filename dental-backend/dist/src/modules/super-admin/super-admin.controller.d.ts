@@ -2,6 +2,7 @@ import { SuperAdminService } from './super-admin.service.js';
 import { SuperAdminAuthService } from './super-admin-auth.service.js';
 import { SuperAdminWhatsAppService } from './super-admin-whatsapp.service.js';
 import { DailySummaryCronService } from '../reports/daily-summary.cron.js';
+import { InactivityCronService } from './inactivity.cron.js';
 import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto, UpdateClinicLimitsDto } from './dto/index.js';
 import { ClinicService } from '../clinic/clinic.service.js';
 import { UpdateSubscriptionDto } from '../clinic/dto/index.js';
@@ -24,8 +25,9 @@ export declare class SuperAdminController {
     private readonly whatsAppService;
     private readonly aiUsageService;
     private readonly dailySummaryCron;
+    private readonly inactivityCron;
     private readonly logger;
-    constructor(superAdminService: SuperAdminService, superAdminAuthService: SuperAdminAuthService, clinicService: ClinicService, communicationService: CommunicationService, automationService: AutomationService, branchService: BranchService, whatsAppService: SuperAdminWhatsAppService, aiUsageService: AiUsageService, dailySummaryCron: DailySummaryCronService);
+    constructor(superAdminService: SuperAdminService, superAdminAuthService: SuperAdminAuthService, clinicService: ClinicService, communicationService: CommunicationService, automationService: AutomationService, branchService: BranchService, whatsAppService: SuperAdminWhatsAppService, aiUsageService: AiUsageService, dailySummaryCron: DailySummaryCronService, inactivityCron: InactivityCronService);
     login(dto: LoginSuperAdminDto): Promise<import("./super-admin-auth.service.js").SuperAdminLoginResponse>;
     create(dto: CreateSuperAdminDto): Promise<Omit<{
         id: string;
@@ -92,6 +94,12 @@ export declare class SuperAdminController {
             custom_treatment_limit: number | null;
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
+            last_active_at: Date | null;
+            is_suspended: boolean;
+            suspended_at: Date | null;
+            suspension_reason: string | null;
+            inactivity_reminder_30_sent: boolean;
+            inactivity_reminder_40_sent: boolean;
         })[];
     }>;
     listClinics(status?: string, search?: string, page?: string, limit?: string): Promise<{
@@ -137,6 +145,12 @@ export declare class SuperAdminController {
             custom_treatment_limit: number | null;
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
+            last_active_at: Date | null;
+            is_suspended: boolean;
+            suspended_at: Date | null;
+            suspension_reason: string | null;
+            inactivity_reminder_30_sent: boolean;
+            inactivity_reminder_40_sent: boolean;
         })[];
         meta: {
             total: number;
@@ -259,6 +273,12 @@ export declare class SuperAdminController {
         custom_treatment_limit: number | null;
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
+        last_active_at: Date | null;
+        is_suspended: boolean;
+        suspended_at: Date | null;
+        suspension_reason: string | null;
+        inactivity_reminder_30_sent: boolean;
+        inactivity_reminder_40_sent: boolean;
     }>;
     updateSubscription(id: string, dto: UpdateSubscriptionDto): Promise<{
         id: string;
@@ -291,6 +311,12 @@ export declare class SuperAdminController {
         custom_treatment_limit: number | null;
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
+        last_active_at: Date | null;
+        is_suspended: boolean;
+        suspended_at: Date | null;
+        suspension_reason: string | null;
+        inactivity_reminder_30_sent: boolean;
+        inactivity_reminder_40_sent: boolean;
     }>;
     onboardClinic(dto: OnboardClinicDto): Promise<{
         clinic: {
@@ -324,6 +350,12 @@ export declare class SuperAdminController {
             custom_treatment_limit: number | null;
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
+            last_active_at: Date | null;
+            is_suspended: boolean;
+            suspended_at: Date | null;
+            suspension_reason: string | null;
+            inactivity_reminder_30_sent: boolean;
+            inactivity_reminder_40_sent: boolean;
         };
         branch: {
             id: string;
@@ -363,6 +395,19 @@ export declare class SuperAdminController {
             name: string;
             role: string;
         };
+    }>;
+    suspendClinic(id: string, body: {
+        reason?: string;
+    }): Promise<{
+        suspended: boolean;
+        clinic_name: string;
+    }>;
+    reactivateClinic(id: string): Promise<{
+        reactivated: boolean;
+        clinic_name: string;
+    }>;
+    triggerInactivityCheck(): Promise<{
+        checked: number;
     }>;
     deleteClinic(id: string): Promise<{
         deleted: boolean;
