@@ -48,7 +48,7 @@ let PatientSelfRegisterController = class PatientSelfRegisterController {
         if (clinic?.logo_url) {
             const filename = clinic.logo_url.split('/').pop();
             if (filename) {
-                logo_path = `clinic/logo/${clinic.id}/${filename}`;
+                logo_path = `clinics/logo/${clinic.id}/${filename}`;
             }
         }
         return {
