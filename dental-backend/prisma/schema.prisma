@@ -1869,3 +1869,66 @@ model PatientConsent {
   @@index([signing_token_hash])
   @@map("patient_consents")
 }
+
+// Platform-wide training videos uploaded by super-admin. Stored in a private
+// S3 bucket; viewers receive short-lived signed URLs. Role-gated via
+// allowed_roles (lowercase role names, e.g. ["admin","dentist"]).
+model Tutorial {
+  id                 String   @id @default(uuid()) @db.Uuid
+  title              String   @db.VarChar(255)
+  description        String?  @db.Text
+  s3_key             String   @db.VarChar(500)
+  thumbnail_s3_key   String?  @db.VarChar(500)
+  duration_seconds   Int?
+  category           String?  @db.VarChar(100)
+  display_order      Int      @default(0)
+  allowed_roles      String[] // lowercase role names
+  is_published       Boolean  @default(true)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  progress TutorialProgress[]
+
+  @@index([is_published, display_order])
+  @@index([category])
+  @@map("tutorials")
+}
+
+// Support tickets submitted from inside the authenticated dashboard.
+// Distinct from DemoRequest (prospects) — these come from existing clinic users.
+model SupportTicket {
+  id          String   @id @default(uuid()) @db.Uuid
+  clinic_id   String   @db.Uuid
+  user_id     String   @db.Uuid
+  user_name   String   @db.VarChar(255) // snapshot at submission time
+  user_email  String   @db.VarChar(255)
+  user_phone  String?  @db.VarChar(20)
+  clinic_name String?  @db.VarChar(255) // snapshot
+  category    String   @db.VarChar(50)  // bug | feature_request | billing | account | general
+  subject     String   @db.VarChar(255)
+  message     String   @db.Text
+  status      String   @default("open") @db.VarChar(20) // open | in_progress | resolved | closed
+  admin_notes String?  @db.Text
+  resolved_at DateTime?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@index([clinic_id])
+  @@index([status])
+  @@index([created_at])
+  @@map("support_tickets")
+}
+
+model TutorialProgress {
+  tutorial_id           String   @db.Uuid
+  user_id               String   @db.Uuid
+  last_position_seconds Int      @default(0)
+  completed_at          DateTime?
+  updated_at            DateTime @updatedAt
+
+  tutorial Tutorial @relation(fields: [tutorial_id], references: [id], onDelete: Cascade)
+
+  @@id([tutorial_id, user_id])
+  @@index([user_id])
+  @@map("tutorial_progress")
+}

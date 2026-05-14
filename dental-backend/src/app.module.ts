@@ -57,6 +57,8 @@ import { ExpenseModule } from './modules/expense/expense.module.js';
 import { MembershipModule } from './modules/membership/membership.module.js';
 import { DemoRequestModule } from './modules/demo-request/demo-request.module.js';
 import { PlatformBillingModule } from './modules/platform-billing/platform-billing.module.js';
+import { TutorialModule } from './modules/tutorial/tutorial.module.js';
+import { SupportTicketModule } from './modules/support-ticket/support-ticket.module.js';
 import { BranchScopeInterceptor } from './common/interceptors/branch-scope.interceptor.js';
 import { ActivityTrackerInterceptor } from './common/interceptors/activity-tracker.interceptor.js';
 import { SuspensionGuard } from './common/guards/suspension.guard.js';
@@ -134,6 +136,8 @@ import razorpayConfig from './config/razorpay.config.js';
     MembershipModule,
     DemoRequestModule,
     PlatformBillingModule,
+    TutorialModule,
+    SupportTicketModule,
     // GoogleReviewsModule, // DISABLED — pending Google Business Profile API approval
   ],
   providers: [

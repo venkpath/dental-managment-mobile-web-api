@@ -3,6 +3,7 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -46,6 +47,32 @@ export class S3Service {
   async getSignedUrl(key: string): Promise<string> {
     const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
     return getSignedUrl(this.client, command, { expiresIn: this.expiresIn });
+  }
+
+  /** Check whether an object exists at the given key. Returns true on
+   *  HeadObject success, false on 404. Used to validate manually-uploaded
+   *  S3 keys (e.g. tutorial videos pasted by super-admin). */
+  async objectExists(key: string): Promise<boolean> {
+    try {
+      await this.client.send(
+        new HeadObjectCommand({ Bucket: this.bucket, Key: key }),
+      );
+      return true;
+    } catch (err) {
+      const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
+      if (status === 404) return false;
+      // 403 usually means missing s3:GetObject/HeadObject in IAM — surface it
+      // loudly so admins don't get a misleading "not found" for a file they
+      // just uploaded.
+      if (status === 403) {
+        this.logger.warn(
+          `S3 headObject 403 for "${key}" — check IAM policy grants s3:GetObject on this prefix`,
+        );
+        return false;
+      }
+      this.logger.warn(`S3 headObject failed for "${key}": ${err instanceof Error ? err.message : String(err)}`);
+      return false;
+    }
   }
 
   /** Fetch object bytes — used for embedding small images (e.g. doctor

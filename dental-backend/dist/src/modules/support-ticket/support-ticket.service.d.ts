@@ -1,0 +1,100 @@
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../database/prisma.service.js';
+import { WhatsAppProvider } from '../communication/providers/whatsapp.provider.js';
+import { EmailProvider } from '../communication/providers/email.provider.js';
+import type { CreateSupportTicketDto, UpdateSupportTicketDto } from './dto/index.js';
+interface SubmitterContext {
+    userId: string;
+    clinicId: string;
+}
+export declare class SupportTicketService {
+    private readonly prisma;
+    private readonly whatsapp;
+    private readonly emailProvider;
+    private readonly config;
+    private readonly logger;
+    private readonly adminPhone;
+    private readonly adminEmail;
+    constructor(prisma: PrismaService, whatsapp: WhatsAppProvider, emailProvider: EmailProvider, config: ConfigService);
+    create(ctx: SubmitterContext, dto: CreateSupportTicketDto): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        clinic_name: string | null;
+        user_name: string;
+        category: string;
+        subject: string;
+        message: string;
+        user_id: string;
+        admin_notes: string | null;
+        user_email: string;
+        user_phone: string | null;
+        resolved_at: Date | null;
+    }>;
+    listMine(ctx: SubmitterContext): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        category: string;
+        subject: string;
+        resolved_at: Date | null;
+    }[]>;
+    listAll(status?: string): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        clinic_name: string | null;
+        user_name: string;
+        category: string;
+        subject: string;
+        message: string;
+        user_id: string;
+        admin_notes: string | null;
+        user_email: string;
+        user_phone: string | null;
+        resolved_at: Date | null;
+    }[]>;
+    findOne(id: string): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        clinic_name: string | null;
+        user_name: string;
+        category: string;
+        subject: string;
+        message: string;
+        user_id: string;
+        admin_notes: string | null;
+        user_email: string;
+        user_phone: string | null;
+        resolved_at: Date | null;
+    }>;
+    update(id: string, dto: UpdateSupportTicketDto): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        clinic_name: string | null;
+        user_name: string;
+        category: string;
+        subject: string;
+        message: string;
+        user_id: string;
+        admin_notes: string | null;
+        user_email: string;
+        user_phone: string | null;
+        resolved_at: Date | null;
+    }>;
+    private ensureEmailConfigured;
+    private ensureWhatsAppConfigured;
+    private sendAdminAlert;
+    private sendAdminAlertEmail;
+}
+export {};

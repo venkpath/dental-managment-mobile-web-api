@@ -69,6 +69,8 @@ const expense_module_js_1 = require("./modules/expense/expense.module.js");
 const membership_module_js_1 = require("./modules/membership/membership.module.js");
 const demo_request_module_js_1 = require("./modules/demo-request/demo-request.module.js");
 const platform_billing_module_js_1 = require("./modules/platform-billing/platform-billing.module.js");
+const tutorial_module_js_1 = require("./modules/tutorial/tutorial.module.js");
+const support_ticket_module_js_1 = require("./modules/support-ticket/support-ticket.module.js");
 const branch_scope_interceptor_js_1 = require("./common/interceptors/branch-scope.interceptor.js");
 const activity_tracker_interceptor_js_1 = require("./common/interceptors/activity-tracker.interceptor.js");
 const suspension_guard_js_1 = require("./common/guards/suspension.guard.js");
@@ -149,6 +151,8 @@ exports.AppModule = AppModule = __decorate([
             membership_module_js_1.MembershipModule,
             demo_request_module_js_1.DemoRequestModule,
             platform_billing_module_js_1.PlatformBillingModule,
+            tutorial_module_js_1.TutorialModule,
+            support_ticket_module_js_1.SupportTicketModule,
         ],
         providers: [
             { provide: core_1.APP_GUARD, useClass: throttler_1.ThrottlerGuard },

@@ -47,6 +47,23 @@ let S3Service = S3Service_1 = class S3Service {
         const command = new client_s3_1.GetObjectCommand({ Bucket: this.bucket, Key: key });
         return (0, s3_request_presigner_1.getSignedUrl)(this.client, command, { expiresIn: this.expiresIn });
     }
+    async objectExists(key) {
+        try {
+            await this.client.send(new client_s3_1.HeadObjectCommand({ Bucket: this.bucket, Key: key }));
+            return true;
+        }
+        catch (err) {
+            const status = err?.$metadata?.httpStatusCode;
+            if (status === 404)
+                return false;
+            if (status === 403) {
+                this.logger.warn(`S3 headObject 403 for "${key}" — check IAM policy grants s3:GetObject on this prefix`);
+                return false;
+            }
+            this.logger.warn(`S3 headObject failed for "${key}": ${err instanceof Error ? err.message : String(err)}`);
+            return false;
+        }
+    }
     async getObject(key) {
         try {
             const res = await this.client.send(new client_s3_1.GetObjectCommand({ Bucket: this.bucket, Key: key }));
