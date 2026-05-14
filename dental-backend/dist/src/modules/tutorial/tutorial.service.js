@@ -87,11 +87,11 @@ let TutorialService = class TutorialService {
     }
     async listForUser(userId, userRole) {
         const role = userRole.toLowerCase();
+        const where = role === 'superadmin'
+            ? { is_published: true }
+            : { is_published: true, allowed_roles: { has: role } };
         const tutorials = await this.prisma.tutorial.findMany({
-            where: {
-                is_published: true,
-                allowed_roles: { has: role },
-            },
+            where,
             orderBy: [{ display_order: 'asc' }, { created_at: 'desc' }],
         });
         if (tutorials.length === 0)

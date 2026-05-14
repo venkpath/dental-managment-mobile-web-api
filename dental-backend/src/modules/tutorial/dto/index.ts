@@ -12,11 +12,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../../user/dto/create-user.dto.js';
 
 // Derived from the canonical UserRole enum so a new role added there
-// automatically becomes a valid tutorial audience. SuperAdmin is excluded
-// because super-admins use the platform-wide admin endpoints, not /tutorials.
-const ROLES = Object.values(UserRole)
-  .filter((r) => r !== UserRole.SUPER_ADMIN)
-  .map((r) => r.toLowerCase());
+// automatically becomes a valid tutorial audience. "superadmin" here is the
+// clinic-side owner role (the topmost role inside a single clinic), not the
+// platform super-admin — those have their own JWT type and management UI.
+const ROLES = Object.values(UserRole).map((r) => r.toLowerCase());
 export type AllowedRole = (typeof ROLES)[number];
 
 export class CreateTutorialDto {

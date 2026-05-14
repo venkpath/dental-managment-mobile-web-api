@@ -13,9 +13,7 @@ exports.UpdateProgressDto = exports.UpdateTutorialDto = exports.CreateTutorialDt
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
 const create_user_dto_js_1 = require("../../user/dto/create-user.dto.js");
-const ROLES = Object.values(create_user_dto_js_1.UserRole)
-    .filter((r) => r !== create_user_dto_js_1.UserRole.SUPER_ADMIN)
-    .map((r) => r.toLowerCase());
+const ROLES = Object.values(create_user_dto_js_1.UserRole).map((r) => r.toLowerCase());
 class CreateTutorialDto {
     title;
     description;
