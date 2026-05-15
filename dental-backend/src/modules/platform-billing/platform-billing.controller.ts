@@ -19,6 +19,15 @@ export class PlatformBillingController {
     return this.billing.listInvoicesForClinic(req.user!.clinicId, query);
   }
 
+  // NOTE: literal-segment routes (`/outstanding`) must be declared before
+  // the `:id` route, otherwise Express matches `outstanding` as an id.
+  @Get('invoices/outstanding')
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'List unpaid (due + overdue) invoices for the current clinic' })
+  outstanding(@Req() req: Request) {
+    return this.billing.listOutstandingInvoices(req.user!.clinicId);
+  }
+
   @Get('invoices/:id')
   @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get a single platform invoice with full breakup' })
@@ -31,6 +40,13 @@ export class PlatformBillingController {
   @ApiOperation({ summary: 'Get a signed download URL for the invoice PDF' })
   getPdf(@Req() req: Request, @Param('id') id: string) {
     return this.billing.getInvoicePdfUrl(req.user!.clinicId, id);
+  }
+
+  @Get('invoices/:id/pay-link')
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get the Razorpay-hosted Pay link for a due invoice (regenerated if missing)' })
+  payLink(@Req() req: Request, @Param('id') id: string) {
+    return this.billing.getPaymentLinkForClinic(req.user!.clinicId, id);
   }
 
   @Post('invoices/:id/resend')

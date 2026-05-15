@@ -21,6 +21,7 @@ const class_validator_1 = require("class-validator");
 const swagger_2 = require("@nestjs/swagger");
 const super_admin_decorator_js_1 = require("../../common/decorators/super-admin.decorator.js");
 const platform_billing_service_js_1 = require("./platform-billing.service.js");
+const create_manual_invoice_dto_js_1 = require("./dto/create-manual-invoice.dto.js");
 class ListAllInvoicesQueryDto {
     status;
     clinic_id;
@@ -31,9 +32,9 @@ class ListAllInvoicesQueryDto {
     offset;
 }
 __decorate([
-    (0, swagger_2.ApiPropertyOptional)({ enum: ['paid', 'failed', 'refunded'] }),
+    (0, swagger_2.ApiPropertyOptional)({ enum: ['draft', 'due', 'overdue', 'paid', 'failed', 'cancelled', 'refunded'] }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsIn)(['paid', 'failed', 'refunded']),
+    (0, class_validator_1.IsIn)(['draft', 'due', 'overdue', 'paid', 'failed', 'cancelled', 'refunded']),
     __metadata("design:type", String)
 ], ListAllInvoicesQueryDto.prototype, "status", void 0);
 __decorate([
@@ -102,6 +103,34 @@ let PlatformBillingSuperAdminController = class PlatformBillingSuperAdminControl
     resend(id) {
         return this.billing.resendInvoiceForSuperAdmin(id);
     }
+    create(req, dto) {
+        return this.billing.createManualInvoice({
+            clinicId: dto.clinic_id,
+            planId: dto.plan_id,
+            billingCycle: dto.billing_cycle,
+            totalAmount: dto.total_amount,
+            periodStart: dto.period_start,
+            periodEnd: dto.period_end,
+            dueDate: dto.due_date ?? null,
+            notes: dto.notes ?? null,
+            createdByUserId: req.user?.userId ?? null,
+            sendImmediately: dto.send_immediately !== false,
+        });
+    }
+    cancel(id, dto) {
+        return this.billing.cancelInvoice(id, { reason: dto.reason });
+    }
+    async refreshPayLink(id) {
+        const link = await this.billing.createPaymentLink(id);
+        return { id: link.id, short_url: link.short_url, expire_by: link.expire_by };
+    }
+    markPaid(id, dto) {
+        return this.billing.markInvoicePaid(id, {
+            razorpayPaymentId: dto.payment_reference ? `offline:${dto.payment_reference}` : null,
+            paidAt: new Date(),
+            appendNote: dto.note ? `Offline payment: ${dto.note}` : null,
+        });
+    }
 };
 exports.PlatformBillingSuperAdminController = PlatformBillingSuperAdminController;
 __decorate([
@@ -144,6 +173,52 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], PlatformBillingSuperAdminController.prototype, "resend", null);
+__decorate([
+    (0, common_1.Post)(),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Manually issue a platform invoice for a clinic',
+        description: 'Creates a due invoice + Razorpay Pay link + sends via WhatsApp & Email. Use this for offline-payment scenarios or to issue an invoice ahead of an automated renewal.',
+    }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, create_manual_invoice_dto_js_1.CreateManualInvoiceDto]),
+    __metadata("design:returntype", void 0)
+], PlatformBillingSuperAdminController.prototype, "create", null);
+__decorate([
+    (0, common_1.Post)(':id/cancel'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Cancel a draft / due / overdue invoice (voids the Pay link)' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, create_manual_invoice_dto_js_1.CancelInvoiceDto]),
+    __metadata("design:returntype", void 0)
+], PlatformBillingSuperAdminController.prototype, "cancel", null);
+__decorate([
+    (0, common_1.Post)(':id/refresh-pay-link'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Regenerate the Razorpay Payment Link for a due/overdue invoice' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], PlatformBillingSuperAdminController.prototype, "refreshPayLink", null);
+__decorate([
+    (0, common_1.Post)(':id/mark-paid-offline'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Mark an invoice as paid via offline channel (cash / cheque / bank transfer)' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, create_manual_invoice_dto_js_1.MarkPaidOfflineDto]),
+    __metadata("design:returntype", void 0)
+], PlatformBillingSuperAdminController.prototype, "markPaid", null);
 exports.PlatformBillingSuperAdminController = PlatformBillingSuperAdminController = __decorate([
     (0, swagger_1.ApiTags)('Super Admin · Platform Billing'),
     (0, common_1.Controller)('super-admins/platform-invoices'),

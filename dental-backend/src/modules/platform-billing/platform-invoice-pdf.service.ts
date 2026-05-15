@@ -115,15 +115,28 @@ export class PlatformInvoicePdfService {
       doc.fillColor(TEXT_HEAD).font('Helvetica-Bold').fontSize(13)
         .text('TAX INVOICE', M, 110, { width: CW, align: 'center', characterSpacing: 2 });
 
-      // Status badge (right of meta)
-      if (data.status === 'paid') {
-        const badgeW = 60;
+      // Status badge (right of meta) — paint per status
+      {
+        const badgeLabel = data.status === 'paid' ? 'PAID'
+          : data.status === 'overdue' ? 'OVERDUE'
+          : data.status === 'cancelled' ? 'VOID'
+          : data.status === 'refunded' ? 'REFUNDED'
+          : data.status === 'due' ? 'DUE'
+          : data.status === 'draft' ? 'DRAFT'
+          : data.status.toUpperCase();
+        // Colors: PAID = green (existing PAID_BG/FG), OVERDUE = red, others = neutral
+        let bg: string = PAID_BG, fg: string = PAID_FG;
+        if (data.status === 'overdue') { bg = '#fee2e2'; fg = '#991b1b'; }
+        else if (data.status === 'due' || data.status === 'draft') { bg = '#fef3c7'; fg = '#92400e'; }
+        else if (data.status === 'cancelled' || data.status === 'refunded') { bg = '#f3f4f6'; fg = '#6b7280'; }
+
+        const badgeW = badgeLabel.length > 5 ? 78 : 60;
         const badgeH = 18;
         const badgeX = W - M - badgeW;
         const badgeY = 134;
-        doc.rect(badgeX, badgeY, badgeW, badgeH).fill(PAID_BG);
-        doc.fillColor(PAID_FG).font('Helvetica-Bold').fontSize(8)
-          .text('PAID', badgeX, badgeY + 5, { width: badgeW, align: 'center', characterSpacing: 1 });
+        doc.rect(badgeX, badgeY, badgeW, badgeH).fill(bg);
+        doc.fillColor(fg).font('Helvetica-Bold').fontSize(8)
+          .text(badgeLabel, badgeX, badgeY + 5, { width: badgeW, align: 'center', characterSpacing: 1 });
       }
 
       // Invoice number + date — left side under title
@@ -286,7 +299,14 @@ export class PlatformInvoicePdfService {
         pY += 14;
       };
 
-      drawKV('Status', data.status === 'paid' ? 'Paid' : data.status === 'refunded' ? 'Refunded' : 'Pending');
+      drawKV('Status',
+        data.status === 'paid' ? 'Paid' :
+        data.status === 'refunded' ? 'Refunded' :
+        data.status === 'overdue' ? 'Overdue' :
+        data.status === 'due' ? 'Due — Pending Payment' :
+        data.status === 'cancelled' ? 'Cancelled' :
+        data.status === 'draft' ? 'Draft' :
+        'Pending');
       if (data.razorpay_payment_id) {
         drawKV('Payment Reference', data.razorpay_payment_id);
       }

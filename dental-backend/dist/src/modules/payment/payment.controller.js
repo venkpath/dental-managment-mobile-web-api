@@ -17,11 +17,35 @@ exports.PaymentController = void 0;
 const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
+const class_validator_1 = require("class-validator");
 const public_decorator_js_1 = require("../../common/decorators/public.decorator.js");
 const roles_decorator_js_1 = require("../../common/decorators/roles.decorator.js");
 const create_user_dto_js_1 = require("../user/dto/create-user.dto.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
 const payment_service_js_1 = require("./payment.service.js");
+class CreateSubscriptionBodyDto {
+    planId;
+    planKey;
+    change_effective;
+}
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Plan UUID (preferred over planKey).' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], CreateSubscriptionBodyDto.prototype, "planId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Legacy: case-insensitive plan name match. Use planId where possible.' }),
+    (0, class_validator_1.ValidateIf)((o) => !o.planId),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateSubscriptionBodyDto.prototype, "planKey", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ enum: ['now', 'cycle_end'], default: 'cycle_end' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['now', 'cycle_end']),
+    __metadata("design:type", String)
+], CreateSubscriptionBodyDto.prototype, "change_effective", void 0);
 let PaymentController = PaymentController_1 = class PaymentController {
     paymentService;
     logger = new common_1.Logger(PaymentController_1.name);
@@ -44,6 +68,8 @@ let PaymentController = PaymentController_1 = class PaymentController {
         return this.paymentService.createSubscription({
             clinicId,
             planKey: body.planKey,
+            planId: body.planId,
+            changeEffective: body.change_effective,
         });
     }
     async cancelSubscription(clinicId) {
@@ -83,12 +109,17 @@ __decorate([
     (0, common_1.Post)('subscribe'),
     (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN),
     (0, swagger_1.ApiBearerAuth)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Create a subscription', description: 'Creates a Razorpay subscription for the clinic' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Create a subscription',
+        description: 'Creates a Razorpay subscription for the clinic. For an active clinic switching plans, ' +
+            '`change_effective` controls when the change takes effect: `now` (apply immediately + ' +
+            'prorated catch-up invoice for any upgrade) or `cycle_end` (default — applied at next renewal).',
+    }),
     openapi.ApiResponse({ status: 201 }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, CreateSubscriptionBodyDto]),
     __metadata("design:returntype", Promise)
 ], PaymentController.prototype, "createSubscription", null);
 __decorate([

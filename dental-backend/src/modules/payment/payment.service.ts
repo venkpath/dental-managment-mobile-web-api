@@ -9,7 +9,22 @@ import { createHmac } from 'crypto';
 
 interface CreateSubscriptionDto {
   clinicId: string;
-  planKey: string;
+  /** Either planKey (legacy: case-insensitive name match) or planId (preferred: exact UUID). */
+  planKey?: string;
+  planId?: string;
+  /**
+   * When the customer wants the plan change to take effect.
+   *   - `now`       → Razorpay billing still flips at cycle end (no double-charge),
+   *                   but `clinic.plan_id` is updated immediately and an upgrade
+   *                   issues a prorated catch-up invoice for the remaining days
+   *                   of the current cycle. Downgrade "now" applies new limits
+   *                   immediately with no refund.
+   *   - `cycle_end` → No immediate change. Plan flips at the next renewal.
+   *                   Default for safety.
+   * Ignored for first-time subscriptions (trial / expired / cancelled clinics)
+   * — those always start immediately.
+   */
+  changeEffective?: 'now' | 'cycle_end';
 }
 
 interface RazorpayWebhookPayload {
@@ -134,46 +149,201 @@ export class PaymentService implements OnModuleInit {
   }
 
   /**
-   * Create a Razorpay subscription for a clinic (trial→paid or plan change)
+   * Create a Razorpay subscription for a clinic.
+   *
+   * Three real-world flows handled here:
+   *   1. Trial / expired clinic subscribes for the first time → straight
+   *      `subscriptions.create`.
+   *   2. Active clinic switches plan → cancel the old subscription at the
+   *      end of its current cycle (so the customer keeps the features they
+   *      paid for), then create a new subscription for the new plan. The
+   *      new subscription's first charge falls naturally at the cycle
+   *      boundary; no double-charge.
+   *   3. Re-subscribe after a cancellation → straight create (old sub is
+   *      already in `cancelled` state).
+   *
+   * Plan resolution is by UUID first, falling back to exact (not partial)
+   * case-insensitive name match. Partial matches were causing the wrong
+   * plan to be picked when names overlapped (e.g. "Pro" → "Professional").
    */
   async createSubscription(dto: CreateSubscriptionDto): Promise<{ subscriptionId: string; shortUrl: string }> {
     if (!this.razorpay) throw new BadRequestException('Payment system not configured');
+    if (!dto.planKey && !dto.planId) {
+      throw new BadRequestException('planId or planKey is required');
+    }
 
-    const plan = await this.prisma.plan.findFirst({
-      where: { name: { contains: dto.planKey, mode: 'insensitive' } },
-    });
-    if (!plan) throw new BadRequestException(`Plan "${dto.planKey}" not found`);
+    const plan = dto.planId
+      ? await this.prisma.plan.findUnique({ where: { id: dto.planId } })
+      : await this.prisma.plan.findFirst({
+          where: { name: { equals: dto.planKey, mode: 'insensitive' } },
+        });
+    if (!plan) throw new BadRequestException(`Plan "${dto.planId ?? dto.planKey}" not found`);
+    if (!plan.razorpay_plan_id) {
+      throw new BadRequestException('Razorpay plan not configured for this plan. Contact support.');
+    }
 
     const clinic = await this.prisma.clinic.findUnique({ where: { id: dto.clinicId } });
     if (!clinic) throw new BadRequestException('Clinic not found');
 
-    if (!plan.razorpay_plan_id) throw new BadRequestException('Razorpay plan not configured for this plan. Contact support.');
+    // No-op guard: clinic is already on this plan with an active subscription.
+    if (
+      clinic.plan_id === plan.id &&
+      clinic.subscription_status === 'active' &&
+      clinic.subscription_id
+    ) {
+      throw new BadRequestException('Clinic is already subscribed to this plan');
+    }
+
+    // If clinic has an existing live subscription on a different plan, cancel
+    // it at cycle end so the customer keeps already-paid-for access. We do
+    // NOT cancel-now — that would forfeit the remaining days.
+    if (clinic.subscription_id && clinic.subscription_status === 'active') {
+      try {
+        await this.razorpay.subscriptions.cancel(clinic.subscription_id, true);
+        this.logger.log(`Scheduled cycle-end cancellation of subscription ${clinic.subscription_id} for clinic ${dto.clinicId} (plan change to ${plan.name})`);
+      } catch (e) {
+        const msg = (e as Error).message || '';
+        // Already cancelled / completed — safe to ignore and proceed.
+        if (!/already|completed|cancelled/i.test(msg)) {
+          this.logger.error(`Failed to cancel old subscription ${clinic.subscription_id}: ${msg}`);
+          throw new BadRequestException(`Could not cancel existing subscription: ${msg}`);
+        }
+      }
+    }
+
+    // For an active plan-change, schedule the new subscription to start at
+    // the old subscription's current_end so there is exactly one cycle
+    // transition with no overlap. For trial/expired/cancelled clinics the
+    // subscription starts immediately.
+    let startAt: number | undefined;
+    if (clinic.subscription_id && clinic.subscription_status === 'active') {
+      try {
+        const oldSub = await this.razorpay.subscriptions.fetch(clinic.subscription_id);
+        if (oldSub.current_end) startAt = Number(oldSub.current_end);
+      } catch (e) {
+        this.logger.warn(`Could not fetch old subscription for start_at alignment: ${(e as Error).message}`);
+      }
+    }
 
     const subscription = await this.razorpay.subscriptions.create({
       plan_id: plan.razorpay_plan_id,
       total_count: 12,
       quantity: 1,
+      ...(startAt ? { start_at: startAt } : {}),
       notes: {
         clinic_id: dto.clinicId,
         plan_id: plan.id,
         plan_name: plan.name,
+        previous_subscription_id: clinic.subscription_id || '',
       },
     });
 
-    // Store subscription reference — mark as 'created' until Razorpay confirms payment
+    // Preserve current subscription_status if the clinic is still in an
+    // active cycle — only flip to 'created' for first-time subscribers.
+    // The webhook flips to 'active' when the new subscription actually
+    // starts charging.
+    const newStatus = clinic.subscription_status === 'active' ? 'active' : 'created';
+    const isActivePlanChange = clinic.subscription_status === 'active' && !!clinic.subscription_id;
+    const changeEffective: 'now' | 'cycle_end' = isActivePlanChange
+      ? (dto.changeEffective ?? 'cycle_end')
+      : 'now'; // first-time / re-subscribe always starts immediately
+
+    // Only flip plan_id on the clinic right now when the customer asked for
+    // "apply now". Otherwise keep the current plan until the cycle boundary —
+    // the Razorpay subscription.activated webhook will rotate plan_id when
+    // the new subscription actually starts charging.
     await this.prisma.clinic.update({
       where: { id: dto.clinicId },
       data: {
         subscription_id: subscription.id,
-        subscription_status: 'created',
-        plan_id: plan.id,
+        subscription_status: newStatus,
+        ...(changeEffective === 'now' ? { plan_id: plan.id } : {}),
       },
     });
+
+    // For an "apply now" upgrade, issue a prorated catch-up invoice for the
+    // remaining days of the current cycle so the customer pays the price
+    // difference up front (industry standard — Stripe / Chargebee call this a
+    // "proration credit"). Downgrade-now does not generate a refund invoice;
+    // we just apply the new (lower) limits immediately.
+    if (isActivePlanChange && changeEffective === 'now' && startAt) {
+      await this.issueProrationInvoice(clinic.id, clinic.plan_id, plan.id, startAt).catch((err) =>
+        this.logger.warn(`Proration invoice failed for clinic ${clinic.id}: ${(err as Error).message}`),
+      );
+    }
 
     return {
       subscriptionId: subscription.id,
       shortUrl: subscription.short_url || '',
     };
+  }
+
+  /**
+   * Issue a one-off prorated invoice for the price difference between the
+   * old and new plan, covering the remaining days of the current billing
+   * cycle. No-op when the new plan is the same price or cheaper.
+   *
+   *   delta_per_cycle = max(0, new_price - old_price)
+   *   prorated_total  = delta_per_cycle * (days_remaining / total_cycle_days)
+   *
+   * The invoice is created in `due` state with a Pay link so the customer
+   * is prompted to settle the difference immediately. The new Razorpay
+   * subscription still kicks in at the next cycle, so the proration invoice
+   * does NOT cover any future cycles — only the current one.
+   */
+  private async issueProrationInvoice(
+    clinicId: string,
+    oldPlanId: string | null,
+    newPlanId: string,
+    cycleEndUnix: number,
+  ): Promise<void> {
+    if (!oldPlanId || oldPlanId === newPlanId) return;
+
+    const [oldPlan, newPlan, clinic] = await Promise.all([
+      this.prisma.plan.findUnique({ where: { id: oldPlanId } }),
+      this.prisma.plan.findUnique({ where: { id: newPlanId } }),
+      this.prisma.clinic.findUnique({ where: { id: clinicId } }),
+    ]);
+    if (!oldPlan || !newPlan || !clinic) return;
+
+    const cycle = clinic.billing_cycle === 'yearly' ? 'yearly' : 'monthly';
+    const oldPrice = cycle === 'yearly'
+      ? Number(oldPlan.price_yearly ?? oldPlan.price_monthly) * 12
+      : Number(oldPlan.price_monthly);
+    const newPrice = cycle === 'yearly'
+      ? Number(newPlan.price_yearly ?? newPlan.price_monthly) * 12
+      : Number(newPlan.price_monthly);
+
+    const delta = newPrice - oldPrice;
+    if (delta <= 0) return; // downgrade — no charge
+
+    const now = new Date();
+    const cycleEnd = new Date(cycleEndUnix * 1000);
+    const cycleStart = new Date(cycleEnd);
+    if (cycle === 'yearly') cycleStart.setFullYear(cycleStart.getFullYear() - 1);
+    else cycleStart.setMonth(cycleStart.getMonth() - 1);
+
+    const totalMs = cycleEnd.getTime() - cycleStart.getTime();
+    const remainingMs = Math.max(0, cycleEnd.getTime() - now.getTime());
+    if (totalMs <= 0 || remainingMs <= 0) return;
+
+    const ratio = remainingMs / totalMs;
+    const proratedTotal = Math.round(delta * ratio * 100) / 100;
+    if (proratedTotal < 1) return; // skip negligible amounts under ₹1
+
+    await this.platformBilling.createManualInvoice({
+      clinicId,
+      planId: newPlanId,
+      billingCycle: cycle,
+      totalAmount: proratedTotal,
+      periodStart: now,
+      periodEnd: cycleEnd,
+      dueDate: new Date(now.getTime() + 7 * 86_400_000),
+      notes: `Prorated upgrade catch-up: ${oldPlan.name} → ${newPlan.name} (${Math.round(ratio * 100)}% of cycle remaining, ₹${delta.toFixed(2)}/cycle diff)`,
+      sendImmediately: true,
+    });
+
+    this.logger.log(`Issued proration invoice for clinic ${clinicId}: ₹${proratedTotal} (${oldPlan.name} → ${newPlan.name}, ${Math.round(ratio * 100)}% cycle remaining)`);
   }
 
   /**
@@ -214,9 +384,73 @@ export class PaymentService implements OnModuleInit {
       case 'payment.failed':
         await this.handlePaymentFailed(payload.payment?.entity);
         break;
+      case 'payment_link.paid':
+        await this.handlePaymentLinkPaid(
+          (body.payload as Record<string, unknown>)['payment_link'] as { entity: Record<string, unknown> } | undefined,
+          payload.payment?.entity,
+        );
+        break;
+      case 'payment_link.expired':
+      case 'payment_link.cancelled':
+        await this.handlePaymentLinkInvalidated(
+          (body.payload as Record<string, unknown>)['payment_link'] as { entity: Record<string, unknown> } | undefined,
+        );
+        break;
       default:
         this.logger.warn(`Unhandled webhook event: ${event}`);
     }
+  }
+
+  /**
+   * Razorpay fired `payment_link.paid` — the customer paid an invoice we
+   * issued via the hosted Pay Link. We look up the platform invoice via the
+   * link's `reference_id` (our `invoice_number`), mark it paid, and update
+   * the clinic's subscription state accordingly.
+   */
+  private async handlePaymentLinkPaid(
+    paymentLink: { entity: Record<string, unknown> } | undefined,
+    payment: Record<string, unknown> | undefined,
+  ): Promise<void> {
+    if (!paymentLink?.entity) return;
+    const link = paymentLink.entity;
+    const linkId = link['id'] as string | undefined;
+    const referenceId = link['reference_id'] as string | undefined; // our invoice_number
+    const paymentId = (payment?.['id'] as string) ?? (link['payments'] as Array<{ payment_id: string }> | null)?.[0]?.payment_id ?? null;
+
+    // Prefer link_id (unique, set by us); only fall back to invoice_number
+    // when link_id is missing or doesn't match (e.g. legacy or recycled links).
+    let invoice = linkId
+      ? await this.prisma.platformInvoice.findFirst({ where: { razorpay_payment_link_id: linkId } })
+      : null;
+    if (!invoice && referenceId) {
+      invoice = await this.prisma.platformInvoice.findFirst({ where: { invoice_number: referenceId } });
+    }
+    if (!invoice) {
+      this.logger.warn(`payment_link.paid received but no platform invoice found (link=${linkId}, ref=${referenceId})`);
+      return;
+    }
+
+    // markInvoicePaid handles both invoice + clinic activation so online
+    // (webhook) and offline (super-admin) paths converge on identical state.
+    await this.platformBilling.markInvoicePaid(invoice.id, {
+      razorpayPaymentId: paymentId,
+      paidAt: new Date(),
+    });
+  }
+
+  private async handlePaymentLinkInvalidated(
+    paymentLink: { entity: Record<string, unknown> } | undefined,
+  ): Promise<void> {
+    if (!paymentLink?.entity) return;
+    const linkId = paymentLink.entity['id'] as string | undefined;
+    if (!linkId) return;
+    // Don't change invoice status — the cron will flip due → overdue once
+    // past due_date. Just clear the stale link so the next resend regenerates.
+    await this.prisma.platformInvoice.updateMany({
+      where: { razorpay_payment_link_id: linkId, status: { in: ['due', 'overdue'] } },
+      data: { payment_link_url: null, razorpay_payment_link_id: null },
+    });
+    this.logger.log(`Cleared expired/cancelled pay link ${linkId}`);
   }
 
   private async handleSubscriptionActivated(subscription: Record<string, unknown> | undefined): Promise<void> {

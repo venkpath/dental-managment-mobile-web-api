@@ -1,5 +1,6 @@
 import { Controller, Post, Get, Body, Headers, HttpCode, HttpStatus, Logger, Req } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsIn, IsOptional, IsString, IsUUID, ValidateIf } from 'class-validator';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../user/dto/create-user.dto.js';
@@ -7,6 +8,23 @@ import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.
 import { PaymentService } from './payment.service.js';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
+
+class CreateSubscriptionBodyDto {
+  @ApiPropertyOptional({ description: 'Plan UUID (preferred over planKey).' })
+  @IsOptional()
+  @IsUUID()
+  planId?: string;
+
+  @ApiPropertyOptional({ description: 'Legacy: case-insensitive plan name match. Use planId where possible.' })
+  @ValidateIf((o) => !o.planId)
+  @IsString()
+  planKey?: string;
+
+  @ApiPropertyOptional({ enum: ['now', 'cycle_end'], default: 'cycle_end' })
+  @IsOptional()
+  @IsIn(['now', 'cycle_end'])
+  change_effective?: 'now' | 'cycle_end';
+}
 
 @ApiTags('Payment')
 @Controller('payment')
@@ -37,14 +55,22 @@ export class PaymentController {
   @Post('subscribe')
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create a subscription', description: 'Creates a Razorpay subscription for the clinic' })
+  @ApiOperation({
+    summary: 'Create a subscription',
+    description:
+      'Creates a Razorpay subscription for the clinic. For an active clinic switching plans, ' +
+      '`change_effective` controls when the change takes effect: `now` (apply immediately + ' +
+      'prorated catch-up invoice for any upgrade) or `cycle_end` (default — applied at next renewal).',
+  })
   async createSubscription(
     @CurrentClinic() clinicId: string,
-    @Body() body: { planKey: string },
+    @Body() body: CreateSubscriptionBodyDto,
   ) {
     return this.paymentService.createSubscription({
       clinicId,
       planKey: body.planKey,
+      planId: body.planId,
+      changeEffective: body.change_effective,
     });
   }
 

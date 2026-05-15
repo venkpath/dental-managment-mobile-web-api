@@ -1,6 +1,11 @@
 import { PaymentService } from './payment.service.js';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
+declare class CreateSubscriptionBodyDto {
+    planId?: string;
+    planKey?: string;
+    change_effective?: 'now' | 'cycle_end';
+}
 export declare class PaymentController {
     private readonly paymentService;
     private readonly logger;
@@ -63,9 +68,7 @@ export declare class PaymentController {
         razorpay_plan_id: string | null;
         razorpay_plan_id_yearly: string | null;
     })[]>;
-    createSubscription(clinicId: string, body: {
-        planKey: string;
-    }): Promise<{
+    createSubscription(clinicId: string, body: CreateSubscriptionBodyDto): Promise<{
         subscriptionId: string;
         shortUrl: string;
     }>;
@@ -76,3 +79,4 @@ export declare class PaymentController {
         received: boolean;
     }>;
 }
+export {};

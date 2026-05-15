@@ -5,7 +5,9 @@ import { AiUsageService } from '../ai/ai-usage.service.js';
 import { PlatformBillingService } from '../platform-billing/platform-billing.service.js';
 interface CreateSubscriptionDto {
     clinicId: string;
-    planKey: string;
+    planKey?: string;
+    planId?: string;
+    changeEffective?: 'now' | 'cycle_end';
 }
 interface RazorpayWebhookPayload {
     event: string;
@@ -89,7 +91,10 @@ export declare class PaymentService implements OnModuleInit {
         subscriptionId: string;
         shortUrl: string;
     }>;
+    private issueProrationInvoice;
     handleWebhook(body: RazorpayWebhookPayload, signature: string, rawBody?: Buffer): Promise<void>;
+    private handlePaymentLinkPaid;
+    private handlePaymentLinkInvalidated;
     private handleSubscriptionActivated;
     private handleSubscriptionCharged;
     private handleSubscriptionCancelled;

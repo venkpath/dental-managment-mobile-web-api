@@ -1,15 +1,17 @@
-import { Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { SuperAdmin } from '../../common/decorators/super-admin.decorator.js';
 import { PlatformBillingService } from './platform-billing.service.js';
+import { CancelInvoiceDto, CreateManualInvoiceDto, MarkPaidOfflineDto } from './dto/create-manual-invoice.dto.js';
 
 class ListAllInvoicesQueryDto {
-  @ApiPropertyOptional({ enum: ['paid', 'failed', 'refunded'] })
+  @ApiPropertyOptional({ enum: ['draft', 'due', 'overdue', 'paid', 'failed', 'cancelled', 'refunded'] })
   @IsOptional()
-  @IsIn(['paid', 'failed', 'refunded'])
+  @IsIn(['draft', 'due', 'overdue', 'paid', 'failed', 'cancelled', 'refunded'])
   status?: string;
 
   @ApiPropertyOptional({ description: 'Filter by clinic id' })
@@ -91,5 +93,53 @@ export class PlatformBillingSuperAdminController {
   @ApiOperation({ summary: 'Re-send the invoice to the clinic via WhatsApp + Email' })
   resend(@Param('id') id: string) {
     return this.billing.resendInvoiceForSuperAdmin(id);
+  }
+
+  @Post()
+  @SuperAdmin()
+  @ApiOperation({
+    summary: 'Manually issue a platform invoice for a clinic',
+    description:
+      'Creates a due invoice + Razorpay Pay link + sends via WhatsApp & Email. Use this for offline-payment scenarios or to issue an invoice ahead of an automated renewal.',
+  })
+  create(@Req() req: Request, @Body() dto: CreateManualInvoiceDto) {
+    return this.billing.createManualInvoice({
+      clinicId: dto.clinic_id,
+      planId: dto.plan_id,
+      billingCycle: dto.billing_cycle,
+      totalAmount: dto.total_amount,
+      periodStart: dto.period_start,
+      periodEnd: dto.period_end,
+      dueDate: dto.due_date ?? null,
+      notes: dto.notes ?? null,
+      createdByUserId: req.user?.userId ?? null,
+      sendImmediately: dto.send_immediately !== false,
+    });
+  }
+
+  @Post(':id/cancel')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Cancel a draft / due / overdue invoice (voids the Pay link)' })
+  cancel(@Param('id') id: string, @Body() dto: CancelInvoiceDto) {
+    return this.billing.cancelInvoice(id, { reason: dto.reason });
+  }
+
+  @Post(':id/refresh-pay-link')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Regenerate the Razorpay Payment Link for a due/overdue invoice' })
+  async refreshPayLink(@Param('id') id: string) {
+    const link = await this.billing.createPaymentLink(id);
+    return { id: link.id, short_url: link.short_url, expire_by: link.expire_by };
+  }
+
+  @Post(':id/mark-paid-offline')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Mark an invoice as paid via offline channel (cash / cheque / bank transfer)' })
+  markPaid(@Param('id') id: string, @Body() dto: MarkPaidOfflineDto) {
+    return this.billing.markInvoicePaid(id, {
+      razorpayPaymentId: dto.payment_reference ? `offline:${dto.payment_reference}` : null,
+      paidAt: new Date(),
+      appendNote: dto.note ? `Offline payment: ${dto.note}` : null,
+    });
   }
 }

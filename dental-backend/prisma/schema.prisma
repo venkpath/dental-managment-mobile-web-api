@@ -1642,10 +1642,28 @@ model PlatformInvoice {
   // Razorpay refs
   razorpay_payment_id      String? @db.VarChar(100)
   razorpay_subscription_id String? @db.VarChar(100)
+  razorpay_payment_link_id String? @db.VarChar(100) // Razorpay Payment Link id when invoice is hosted-pay
+  payment_link_url         String? @db.VarChar(500) // hosted Pay URL surfaced to the clinic / email / WA
 
   // Lifecycle
-  status     String  @default("paid") @db.VarChar(20) // paid | failed | refunded
+  // draft     — created but not yet issued (super-admin scratch state)
+  // due       — issued, awaiting payment (has Pay link)
+  // overdue   — past due_date, still unpaid
+  // paid      — fully paid (online via Razorpay or offline marked manually)
+  // cancelled — voided by super-admin (never collectible)
+  // failed    — payment failed (legacy charge-time invoices only)
+  // refunded  — paid then refunded
+  status     String  @default("due") @db.VarChar(20)
   pdf_s3_key String? @db.VarChar(500) // S3 key once PDF has been rendered + uploaded
+
+  // Invoice-first dates
+  due_date DateTime? // when payment is expected — used by overdue cron + Pay Link expiry
+  paid_at  DateTime? // when the invoice transitioned to 'paid'
+
+  // Origin tracking
+  is_manual         Boolean @default(false) // true when super-admin created it (offline / pre-renewal manual)
+  created_by_user_id String? @db.Uuid       // super-admin user that issued it manually
+  notes             String? @db.Text         // internal note from super-admin (e.g. "Offline cheque #1234")
 
   // Delivery tracking (we send via WhatsApp + Email)
   delivery_status  String    @default("pending") @db.VarChar(30) // pending | sent | partial | failed
@@ -1662,9 +1680,12 @@ model PlatformInvoice {
   plan   Plan?  @relation(fields: [plan_id], references: [id], onDelete: SetNull)
 
   @@unique([razorpay_payment_id])
+  @@unique([razorpay_payment_link_id])
   @@index([clinic_id])
   @@index([clinic_id, issued_at])
+  @@index([clinic_id, status])
   @@index([status])
+  @@index([due_date])
   @@index([razorpay_subscription_id])
   @@map("platform_invoices")
 }

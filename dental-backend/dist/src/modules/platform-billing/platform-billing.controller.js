@@ -28,11 +28,17 @@ let PlatformBillingController = class PlatformBillingController {
     list(req, query) {
         return this.billing.listInvoicesForClinic(req.user.clinicId, query);
     }
+    outstanding(req) {
+        return this.billing.listOutstandingInvoices(req.user.clinicId);
+    }
     get(req, id) {
         return this.billing.getInvoice(req.user.clinicId, id);
     }
     getPdf(req, id) {
         return this.billing.getInvoicePdfUrl(req.user.clinicId, id);
+    }
+    payLink(req, id) {
+        return this.billing.getPaymentLinkForClinic(req.user.clinicId, id);
     }
     resend(req, id) {
         return this.billing.resendInvoice(req.user.clinicId, id);
@@ -50,6 +56,16 @@ __decorate([
     __metadata("design:paramtypes", [Object, list_invoices_query_dto_js_1.ListPlatformInvoicesQueryDto]),
     __metadata("design:returntype", void 0)
 ], PlatformBillingController.prototype, "list", null);
+__decorate([
+    (0, common_1.Get)('invoices/outstanding'),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'List unpaid (due + overdue) invoices for the current clinic' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], PlatformBillingController.prototype, "outstanding", null);
 __decorate([
     (0, common_1.Get)('invoices/:id'),
     (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
@@ -72,6 +88,17 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], PlatformBillingController.prototype, "getPdf", null);
+__decorate([
+    (0, common_1.Get)('invoices/:id/pay-link'),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Get the Razorpay-hosted Pay link for a due invoice (regenerated if missing)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], PlatformBillingController.prototype, "payLink", null);
 __decorate([
     (0, common_1.Post)('invoices/:id/resend'),
     (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),

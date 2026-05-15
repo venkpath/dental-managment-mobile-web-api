@@ -111,38 +111,131 @@ let PaymentService = PaymentService_1 = class PaymentService {
     async createSubscription(dto) {
         if (!this.razorpay)
             throw new common_1.BadRequestException('Payment system not configured');
-        const plan = await this.prisma.plan.findFirst({
-            where: { name: { contains: dto.planKey, mode: 'insensitive' } },
-        });
+        if (!dto.planKey && !dto.planId) {
+            throw new common_1.BadRequestException('planId or planKey is required');
+        }
+        const plan = dto.planId
+            ? await this.prisma.plan.findUnique({ where: { id: dto.planId } })
+            : await this.prisma.plan.findFirst({
+                where: { name: { equals: dto.planKey, mode: 'insensitive' } },
+            });
         if (!plan)
-            throw new common_1.BadRequestException(`Plan "${dto.planKey}" not found`);
+            throw new common_1.BadRequestException(`Plan "${dto.planId ?? dto.planKey}" not found`);
+        if (!plan.razorpay_plan_id) {
+            throw new common_1.BadRequestException('Razorpay plan not configured for this plan. Contact support.');
+        }
         const clinic = await this.prisma.clinic.findUnique({ where: { id: dto.clinicId } });
         if (!clinic)
             throw new common_1.BadRequestException('Clinic not found');
-        if (!plan.razorpay_plan_id)
-            throw new common_1.BadRequestException('Razorpay plan not configured for this plan. Contact support.');
+        if (clinic.plan_id === plan.id &&
+            clinic.subscription_status === 'active' &&
+            clinic.subscription_id) {
+            throw new common_1.BadRequestException('Clinic is already subscribed to this plan');
+        }
+        if (clinic.subscription_id && clinic.subscription_status === 'active') {
+            try {
+                await this.razorpay.subscriptions.cancel(clinic.subscription_id, true);
+                this.logger.log(`Scheduled cycle-end cancellation of subscription ${clinic.subscription_id} for clinic ${dto.clinicId} (plan change to ${plan.name})`);
+            }
+            catch (e) {
+                const msg = e.message || '';
+                if (!/already|completed|cancelled/i.test(msg)) {
+                    this.logger.error(`Failed to cancel old subscription ${clinic.subscription_id}: ${msg}`);
+                    throw new common_1.BadRequestException(`Could not cancel existing subscription: ${msg}`);
+                }
+            }
+        }
+        let startAt;
+        if (clinic.subscription_id && clinic.subscription_status === 'active') {
+            try {
+                const oldSub = await this.razorpay.subscriptions.fetch(clinic.subscription_id);
+                if (oldSub.current_end)
+                    startAt = Number(oldSub.current_end);
+            }
+            catch (e) {
+                this.logger.warn(`Could not fetch old subscription for start_at alignment: ${e.message}`);
+            }
+        }
         const subscription = await this.razorpay.subscriptions.create({
             plan_id: plan.razorpay_plan_id,
             total_count: 12,
             quantity: 1,
+            ...(startAt ? { start_at: startAt } : {}),
             notes: {
                 clinic_id: dto.clinicId,
                 plan_id: plan.id,
                 plan_name: plan.name,
+                previous_subscription_id: clinic.subscription_id || '',
             },
         });
+        const newStatus = clinic.subscription_status === 'active' ? 'active' : 'created';
+        const isActivePlanChange = clinic.subscription_status === 'active' && !!clinic.subscription_id;
+        const changeEffective = isActivePlanChange
+            ? (dto.changeEffective ?? 'cycle_end')
+            : 'now';
         await this.prisma.clinic.update({
             where: { id: dto.clinicId },
             data: {
                 subscription_id: subscription.id,
-                subscription_status: 'created',
-                plan_id: plan.id,
+                subscription_status: newStatus,
+                ...(changeEffective === 'now' ? { plan_id: plan.id } : {}),
             },
         });
+        if (isActivePlanChange && changeEffective === 'now' && startAt) {
+            await this.issueProrationInvoice(clinic.id, clinic.plan_id, plan.id, startAt).catch((err) => this.logger.warn(`Proration invoice failed for clinic ${clinic.id}: ${err.message}`));
+        }
         return {
             subscriptionId: subscription.id,
             shortUrl: subscription.short_url || '',
         };
+    }
+    async issueProrationInvoice(clinicId, oldPlanId, newPlanId, cycleEndUnix) {
+        if (!oldPlanId || oldPlanId === newPlanId)
+            return;
+        const [oldPlan, newPlan, clinic] = await Promise.all([
+            this.prisma.plan.findUnique({ where: { id: oldPlanId } }),
+            this.prisma.plan.findUnique({ where: { id: newPlanId } }),
+            this.prisma.clinic.findUnique({ where: { id: clinicId } }),
+        ]);
+        if (!oldPlan || !newPlan || !clinic)
+            return;
+        const cycle = clinic.billing_cycle === 'yearly' ? 'yearly' : 'monthly';
+        const oldPrice = cycle === 'yearly'
+            ? Number(oldPlan.price_yearly ?? oldPlan.price_monthly) * 12
+            : Number(oldPlan.price_monthly);
+        const newPrice = cycle === 'yearly'
+            ? Number(newPlan.price_yearly ?? newPlan.price_monthly) * 12
+            : Number(newPlan.price_monthly);
+        const delta = newPrice - oldPrice;
+        if (delta <= 0)
+            return;
+        const now = new Date();
+        const cycleEnd = new Date(cycleEndUnix * 1000);
+        const cycleStart = new Date(cycleEnd);
+        if (cycle === 'yearly')
+            cycleStart.setFullYear(cycleStart.getFullYear() - 1);
+        else
+            cycleStart.setMonth(cycleStart.getMonth() - 1);
+        const totalMs = cycleEnd.getTime() - cycleStart.getTime();
+        const remainingMs = Math.max(0, cycleEnd.getTime() - now.getTime());
+        if (totalMs <= 0 || remainingMs <= 0)
+            return;
+        const ratio = remainingMs / totalMs;
+        const proratedTotal = Math.round(delta * ratio * 100) / 100;
+        if (proratedTotal < 1)
+            return;
+        await this.platformBilling.createManualInvoice({
+            clinicId,
+            planId: newPlanId,
+            billingCycle: cycle,
+            totalAmount: proratedTotal,
+            periodStart: now,
+            periodEnd: cycleEnd,
+            dueDate: new Date(now.getTime() + 7 * 86_400_000),
+            notes: `Prorated upgrade catch-up: ${oldPlan.name} → ${newPlan.name} (${Math.round(ratio * 100)}% of cycle remaining, ₹${delta.toFixed(2)}/cycle diff)`,
+            sendImmediately: true,
+        });
+        this.logger.log(`Issued proration invoice for clinic ${clinicId}: ₹${proratedTotal} (${oldPlan.name} → ${newPlan.name}, ${Math.round(ratio * 100)}% cycle remaining)`);
     }
     async handleWebhook(body, signature, rawBody) {
         const webhookSecret = this.configService.get('razorpay.webhookSecret');
@@ -175,9 +268,50 @@ let PaymentService = PaymentService_1 = class PaymentService {
             case 'payment.failed':
                 await this.handlePaymentFailed(payload.payment?.entity);
                 break;
+            case 'payment_link.paid':
+                await this.handlePaymentLinkPaid(body.payload['payment_link'], payload.payment?.entity);
+                break;
+            case 'payment_link.expired':
+            case 'payment_link.cancelled':
+                await this.handlePaymentLinkInvalidated(body.payload['payment_link']);
+                break;
             default:
                 this.logger.warn(`Unhandled webhook event: ${event}`);
         }
+    }
+    async handlePaymentLinkPaid(paymentLink, payment) {
+        if (!paymentLink?.entity)
+            return;
+        const link = paymentLink.entity;
+        const linkId = link['id'];
+        const referenceId = link['reference_id'];
+        const paymentId = payment?.['id'] ?? link['payments']?.[0]?.payment_id ?? null;
+        let invoice = linkId
+            ? await this.prisma.platformInvoice.findFirst({ where: { razorpay_payment_link_id: linkId } })
+            : null;
+        if (!invoice && referenceId) {
+            invoice = await this.prisma.platformInvoice.findFirst({ where: { invoice_number: referenceId } });
+        }
+        if (!invoice) {
+            this.logger.warn(`payment_link.paid received but no platform invoice found (link=${linkId}, ref=${referenceId})`);
+            return;
+        }
+        await this.platformBilling.markInvoicePaid(invoice.id, {
+            razorpayPaymentId: paymentId,
+            paidAt: new Date(),
+        });
+    }
+    async handlePaymentLinkInvalidated(paymentLink) {
+        if (!paymentLink?.entity)
+            return;
+        const linkId = paymentLink.entity['id'];
+        if (!linkId)
+            return;
+        await this.prisma.platformInvoice.updateMany({
+            where: { razorpay_payment_link_id: linkId, status: { in: ['due', 'overdue'] } },
+            data: { payment_link_url: null, razorpay_payment_link_id: null },
+        });
+        this.logger.log(`Cleared expired/cancelled pay link ${linkId}`);
     }
     async handleSubscriptionActivated(subscription) {
         if (!subscription)
