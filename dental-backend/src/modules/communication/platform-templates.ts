@@ -9,6 +9,7 @@ export const PLATFORM_TEMPLATE_NAMES = [
   'demo_request_admin_alert',
   'demo_scheduled_confirmation',
   'platform_subscription_invoice',
+  'platform_subscription_invoice_due',
   // SaaS billing reminders — sent to clinic admin from the platform's WABA,
   // never authored or submitted by the clinic itself.
   'platform_trial_ending_soon',

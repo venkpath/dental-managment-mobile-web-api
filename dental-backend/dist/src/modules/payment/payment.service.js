@@ -132,42 +132,60 @@ let PaymentService = PaymentService_1 = class PaymentService {
             clinic.subscription_id) {
             throw new common_1.BadRequestException('Clinic is already subscribed to this plan');
         }
-        if (clinic.subscription_id && clinic.subscription_status === 'active') {
+        let oldSubStatus = null;
+        let oldSubCurrentEnd = null;
+        if (clinic.subscription_id) {
+            try {
+                const oldSub = await this.razorpay.subscriptions.fetch(clinic.subscription_id);
+                oldSubStatus = oldSub.status || null;
+                oldSubCurrentEnd = oldSub.current_end ? Number(oldSub.current_end) : null;
+            }
+            catch (e) {
+                this.logger.warn(`Old subscription ${clinic.subscription_id} not retrievable from Razorpay: ${unwrapRazorpayError(e)}`);
+            }
+        }
+        if (clinic.subscription_id &&
+            oldSubStatus &&
+            ['authenticated', 'active', 'paused', 'halted'].includes(oldSubStatus)) {
             try {
                 await this.razorpay.subscriptions.cancel(clinic.subscription_id, true);
                 this.logger.log(`Scheduled cycle-end cancellation of subscription ${clinic.subscription_id} for clinic ${dto.clinicId} (plan change to ${plan.name})`);
             }
             catch (e) {
-                const msg = e.message || '';
-                if (!/already|completed|cancelled/i.test(msg)) {
+                const msg = unwrapRazorpayError(e);
+                if (!/already|completed|cancelled|expired/i.test(msg)) {
                     this.logger.error(`Failed to cancel old subscription ${clinic.subscription_id}: ${msg}`);
                     throw new common_1.BadRequestException(`Could not cancel existing subscription: ${msg}`);
                 }
             }
         }
         let startAt;
-        if (clinic.subscription_id && clinic.subscription_status === 'active') {
-            try {
-                const oldSub = await this.razorpay.subscriptions.fetch(clinic.subscription_id);
-                if (oldSub.current_end)
-                    startAt = Number(oldSub.current_end);
-            }
-            catch (e) {
-                this.logger.warn(`Could not fetch old subscription for start_at alignment: ${e.message}`);
-            }
+        const nowSec = Math.floor(Date.now() / 1000);
+        if (oldSubCurrentEnd &&
+            oldSubCurrentEnd > nowSec + 15 * 60 &&
+            ['authenticated', 'active', 'paused'].includes(oldSubStatus ?? '')) {
+            startAt = oldSubCurrentEnd;
         }
-        const subscription = await this.razorpay.subscriptions.create({
-            plan_id: plan.razorpay_plan_id,
-            total_count: 12,
-            quantity: 1,
-            ...(startAt ? { start_at: startAt } : {}),
-            notes: {
-                clinic_id: dto.clinicId,
-                plan_id: plan.id,
-                plan_name: plan.name,
-                previous_subscription_id: clinic.subscription_id || '',
-            },
-        });
+        let subscription;
+        try {
+            subscription = await this.razorpay.subscriptions.create({
+                plan_id: plan.razorpay_plan_id,
+                total_count: 12,
+                quantity: 1,
+                ...(startAt ? { start_at: startAt } : {}),
+                notes: {
+                    clinic_id: dto.clinicId,
+                    plan_id: plan.id,
+                    plan_name: plan.name,
+                    previous_subscription_id: clinic.subscription_id || '',
+                },
+            });
+        }
+        catch (e) {
+            const msg = unwrapRazorpayError(e);
+            this.logger.error(`Razorpay subscriptions.create failed for clinic ${dto.clinicId} (plan=${plan.name}, razorpay_plan_id=${plan.razorpay_plan_id}, start_at=${startAt ?? 'none'}): ${msg}`);
+            throw new common_1.BadRequestException(`Could not create subscription: ${msg}`);
+        }
         const newStatus = clinic.subscription_status === 'active' ? 'active' : 'created';
         const isActivePlanChange = clinic.subscription_status === 'active' && !!clinic.subscription_id;
         const changeEffective = isActivePlanChange
@@ -456,4 +474,22 @@ exports.PaymentService = PaymentService = PaymentService_1 = __decorate([
         ai_usage_service_js_1.AiUsageService,
         platform_billing_service_js_1.PlatformBillingService])
 ], PaymentService);
+function unwrapRazorpayError(err) {
+    if (!err)
+        return 'Unknown error';
+    const e = err;
+    const desc = e?.error?.description;
+    const reason = e?.error?.reason;
+    const code = e?.error?.code;
+    const parts = [];
+    if (desc)
+        parts.push(desc);
+    if (reason && reason !== desc)
+        parts.push(`reason: ${reason}`);
+    if (code)
+        parts.push(`code: ${code}`);
+    if (parts.length > 0)
+        return parts.join(' — ');
+    return e?.message || String(err);
+}
 //# sourceMappingURL=payment.service.js.map

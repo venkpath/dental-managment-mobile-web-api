@@ -194,49 +194,84 @@ export class PaymentService implements OnModuleInit {
       throw new BadRequestException('Clinic is already subscribed to this plan');
     }
 
-    // If clinic has an existing live subscription on a different plan, cancel
-    // it at cycle end so the customer keeps already-paid-for access. We do
-    // NOT cancel-now — that would forfeit the remaining days.
-    if (clinic.subscription_id && clinic.subscription_status === 'active') {
+    // For an active plan-change, first read the old subscription's state.
+    // We need both `current_end` (so we can align the new sub's start_at to
+    // it — no double-charge) and `status` (so we know whether the cancel
+    // step is even meaningful).
+    let oldSubStatus: string | null = null;
+    let oldSubCurrentEnd: number | null = null;
+    if (clinic.subscription_id) {
+      try {
+        const oldSub = await this.razorpay.subscriptions.fetch(clinic.subscription_id);
+        oldSubStatus = (oldSub.status as string) || null;
+        oldSubCurrentEnd = oldSub.current_end ? Number(oldSub.current_end) : null;
+      } catch (e) {
+        // Subscription doesn't exist on Razorpay anymore (test/prod mismatch,
+        // deleted, etc). Treat the clinic as a fresh subscriber.
+        this.logger.warn(
+          `Old subscription ${clinic.subscription_id} not retrievable from Razorpay: ${unwrapRazorpayError(e)}`,
+        );
+      }
+    }
+
+    // Cancel-at-cycle-end only when there's actually a live subscription to
+    // cancel. Razorpay refuses cancel() on subs in `created`/`pending` state
+    // (not started yet — there's no cycle to end), so we skip those.
+    if (
+      clinic.subscription_id &&
+      oldSubStatus &&
+      ['authenticated', 'active', 'paused', 'halted'].includes(oldSubStatus)
+    ) {
       try {
         await this.razorpay.subscriptions.cancel(clinic.subscription_id, true);
-        this.logger.log(`Scheduled cycle-end cancellation of subscription ${clinic.subscription_id} for clinic ${dto.clinicId} (plan change to ${plan.name})`);
+        this.logger.log(
+          `Scheduled cycle-end cancellation of subscription ${clinic.subscription_id} for clinic ${dto.clinicId} (plan change to ${plan.name})`,
+        );
       } catch (e) {
-        const msg = (e as Error).message || '';
-        // Already cancelled / completed — safe to ignore and proceed.
-        if (!/already|completed|cancelled/i.test(msg)) {
+        const msg = unwrapRazorpayError(e);
+        // Already cancelled / completed / expired — safe to ignore and proceed.
+        if (!/already|completed|cancelled|expired/i.test(msg)) {
           this.logger.error(`Failed to cancel old subscription ${clinic.subscription_id}: ${msg}`);
           throw new BadRequestException(`Could not cancel existing subscription: ${msg}`);
         }
       }
     }
 
-    // For an active plan-change, schedule the new subscription to start at
-    // the old subscription's current_end so there is exactly one cycle
-    // transition with no overlap. For trial/expired/cancelled clinics the
-    // subscription starts immediately.
+    // Determine start_at for the new subscription. Razorpay requires
+    // start_at to be at least a few minutes in the future; if the old
+    // subscription's current_end is already past (clinic flagged active
+    // but cycle elapsed), skip alignment and let the new sub start now.
     let startAt: number | undefined;
-    if (clinic.subscription_id && clinic.subscription_status === 'active') {
-      try {
-        const oldSub = await this.razorpay.subscriptions.fetch(clinic.subscription_id);
-        if (oldSub.current_end) startAt = Number(oldSub.current_end);
-      } catch (e) {
-        this.logger.warn(`Could not fetch old subscription for start_at alignment: ${(e as Error).message}`);
-      }
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (
+      oldSubCurrentEnd &&
+      oldSubCurrentEnd > nowSec + 15 * 60 && // at least 15 min in the future
+      ['authenticated', 'active', 'paused'].includes(oldSubStatus ?? '')
+    ) {
+      startAt = oldSubCurrentEnd;
     }
 
-    const subscription = await this.razorpay.subscriptions.create({
-      plan_id: plan.razorpay_plan_id,
-      total_count: 12,
-      quantity: 1,
-      ...(startAt ? { start_at: startAt } : {}),
-      notes: {
-        clinic_id: dto.clinicId,
-        plan_id: plan.id,
-        plan_name: plan.name,
-        previous_subscription_id: clinic.subscription_id || '',
-      },
-    });
+    let subscription;
+    try {
+      subscription = await this.razorpay.subscriptions.create({
+        plan_id: plan.razorpay_plan_id,
+        total_count: 12,
+        quantity: 1,
+        ...(startAt ? { start_at: startAt } : {}),
+        notes: {
+          clinic_id: dto.clinicId,
+          plan_id: plan.id,
+          plan_name: plan.name,
+          previous_subscription_id: clinic.subscription_id || '',
+        },
+      });
+    } catch (e) {
+      const msg = unwrapRazorpayError(e);
+      this.logger.error(
+        `Razorpay subscriptions.create failed for clinic ${dto.clinicId} (plan=${plan.name}, razorpay_plan_id=${plan.razorpay_plan_id}, start_at=${startAt ?? 'none'}): ${msg}`,
+      );
+      throw new BadRequestException(`Could not create subscription: ${msg}`);
+    }
 
     // Preserve current subscription_status if the clinic is still in an
     // active cycle — only flip to 'created' for first-time subscribers.
@@ -615,4 +650,28 @@ export class PaymentService implements OnModuleInit {
       this.logger.error(`Failed to close AI billing cycles: ${(err as Error).message}`);
     }
   }
+}
+
+/**
+ * Razorpay SDK throws errors with a nested `error.description` (Razorpay's
+ * own error message) plus a generic top-level `message` like "Bad request".
+ * Pull the most specific human-readable message out for logging + surfacing
+ * to the client. Handles all the shapes we've seen in the wild.
+ */
+function unwrapRazorpayError(err: unknown): string {
+  if (!err) return 'Unknown error';
+  const e = err as {
+    error?: { description?: string; code?: string; reason?: string };
+    statusCode?: number;
+    message?: string;
+  };
+  const desc = e?.error?.description;
+  const reason = e?.error?.reason;
+  const code = e?.error?.code;
+  const parts: string[] = [];
+  if (desc) parts.push(desc);
+  if (reason && reason !== desc) parts.push(`reason: ${reason}`);
+  if (code) parts.push(`code: ${code}`);
+  if (parts.length > 0) return parts.join(' — ');
+  return e?.message || String(err);
 }

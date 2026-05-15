@@ -6,6 +6,7 @@ exports.PLATFORM_TEMPLATE_NAMES = [
     'demo_request_admin_alert',
     'demo_scheduled_confirmation',
     'platform_subscription_invoice',
+    'platform_subscription_invoice_due',
     'platform_trial_ending_soon',
     'platform_trial_expired',
     'platform_payment_reminder_post_trial',
