@@ -42,9 +42,22 @@ export class InvoiceService {
   async create(clinicId: string, dto: CreateInvoiceDto, createdByUserId?: string): Promise<Invoice> {
     await this.planLimit.enforceMonthlyCap(clinicId, 'invoices');
 
-    const [branch, patient] = await Promise.all([
-      this.prisma.branch.findUnique({ where: { id: dto.branch_id } }),
-      this.prisma.patient.findUnique({ where: { id: dto.patient_id } }),
+    // Extract treatment IDs upfront so they can be validated in the same parallel batch
+    const treatmentIds = dto.items
+      .map((item) => item.treatment_id)
+      .filter((id): id is string => id !== undefined);
+
+    // Run all four ownership checks in parallel — previously branch/patient were
+    // parallel but dentist and treatments were sequential, adding 2 extra round-trips.
+    const [branch, patient, dentist, existingTreatments] = await Promise.all([
+      this.prisma.branch.findUnique({ where: { id: dto.branch_id }, select: { id: true, clinic_id: true } }),
+      this.prisma.patient.findUnique({ where: { id: dto.patient_id }, select: { id: true, clinic_id: true } }),
+      dto.dentist_id
+        ? this.prisma.user.findUnique({ where: { id: dto.dentist_id }, select: { id: true, clinic_id: true } })
+        : Promise.resolve(null),
+      treatmentIds.length > 0
+        ? this.prisma.treatment.findMany({ where: { id: { in: treatmentIds }, clinic_id: clinicId }, select: { id: true } })
+        : Promise.resolve([]),
     ]);
 
     if (!branch || branch.clinic_id !== clinicId) {
@@ -53,27 +66,11 @@ export class InvoiceService {
     if (!patient || patient.clinic_id !== clinicId) {
       throw new NotFoundException(`Patient with ID "${dto.patient_id}" not found in this clinic`);
     }
-
-    // Validate dentist (if provided) belongs to this clinic and is a dentist
-    if (dto.dentist_id) {
-      const dentist = await this.prisma.user.findUnique({ where: { id: dto.dentist_id } });
-      if (!dentist || dentist.clinic_id !== clinicId) {
-        throw new NotFoundException(`Dentist with ID "${dto.dentist_id}" not found in this clinic`);
-      }
+    if (dto.dentist_id && (!dentist || dentist.clinic_id !== clinicId)) {
+      throw new NotFoundException(`Dentist with ID "${dto.dentist_id}" not found in this clinic`);
     }
-
-    // Validate treatment_ids belong to this clinic
-    const treatmentIds = dto.items
-      .map((item) => item.treatment_id)
-      .filter((id): id is string => id !== undefined);
-
-    if (treatmentIds.length > 0) {
-      const treatments = await this.prisma.treatment.findMany({
-        where: { id: { in: treatmentIds }, clinic_id: clinicId },
-      });
-      if (treatments.length !== treatmentIds.length) {
-        throw new NotFoundException('One or more treatment IDs not found in this clinic');
-      }
+    if (treatmentIds.length > 0 && existingTreatments.length !== treatmentIds.length) {
+      throw new NotFoundException('One or more treatment IDs not found in this clinic');
     }
 
     // Calculate totals
@@ -91,7 +88,9 @@ export class InvoiceService {
     const isDraft = as_draft === true;
     const now = new Date();
 
-    // Transaction: generate invoice number + create invoice with items atomically
+    // Transaction: generate invoice number + create invoice with items atomically.
+    // Return only bare Invoice (no includes) — the caller only needs the id to
+    // redirect; the detail page fetches with full includes on its own load.
     return this.prisma.$transaction(async (tx) => {
       const invoiceNumber = await this.generateInvoiceNumber(clinicId, tx);
 
@@ -128,7 +127,6 @@ export class InvoiceService {
             })),
           },
         },
-        include: INVOICE_INCLUDE,
       });
     });
   }

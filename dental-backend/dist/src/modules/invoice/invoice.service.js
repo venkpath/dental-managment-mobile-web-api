@@ -51,9 +51,18 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
     }
     async create(clinicId, dto, createdByUserId) {
         await this.planLimit.enforceMonthlyCap(clinicId, 'invoices');
-        const [branch, patient] = await Promise.all([
-            this.prisma.branch.findUnique({ where: { id: dto.branch_id } }),
-            this.prisma.patient.findUnique({ where: { id: dto.patient_id } }),
+        const treatmentIds = dto.items
+            .map((item) => item.treatment_id)
+            .filter((id) => id !== undefined);
+        const [branch, patient, dentist, existingTreatments] = await Promise.all([
+            this.prisma.branch.findUnique({ where: { id: dto.branch_id }, select: { id: true, clinic_id: true } }),
+            this.prisma.patient.findUnique({ where: { id: dto.patient_id }, select: { id: true, clinic_id: true } }),
+            dto.dentist_id
+                ? this.prisma.user.findUnique({ where: { id: dto.dentist_id }, select: { id: true, clinic_id: true } })
+                : Promise.resolve(null),
+            treatmentIds.length > 0
+                ? this.prisma.treatment.findMany({ where: { id: { in: treatmentIds }, clinic_id: clinicId }, select: { id: true } })
+                : Promise.resolve([]),
         ]);
         if (!branch || branch.clinic_id !== clinicId) {
             throw new common_1.NotFoundException(`Branch with ID "${dto.branch_id}" not found in this clinic`);
@@ -61,22 +70,11 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         if (!patient || patient.clinic_id !== clinicId) {
             throw new common_1.NotFoundException(`Patient with ID "${dto.patient_id}" not found in this clinic`);
         }
-        if (dto.dentist_id) {
-            const dentist = await this.prisma.user.findUnique({ where: { id: dto.dentist_id } });
-            if (!dentist || dentist.clinic_id !== clinicId) {
-                throw new common_1.NotFoundException(`Dentist with ID "${dto.dentist_id}" not found in this clinic`);
-            }
+        if (dto.dentist_id && (!dentist || dentist.clinic_id !== clinicId)) {
+            throw new common_1.NotFoundException(`Dentist with ID "${dto.dentist_id}" not found in this clinic`);
         }
-        const treatmentIds = dto.items
-            .map((item) => item.treatment_id)
-            .filter((id) => id !== undefined);
-        if (treatmentIds.length > 0) {
-            const treatments = await this.prisma.treatment.findMany({
-                where: { id: { in: treatmentIds }, clinic_id: clinicId },
-            });
-            if (treatments.length !== treatmentIds.length) {
-                throw new common_1.NotFoundException('One or more treatment IDs not found in this clinic');
-            }
+        if (treatmentIds.length > 0 && existingTreatments.length !== treatmentIds.length) {
+            throw new common_1.NotFoundException('One or more treatment IDs not found in this clinic');
         }
         const totalAmount = dto.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
         const discountAmount = dto.discount_amount ?? 0;
@@ -118,7 +116,6 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                         })),
                     },
                 },
-                include: INVOICE_INCLUDE,
             });
         });
     }
