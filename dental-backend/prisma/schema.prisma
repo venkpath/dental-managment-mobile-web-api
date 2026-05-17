@@ -46,6 +46,7 @@ model Clinic {
   custom_treatment_limit    Int?
   custom_prescription_limit Int?
   custom_consultation_limit Int?
+  custom_waba_monthly_limit Int? // BYO-WABA only: monthly hard cap (null = use default 2000); ignored when has_own_waba=false
 
   // Per-clinic locked discounted price (GST-inclusive, same convention as Plan.price_monthly).
   // Either column set → that cycle is billed at the custom amount instead of the plan default.

@@ -66,4 +66,12 @@ export class UpdateClinicLimitsDto {
   @IsInt()
   @Min(1)
   custom_consultation_limit?: number | null;
+
+  // ─── BYO WABA limit ───
+
+  @ApiPropertyOptional({ description: 'Monthly WhatsApp hard cap for BYO-WABA Enterprise clinics (null = use default 2000). Ignored when clinic.has_own_waba is false.', nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  custom_waba_monthly_limit?: number | null;
 }

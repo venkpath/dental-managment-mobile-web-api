@@ -8,4 +8,5 @@ export declare class UpdateClinicLimitsDto {
     custom_treatment_limit?: number | null;
     custom_prescription_limit?: number | null;
     custom_consultation_limit?: number | null;
+    custom_waba_monthly_limit?: number | null;
 }

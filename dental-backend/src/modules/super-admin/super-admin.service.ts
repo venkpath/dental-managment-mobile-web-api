@@ -483,6 +483,7 @@ export class SuperAdminService {
       custom_treatment_limit?: number | null;
       custom_prescription_limit?: number | null;
       custom_consultation_limit?: number | null;
+      custom_waba_monthly_limit?: number | null;
     },
   ) {
     const clinic = await this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { id: true } });
@@ -500,6 +501,7 @@ export class SuperAdminService {
         ...(dto.custom_treatment_limit !== undefined && { custom_treatment_limit: dto.custom_treatment_limit }),
         ...(dto.custom_prescription_limit !== undefined && { custom_prescription_limit: dto.custom_prescription_limit }),
         ...(dto.custom_consultation_limit !== undefined && { custom_consultation_limit: dto.custom_consultation_limit }),
+        ...(dto.custom_waba_monthly_limit !== undefined && { custom_waba_monthly_limit: dto.custom_waba_monthly_limit }),
       },
       select: {
         id: true,
@@ -513,6 +515,8 @@ export class SuperAdminService {
         custom_treatment_limit: true,
         custom_prescription_limit: true,
         custom_consultation_limit: true,
+        custom_waba_monthly_limit: true,
+        has_own_waba: true,
         plan: {
           select: {
             name: true,
@@ -525,6 +529,7 @@ export class SuperAdminService {
             max_treatments_per_month: true,
             max_prescriptions_per_month: true,
             max_consultations_per_month: true,
+            whatsapp_hard_limit_monthly: true,
           },
         },
       },

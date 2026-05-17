@@ -64,6 +64,7 @@ export declare class SuperAdminService {
             custom_treatment_limit: number | null;
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
+            custom_waba_monthly_limit: number | null;
             custom_price_monthly: import("@prisma/client-runtime-utils").Decimal | null;
             custom_price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
             custom_price_expires_at: Date | null;
@@ -127,6 +128,7 @@ export declare class SuperAdminService {
             custom_treatment_limit: number | null;
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
+            custom_waba_monthly_limit: number | null;
             custom_price_monthly: import("@prisma/client-runtime-utils").Decimal | null;
             custom_price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
             custom_price_expires_at: Date | null;
@@ -263,6 +265,7 @@ export declare class SuperAdminService {
         custom_treatment_limit: number | null;
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
+        custom_waba_monthly_limit: number | null;
         custom_price_monthly: import("@prisma/client-runtime-utils").Decimal | null;
         custom_price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
         custom_price_expires_at: Date | null;
@@ -325,6 +328,7 @@ export declare class SuperAdminService {
             custom_treatment_limit: number | null;
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
+            custom_waba_monthly_limit: number | null;
             custom_price_monthly: import("@prisma/client-runtime-utils").Decimal | null;
             custom_price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
             custom_price_expires_at: Date | null;
@@ -400,6 +404,7 @@ export declare class SuperAdminService {
         custom_treatment_limit?: number | null;
         custom_prescription_limit?: number | null;
         custom_consultation_limit?: number | null;
+        custom_waba_monthly_limit?: number | null;
     }): Promise<{
         id: string;
         name: string;
@@ -414,7 +419,9 @@ export declare class SuperAdminService {
             max_treatments_per_month: number | null;
             max_prescriptions_per_month: number | null;
             max_consultations_per_month: number | null;
+            whatsapp_hard_limit_monthly: number | null;
         } | null;
+        has_own_waba: boolean;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
         custom_max_staff: number | null;
@@ -424,6 +431,7 @@ export declare class SuperAdminService {
         custom_treatment_limit: number | null;
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
+        custom_waba_monthly_limit: number | null;
     }>;
     changePassword(adminId: string, currentPassword: string, newPassword: string): Promise<{
         message: string;

@@ -97,6 +97,7 @@ export declare class InvoiceController {
             custom_treatment_limit: number | null;
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
+            custom_waba_monthly_limit: number | null;
             custom_price_monthly: import("@prisma/client-runtime-utils").Decimal | null;
             custom_price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
             custom_price_expires_at: Date | null;

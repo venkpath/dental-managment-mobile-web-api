@@ -1615,6 +1615,7 @@ export class CommunicationService {
       select: {
         id: true,
         has_own_waba: true,
+        custom_waba_monthly_limit: true,
         billing_cycle: true,
         plan_id: true,
         plan: {
@@ -1649,18 +1650,25 @@ export class CommunicationService {
     const smsSent = usage?.sms_sent ?? 0;
     const emailSent = usage?.email_sent ?? 0;
 
-    const waIncluded = clinic.plan?.whatsapp_included_monthly ?? 0;
-    const waHardLimit = clinic.plan?.whatsapp_hard_limit_monthly ?? null;
+    const isByoWaba = clinic.has_own_waba;
     const allowOverage = clinic.plan?.allow_whatsapp_overage_billing ?? false;
 
-    const isByoWaba = clinic.has_own_waba;
-    const waRemaining = isByoWaba
-      ? null
-      : waHardLimit !== null
-      ? Math.max(0, waHardLimit - whatsappSent)
-      : null;
-    const waApproachingLimit = !isByoWaba && waIncluded > 0 && whatsappSent >= waIncluded;
-    const waBlocked = !isByoWaba && waHardLimit !== null && whatsappSent >= waHardLimit;
+    let waIncluded: number;
+    let waHardLimit: number | null;
+
+    if (isByoWaba) {
+      // BYO WABA: limit is per-clinic configurable (default 2000)
+      const byoLimit = clinic.custom_waba_monthly_limit ?? 2000;
+      waIncluded = byoLimit;
+      waHardLimit = byoLimit;
+    } else {
+      waIncluded = clinic.plan?.whatsapp_included_monthly ?? 0;
+      waHardLimit = clinic.plan?.whatsapp_hard_limit_monthly ?? null;
+    }
+
+    const waRemaining = waHardLimit !== null ? Math.max(0, waHardLimit - whatsappSent) : null;
+    const waApproachingLimit = waIncluded > 0 && whatsappSent >= waIncluded;
+    const waBlocked = waHardLimit !== null && whatsappSent >= waHardLimit;
 
     return {
       clinic_id: clinic.id,
@@ -1693,24 +1701,12 @@ export class CommunicationService {
       select: {
         id: true,
         has_own_waba: true,
+        custom_waba_monthly_limit: true,
         plan_id: true,
       },
     });
 
     if (!clinic) return false;
-
-    if (clinic.has_own_waba) return false;
-
-    if (!clinic.plan_id) return false;
-
-    const plan = await this.prisma.plan.findUnique({
-      where: { id: clinic.plan_id },
-      select: { whatsapp_hard_limit_monthly: true },
-    });
-
-    if (!plan?.whatsapp_hard_limit_monthly || plan.whatsapp_hard_limit_monthly <= 0) {
-      return false;
-    }
 
     const now = new Date();
     const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -1726,6 +1722,24 @@ export class CommunicationService {
     });
 
     const currentUsage = usage?.whatsapp_sent ?? 0;
+
+    if (clinic.has_own_waba) {
+      // BYO WABA: enforce per-clinic configurable limit (default 2000)
+      const byoLimit = clinic.custom_waba_monthly_limit ?? 2000;
+      return currentUsage >= byoLimit;
+    }
+
+    if (!clinic.plan_id) return false;
+
+    const plan = await this.prisma.plan.findUnique({
+      where: { id: clinic.plan_id },
+      select: { whatsapp_hard_limit_monthly: true },
+    });
+
+    if (!plan?.whatsapp_hard_limit_monthly || plan.whatsapp_hard_limit_monthly <= 0) {
+      return false;
+    }
+
     return currentUsage >= plan.whatsapp_hard_limit_monthly;
   }
 

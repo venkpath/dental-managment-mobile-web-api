@@ -23,8 +23,9 @@ class UpdateClinicLimitsDto {
     custom_treatment_limit;
     custom_prescription_limit;
     custom_consultation_limit;
+    custom_waba_monthly_limit;
     static _OPENAPI_METADATA_FACTORY() {
-        return { custom_max_branches: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_max_staff: { required: false, type: () => Number, nullable: true, minimum: 1 }, ai_quota_override: { required: false, type: () => Number, nullable: true, minimum: 0 }, custom_patient_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_appointment_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_invoice_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_treatment_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_prescription_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_consultation_limit: { required: false, type: () => Number, nullable: true, minimum: 1 } };
+        return { custom_max_branches: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_max_staff: { required: false, type: () => Number, nullable: true, minimum: 1 }, ai_quota_override: { required: false, type: () => Number, nullable: true, minimum: 0 }, custom_patient_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_appointment_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_invoice_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_treatment_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_prescription_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_consultation_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_waba_monthly_limit: { required: false, type: () => Number, nullable: true, minimum: 1 } };
     }
 }
 exports.UpdateClinicLimitsDto = UpdateClinicLimitsDto;
@@ -91,4 +92,11 @@ __decorate([
     (0, class_validator_1.Min)(1),
     __metadata("design:type", Object)
 ], UpdateClinicLimitsDto.prototype, "custom_consultation_limit", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Monthly WhatsApp hard cap for BYO-WABA Enterprise clinics (null = use default 2000). Ignored when clinic.has_own_waba is false.', nullable: true }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    __metadata("design:type", Object)
+], UpdateClinicLimitsDto.prototype, "custom_waba_monthly_limit", void 0);
 //# sourceMappingURL=update-clinic-limits.dto.js.map
