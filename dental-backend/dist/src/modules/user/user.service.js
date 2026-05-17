@@ -120,9 +120,21 @@ let UserService = class UserService {
     async create(clinicId, dto) {
         const clinic = await this.prisma.clinic.findUnique({
             where: { id: clinicId },
+            select: {
+                id: true,
+                custom_max_staff: true,
+                plan: { select: { max_staff: true } },
+            },
         });
         if (!clinic) {
             throw new common_1.NotFoundException(`Clinic with ID "${clinicId}" not found`);
+        }
+        const staffLimit = clinic.custom_max_staff ?? clinic.plan?.max_staff ?? null;
+        if (staffLimit !== null) {
+            const current = await this.prisma.user.count({ where: { clinic_id: clinicId } });
+            if (current >= staffLimit) {
+                throw new common_1.ForbiddenException(`Staff limit reached: your plan allows ${staffLimit} staff member${staffLimit === 1 ? '' : 's'}. Contact support to add more.`);
+            }
         }
         if (dto.branch_id) {
             const branch = await this.prisma.branch.findUnique({

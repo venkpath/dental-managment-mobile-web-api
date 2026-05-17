@@ -4,6 +4,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../database/prisma.service.js';
 import { AiUsageService } from '../ai/ai-usage.service.js';
 import { PlatformBillingService } from '../platform-billing/platform-billing.service.js';
+import { ClinicFeatureService } from '../feature/clinic-feature.service.js';
 import Razorpay from 'razorpay';
 import { createHmac } from 'crypto';
 
@@ -45,6 +46,7 @@ export class PaymentService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly aiUsage: AiUsageService,
     private readonly platformBilling: PlatformBillingService,
+    private readonly clinicFeatureService: ClinicFeatureService,
   ) {}
 
   onModuleInit() {
@@ -126,9 +128,25 @@ export class PaymentService implements OnModuleInit {
       }
     }
 
+    // Resolve the effective price the customer will actually be charged on
+    // their next cycle (custom_price_* if set + unexpired, else plan default).
+    // Surfaced here so the customer-facing billing screen shows "₹6999 (Promo)"
+    // instead of the plan list price when a super admin has applied a discount.
+    const billingCycle: 'monthly' | 'yearly' = clinic.billing_cycle === 'yearly' ? 'yearly' : 'monthly';
+    const effectivePrice = clinic.plan
+      ? await this.clinicFeatureService
+          .getEffectivePrice(clinicId, billingCycle)
+          .catch(() => null)
+      : null;
+
     return {
       subscription_status: clinic.subscription_status,
       plan: clinic.plan ? { id: clinic.plan.id, name: clinic.plan.name, price_monthly: clinic.plan.price_monthly } : null,
+      billing_cycle: billingCycle,
+      next_billing_at: clinic.next_billing_at,
+      effective_price: effectivePrice?.amount ?? null,
+      price_source: effectivePrice?.source ?? null,
+      custom_price_expires_at: effectivePrice?.custom_expires_at ?? null,
       trial_ends_at: clinic.trial_ends_at,
       is_trial_active: isTrialActive,
       trial_days_left: trialDaysLeft,
@@ -283,24 +301,37 @@ export class PaymentService implements OnModuleInit {
       ? (dto.changeEffective ?? 'cycle_end')
       : 'now'; // first-time / re-subscribe always starts immediately
 
-    // Only flip plan_id on the clinic right now when the customer asked for
-    // "apply now". Otherwise keep the current plan until the cycle boundary —
-    // the Razorpay subscription.activated webhook will rotate plan_id when
-    // the new subscription actually starts charging.
+    // Pre-compute whether this "Apply Now" change is an actual upgrade with a
+    // positive proration. The flip-plan-id-now path is gated on whether the
+    // customer needs to pay anything: upgrades wait for the proration invoice
+    // to actually be paid (webhook flips plan_id on payment_link.paid),
+    // downgrades and same-price changes apply immediately (no payment needed).
+    let isPaidUpgrade = false;
+    if (isActivePlanChange && changeEffective === 'now' && startAt) {
+      isPaidUpgrade = await this.computeProrationDelta(clinic.plan_id, plan.id, clinic.billing_cycle).then(
+        (d) => d > 0,
+      );
+    }
+
     await this.prisma.clinic.update({
       where: { id: dto.clinicId },
       data: {
         subscription_id: subscription.id,
         subscription_status: newStatus,
-        ...(changeEffective === 'now' ? { plan_id: plan.id } : {}),
+        // Flip plan_id locally ONLY when no payment gate is required:
+        //   - First-time subscribe (no current plan to "lose")
+        //   - Apply-now downgrade / same-price (no proration to pay)
+        // Upgrades wait for the proration invoice to be paid.
+        // Cycle-end changes wait for subscription.activated webhook.
+        ...(changeEffective === 'now' && !isPaidUpgrade ? { plan_id: plan.id } : {}),
       },
     });
 
-    // For an "apply now" upgrade, issue a prorated catch-up invoice for the
-    // remaining days of the current cycle so the customer pays the price
-    // difference up front (industry standard — Stripe / Chargebee call this a
-    // "proration credit"). Downgrade-now does not generate a refund invoice;
-    // we just apply the new (lower) limits immediately.
+    // Issue the prorated catch-up invoice for "Apply Now" upgrades. When the
+    // customer pays this invoice, the payment_link.paid webhook flips
+    // clinic.plan_id to invoice.plan_id (the new plan), atomically gating the
+    // feature unlock on real payment. If they exit the Razorpay flow without
+    // paying, they stay on the old plan — no free upgrade.
     if (isActivePlanChange && changeEffective === 'now' && startAt) {
       await this.issueProrationInvoice(clinic.id, clinic.plan_id, plan.id, startAt).catch((err) =>
         this.logger.warn(`Proration invoice failed for clinic ${clinic.id}: ${(err as Error).message}`),
@@ -311,6 +342,32 @@ export class PaymentService implements OnModuleInit {
       subscriptionId: subscription.id,
       shortUrl: subscription.short_url || '',
     };
+  }
+
+  /**
+   * Returns the per-cycle price delta (newPrice − oldPrice). Used to decide
+   * whether an "Apply Now" plan change is an upgrade that requires a paid
+   * proration invoice before the plan flip takes effect.
+   */
+  private async computeProrationDelta(
+    oldPlanId: string | null,
+    newPlanId: string,
+    billingCycle: string | null,
+  ): Promise<number> {
+    if (!oldPlanId || oldPlanId === newPlanId) return 0;
+    const [oldPlan, newPlan] = await Promise.all([
+      this.prisma.plan.findUnique({ where: { id: oldPlanId } }),
+      this.prisma.plan.findUnique({ where: { id: newPlanId } }),
+    ]);
+    if (!oldPlan || !newPlan) return 0;
+    const cycle = billingCycle === 'yearly' ? 'yearly' : 'monthly';
+    const oldPrice = cycle === 'yearly'
+      ? Number(oldPlan.price_yearly ?? oldPlan.price_monthly) * 12
+      : Number(oldPlan.price_monthly);
+    const newPrice = cycle === 'yearly'
+      ? Number(newPlan.price_yearly ?? newPlan.price_monthly) * 12
+      : Number(newPlan.price_monthly);
+    return newPrice - oldPrice;
   }
 
   /**
@@ -465,8 +522,9 @@ export class PaymentService implements OnModuleInit {
       return;
     }
 
-    // markInvoicePaid handles both invoice + clinic activation so online
-    // (webhook) and offline (super-admin) paths converge on identical state.
+    // markInvoicePaid handles invoice transition, clinic activation, AND the
+    // plan_id sync (so online + offline + "Apply Now" upgrade paths all
+    // converge on identical state). Don't add per-channel logic here.
     await this.platformBilling.markInvoicePaid(invoice.id, {
       razorpayPaymentId: paymentId,
       paidAt: new Date(),

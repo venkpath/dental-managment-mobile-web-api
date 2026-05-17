@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { BranchService } from './branch.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 
@@ -27,6 +27,7 @@ const mockPrismaService = {
     findMany: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
+    count: jest.fn(),
   },
 };
 
@@ -43,7 +44,9 @@ describe('BranchService', () => {
 
     service = module.get<BranchService>(BranchService);
     jest.clearAllMocks();
-    mockPrismaService.clinic.findUnique.mockResolvedValue({ id: clinicId, name: 'Test Clinic' });
+    // Default: unlimited plan (max_branches = null) — no override set.
+    mockPrismaService.clinic.findUnique.mockResolvedValue({ id: clinicId, custom_max_branches: null, plan: { max_branches: null } });
+    mockPrismaService.branch.count.mockResolvedValue(0);
     mockPrismaService.branch.findUnique.mockResolvedValue(mockBranch);
     mockPrismaService.branch.findMany.mockResolvedValue([mockBranch]);
     mockPrismaService.branch.create.mockResolvedValue(mockBranch);
@@ -55,15 +58,38 @@ describe('BranchService', () => {
   });
 
   describe('create', () => {
-    it('should create a branch with clinicId from header', async () => {
+    it('should create a branch when plan limit is not set (unlimited)', async () => {
       const result = await service.create(clinicId, { name: 'Downtown Branch' });
       expect(result).toEqual(mockBranch);
-      expect(mockPrismaService.clinic.findUnique).toHaveBeenCalledWith({
-        where: { id: clinicId },
-      });
       expect(mockPrismaService.branch.create).toHaveBeenCalledWith({
         data: { name: 'Downtown Branch', clinic_id: clinicId },
       });
+    });
+
+    it('should create a branch when under the plan limit', async () => {
+      mockPrismaService.clinic.findUnique.mockResolvedValueOnce({ id: clinicId, custom_max_branches: null, plan: { max_branches: 2 } });
+      mockPrismaService.branch.count.mockResolvedValueOnce(1);
+      const result = await service.create(clinicId, { name: 'Branch 2' });
+      expect(result).toEqual(mockBranch);
+    });
+
+    it('should block creation when at the plan limit', async () => {
+      mockPrismaService.clinic.findUnique.mockResolvedValueOnce({ id: clinicId, custom_max_branches: null, plan: { max_branches: 1 } });
+      mockPrismaService.branch.count.mockResolvedValueOnce(1);
+      await expect(service.create(clinicId, { name: 'Branch 2' })).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should allow creation when custom override raises the limit', async () => {
+      mockPrismaService.clinic.findUnique.mockResolvedValueOnce({ id: clinicId, custom_max_branches: 2, plan: { max_branches: 1 } });
+      mockPrismaService.branch.count.mockResolvedValueOnce(1);
+      const result = await service.create(clinicId, { name: 'Extra Branch' });
+      expect(result).toEqual(mockBranch);
+    });
+
+    it('should block creation when at the custom override limit', async () => {
+      mockPrismaService.clinic.findUnique.mockResolvedValueOnce({ id: clinicId, custom_max_branches: 2, plan: { max_branches: 1 } });
+      mockPrismaService.branch.count.mockResolvedValueOnce(2);
+      await expect(service.create(clinicId, { name: 'Too Many' })).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw NotFoundException if clinic does not exist', async () => {

@@ -55,7 +55,9 @@ describe('Integration: Feature Guard Enforcement', () => {
         update: jest.fn(),
         updateMany: jest.fn(),
       },
-      planFeature: { findFirst: jest.fn() },
+      feature: { findUnique: jest.fn() },
+      planFeature: { findUnique: jest.fn() },
+      clinicFeatureOverride: { findUnique: jest.fn() },
       plan: { findUnique: jest.fn() },
     };
   });
@@ -86,8 +88,10 @@ describe('Integration: Feature Guard Enforcement', () => {
     await expect(featureGuard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
-  it('should deny access when clinic has no plan assigned', async () => {
+  it('should deny access when clinic has no plan assigned and no override', async () => {
     featureGuard = buildGuard('prescriptions');
+    mockPrisma.feature.findUnique.mockResolvedValue({ id: 'feat-1' });
+    mockPrisma.clinicFeatureOverride.findUnique.mockResolvedValue(null);
     mockPrisma.clinic.findUnique.mockResolvedValue({ plan_id: null });
 
     const ctx = createMockExecutionContext({
@@ -96,10 +100,12 @@ describe('Integration: Feature Guard Enforcement', () => {
     await expect(featureGuard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
-  it('should deny access when feature is not in the plan', async () => {
+  it('should deny access when feature is not in the plan and no override', async () => {
     featureGuard = buildGuard('tooth_chart');
+    mockPrisma.feature.findUnique.mockResolvedValue({ id: 'feat-1' });
+    mockPrisma.clinicFeatureOverride.findUnique.mockResolvedValue(null);
     mockPrisma.clinic.findUnique.mockResolvedValue({ plan_id: planId });
-    mockPrisma.planFeature.findFirst.mockResolvedValue(null); // feature not found
+    mockPrisma.planFeature.findUnique.mockResolvedValue(null);
 
     const ctx = createMockExecutionContext({
       user: { userId, clinicId, role: 'dentist' },
@@ -107,34 +113,26 @@ describe('Integration: Feature Guard Enforcement', () => {
     await expect(featureGuard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
-  it('should allow access when feature is enabled in the plan', async () => {
+  it('should allow access when feature is enabled in the plan and no override', async () => {
     featureGuard = buildGuard('prescriptions');
+    mockPrisma.feature.findUnique.mockResolvedValue({ id: 'feat-1' });
+    mockPrisma.clinicFeatureOverride.findUnique.mockResolvedValue(null);
     mockPrisma.clinic.findUnique.mockResolvedValue({ plan_id: planId });
-    mockPrisma.planFeature.findFirst.mockResolvedValue({
-      plan_id: planId,
-      feature_id: 'feat-1',
-      is_enabled: true,
-    });
+    mockPrisma.planFeature.findUnique.mockResolvedValue({ is_enabled: true });
 
     const ctx = createMockExecutionContext({
       user: { userId, clinicId, role: 'dentist' },
     });
     const result = await featureGuard.canActivate(ctx);
     expect(result).toBe(true);
-    expect(mockPrisma.planFeature.findFirst).toHaveBeenCalledWith({
-      where: {
-        plan_id: planId,
-        feature: { key: 'prescriptions' },
-        is_enabled: true,
-      },
-    });
   });
 
-  it('should deny when feature exists but is_enabled is false', async () => {
+  it('should deny when feature exists but is_enabled is false in plan', async () => {
     featureGuard = buildGuard('inventory');
+    mockPrisma.feature.findUnique.mockResolvedValue({ id: 'feat-1' });
+    mockPrisma.clinicFeatureOverride.findUnique.mockResolvedValue(null);
     mockPrisma.clinic.findUnique.mockResolvedValue({ plan_id: planId });
-    // findFirst with is_enabled: true returns null when feature is disabled
-    mockPrisma.planFeature.findFirst.mockResolvedValue(null);
+    mockPrisma.planFeature.findUnique.mockResolvedValue({ is_enabled: false });
 
     const ctx = createMockExecutionContext({
       user: { userId, clinicId, role: 'dentist' },
@@ -142,9 +140,62 @@ describe('Integration: Feature Guard Enforcement', () => {
     await expect(featureGuard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
-  it('should deny when clinic does not exist', async () => {
+  it('should allow when override grants a feature not in the plan', async () => {
     featureGuard = buildGuard('prescriptions');
+    mockPrisma.feature.findUnique.mockResolvedValue({ id: 'feat-1' });
+    mockPrisma.clinicFeatureOverride.findUnique.mockResolvedValue({ is_enabled: true, expires_at: null });
+
+    const ctx = createMockExecutionContext({
+      user: { userId, clinicId, role: 'dentist' },
+    });
+    const result = await featureGuard.canActivate(ctx);
+    expect(result).toBe(true);
+    expect(mockPrisma.planFeature.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('should deny when override revokes a feature included in plan', async () => {
+    featureGuard = buildGuard('prescriptions');
+    mockPrisma.feature.findUnique.mockResolvedValue({ id: 'feat-1' });
+    mockPrisma.clinicFeatureOverride.findUnique.mockResolvedValue({ is_enabled: false, expires_at: null });
+
+    const ctx = createMockExecutionContext({
+      user: { userId, clinicId, role: 'dentist' },
+    });
+    await expect(featureGuard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+    expect(mockPrisma.planFeature.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('should fall back to plan when override is expired', async () => {
+    featureGuard = buildGuard('prescriptions');
+    mockPrisma.feature.findUnique.mockResolvedValue({ id: 'feat-1' });
+    mockPrisma.clinicFeatureOverride.findUnique.mockResolvedValue({
+      is_enabled: false,
+      expires_at: new Date(Date.now() - 60_000),
+    });
+    mockPrisma.clinic.findUnique.mockResolvedValue({ plan_id: planId });
+    mockPrisma.planFeature.findUnique.mockResolvedValue({ is_enabled: true });
+
+    const ctx = createMockExecutionContext({
+      user: { userId, clinicId, role: 'dentist' },
+    });
+    expect(await featureGuard.canActivate(ctx)).toBe(true);
+  });
+
+  it('should deny when clinic does not exist (plan fallback path)', async () => {
+    featureGuard = buildGuard('prescriptions');
+    mockPrisma.feature.findUnique.mockResolvedValue({ id: 'feat-1' });
+    mockPrisma.clinicFeatureOverride.findUnique.mockResolvedValue(null);
     mockPrisma.clinic.findUnique.mockResolvedValue(null);
+
+    const ctx = createMockExecutionContext({
+      user: { userId, clinicId, role: 'dentist' },
+    });
+    await expect(featureGuard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('should deny when feature key does not exist in registry', async () => {
+    featureGuard = buildGuard('bogus_feature');
+    mockPrisma.feature.findUnique.mockResolvedValue(null);
 
     const ctx = createMockExecutionContext({
       user: { userId, clinicId, role: 'dentist' },

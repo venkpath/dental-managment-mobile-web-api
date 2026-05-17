@@ -20,6 +20,7 @@ const schedule_1 = require("@nestjs/schedule");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const ai_usage_service_js_1 = require("../ai/ai-usage.service.js");
 const platform_billing_service_js_1 = require("../platform-billing/platform-billing.service.js");
+const clinic_feature_service_js_1 = require("../feature/clinic-feature.service.js");
 const razorpay_1 = __importDefault(require("razorpay"));
 const crypto_1 = require("crypto");
 let PaymentService = PaymentService_1 = class PaymentService {
@@ -27,13 +28,15 @@ let PaymentService = PaymentService_1 = class PaymentService {
     prisma;
     aiUsage;
     platformBilling;
+    clinicFeatureService;
     logger = new common_1.Logger(PaymentService_1.name);
     razorpay;
-    constructor(configService, prisma, aiUsage, platformBilling) {
+    constructor(configService, prisma, aiUsage, platformBilling, clinicFeatureService) {
         this.configService = configService;
         this.prisma = prisma;
         this.aiUsage = aiUsage;
         this.platformBilling = platformBilling;
+        this.clinicFeatureService = clinicFeatureService;
     }
     onModuleInit() {
         const keyId = this.configService.get('razorpay.keyId');
@@ -91,9 +94,20 @@ let PaymentService = PaymentService_1 = class PaymentService {
                 this.logger.warn(`Failed to fetch Razorpay subscription ${clinic.subscription_id}: ${e.message}`);
             }
         }
+        const billingCycle = clinic.billing_cycle === 'yearly' ? 'yearly' : 'monthly';
+        const effectivePrice = clinic.plan
+            ? await this.clinicFeatureService
+                .getEffectivePrice(clinicId, billingCycle)
+                .catch(() => null)
+            : null;
         return {
             subscription_status: clinic.subscription_status,
             plan: clinic.plan ? { id: clinic.plan.id, name: clinic.plan.name, price_monthly: clinic.plan.price_monthly } : null,
+            billing_cycle: billingCycle,
+            next_billing_at: clinic.next_billing_at,
+            effective_price: effectivePrice?.amount ?? null,
+            price_source: effectivePrice?.source ?? null,
+            custom_price_expires_at: effectivePrice?.custom_expires_at ?? null,
             trial_ends_at: clinic.trial_ends_at,
             is_trial_active: isTrialActive,
             trial_days_left: trialDaysLeft,
@@ -191,12 +205,16 @@ let PaymentService = PaymentService_1 = class PaymentService {
         const changeEffective = isActivePlanChange
             ? (dto.changeEffective ?? 'cycle_end')
             : 'now';
+        let isPaidUpgrade = false;
+        if (isActivePlanChange && changeEffective === 'now' && startAt) {
+            isPaidUpgrade = await this.computeProrationDelta(clinic.plan_id, plan.id, clinic.billing_cycle).then((d) => d > 0);
+        }
         await this.prisma.clinic.update({
             where: { id: dto.clinicId },
             data: {
                 subscription_id: subscription.id,
                 subscription_status: newStatus,
-                ...(changeEffective === 'now' ? { plan_id: plan.id } : {}),
+                ...(changeEffective === 'now' && !isPaidUpgrade ? { plan_id: plan.id } : {}),
             },
         });
         if (isActivePlanChange && changeEffective === 'now' && startAt) {
@@ -206,6 +224,24 @@ let PaymentService = PaymentService_1 = class PaymentService {
             subscriptionId: subscription.id,
             shortUrl: subscription.short_url || '',
         };
+    }
+    async computeProrationDelta(oldPlanId, newPlanId, billingCycle) {
+        if (!oldPlanId || oldPlanId === newPlanId)
+            return 0;
+        const [oldPlan, newPlan] = await Promise.all([
+            this.prisma.plan.findUnique({ where: { id: oldPlanId } }),
+            this.prisma.plan.findUnique({ where: { id: newPlanId } }),
+        ]);
+        if (!oldPlan || !newPlan)
+            return 0;
+        const cycle = billingCycle === 'yearly' ? 'yearly' : 'monthly';
+        const oldPrice = cycle === 'yearly'
+            ? Number(oldPlan.price_yearly ?? oldPlan.price_monthly) * 12
+            : Number(oldPlan.price_monthly);
+        const newPrice = cycle === 'yearly'
+            ? Number(newPlan.price_yearly ?? newPlan.price_monthly) * 12
+            : Number(newPlan.price_monthly);
+        return newPrice - oldPrice;
     }
     async issueProrationInvoice(clinicId, oldPlanId, newPlanId, cycleEndUnix) {
         if (!oldPlanId || oldPlanId === newPlanId)
@@ -472,7 +508,8 @@ exports.PaymentService = PaymentService = PaymentService_1 = __decorate([
     __metadata("design:paramtypes", [config_1.ConfigService,
         prisma_service_js_1.PrismaService,
         ai_usage_service_js_1.AiUsageService,
-        platform_billing_service_js_1.PlatformBillingService])
+        platform_billing_service_js_1.PlatformBillingService,
+        clinic_feature_service_js_1.ClinicFeatureService])
 ], PaymentService);
 function unwrapRazorpayError(err) {
     if (!err)

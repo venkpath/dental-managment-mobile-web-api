@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
 import { CreateBranchDto, UpdateBranchDto, UpdateBranchSchedulingDto } from './dto/index.js';
 import { Branch } from '@prisma/client';
@@ -10,10 +10,27 @@ export class BranchService {
   async create(clinicId: string, dto: CreateBranchDto): Promise<Branch> {
     const clinic = await this.prisma.clinic.findUnique({
       where: { id: clinicId },
+      select: {
+        id: true,
+        custom_max_branches: true,
+        plan: { select: { max_branches: true } },
+      },
     });
     if (!clinic) {
       throw new NotFoundException(`Clinic with ID "${clinicId}" not found`);
     }
+
+    // custom_max_branches (set by super admin) wins over plan default; null = unlimited.
+    const limit = clinic.custom_max_branches ?? clinic.plan?.max_branches ?? null;
+    if (limit !== null) {
+      const current = await this.prisma.branch.count({ where: { clinic_id: clinicId } });
+      if (current >= limit) {
+        throw new ForbiddenException(
+          `Branch limit reached: your plan allows ${limit} branch${limit === 1 ? '' : 'es'}. Contact support to add more.`,
+        );
+      }
+    }
+
     return this.prisma.branch.create({
       data: { ...dto, clinic_id: clinicId },
     });

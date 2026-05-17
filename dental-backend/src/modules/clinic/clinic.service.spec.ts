@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { ClinicService } from './clinic.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { ClinicFeatureService } from '../feature/clinic-feature.service.js';
 
 const mockClinic = {
   id: '123e4567-e89b-12d3-a456-426614174000',
@@ -32,11 +33,36 @@ const mockPrismaService = {
 describe('ClinicService', () => {
   let service: ClinicService;
 
+  const mockClinicFeatureService = {
+    getEffectiveFeatureKeys: jest.fn().mockResolvedValue([]),
+    getEffectiveLimits: jest.fn().mockResolvedValue({
+      max_branches: null,
+      max_staff: null,
+      ai_quota: null,
+      max_patients_per_month: null,
+      max_appointments_per_month: null,
+      max_invoices_per_month: null,
+      max_treatments_per_month: null,
+      max_prescriptions_per_month: null,
+      max_consultations_per_month: null,
+    }),
+    getEffectivePrice: jest.fn().mockResolvedValue({
+      amount: null,
+      source: 'none',
+      custom_price_monthly: null,
+      custom_price_yearly: null,
+      custom_expires_at: null,
+      custom_reason: null,
+      plan_amount: null,
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ClinicService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: ClinicFeatureService, useValue: mockClinicFeatureService },
       ],
     }).compile();
 

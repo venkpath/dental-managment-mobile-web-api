@@ -115,10 +115,10 @@ export declare class AiController {
         status: string;
         created_at: Date;
         clinic_id: string;
+        reason: string;
         cycle_start: Date;
         requested_by: string | null;
         requested_amount: number;
-        reason: string;
         approved_amount: number | null;
         approved_by: string | null;
         decision_note: string | null;
@@ -129,10 +129,10 @@ export declare class AiController {
         status: string;
         created_at: Date;
         clinic_id: string;
+        reason: string;
         cycle_start: Date;
         requested_by: string | null;
         requested_amount: number;
-        reason: string;
         approved_amount: number | null;
         approved_by: string | null;
         decision_note: string | null;

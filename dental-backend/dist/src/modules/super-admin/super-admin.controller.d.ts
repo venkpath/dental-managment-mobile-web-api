@@ -3,8 +3,9 @@ import { SuperAdminAuthService } from './super-admin-auth.service.js';
 import { SuperAdminWhatsAppService } from './super-admin-whatsapp.service.js';
 import { DailySummaryCronService } from '../reports/daily-summary.cron.js';
 import { InactivityCronService } from './inactivity.cron.js';
-import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto, UpdateClinicLimitsDto } from './dto/index.js';
+import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto, UpdateClinicLimitsDto, UpdateClinicFeaturesDto, SetClinicCustomPriceDto } from './dto/index.js';
 import { ClinicService } from '../clinic/clinic.service.js';
+import { ClinicFeatureService } from '../feature/clinic-feature.service.js';
 import { UpdateSubscriptionDto } from '../clinic/dto/index.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { AutomationService } from '../automation/automation.service.js';
@@ -26,8 +27,9 @@ export declare class SuperAdminController {
     private readonly aiUsageService;
     private readonly dailySummaryCron;
     private readonly inactivityCron;
+    private readonly clinicFeatureService;
     private readonly logger;
-    constructor(superAdminService: SuperAdminService, superAdminAuthService: SuperAdminAuthService, clinicService: ClinicService, communicationService: CommunicationService, automationService: AutomationService, branchService: BranchService, whatsAppService: SuperAdminWhatsAppService, aiUsageService: AiUsageService, dailySummaryCron: DailySummaryCronService, inactivityCron: InactivityCronService);
+    constructor(superAdminService: SuperAdminService, superAdminAuthService: SuperAdminAuthService, clinicService: ClinicService, communicationService: CommunicationService, automationService: AutomationService, branchService: BranchService, whatsAppService: SuperAdminWhatsAppService, aiUsageService: AiUsageService, dailySummaryCron: DailySummaryCronService, inactivityCron: InactivityCronService, clinicFeatureService: ClinicFeatureService);
     login(dto: LoginSuperAdminDto): Promise<import("./super-admin-auth.service.js").SuperAdminLoginResponse>;
     create(dto: CreateSuperAdminDto): Promise<Omit<{
         id: string;
@@ -88,12 +90,19 @@ export declare class SuperAdminController {
             default_phone_country: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
+            custom_max_branches: number | null;
+            custom_max_staff: number | null;
             custom_patient_limit: number | null;
             custom_appointment_limit: number | null;
             custom_invoice_limit: number | null;
             custom_treatment_limit: number | null;
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
+            custom_price_monthly: import("@prisma/client-runtime-utils").Decimal | null;
+            custom_price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
+            custom_price_expires_at: Date | null;
+            custom_price_reason: string | null;
+            custom_price_granted_by_super_admin_id: string | null;
             last_active_at: Date | null;
             is_suspended: boolean;
             suspended_at: Date | null;
@@ -139,12 +148,19 @@ export declare class SuperAdminController {
             default_phone_country: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
+            custom_max_branches: number | null;
+            custom_max_staff: number | null;
             custom_patient_limit: number | null;
             custom_appointment_limit: number | null;
             custom_invoice_limit: number | null;
             custom_treatment_limit: number | null;
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
+            custom_price_monthly: import("@prisma/client-runtime-utils").Decimal | null;
+            custom_price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
+            custom_price_expires_at: Date | null;
+            custom_price_reason: string | null;
+            custom_price_granted_by_super_admin_id: string | null;
             last_active_at: Date | null;
             is_suspended: boolean;
             suspended_at: Date | null;
@@ -208,6 +224,7 @@ export declare class SuperAdminController {
             name: string;
             status: string;
             created_at: Date;
+            phone: string | null;
             role: string;
         }[];
         branches: {
@@ -267,12 +284,19 @@ export declare class SuperAdminController {
         default_phone_country: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
+        custom_max_branches: number | null;
+        custom_max_staff: number | null;
         custom_patient_limit: number | null;
         custom_appointment_limit: number | null;
         custom_invoice_limit: number | null;
         custom_treatment_limit: number | null;
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
+        custom_price_monthly: import("@prisma/client-runtime-utils").Decimal | null;
+        custom_price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
+        custom_price_expires_at: Date | null;
+        custom_price_reason: string | null;
+        custom_price_granted_by_super_admin_id: string | null;
         last_active_at: Date | null;
         is_suspended: boolean;
         suspended_at: Date | null;
@@ -305,12 +329,19 @@ export declare class SuperAdminController {
         default_phone_country: string;
         ai_usage_count: number;
         ai_quota_override: number | null;
+        custom_max_branches: number | null;
+        custom_max_staff: number | null;
         custom_patient_limit: number | null;
         custom_appointment_limit: number | null;
         custom_invoice_limit: number | null;
         custom_treatment_limit: number | null;
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
+        custom_price_monthly: import("@prisma/client-runtime-utils").Decimal | null;
+        custom_price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
+        custom_price_expires_at: Date | null;
+        custom_price_reason: string | null;
+        custom_price_granted_by_super_admin_id: string | null;
         last_active_at: Date | null;
         is_suspended: boolean;
         suspended_at: Date | null;
@@ -344,12 +375,19 @@ export declare class SuperAdminController {
             default_phone_country: string;
             ai_usage_count: number;
             ai_quota_override: number | null;
+            custom_max_branches: number | null;
+            custom_max_staff: number | null;
             custom_patient_limit: number | null;
             custom_appointment_limit: number | null;
             custom_invoice_limit: number | null;
             custom_treatment_limit: number | null;
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
+            custom_price_monthly: import("@prisma/client-runtime-utils").Decimal | null;
+            custom_price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
+            custom_price_expires_at: Date | null;
+            custom_price_reason: string | null;
+            custom_price_granted_by_super_admin_id: string | null;
             last_active_at: Date | null;
             is_suspended: boolean;
             suspended_at: Date | null;
@@ -419,18 +457,73 @@ export declare class SuperAdminController {
         plan: {
             name: string;
             max_invoices_per_month: number | null;
+            max_branches: number;
+            max_staff: number;
+            ai_quota: number;
             max_patients_per_month: number | null;
             max_appointments_per_month: number | null;
             max_treatments_per_month: number | null;
             max_prescriptions_per_month: number | null;
             max_consultations_per_month: number | null;
         } | null;
+        ai_quota_override: number | null;
+        custom_max_branches: number | null;
+        custom_max_staff: number | null;
         custom_patient_limit: number | null;
         custom_appointment_limit: number | null;
         custom_invoice_limit: number | null;
         custom_treatment_limit: number | null;
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
+    }>;
+    listClinicFeatures(id: string): Promise<import("../feature/clinic-feature.service.js").EffectiveFeatureRow[]>;
+    updateClinicFeatures(id: string, dto: UpdateClinicFeaturesDto, admin: {
+        id: string;
+    }): Promise<import("../feature/clinic-feature.service.js").EffectiveFeatureRow[]>;
+    removeClinicFeatureOverride(id: string, featureId: string): Promise<{
+        removed: boolean;
+    }>;
+    getClinicCustomPrice(id: string): Promise<{
+        monthly: {
+            amount: number | null;
+            source: "custom" | "plan" | "none";
+            custom_price_monthly: number | null;
+            custom_price_yearly: number | null;
+            custom_expires_at: Date | null;
+            custom_reason: string | null;
+            plan_amount: number | null;
+        };
+        yearly: {
+            amount: number | null;
+            source: "custom" | "plan" | "none";
+            custom_price_monthly: number | null;
+            custom_price_yearly: number | null;
+            custom_expires_at: Date | null;
+            custom_reason: string | null;
+            plan_amount: number | null;
+        };
+    }>;
+    setClinicCustomPrice(id: string, dto: SetClinicCustomPriceDto, admin: {
+        id: string;
+    }): Promise<{
+        monthly: {
+            amount: number | null;
+            source: "custom" | "plan" | "none";
+            custom_price_monthly: number | null;
+            custom_price_yearly: number | null;
+            custom_expires_at: Date | null;
+            custom_reason: string | null;
+            plan_amount: number | null;
+        };
+        yearly: {
+            amount: number | null;
+            source: "custom" | "plan" | "none";
+            custom_price_monthly: number | null;
+            custom_price_yearly: number | null;
+            custom_expires_at: Date | null;
+            custom_reason: string | null;
+            plan_amount: number | null;
+        };
     }>;
     changePassword(admin: {
         id: string;
@@ -859,10 +952,10 @@ export declare class SuperAdminController {
         status: string;
         created_at: Date;
         clinic_id: string;
+        reason: string;
         cycle_start: Date;
         requested_by: string | null;
         requested_amount: number;
-        reason: string;
         approved_amount: number | null;
         approved_by: string | null;
         decision_note: string | null;
@@ -879,10 +972,10 @@ export declare class SuperAdminController {
         status: string;
         created_at: Date;
         clinic_id: string;
+        reason: string;
         cycle_start: Date;
         requested_by: string | null;
         requested_amount: number;
-        reason: string;
         approved_amount: number | null;
         approved_by: string | null;
         decision_note: string | null;

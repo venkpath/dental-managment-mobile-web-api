@@ -17,10 +17,10 @@ export declare class DemoRequestController {
         updated_at: Date;
         phone: string;
         clinic_name: string | null;
+        source: string;
         scheduled_at: Date | null;
         notes: string | null;
         chairs: string | null;
-        source: string;
         meeting_link: string | null;
     }[]>;
     findOne(id: string): Promise<{
@@ -32,10 +32,10 @@ export declare class DemoRequestController {
         updated_at: Date;
         phone: string;
         clinic_name: string | null;
+        source: string;
         scheduled_at: Date | null;
         notes: string | null;
         chairs: string | null;
-        source: string;
         meeting_link: string | null;
     }>;
     updateStatus(id: string, dto: UpdateDemoStatusDto): Promise<{
@@ -47,10 +47,10 @@ export declare class DemoRequestController {
         updated_at: Date;
         phone: string;
         clinic_name: string | null;
+        source: string;
         scheduled_at: Date | null;
         notes: string | null;
         chairs: string | null;
-        source: string;
         meeting_link: string | null;
     }>;
 }

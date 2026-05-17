@@ -34,6 +34,22 @@ let FeatureGuard = class FeatureGuard {
         if (!user) {
             throw new common_1.ForbiddenException('Authentication required');
         }
+        const feature = await this.prisma.feature.findUnique({
+            where: { key: featureKey },
+            select: { id: true },
+        });
+        if (!feature) {
+            throw new common_1.ForbiddenException(`Feature "${featureKey}" is not available on your current plan`);
+        }
+        const override = await this.prisma.clinicFeatureOverride.findUnique({
+            where: { clinic_id_feature_id: { clinic_id: user.clinicId, feature_id: feature.id } },
+            select: { is_enabled: true, expires_at: true },
+        });
+        if (override && (!override.expires_at || override.expires_at > new Date())) {
+            if (override.is_enabled)
+                return true;
+            throw new common_1.ForbiddenException(`Feature "${featureKey}" is not available on your current plan`);
+        }
         const clinic = await this.prisma.clinic.findUnique({
             where: { id: user.clinicId },
             select: { plan_id: true },
@@ -41,14 +57,11 @@ let FeatureGuard = class FeatureGuard {
         if (!clinic || !clinic.plan_id) {
             throw new common_1.ForbiddenException(`Feature "${featureKey}" is not available on your current plan`);
         }
-        const planFeature = await this.prisma.planFeature.findFirst({
-            where: {
-                plan_id: clinic.plan_id,
-                feature: { key: featureKey },
-                is_enabled: true,
-            },
+        const planFeature = await this.prisma.planFeature.findUnique({
+            where: { plan_id_feature_id: { plan_id: clinic.plan_id, feature_id: feature.id } },
+            select: { is_enabled: true },
         });
-        if (!planFeature) {
+        if (!planFeature?.is_enabled) {
             throw new common_1.ForbiddenException(`Feature "${featureKey}" is not available on your current plan`);
         }
         return true;

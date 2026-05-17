@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Patch, Delete, Param, Query, HttpCode, HttpStatus, ParseUUIDPipe, Logger, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import { Body, Controller, Get, Post, Put, Patch, Delete, Param, Query, HttpCode, HttpStatus, ParseUUIDPipe, Logger, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiConflictResponse, ApiResponse } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../common/decorators/public.decorator.js';
@@ -9,8 +9,9 @@ import { SuperAdminAuthService } from './super-admin-auth.service.js';
 import { SuperAdminWhatsAppService } from './super-admin-whatsapp.service.js';
 import { DailySummaryCronService } from '../reports/daily-summary.cron.js';
 import { InactivityCronService } from './inactivity.cron.js';
-import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto, UpdateClinicLimitsDto } from './dto/index.js';
+import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto, UpdateClinicLimitsDto, UpdateClinicFeaturesDto, SetClinicCustomPriceDto } from './dto/index.js';
 import { ClinicService } from '../clinic/clinic.service.js';
+import { ClinicFeatureService } from '../feature/clinic-feature.service.js';
 import { UpdateSubscriptionDto } from '../clinic/dto/index.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { AutomationService } from '../automation/automation.service.js';
@@ -38,6 +39,7 @@ export class SuperAdminController {
     private readonly aiUsageService: AiUsageService,
     private readonly dailySummaryCron: DailySummaryCronService,
     private readonly inactivityCron: InactivityCronService,
+    private readonly clinicFeatureService: ClinicFeatureService,
   ) {}
 
   // ─── Auth ───
@@ -169,6 +171,90 @@ export class SuperAdminController {
     @Body() dto: UpdateClinicLimitsDto,
   ) {
     return this.superAdminService.updateClinicLimits(id, dto);
+  }
+
+  // ─── Per-Clinic Feature Overrides ───
+
+  @Get('super-admins/clinics/:id/features')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'List effective features for a clinic (plan defaults merged with overrides)' })
+  @ApiOkResponse({ description: 'Effective feature set' })
+  async listClinicFeatures(@Param('id', ParseUUIDPipe) id: string) {
+    return this.clinicFeatureService.getEffectiveFeatures(id);
+  }
+
+  @Put('super-admins/clinics/:id/features')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Upsert per-clinic feature overrides (is_enabled=null/omitted removes the override)' })
+  @ApiOkResponse({ description: 'Overrides applied' })
+  async updateClinicFeatures(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateClinicFeaturesDto,
+    @CurrentSuperAdmin() admin: { id: string },
+  ) {
+    await this.clinicFeatureService.upsertOverrides(
+      id,
+      dto.overrides.map((o) => ({
+        feature_id: o.feature_id,
+        is_enabled: o.is_enabled ?? null,
+        reason: o.reason ?? null,
+        expires_at: o.expires_at ? new Date(o.expires_at) : null,
+      })),
+      admin.id,
+    );
+    return this.clinicFeatureService.getEffectiveFeatures(id);
+  }
+
+  @Delete('super-admins/clinics/:id/features/:featureId')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Remove a single feature override (revert to plan default)' })
+  @ApiOkResponse({ description: 'Override removed' })
+  async removeClinicFeatureOverride(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('featureId', ParseUUIDPipe) featureId: string,
+  ) {
+    await this.clinicFeatureService.removeOverride(id, featureId);
+    return { removed: true };
+  }
+
+  // ─── Per-Clinic Custom Price (Discount) ───
+
+  @Get('super-admins/clinics/:id/custom-price')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Get effective price for a clinic (custom discount if set, else plan default)' })
+  @ApiOkResponse({ description: 'Effective price for both monthly and yearly billing' })
+  async getClinicCustomPrice(@Param('id', ParseUUIDPipe) id: string) {
+    const [monthly, yearly] = await Promise.all([
+      this.clinicFeatureService.getEffectivePrice(id, 'monthly'),
+      this.clinicFeatureService.getEffectivePrice(id, 'yearly'),
+    ]);
+    return { monthly, yearly };
+  }
+
+  @Put('super-admins/clinics/:id/custom-price')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Set or clear per-clinic locked price (both fields null = clear discount)' })
+  @ApiOkResponse({ description: 'Custom price applied' })
+  async setClinicCustomPrice(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetClinicCustomPriceDto,
+    @CurrentSuperAdmin() admin: { id: string },
+  ) {
+    await this.clinicFeatureService.setCustomPrice(
+      id,
+      {
+        custom_price_monthly: dto.custom_price_monthly ?? null,
+        custom_price_yearly: dto.custom_price_yearly ?? null,
+        expires_at: dto.expires_at ? new Date(dto.expires_at) : null,
+        reason: dto.reason ?? null,
+      },
+      admin.id,
+    );
+    const [monthly, yearly] = await Promise.all([
+      this.clinicFeatureService.getEffectivePrice(id, 'monthly'),
+      this.clinicFeatureService.getEffectivePrice(id, 'yearly'),
+    ]);
+    return { monthly, yearly };
   }
 
   // ─── Password Change ───

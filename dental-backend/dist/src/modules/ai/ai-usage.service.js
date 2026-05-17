@@ -43,11 +43,28 @@ let AiUsageService = AiUsageService_1 = class AiUsageService {
         end.setUTCDate(end.getUTCDate() + DEFAULT_CYCLE_DAYS);
         return { start, end };
     }
+    resolveBaseQuota(clinic) {
+        if (clinic.ai_quota_override !== null && clinic.ai_quota_override !== undefined) {
+            return clinic.ai_quota_override;
+        }
+        if (clinic.plan?.name === 'Free') {
+            const now = new Date();
+            const monthsElapsed = (now.getFullYear() - clinic.created_at.getFullYear()) * 12 +
+                (now.getMonth() - clinic.created_at.getMonth());
+            if (monthsElapsed === 0)
+                return 20;
+            if (monthsElapsed === 1)
+                return 10;
+        }
+        return clinic.plan?.ai_quota ?? 0;
+    }
     async snapshot(clinicId) {
         const [clinic, settings, blockingCharge] = await Promise.all([
             this.prisma.clinic.findUnique({
                 where: { id: clinicId },
                 select: {
+                    ai_quota_override: true,
+                    created_at: true,
                     plan: { select: { name: true, ai_quota: true, ai_overage_cap: true } },
                 },
             }),
@@ -58,7 +75,7 @@ let AiUsageService = AiUsageService_1 = class AiUsageService {
                 select: { id: true },
             }),
         ]);
-        const baseQuota = clinic?.plan?.ai_quota ?? 0;
+        const baseQuota = clinic ? this.resolveBaseQuota(clinic) : 0;
         const overageCap = clinic?.plan?.ai_overage_cap ?? 0;
         const overageHeadroom = settings.overage_enabled
             ? Math.max(0, overageCap - baseQuota)
@@ -122,9 +139,9 @@ let AiUsageService = AiUsageService_1 = class AiUsageService {
         }
         const clinic = await this.prisma.clinic.findUnique({
             where: { id: params.clinicId },
-            select: { plan: { select: { ai_quota: true } } },
+            select: { ai_quota_override: true, created_at: true, plan: { select: { name: true, ai_quota: true } } },
         });
-        const baseQuota = clinic?.plan?.ai_quota ?? 0;
+        const baseQuota = clinic ? this.resolveBaseQuota(clinic) : 0;
         const isOverage = settings.used_in_cycle > baseQuota;
         await this.prisma.aiUsageRecord.create({
             data: {
@@ -340,9 +357,9 @@ let AiUsageService = AiUsageService_1 = class AiUsageService {
         if (overageCount > 0) {
             const clinic = await this.prisma.clinic.findUnique({
                 where: { id: clinicId },
-                select: { plan: { select: { ai_quota: true } } },
+                select: { ai_quota_override: true, created_at: true, plan: { select: { name: true, ai_quota: true } } },
             });
-            const baseQuota = clinic?.plan?.ai_quota ?? 0;
+            const baseQuota = clinic ? this.resolveBaseQuota(clinic) : 0;
             await this.prisma.aiOverageCharge.upsert({
                 where: {
                     clinic_id_cycle_start: {

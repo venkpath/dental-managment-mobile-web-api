@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 import { PlatformInvoicePdfService } from './platform-invoice-pdf.service.js';
+import { ClinicFeatureService } from '../feature/clinic-feature.service.js';
 import type { ListPlatformInvoicesQueryDto } from './dto/list-invoices-query.dto.js';
 interface CreateInvoiceFromPaymentInput {
     clinicId: string;
@@ -29,10 +30,11 @@ export declare class PlatformBillingService implements OnModuleInit {
     private readonly config;
     private readonly s3;
     private readonly pdfService;
+    private readonly clinicFeatureService;
     private readonly logger;
     private platformSmtp;
     private razorpay;
-    constructor(prisma: PrismaService, config: ConfigService, s3: S3Service, pdfService: PlatformInvoicePdfService);
+    constructor(prisma: PrismaService, config: ConfigService, s3: S3Service, pdfService: PlatformInvoicePdfService, clinicFeatureService: ClinicFeatureService);
     onModuleInit(): void;
     createInvoiceFromPayment(input: CreateInvoiceFromPaymentInput): Promise<{
         invoiceId: string;

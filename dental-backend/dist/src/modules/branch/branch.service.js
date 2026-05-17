@@ -20,9 +20,21 @@ let BranchService = class BranchService {
     async create(clinicId, dto) {
         const clinic = await this.prisma.clinic.findUnique({
             where: { id: clinicId },
+            select: {
+                id: true,
+                custom_max_branches: true,
+                plan: { select: { max_branches: true } },
+            },
         });
         if (!clinic) {
             throw new common_1.NotFoundException(`Clinic with ID "${clinicId}" not found`);
+        }
+        const limit = clinic.custom_max_branches ?? clinic.plan?.max_branches ?? null;
+        if (limit !== null) {
+            const current = await this.prisma.branch.count({ where: { clinic_id: clinicId } });
+            if (current >= limit) {
+                throw new common_1.ForbiddenException(`Branch limit reached: your plan allows ${limit} branch${limit === 1 ? '' : 'es'}. Contact support to add more.`);
+            }
         }
         return this.prisma.branch.create({
             data: { ...dto, clinic_id: clinicId },

@@ -12,11 +12,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ClinicService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
+const clinic_feature_service_js_1 = require("../feature/clinic-feature.service.js");
 const TRIAL_DAYS = 14;
 let ClinicService = class ClinicService {
     prisma;
-    constructor(prisma) {
+    clinicFeatureService;
+    constructor(prisma, clinicFeatureService) {
         this.prisma = prisma;
+        this.clinicFeatureService = clinicFeatureService;
     }
     async create(dto) {
         const trialEndsAt = new Date();
@@ -48,43 +51,30 @@ let ClinicService = class ClinicService {
         const clinic = await this.prisma.clinic.findUnique({
             where: { id: clinicId },
             select: {
-                plan: {
-                    select: {
-                        name: true,
-                        price_monthly: true,
-                        max_branches: true,
-                        max_staff: true,
-                        ai_quota: true,
-                        max_patients_per_month: true,
-                        max_appointments_per_month: true,
-                        max_invoices_per_month: true,
-                        max_treatments_per_month: true,
-                        plan_features: {
-                            where: { is_enabled: true },
-                            select: { feature: { select: { key: true } } },
-                        },
-                    },
-                },
+                billing_cycle: true,
+                plan: { select: { name: true, price_monthly: true } },
             },
         });
         if (!clinic)
             throw new common_1.NotFoundException(`Clinic with ID "${clinicId}" not found`);
-        const plan = clinic.plan;
+        const billingCycle = clinic.billing_cycle || 'monthly';
+        const [features, limits, effectivePrice] = await Promise.all([
+            this.clinicFeatureService.getEffectiveFeatureKeys(clinicId),
+            this.clinicFeatureService.getEffectiveLimits(clinicId),
+            this.clinicFeatureService.getEffectivePrice(clinicId, billingCycle),
+        ]);
         return {
-            plan: plan
+            plan: clinic.plan
                 ? {
-                    name: plan.name,
-                    price_monthly: Number(plan.price_monthly),
-                    max_branches: plan.max_branches,
-                    max_staff: plan.max_staff,
-                    ai_quota: plan.ai_quota,
-                    max_patients_per_month: plan.max_patients_per_month,
-                    max_appointments_per_month: plan.max_appointments_per_month,
-                    max_invoices_per_month: plan.max_invoices_per_month,
-                    max_treatments_per_month: plan.max_treatments_per_month,
+                    name: clinic.plan.name,
+                    price_monthly: Number(clinic.plan.price_monthly),
+                    effective_price: effectivePrice.amount,
+                    price_source: effectivePrice.source,
+                    custom_price_expires_at: effectivePrice.custom_expires_at,
+                    ...limits,
                 }
                 : null,
-            features: plan?.plan_features.map((pf) => pf.feature.key) ?? [],
+            features,
         };
     }
     async update(id, dto) {
@@ -96,12 +86,27 @@ let ClinicService = class ClinicService {
     }
     async updateSubscription(id, dto) {
         await this.findOne(id);
-        const { trial_ends_at, ...rest } = dto;
+        const { trial_ends_at, next_billing_at, billing_cycle, ...rest } = dto;
+        let resolvedNextBillingAt = next_billing_at;
+        if (billing_cycle !== undefined && next_billing_at === undefined) {
+            const anchor = new Date();
+            if (billing_cycle === 'yearly') {
+                anchor.setFullYear(anchor.getFullYear() + 1);
+            }
+            else {
+                anchor.setMonth(anchor.getMonth() + 1);
+            }
+            resolvedNextBillingAt = anchor.toISOString();
+        }
         return this.prisma.clinic.update({
             where: { id },
             data: {
                 ...rest,
+                ...(billing_cycle !== undefined ? { billing_cycle } : {}),
                 ...(trial_ends_at !== undefined ? { trial_ends_at: new Date(trial_ends_at) } : {}),
+                ...(resolvedNextBillingAt !== undefined
+                    ? { next_billing_at: resolvedNextBillingAt === null ? null : new Date(resolvedNextBillingAt) }
+                    : {}),
             },
             include: { plan: true },
         });
@@ -110,6 +115,7 @@ let ClinicService = class ClinicService {
 exports.ClinicService = ClinicService;
 exports.ClinicService = ClinicService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
+        clinic_feature_service_js_1.ClinicFeatureService])
 ], ClinicService);
 //# sourceMappingURL=clinic.service.js.map

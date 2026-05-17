@@ -13,12 +13,14 @@ const platform_billing_controller_js_1 = require("./platform-billing.controller.
 const platform_billing_super_admin_controller_js_1 = require("./platform-billing-super-admin.controller.js");
 const platform_billing_service_js_1 = require("./platform-billing.service.js");
 const platform_invoice_pdf_service_js_1 = require("./platform-invoice-pdf.service.js");
+const feature_module_js_1 = require("../feature/feature.module.js");
 let PlatformBillingModule = class PlatformBillingModule {
 };
 exports.PlatformBillingModule = PlatformBillingModule;
 exports.PlatformBillingModule = PlatformBillingModule = __decorate([
     (0, common_1.Global)(),
     (0, common_1.Module)({
+        imports: [feature_module_js_1.FeatureModule],
         controllers: [platform_billing_controller_js_1.PlatformBillingController, platform_billing_super_admin_controller_js_1.PlatformBillingSuperAdminController],
         providers: [platform_billing_service_js_1.PlatformBillingService, platform_invoice_pdf_service_js_1.PlatformInvoicePdfService, s3_service_js_1.S3Service],
         exports: [platform_billing_service_js_1.PlatformBillingService],

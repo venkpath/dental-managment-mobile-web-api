@@ -110,10 +110,10 @@ let DatabaseSeederService = DatabaseSeederService_1 = class DatabaseSeederServic
     }
     async seedPlans() {
         const plans = [
-            { name: 'Free', price_monthly: 0, max_branches: 1, max_staff: 2, ai_quota: 0, max_patients_per_month: 20, max_appointments_per_month: 20, max_invoices_per_month: 20, max_treatments_per_month: 20 },
-            { name: 'Starter', price_monthly: 999, max_branches: 1, max_staff: 5, ai_quota: 0, max_patients_per_month: null, max_appointments_per_month: null, max_invoices_per_month: null, max_treatments_per_month: null },
-            { name: 'Professional', price_monthly: 1999, max_branches: 3, max_staff: 15, ai_quota: 100, max_patients_per_month: null, max_appointments_per_month: null, max_invoices_per_month: null, max_treatments_per_month: null },
-            { name: 'Enterprise', price_monthly: 2999, max_branches: 10, max_staff: 50, ai_quota: 500, max_patients_per_month: null, max_appointments_per_month: null, max_invoices_per_month: null, max_treatments_per_month: null },
+            { name: 'Free', price_monthly: 0, max_branches: 1, max_staff: 2, ai_quota: 5, max_patients_per_month: 20, max_appointments_per_month: 20, max_invoices_per_month: 20, max_treatments_per_month: 20 },
+            { name: 'Starter', price_monthly: 999, max_branches: 1, max_staff: 5, ai_quota: 15, max_patients_per_month: null, max_appointments_per_month: null, max_invoices_per_month: null, max_treatments_per_month: null },
+            { name: 'Professional', price_monthly: 1999, max_branches: 3, max_staff: 15, ai_quota: 25, max_patients_per_month: null, max_appointments_per_month: null, max_invoices_per_month: null, max_treatments_per_month: null },
+            { name: 'Enterprise', price_monthly: 2999, max_branches: 10, max_staff: 50, ai_quota: 50, max_patients_per_month: null, max_appointments_per_month: null, max_invoices_per_month: null, max_treatments_per_month: null },
         ];
         let created = 0;
         for (const p of plans) {
@@ -142,6 +142,7 @@ let DatabaseSeederService = DatabaseSeederService_1 = class DatabaseSeederServic
             { key: 'AUTOMATION_RULES', description: 'Automation rules — birthday greetings, reactivation, payment reminders, post-visit follow-ups' },
             { key: 'AI_CAMPAIGN_CONTENT', description: 'AI-powered campaign message generation with A/B variants' },
             { key: 'APPOINTMENT_CONFIRMATIONS', description: 'Automated appointment confirmation messages to patients' },
+            { key: 'CUSTOM_TEMPLATES', description: 'Create, edit, delete, and submit your own WhatsApp/SMS/email templates (system templates remain read-only for everyone)' },
         ];
         let created = 0;
         for (const f of features) {
@@ -194,6 +195,7 @@ let DatabaseSeederService = DatabaseSeederService_1 = class DatabaseSeederServic
             { plan_id: enterprise.id, feature_id: fm['PATIENT_IMPORT'] },
             { plan_id: enterprise.id, feature_id: fm['MARKETING_CAMPAIGNS'] },
             { plan_id: enterprise.id, feature_id: fm['AUTOMATION_RULES'] },
+            { plan_id: enterprise.id, feature_id: fm['CUSTOM_TEMPLATES'] },
         ];
         let created = 0;
         for (const m of mappings) {

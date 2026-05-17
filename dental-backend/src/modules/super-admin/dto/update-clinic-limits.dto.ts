@@ -1,7 +1,36 @@
 import { IsInt, IsOptional, Min } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
+/**
+ * Per-clinic numeric limit overrides. Every field is independently optional;
+ * pass null to clear a previously-set override (revert to plan default) or
+ * omit it entirely to leave it unchanged. The Clinic columns these map to
+ * also serve as the source of truth for /me/features so the frontend caps
+ * stay in sync with backend enforcement.
+ */
 export class UpdateClinicLimitsDto {
+  // ─── Structural caps (used by the UI to gate "Add branch / Add user") ───
+
+  @ApiPropertyOptional({ description: 'Max branches override (null = use plan default)', nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  custom_max_branches?: number | null;
+
+  @ApiPropertyOptional({ description: 'Max staff/users override (null = use plan default)', nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  custom_max_staff?: number | null;
+
+  @ApiPropertyOptional({ description: 'Per-cycle AI request quota override (null = use plan default)', nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  ai_quota_override?: number | null;
+
+  // ─── Monthly resource counters (enforced by PlanLimitService) ───
+
   @ApiPropertyOptional({ description: 'Monthly patient limit override (null = use plan default)', nullable: true })
   @IsOptional()
   @IsInt()

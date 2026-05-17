@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service.js';
 import { AiUsageService } from '../ai/ai-usage.service.js';
 import { PlatformBillingService } from '../platform-billing/platform-billing.service.js';
+import { ClinicFeatureService } from '../feature/clinic-feature.service.js';
 interface CreateSubscriptionDto {
     clinicId: string;
     planKey?: string;
@@ -25,9 +26,10 @@ export declare class PaymentService implements OnModuleInit {
     private readonly prisma;
     private readonly aiUsage;
     private readonly platformBilling;
+    private readonly clinicFeatureService;
     private readonly logger;
     private razorpay;
-    constructor(configService: ConfigService, prisma: PrismaService, aiUsage: AiUsageService, platformBilling: PlatformBillingService);
+    constructor(configService: ConfigService, prisma: PrismaService, aiUsage: AiUsageService, platformBilling: PlatformBillingService, clinicFeatureService: ClinicFeatureService);
     onModuleInit(): void;
     getSubscriptionStatus(clinicId: string): Promise<{
         current_period_start: string | null;
@@ -44,6 +46,11 @@ export declare class PaymentService implements OnModuleInit {
             name: string;
             price_monthly: import("@prisma/client-runtime-utils").Decimal;
         } | null;
+        billing_cycle: "monthly" | "yearly";
+        next_billing_at: Date | null;
+        effective_price: number | null;
+        price_source: "plan" | "none" | "custom" | null;
+        custom_price_expires_at: Date | null;
         trial_ends_at: Date | null;
         is_trial_active: boolean | null;
         trial_days_left: number;
@@ -91,6 +98,7 @@ export declare class PaymentService implements OnModuleInit {
         subscriptionId: string;
         shortUrl: string;
     }>;
+    private computeProrationDelta;
     private issueProrationInvoice;
     handleWebhook(body: RazorpayWebhookPayload, signature: string, rawBody?: Buffer): Promise<void>;
     private handlePaymentLinkPaid;

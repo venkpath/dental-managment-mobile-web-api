@@ -34,14 +34,28 @@ model Clinic {
   currency_code              String    @default("INR") @db.VarChar(10)
   default_phone_country      String    @default("in") @db.VarChar(10)
   ai_usage_count      Int       @default(0)
-  ai_quota_override   Int? // per-clinic AI quota override (null = use global/plan default)
-  // Per-clinic monthly limit overrides (set by super admin; null = use plan default)
+  ai_quota_override   Int? // per-clinic AI quota override (null = use plan default)
+  // Per-clinic structural + monthly limit overrides (set by super admin; null = use plan default).
+  // Together with ClinicFeatureOverride these let a single clinic run "Starter + a few extras"
+  // without spawning a one-off Plan row.
+  custom_max_branches       Int?
+  custom_max_staff          Int?
   custom_patient_limit      Int?
   custom_appointment_limit  Int?
   custom_invoice_limit      Int?
   custom_treatment_limit    Int?
   custom_prescription_limit Int?
   custom_consultation_limit Int?
+
+  // Per-clinic locked discounted price (GST-inclusive, same convention as Plan.price_monthly).
+  // Either column set → that cycle is billed at the custom amount instead of the plan default.
+  // Auto-reverts when `custom_price_expires_at` passes. Reason + granted_by_super_admin_id
+  // are recorded for support traceability and revenue-impact auditing.
+  custom_price_monthly                   Decimal?  @db.Decimal(10, 2)
+  custom_price_yearly                    Decimal?  @db.Decimal(10, 2)
+  custom_price_expires_at                DateTime?
+  custom_price_reason                    String?   @db.VarChar(500)
+  custom_price_granted_by_super_admin_id String?   @db.Uuid
   // Inactivity tracking & suspension
   last_active_at               DateTime?
   is_suspended                 Boolean   @default(false)
@@ -99,6 +113,9 @@ model Clinic {
   // google_reviews             GoogleReview[]
 
   platform_invoices PlatformInvoice[]
+
+  feature_overrides            ClinicFeatureOverride[]
+  custom_price_granted_by      SuperAdmin?             @relation("ClinicCustomPriceGrantedBy", fields: [custom_price_granted_by_super_admin_id], references: [id], onDelete: SetNull)
 
   @@index([email])
   @@index([plan_id])
@@ -207,7 +224,8 @@ model Feature {
   description String   @db.VarChar(500)
   created_at  DateTime @default(now())
 
-  plan_features PlanFeature[]
+  plan_features     PlanFeature[]
+  clinic_overrides  ClinicFeatureOverride[]
 
   @@map("features")
 }
@@ -225,6 +243,42 @@ model PlanFeature {
   @@index([plan_id])
   @@index([feature_id])
   @@map("plan_features")
+}
+
+/// Per-clinic override of a single feature on top of the plan default.
+/// A row exists only when the super admin has explicitly customised that
+/// feature for that clinic — every clinic without a row falls back to
+/// PlanFeature for its plan. is_enabled=true grants on top of the plan,
+/// is_enabled=false revokes a feature the plan otherwise includes.
+///
+/// Audit fields:
+///   granted_by_super_admin_id — who applied the override (nullable so old
+///     rows + system migrations don't break)
+///   reason — free-text justification visible in the super-admin UI; used in
+///     support tickets ("why does clinic X have feature Y?")
+///   expires_at — optional auto-revert timestamp. The FeatureGuard and the
+///     /me/features resolver both treat expired rows as if they did not
+///     exist, falling back to the plan default. A cron can purge them.
+model ClinicFeatureOverride {
+  id                        String    @id @default(uuid()) @db.Uuid
+  clinic_id                 String    @db.Uuid
+  feature_id                String    @db.Uuid
+  is_enabled                Boolean
+  reason                    String?   @db.VarChar(500)
+  granted_by_super_admin_id String?   @db.Uuid
+  expires_at                DateTime?
+  created_at                DateTime  @default(now())
+  updated_at                DateTime  @updatedAt
+
+  clinic     Clinic      @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  feature    Feature     @relation(fields: [feature_id], references: [id], onDelete: Cascade)
+  granted_by SuperAdmin? @relation(fields: [granted_by_super_admin_id], references: [id], onDelete: SetNull)
+
+  @@unique([clinic_id, feature_id])
+  @@index([clinic_id])
+  @@index([feature_id])
+  @@index([expires_at])
+  @@map("clinic_feature_overrides")
 }
 
 /// Per-clinic per-month counters for messaging usage.
@@ -255,6 +309,9 @@ model SuperAdmin {
   status        String   @default("active") @db.VarChar(20)
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
+
+  granted_feature_overrides ClinicFeatureOverride[]
+  granted_custom_prices     Clinic[]                @relation("ClinicCustomPriceGrantedBy")
 
   @@map("super_admins")
 }

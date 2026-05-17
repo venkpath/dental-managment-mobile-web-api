@@ -67,6 +67,38 @@ export class AiUsageService {
     return { start, end };
   }
 
+  /**
+   * Resolve the effective AI quota for a clinic from highest to lowest precedence:
+   *
+   * 1. ai_quota_override — super-admin per-clinic override, always wins.
+   * 2. Free plan tiered onboarding:
+   *      Month 1 (same calendar month as created_at) → 20
+   *      Month 2                                     → 10
+   *      Month 3+                                    → plan.ai_quota (5)
+   *    This gives new Free users a taste of AI before settling at the plan base.
+   * 3. plan.ai_quota — standard per-plan quota (Starter 15, Professional 25, Enterprise 50).
+   */
+  private resolveBaseQuota(clinic: {
+    ai_quota_override: number | null;
+    created_at: Date;
+    plan: { name: string; ai_quota: number | null } | null;
+  }): number {
+    if (clinic.ai_quota_override !== null && clinic.ai_quota_override !== undefined) {
+      return clinic.ai_quota_override;
+    }
+
+    if (clinic.plan?.name === 'Free') {
+      const now = new Date();
+      const monthsElapsed =
+        (now.getFullYear() - clinic.created_at.getFullYear()) * 12 +
+        (now.getMonth() - clinic.created_at.getMonth());
+      if (monthsElapsed === 0) return 20;
+      if (monthsElapsed === 1) return 10;
+    }
+
+    return clinic.plan?.ai_quota ?? 0;
+  }
+
   // ─── Pre-flight quota check (used by guard) ───────────────────
 
   async snapshot(clinicId: string): Promise<QuotaSnapshot> {
@@ -74,6 +106,8 @@ export class AiUsageService {
       this.prisma.clinic.findUnique({
         where: { id: clinicId },
         select: {
+          ai_quota_override: true,
+          created_at: true,
           plan: { select: { name: true, ai_quota: true, ai_overage_cap: true } },
         },
       }),
@@ -85,7 +119,7 @@ export class AiUsageService {
       }),
     ]);
 
-    const baseQuota = clinic?.plan?.ai_quota ?? 0;
+    const baseQuota = clinic ? this.resolveBaseQuota(clinic) : 0;
     const overageCap = clinic?.plan?.ai_overage_cap ?? 0;
     const overageHeadroom = settings.overage_enabled
       ? Math.max(0, overageCap - baseQuota)
@@ -189,9 +223,9 @@ export class AiUsageService {
 
     const clinic = await this.prisma.clinic.findUnique({
       where: { id: params.clinicId },
-      select: { plan: { select: { ai_quota: true } } },
+      select: { ai_quota_override: true, created_at: true, plan: { select: { name: true, ai_quota: true } } },
     });
-    const baseQuota = clinic?.plan?.ai_quota ?? 0;
+    const baseQuota = clinic ? this.resolveBaseQuota(clinic) : 0;
     const isOverage = settings.used_in_cycle > baseQuota;
 
     await this.prisma.aiUsageRecord.create({
@@ -458,9 +492,9 @@ export class AiUsageService {
     if (overageCount > 0) {
       const clinic = await this.prisma.clinic.findUnique({
         where: { id: clinicId },
-        select: { plan: { select: { ai_quota: true } } },
+        select: { ai_quota_override: true, created_at: true, plan: { select: { name: true, ai_quota: true } } },
       });
-      const baseQuota = clinic?.plan?.ai_quota ?? 0;
+      const baseQuota = clinic ? this.resolveBaseQuota(clinic) : 0;
 
       // Idempotent on (clinic_id, cycle_start)
       await this.prisma.aiOverageCharge.upsert({

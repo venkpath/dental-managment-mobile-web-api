@@ -55,6 +55,7 @@ const razorpay_1 = __importDefault(require("razorpay"));
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
 const platform_invoice_pdf_service_js_1 = require("./platform-invoice-pdf.service.js");
+const clinic_feature_service_js_1 = require("../feature/clinic-feature.service.js");
 const platform_billing_constants_js_1 = require("./platform-billing.constants.js");
 const META_GRAPH_API = 'https://graph.facebook.com/v21.0';
 const WA_INVOICE_TEMPLATE = 'platform_subscription_invoice';
@@ -95,14 +96,16 @@ let PlatformBillingService = PlatformBillingService_1 = class PlatformBillingSer
     config;
     s3;
     pdfService;
+    clinicFeatureService;
     logger = new common_1.Logger(PlatformBillingService_1.name);
     platformSmtp = null;
     razorpay = null;
-    constructor(prisma, config, s3, pdfService) {
+    constructor(prisma, config, s3, pdfService, clinicFeatureService) {
         this.prisma = prisma;
         this.config = config;
         this.s3 = s3;
         this.pdfService = pdfService;
+        this.clinicFeatureService = clinicFeatureService;
     }
     onModuleInit() {
         const keyId = this.config.get('razorpay.keyId');
@@ -332,13 +335,22 @@ let PlatformBillingService = PlatformBillingService_1 = class PlatformBillingSer
                     : invoice.notes,
             },
         });
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: invoice.clinic_id },
+            select: { plan_id: true },
+        });
+        const planChanged = !!invoice.plan_id && clinic?.plan_id !== invoice.plan_id;
         await this.prisma.clinic.update({
             where: { id: invoice.clinic_id },
             data: {
                 subscription_status: 'active',
                 next_billing_at: invoice.period_end,
+                ...(planChanged ? { plan_id: invoice.plan_id } : {}),
             },
         }).catch((err) => this.logger.warn(`Failed to activate clinic ${invoice.clinic_id} after invoice ${invoice.invoice_number} paid: ${err.message}`));
+        if (planChanged) {
+            this.logger.log(`Plan flipped for clinic ${invoice.clinic_id}: ${clinic?.plan_id ?? 'null'} → ${invoice.plan_id} (via paid invoice ${invoice.invoice_number})`);
+        }
         this.logger.log(`Invoice ${invoice.invoice_number} marked paid (payment_id=${opts.razorpayPaymentId ?? 'n/a'})`);
         return updated;
     }
@@ -420,18 +432,24 @@ let PlatformBillingService = PlatformBillingService_1 = class PlatformBillingSer
             });
             if (existing)
                 continue;
-            const price = clinic.billing_cycle === 'yearly'
-                ? Number(clinic.plan.price_yearly ?? clinic.plan.price_monthly) * 12
-                : Number(clinic.plan.price_monthly);
+            const billingCycle = clinic.billing_cycle || 'monthly';
+            const effective = await this.clinicFeatureService.getEffectivePrice(clinic.id, billingCycle);
+            if (effective.amount == null || effective.amount <= 0) {
+                this.logger.warn(`Skipping trial-end invoice for clinic ${clinic.id}: no priceable plan/custom amount`);
+                continue;
+            }
+            const notes = effective.source === 'custom'
+                ? `Auto-generated 3 days before trial end — custom price (${effective.custom_reason ?? 'no reason recorded'})`
+                : 'Auto-generated 3 days before trial end';
             await this.createManualInvoice({
                 clinicId: clinic.id,
                 planId: clinic.plan.id,
-                billingCycle: clinic.billing_cycle || 'monthly',
-                totalAmount: price,
+                billingCycle,
+                totalAmount: effective.amount,
                 periodStart,
                 periodEnd,
                 dueDate: clinic.trial_ends_at,
-                notes: 'Auto-generated 3 days before trial end',
+                notes,
                 sendImmediately: true,
             }).catch((err) => this.logger.warn(`Trial-end invoice failed for clinic ${clinic.id}: ${err.message}`));
         }
@@ -463,18 +481,24 @@ let PlatformBillingService = PlatformBillingService_1 = class PlatformBillingSer
             });
             if (existing)
                 continue;
-            const price = clinic.billing_cycle === 'yearly'
-                ? Number(clinic.plan.price_yearly ?? clinic.plan.price_monthly) * 12
-                : Number(clinic.plan.price_monthly);
+            const billingCycle = clinic.billing_cycle || 'monthly';
+            const effective = await this.clinicFeatureService.getEffectivePrice(clinic.id, billingCycle);
+            if (effective.amount == null || effective.amount <= 0) {
+                this.logger.warn(`Skipping renewal invoice for clinic ${clinic.id}: no priceable plan/custom amount`);
+                continue;
+            }
+            const notes = effective.source === 'custom'
+                ? `Auto-generated 1 day before renewal — custom price (${effective.custom_reason ?? 'no reason recorded'})`
+                : 'Auto-generated 1 day before renewal';
             await this.createManualInvoice({
                 clinicId: clinic.id,
                 planId: clinic.plan.id,
-                billingCycle: clinic.billing_cycle || 'monthly',
-                totalAmount: price,
+                billingCycle,
+                totalAmount: effective.amount,
                 periodStart,
                 periodEnd,
                 dueDate: clinic.next_billing_at,
-                notes: 'Auto-generated 1 day before renewal',
+                notes,
                 sendImmediately: true,
             }).catch((err) => this.logger.warn(`Renewal invoice failed for clinic ${clinic.id}: ${err.message}`));
         }
@@ -1025,7 +1049,8 @@ exports.PlatformBillingService = PlatformBillingService = PlatformBillingService
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         config_1.ConfigService,
         s3_service_js_1.S3Service,
-        platform_invoice_pdf_service_js_1.PlatformInvoicePdfService])
+        platform_invoice_pdf_service_js_1.PlatformInvoicePdfService,
+        clinic_feature_service_js_1.ClinicFeatureService])
 ], PlatformBillingService);
 function round2(n) {
     return Math.round(n * 100) / 100;

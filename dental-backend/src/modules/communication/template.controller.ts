@@ -10,9 +10,10 @@ import {
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiHeader, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiHeader, ApiCreatedResponse, ApiOkResponse, ApiForbiddenResponse } from '@nestjs/swagger';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
+import { RequireFeature } from '../../common/decorators/require-feature.decorator.js';
 import { TemplateService } from './template.service.js';
 import { CreateTemplateDto } from './dto/create-template.dto.js';
 import { UpdateTemplateDto } from './dto/update-template.dto.js';
@@ -46,11 +47,13 @@ export class TemplateController {
   }
 
   @Post('whatsapp/base/:id/clone')
+  @RequireFeature('CUSTOM_TEMPLATES')
   @ApiOperation({
     summary: 'Clone a base WhatsApp template into your clinic',
-    description: 'Creates a clinic-owned copy of a base template. After cloning, submit it to Meta for approval via POST /communication/whatsapp/templates/submit.',
+    description: 'Creates a clinic-owned copy of a base template. After cloning, submit it to Meta for approval via POST /communication/whatsapp/templates/submit. Requires the CUSTOM_TEMPLATES feature (Enterprise plan).',
   })
   @ApiCreatedResponse({ description: 'Template cloned (or already exists)' })
+  @ApiForbiddenResponse({ description: 'Plan does not include CUSTOM_TEMPLATES — upgrade to Enterprise to create your own templates' })
   async cloneBaseTemplate(
     @CurrentClinic() clinicId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -59,8 +62,10 @@ export class TemplateController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create a message template' })
+  @RequireFeature('CUSTOM_TEMPLATES')
+  @ApiOperation({ summary: 'Create a message template (Enterprise plan only)' })
   @ApiCreatedResponse({ description: 'Template created' })
+  @ApiForbiddenResponse({ description: 'Plan does not include CUSTOM_TEMPLATES — upgrade to Enterprise to create your own templates' })
   async create(
     @CurrentClinic() clinicId: string,
     @Body() dto: CreateTemplateDto,
@@ -88,7 +93,12 @@ export class TemplateController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update a clinic-owned template' })
+  @RequireFeature('CUSTOM_TEMPLATES')
+  @ApiOperation({
+    summary: 'Update a clinic-owned template (Enterprise plan only)',
+    description: 'Only modifies templates the clinic created. System-approved templates remain immutable for everyone.',
+  })
+  @ApiForbiddenResponse({ description: 'Plan does not include CUSTOM_TEMPLATES — upgrade to Enterprise to edit your own templates' })
   async update(
     @CurrentClinic() clinicId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -98,7 +108,12 @@ export class TemplateController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete a clinic-owned template' })
+  @RequireFeature('CUSTOM_TEMPLATES')
+  @ApiOperation({
+    summary: 'Delete a clinic-owned template (Enterprise plan only)',
+    description: 'Only deletes templates the clinic created. System-approved templates remain immutable for everyone.',
+  })
+  @ApiForbiddenResponse({ description: 'Plan does not include CUSTOM_TEMPLATES — upgrade to Enterprise to delete your own templates' })
   async remove(
     @CurrentClinic() clinicId: string,
     @Param('id', ParseUUIDPipe) id: string,

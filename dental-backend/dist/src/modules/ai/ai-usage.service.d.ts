@@ -28,6 +28,7 @@ export declare class AiUsageService {
         approved_extra_reason: string | null;
     }>;
     private deriveInitialCycle;
+    private resolveBaseQuota;
     snapshot(clinicId: string): Promise<QuotaSnapshot>;
     reserveSlot(clinicId: string): Promise<QuotaSnapshot>;
     releaseReservation(clinicId: string): Promise<void>;
@@ -60,10 +61,10 @@ export declare class AiUsageService {
         status: string;
         created_at: Date;
         clinic_id: string;
+        reason: string;
         cycle_start: Date;
         requested_by: string | null;
         requested_amount: number;
-        reason: string;
         approved_amount: number | null;
         approved_by: string | null;
         decision_note: string | null;
@@ -74,10 +75,10 @@ export declare class AiUsageService {
         status: string;
         created_at: Date;
         clinic_id: string;
+        reason: string;
         cycle_start: Date;
         requested_by: string | null;
         requested_amount: number;
-        reason: string;
         approved_amount: number | null;
         approved_by: string | null;
         decision_note: string | null;
@@ -97,10 +98,10 @@ export declare class AiUsageService {
         status: string;
         created_at: Date;
         clinic_id: string;
+        reason: string;
         cycle_start: Date;
         requested_by: string | null;
         requested_amount: number;
-        reason: string;
         approved_amount: number | null;
         approved_by: string | null;
         decision_note: string | null;
@@ -117,10 +118,10 @@ export declare class AiUsageService {
         status: string;
         created_at: Date;
         clinic_id: string;
+        reason: string;
         cycle_start: Date;
         requested_by: string | null;
         requested_amount: number;
-        reason: string;
         approved_amount: number | null;
         approved_by: string | null;
         decision_note: string | null;

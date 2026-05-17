@@ -10,14 +10,15 @@ exports.FeatureModule = void 0;
 const common_1 = require("@nestjs/common");
 const feature_controller_js_1 = require("./feature.controller.js");
 const feature_service_js_1 = require("./feature.service.js");
+const clinic_feature_service_js_1 = require("./clinic-feature.service.js");
 let FeatureModule = class FeatureModule {
 };
 exports.FeatureModule = FeatureModule;
 exports.FeatureModule = FeatureModule = __decorate([
     (0, common_1.Module)({
         controllers: [feature_controller_js_1.FeatureController],
-        providers: [feature_service_js_1.FeatureService],
-        exports: [feature_service_js_1.FeatureService],
+        providers: [feature_service_js_1.FeatureService, clinic_feature_service_js_1.ClinicFeatureService],
+        exports: [feature_service_js_1.FeatureService, clinic_feature_service_js_1.ClinicFeatureService],
     })
 ], FeatureModule);
 //# sourceMappingURL=feature.module.js.map

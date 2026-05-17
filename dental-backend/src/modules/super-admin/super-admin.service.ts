@@ -179,7 +179,7 @@ export class SuperAdminService {
       include: {
         plan: { include: { plan_features: { include: { feature: true } } } },
         branches: true,
-        users: { select: { id: true, name: true, email: true, role: true, status: true, created_at: true } },
+        users: { select: { id: true, name: true, email: true, phone: true, role: true, status: true, created_at: true } },
         _count: { select: { patients: true, appointments: true, invoices: true } },
       },
     });
@@ -474,6 +474,9 @@ export class SuperAdminService {
   async updateClinicLimits(
     clinicId: string,
     dto: {
+      custom_max_branches?: number | null;
+      custom_max_staff?: number | null;
+      ai_quota_override?: number | null;
       custom_patient_limit?: number | null;
       custom_appointment_limit?: number | null;
       custom_invoice_limit?: number | null;
@@ -488,6 +491,9 @@ export class SuperAdminService {
     return this.prisma.clinic.update({
       where: { id: clinicId },
       data: {
+        ...(dto.custom_max_branches !== undefined && { custom_max_branches: dto.custom_max_branches }),
+        ...(dto.custom_max_staff !== undefined && { custom_max_staff: dto.custom_max_staff }),
+        ...(dto.ai_quota_override !== undefined && { ai_quota_override: dto.ai_quota_override }),
         ...(dto.custom_patient_limit !== undefined && { custom_patient_limit: dto.custom_patient_limit }),
         ...(dto.custom_appointment_limit !== undefined && { custom_appointment_limit: dto.custom_appointment_limit }),
         ...(dto.custom_invoice_limit !== undefined && { custom_invoice_limit: dto.custom_invoice_limit }),
@@ -498,6 +504,9 @@ export class SuperAdminService {
       select: {
         id: true,
         name: true,
+        custom_max_branches: true,
+        custom_max_staff: true,
+        ai_quota_override: true,
         custom_patient_limit: true,
         custom_appointment_limit: true,
         custom_invoice_limit: true,
@@ -507,6 +516,9 @@ export class SuperAdminService {
         plan: {
           select: {
             name: true,
+            max_branches: true,
+            max_staff: true,
+            ai_quota: true,
             max_patients_per_month: true,
             max_appointments_per_month: true,
             max_invoices_per_month: true,

@@ -12,12 +12,13 @@ const payment_controller_js_1 = require("./payment.controller.js");
 const payment_service_js_1 = require("./payment.service.js");
 const subscription_reminder_service_js_1 = require("./subscription-reminder.service.js");
 const automation_module_js_1 = require("../automation/automation.module.js");
+const feature_module_js_1 = require("../feature/feature.module.js");
 let PaymentModule = class PaymentModule {
 };
 exports.PaymentModule = PaymentModule;
 exports.PaymentModule = PaymentModule = __decorate([
     (0, common_1.Module)({
-        imports: [automation_module_js_1.AutomationModule],
+        imports: [automation_module_js_1.AutomationModule, feature_module_js_1.FeatureModule],
         controllers: [payment_controller_js_1.PaymentController],
         providers: [payment_service_js_1.PaymentService, subscription_reminder_service_js_1.SubscriptionReminderService],
         exports: [payment_service_js_1.PaymentService],

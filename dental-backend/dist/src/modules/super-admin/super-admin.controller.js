@@ -28,6 +28,7 @@ const daily_summary_cron_js_1 = require("../reports/daily-summary.cron.js");
 const inactivity_cron_js_1 = require("./inactivity.cron.js");
 const index_js_1 = require("./dto/index.js");
 const clinic_service_js_1 = require("../clinic/clinic.service.js");
+const clinic_feature_service_js_1 = require("../feature/clinic-feature.service.js");
 const index_js_2 = require("../clinic/dto/index.js");
 const communication_service_js_1 = require("../communication/communication.service.js");
 const automation_service_js_1 = require("../automation/automation.service.js");
@@ -49,8 +50,9 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     aiUsageService;
     dailySummaryCron;
     inactivityCron;
+    clinicFeatureService;
     logger = new common_1.Logger(SuperAdminController_1.name);
-    constructor(superAdminService, superAdminAuthService, clinicService, communicationService, automationService, branchService, whatsAppService, aiUsageService, dailySummaryCron, inactivityCron) {
+    constructor(superAdminService, superAdminAuthService, clinicService, communicationService, automationService, branchService, whatsAppService, aiUsageService, dailySummaryCron, inactivityCron, clinicFeatureService) {
         this.superAdminService = superAdminService;
         this.superAdminAuthService = superAdminAuthService;
         this.clinicService = clinicService;
@@ -61,6 +63,7 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
         this.aiUsageService = aiUsageService;
         this.dailySummaryCron = dailySummaryCron;
         this.inactivityCron = inactivityCron;
+        this.clinicFeatureService = clinicFeatureService;
     }
     async login(dto) {
         return this.superAdminAuthService.login(dto);
@@ -105,6 +108,42 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     }
     async updateClinicLimits(id, dto) {
         return this.superAdminService.updateClinicLimits(id, dto);
+    }
+    async listClinicFeatures(id) {
+        return this.clinicFeatureService.getEffectiveFeatures(id);
+    }
+    async updateClinicFeatures(id, dto, admin) {
+        await this.clinicFeatureService.upsertOverrides(id, dto.overrides.map((o) => ({
+            feature_id: o.feature_id,
+            is_enabled: o.is_enabled ?? null,
+            reason: o.reason ?? null,
+            expires_at: o.expires_at ? new Date(o.expires_at) : null,
+        })), admin.id);
+        return this.clinicFeatureService.getEffectiveFeatures(id);
+    }
+    async removeClinicFeatureOverride(id, featureId) {
+        await this.clinicFeatureService.removeOverride(id, featureId);
+        return { removed: true };
+    }
+    async getClinicCustomPrice(id) {
+        const [monthly, yearly] = await Promise.all([
+            this.clinicFeatureService.getEffectivePrice(id, 'monthly'),
+            this.clinicFeatureService.getEffectivePrice(id, 'yearly'),
+        ]);
+        return { monthly, yearly };
+    }
+    async setClinicCustomPrice(id, dto, admin) {
+        await this.clinicFeatureService.setCustomPrice(id, {
+            custom_price_monthly: dto.custom_price_monthly ?? null,
+            custom_price_yearly: dto.custom_price_yearly ?? null,
+            expires_at: dto.expires_at ? new Date(dto.expires_at) : null,
+            reason: dto.reason ?? null,
+        }, admin.id);
+        const [monthly, yearly] = await Promise.all([
+            this.clinicFeatureService.getEffectivePrice(id, 'monthly'),
+            this.clinicFeatureService.getEffectivePrice(id, 'yearly'),
+        ]);
+        return { monthly, yearly };
     }
     async changePassword(admin, dto) {
         return this.superAdminService.changePassword(admin.id, dto.current_password, dto.new_password);
@@ -373,6 +412,66 @@ __decorate([
     __metadata("design:paramtypes", [String, index_js_1.UpdateClinicLimitsDto]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "updateClinicLimits", null);
+__decorate([
+    (0, common_1.Get)('super-admins/clinics/:id/features'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List effective features for a clinic (plan defaults merged with overrides)' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Effective feature set' }),
+    openapi.ApiResponse({ status: 200, type: [Object] }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "listClinicFeatures", null);
+__decorate([
+    (0, common_1.Put)('super-admins/clinics/:id/features'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Upsert per-clinic feature overrides (is_enabled=null/omitted removes the override)' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Overrides applied' }),
+    openapi.ApiResponse({ status: 200, type: [Object] }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, current_super_admin_decorator_js_1.CurrentSuperAdmin)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, index_js_1.UpdateClinicFeaturesDto, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "updateClinicFeatures", null);
+__decorate([
+    (0, common_1.Delete)('super-admins/clinics/:id/features/:featureId'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Remove a single feature override (revert to plan default)' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Override removed' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Param)('featureId', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "removeClinicFeatureOverride", null);
+__decorate([
+    (0, common_1.Get)('super-admins/clinics/:id/custom-price'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get effective price for a clinic (custom discount if set, else plan default)' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Effective price for both monthly and yearly billing' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getClinicCustomPrice", null);
+__decorate([
+    (0, common_1.Put)('super-admins/clinics/:id/custom-price'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Set or clear per-clinic locked price (both fields null = clear discount)' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Custom price applied' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, current_super_admin_decorator_js_1.CurrentSuperAdmin)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, index_js_1.SetClinicCustomPriceDto, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "setClinicCustomPrice", null);
 __decorate([
     (0, common_1.Patch)('super-admins/me/password'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),
@@ -720,6 +819,7 @@ exports.SuperAdminController = SuperAdminController = SuperAdminController_1 = _
         super_admin_whatsapp_service_js_1.SuperAdminWhatsAppService,
         ai_usage_service_js_1.AiUsageService,
         daily_summary_cron_js_1.DailySummaryCronService,
-        inactivity_cron_js_1.InactivityCronService])
+        inactivity_cron_js_1.InactivityCronService,
+        clinic_feature_service_js_1.ClinicFeatureService])
 ], SuperAdminController);
 //# sourceMappingURL=super-admin.controller.js.map

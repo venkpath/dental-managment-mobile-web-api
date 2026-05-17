@@ -320,7 +320,11 @@ export class CommunicationController {
   }
 
   @Post('whatsapp/templates/submit')
-  @ApiOperation({ summary: 'Submit a WhatsApp message template for Meta approval via Gupshup' })
+  @RequireFeature('CUSTOM_TEMPLATES')
+  @ApiOperation({
+    summary: 'Submit a WhatsApp message template for Meta approval (Enterprise plan only)',
+    description: 'Only Enterprise clinics can submit their own templates to Meta. Lower-tier plans can read the existing approved templates but cannot create new ones.',
+  })
   async submitWhatsAppTemplate(
     @CurrentClinic() clinicId: string,
     @Body() body: {
@@ -350,9 +354,10 @@ export class CommunicationController {
   }
 
   @Delete('whatsapp/templates/:id/meta')
+  @RequireFeature('CUSTOM_TEMPLATES')
   @ApiOperation({
-    summary: 'Delete a WhatsApp template from Meta AND local DB',
-    description: 'Permanently removes the template from your Meta WABA and from the local database. This cannot be undone.',
+    summary: 'Delete a WhatsApp template from Meta AND local DB (Enterprise plan only)',
+    description: 'Permanently removes the template from your Meta WABA and from the local database. This cannot be undone. Only clinic-owned templates are deletable; system-approved templates are immutable for everyone.',
   })
   @ApiOkResponse({ description: 'Template deleted from Meta and local DB' })
   async deleteWhatsAppTemplateFromMeta(
@@ -363,9 +368,10 @@ export class CommunicationController {
   }
 
   @Patch('whatsapp/templates/:id/meta')
+  @RequireFeature('CUSTOM_TEMPLATES')
   @ApiOperation({
-    summary: 'Edit a REJECTED WhatsApp template on Meta and resubmit for approval',
-    description: 'Meta only allows editing templates that are in REJECTED status. After editing, the template is resubmitted for approval.',
+    summary: 'Edit a REJECTED WhatsApp template on Meta and resubmit (Enterprise plan only)',
+    description: 'Meta only allows editing templates that are in REJECTED status. After editing, the template is resubmitted for approval. Only clinic-owned templates are editable; system-approved templates are immutable for everyone.',
   })
   @ApiOkResponse({ description: 'Template updated on Meta and resubmitted for approval' })
   async editWhatsAppTemplateOnMeta(

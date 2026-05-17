@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
 import { PasswordService } from '../../common/services/password.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
@@ -146,9 +146,27 @@ export class UserService {
   async create(clinicId: string, dto: CreateUserDto): Promise<Omit<User, 'password_hash'>> {
     const clinic = await this.prisma.clinic.findUnique({
       where: { id: clinicId },
+      select: {
+        id: true,
+        custom_max_staff: true,
+        plan: { select: { max_staff: true } },
+      },
     });
     if (!clinic) {
       throw new NotFoundException(`Clinic with ID "${clinicId}" not found`);
+    }
+
+    // custom_max_staff (set by super admin) wins over plan default; null = unlimited.
+    // All user records (active + inactive) count against the seat limit — an inactive
+    // account still occupies a licensed slot and can be reactivated at any time.
+    const staffLimit = clinic.custom_max_staff ?? clinic.plan?.max_staff ?? null;
+    if (staffLimit !== null) {
+      const current = await this.prisma.user.count({ where: { clinic_id: clinicId } });
+      if (current >= staffLimit) {
+        throw new ForbiddenException(
+          `Staff limit reached: your plan allows ${staffLimit} staff member${staffLimit === 1 ? '' : 's'}. Contact support to add more.`,
+        );
+      }
     }
 
     if (dto.branch_id) {

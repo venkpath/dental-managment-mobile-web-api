@@ -445,7 +445,11 @@ __decorate([
 ], CommunicationController.prototype, "syncWhatsAppTemplates", null);
 __decorate([
     (0, common_1.Post)('whatsapp/templates/submit'),
-    (0, swagger_1.ApiOperation)({ summary: 'Submit a WhatsApp message template for Meta approval via Gupshup' }),
+    (0, require_feature_decorator_js_1.RequireFeature)('CUSTOM_TEMPLATES'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Submit a WhatsApp message template for Meta approval (Enterprise plan only)',
+        description: 'Only Enterprise clinics can submit their own templates to Meta. Lower-tier plans can read the existing approved templates but cannot create new ones.',
+    }),
     openapi.ApiResponse({ status: 201 }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
     __param(1, (0, common_1.Body)()),
@@ -465,9 +469,10 @@ __decorate([
 ], CommunicationController.prototype, "getWhatsAppTemplateStatus", null);
 __decorate([
     (0, common_1.Delete)('whatsapp/templates/:id/meta'),
+    (0, require_feature_decorator_js_1.RequireFeature)('CUSTOM_TEMPLATES'),
     (0, swagger_1.ApiOperation)({
-        summary: 'Delete a WhatsApp template from Meta AND local DB',
-        description: 'Permanently removes the template from your Meta WABA and from the local database. This cannot be undone.',
+        summary: 'Delete a WhatsApp template from Meta AND local DB (Enterprise plan only)',
+        description: 'Permanently removes the template from your Meta WABA and from the local database. This cannot be undone. Only clinic-owned templates are deletable; system-approved templates are immutable for everyone.',
     }),
     (0, swagger_1.ApiOkResponse)({ description: 'Template deleted from Meta and local DB' }),
     openapi.ApiResponse({ status: 200, type: Object }),
@@ -479,9 +484,10 @@ __decorate([
 ], CommunicationController.prototype, "deleteWhatsAppTemplateFromMeta", null);
 __decorate([
     (0, common_1.Patch)('whatsapp/templates/:id/meta'),
+    (0, require_feature_decorator_js_1.RequireFeature)('CUSTOM_TEMPLATES'),
     (0, swagger_1.ApiOperation)({
-        summary: 'Edit a REJECTED WhatsApp template on Meta and resubmit for approval',
-        description: 'Meta only allows editing templates that are in REJECTED status. After editing, the template is resubmitted for approval.',
+        summary: 'Edit a REJECTED WhatsApp template on Meta and resubmit (Enterprise plan only)',
+        description: 'Meta only allows editing templates that are in REJECTED status. After editing, the template is resubmitted for approval. Only clinic-owned templates are editable; system-approved templates are immutable for everyone.',
     }),
     (0, swagger_1.ApiOkResponse)({ description: 'Template updated on Meta and resubmitted for approval' }),
     openapi.ApiResponse({ status: 200, type: Object }),

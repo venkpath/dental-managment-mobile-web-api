@@ -18,6 +18,7 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
+const require_feature_decorator_js_1 = require("../../common/decorators/require-feature.decorator.js");
 const template_service_js_1 = require("./template.service.js");
 const create_template_dto_js_1 = require("./dto/create-template.dto.js");
 const update_template_dto_js_1 = require("./dto/update-template.dto.js");
@@ -70,11 +71,13 @@ __decorate([
 ], TemplateController.prototype, "getBaseWhatsAppTemplates", null);
 __decorate([
     (0, common_1.Post)('whatsapp/base/:id/clone'),
+    (0, require_feature_decorator_js_1.RequireFeature)('CUSTOM_TEMPLATES'),
     (0, swagger_1.ApiOperation)({
         summary: 'Clone a base WhatsApp template into your clinic',
-        description: 'Creates a clinic-owned copy of a base template. After cloning, submit it to Meta for approval via POST /communication/whatsapp/templates/submit.',
+        description: 'Creates a clinic-owned copy of a base template. After cloning, submit it to Meta for approval via POST /communication/whatsapp/templates/submit. Requires the CUSTOM_TEMPLATES feature (Enterprise plan).',
     }),
     (0, swagger_1.ApiCreatedResponse)({ description: 'Template cloned (or already exists)' }),
+    (0, swagger_1.ApiForbiddenResponse)({ description: 'Plan does not include CUSTOM_TEMPLATES — upgrade to Enterprise to create your own templates' }),
     openapi.ApiResponse({ status: 201, type: Object }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
@@ -84,8 +87,10 @@ __decorate([
 ], TemplateController.prototype, "cloneBaseTemplate", null);
 __decorate([
     (0, common_1.Post)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Create a message template' }),
+    (0, require_feature_decorator_js_1.RequireFeature)('CUSTOM_TEMPLATES'),
+    (0, swagger_1.ApiOperation)({ summary: 'Create a message template (Enterprise plan only)' }),
     (0, swagger_1.ApiCreatedResponse)({ description: 'Template created' }),
+    (0, swagger_1.ApiForbiddenResponse)({ description: 'Plan does not include CUSTOM_TEMPLATES — upgrade to Enterprise to create your own templates' }),
     openapi.ApiResponse({ status: 201 }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
     __param(1, (0, common_1.Body)()),
@@ -116,7 +121,12 @@ __decorate([
 ], TemplateController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Update a clinic-owned template' }),
+    (0, require_feature_decorator_js_1.RequireFeature)('CUSTOM_TEMPLATES'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Update a clinic-owned template (Enterprise plan only)',
+        description: 'Only modifies templates the clinic created. System-approved templates remain immutable for everyone.',
+    }),
+    (0, swagger_1.ApiForbiddenResponse)({ description: 'Plan does not include CUSTOM_TEMPLATES — upgrade to Enterprise to edit your own templates' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
@@ -127,7 +137,12 @@ __decorate([
 ], TemplateController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Delete a clinic-owned template' }),
+    (0, require_feature_decorator_js_1.RequireFeature)('CUSTOM_TEMPLATES'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Delete a clinic-owned template (Enterprise plan only)',
+        description: 'Only deletes templates the clinic created. System-approved templates remain immutable for everyone.',
+    }),
+    (0, swagger_1.ApiForbiddenResponse)({ description: 'Plan does not include CUSTOM_TEMPLATES — upgrade to Enterprise to delete your own templates' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),

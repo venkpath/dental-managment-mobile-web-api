@@ -4,6 +4,7 @@ import { PlatformBillingController } from './platform-billing.controller.js';
 import { PlatformBillingSuperAdminController } from './platform-billing-super-admin.controller.js';
 import { PlatformBillingService } from './platform-billing.service.js';
 import { PlatformInvoicePdfService } from './platform-invoice-pdf.service.js';
+import { FeatureModule } from '../feature/feature.module.js';
 
 /**
  * Platform billing — issues SaaS subscription invoices from
@@ -16,6 +17,7 @@ import { PlatformInvoicePdfService } from './platform-invoice-pdf.service.js';
  */
 @Global()
 @Module({
+  imports: [FeatureModule],
   controllers: [PlatformBillingController, PlatformBillingSuperAdminController],
   providers: [PlatformBillingService, PlatformInvoicePdfService, S3Service],
   exports: [PlatformBillingService],

@@ -14,6 +14,9 @@ const openapi = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
 class UpdateClinicLimitsDto {
+    custom_max_branches;
+    custom_max_staff;
+    ai_quota_override;
     custom_patient_limit;
     custom_appointment_limit;
     custom_invoice_limit;
@@ -21,10 +24,31 @@ class UpdateClinicLimitsDto {
     custom_prescription_limit;
     custom_consultation_limit;
     static _OPENAPI_METADATA_FACTORY() {
-        return { custom_patient_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_appointment_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_invoice_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_treatment_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_prescription_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_consultation_limit: { required: false, type: () => Number, nullable: true, minimum: 1 } };
+        return { custom_max_branches: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_max_staff: { required: false, type: () => Number, nullable: true, minimum: 1 }, ai_quota_override: { required: false, type: () => Number, nullable: true, minimum: 0 }, custom_patient_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_appointment_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_invoice_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_treatment_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_prescription_limit: { required: false, type: () => Number, nullable: true, minimum: 1 }, custom_consultation_limit: { required: false, type: () => Number, nullable: true, minimum: 1 } };
     }
 }
 exports.UpdateClinicLimitsDto = UpdateClinicLimitsDto;
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Max branches override (null = use plan default)', nullable: true }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    __metadata("design:type", Object)
+], UpdateClinicLimitsDto.prototype, "custom_max_branches", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Max staff/users override (null = use plan default)', nullable: true }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    __metadata("design:type", Object)
+], UpdateClinicLimitsDto.prototype, "custom_max_staff", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Per-cycle AI request quota override (null = use plan default)', nullable: true }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Object)
+], UpdateClinicLimitsDto.prototype, "ai_quota_override", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Monthly patient limit override (null = use plan default)', nullable: true }),
     (0, class_validator_1.IsOptional)(),

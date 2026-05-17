@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
+import { ClinicFeatureService } from '../feature/clinic-feature.service.js';
 import { CreateClinicDto, UpdateClinicDto, UpdateSubscriptionDto } from './dto/index.js';
 import { Clinic } from '@prisma/client';
 
@@ -7,7 +8,10 @@ const TRIAL_DAYS = 14;
 
 @Injectable()
 export class ClinicService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly clinicFeatureService: ClinicFeatureService,
+  ) {}
 
   async create(dto: CreateClinicDto): Promise<Clinic> {
     const trialEndsAt = new Date();
@@ -44,44 +48,41 @@ export class ClinicService {
     const clinic = await this.prisma.clinic.findUnique({
       where: { id: clinicId },
       select: {
-        plan: {
-          select: {
-            name: true,
-            price_monthly: true,
-            max_branches: true,
-            max_staff: true,
-            ai_quota: true,
-            max_patients_per_month: true,
-            max_appointments_per_month: true,
-            max_invoices_per_month: true,
-            max_treatments_per_month: true,
-            plan_features: {
-              where: { is_enabled: true },
-              select: { feature: { select: { key: true } } },
-            },
-          },
-        },
+        billing_cycle: true,
+        plan: { select: { name: true, price_monthly: true } },
       },
     });
 
     if (!clinic) throw new NotFoundException(`Clinic with ID "${clinicId}" not found`);
 
-    const plan = clinic.plan;
+    // Effective set = plan defaults merged with per-clinic feature + limit +
+    // price overrides. The frontend uses these for UI gating; the backend
+    // also enforces the same effective values (PlanLimitService,
+    // FeatureGuard, AiUsageService, renewal cron), so the two stay in sync
+    // from a single source.
+    const billingCycle = (clinic.billing_cycle as 'monthly' | 'yearly') || 'monthly';
+    const [features, limits, effectivePrice] = await Promise.all([
+      this.clinicFeatureService.getEffectiveFeatureKeys(clinicId),
+      this.clinicFeatureService.getEffectiveLimits(clinicId),
+      this.clinicFeatureService.getEffectivePrice(clinicId, billingCycle),
+    ]);
+
     return {
-      plan: plan
+      plan: clinic.plan
         ? {
-            name: plan.name,
-            price_monthly: Number(plan.price_monthly),
-            max_branches: plan.max_branches,
-            max_staff: plan.max_staff,
-            ai_quota: plan.ai_quota,
-            max_patients_per_month: plan.max_patients_per_month,
-            max_appointments_per_month: plan.max_appointments_per_month,
-            max_invoices_per_month: plan.max_invoices_per_month,
-            max_treatments_per_month: plan.max_treatments_per_month,
+            name: clinic.plan.name,
+            // price_monthly stays as the plan's list price so the UI can show
+            // "Original ₹X" when a discount is active. effective_price /
+            // discount fields below are the source of truth for what the
+            // customer actually pays.
+            price_monthly: Number(clinic.plan.price_monthly),
+            effective_price: effectivePrice.amount,
+            price_source: effectivePrice.source,
+            custom_price_expires_at: effectivePrice.custom_expires_at,
+            ...limits,
           }
         : null,
-      features: plan?.plan_features.map((pf) => pf.feature.key) ?? [],
+      features,
     };
   }
 
@@ -96,12 +97,33 @@ export class ClinicService {
 
   async updateSubscription(id: string, dto: UpdateSubscriptionDto): Promise<Clinic> {
     await this.findOne(id);
-    const { trial_ends_at, ...rest } = dto;
+    const { trial_ends_at, next_billing_at, billing_cycle, ...rest } = dto;
+
+    // When billing_cycle is flipped without an explicit next_billing_at, auto-
+    // anchor the next renewal to one full cycle from now so the renewal cron
+    // fires on the right date rather than the stale old-cycle anchor.
+    let resolvedNextBillingAt = next_billing_at;
+    if (billing_cycle !== undefined && next_billing_at === undefined) {
+      const anchor = new Date();
+      if (billing_cycle === 'yearly') {
+        anchor.setFullYear(anchor.getFullYear() + 1);
+      } else {
+        anchor.setMonth(anchor.getMonth() + 1);
+      }
+      resolvedNextBillingAt = anchor.toISOString();
+    }
+
     return this.prisma.clinic.update({
       where: { id },
       data: {
         ...rest,
+        ...(billing_cycle !== undefined ? { billing_cycle } : {}),
         ...(trial_ends_at !== undefined ? { trial_ends_at: new Date(trial_ends_at) } : {}),
+        // Allow explicit null to clear the next-billing anchor (e.g. when
+        // moving a clinic back to trial). undefined keeps the existing value.
+        ...(resolvedNextBillingAt !== undefined
+          ? { next_billing_at: resolvedNextBillingAt === null ? null : new Date(resolvedNextBillingAt) }
+          : {}),
       },
       include: { plan: true },
     });
