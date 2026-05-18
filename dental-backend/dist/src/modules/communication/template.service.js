@@ -16,6 +16,7 @@ const paginated_result_interface_js_1 = require("../../common/interfaces/paginat
 const template_renderer_js_1 = require("./template-renderer.js");
 const seed_templates_js_1 = require("./seed-templates.js");
 const platform_templates_js_1 = require("./platform-templates.js");
+const NO_OWN_WABA_MSG = 'Connect your own WhatsApp Business Account to manage Meta templates. Templates are managed at the Meta WABA level — clinics on the shared platform WABA can only use the pre-approved system templates.';
 let TemplateService = class TemplateService {
     prisma;
     renderer;
@@ -23,7 +24,19 @@ let TemplateService = class TemplateService {
         this.prisma = prisma;
         this.renderer = renderer;
     }
+    async ensureOwnWaba(clinicId) {
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: { has_own_waba: true },
+        });
+        if (!clinic?.has_own_waba) {
+            throw new common_1.ForbiddenException(NO_OWN_WABA_MSG);
+        }
+    }
     async create(clinicId, dto) {
+        if (dto.channel === 'whatsapp') {
+            await this.ensureOwnWaba(clinicId);
+        }
         const variables = dto.variables || this.renderer.extractVariables(dto.body);
         return this.prisma.messageTemplate.create({
             data: {
@@ -86,6 +99,9 @@ let TemplateService = class TemplateService {
         if (!template) {
             throw new common_1.NotFoundException(`Template with ID "${id}" not found or is a system template that cannot be modified`);
         }
+        if (template.channel === 'whatsapp') {
+            await this.ensureOwnWaba(clinicId);
+        }
         const variables = dto.body
             ? this.renderer.extractVariables(dto.body)
             : undefined;
@@ -103,6 +119,9 @@ let TemplateService = class TemplateService {
         });
         if (!template) {
             throw new common_1.NotFoundException(`Template with ID "${id}" not found or is a system template that cannot be deleted`);
+        }
+        if (template.channel === 'whatsapp') {
+            await this.ensureOwnWaba(clinicId);
         }
         await this.prisma.messageTemplate.delete({ where: { id } });
         return { deleted: true };
@@ -130,6 +149,7 @@ let TemplateService = class TemplateService {
         return count > 0;
     }
     async cloneBaseTemplateForClinic(clinicId, baseTemplateId) {
+        await this.ensureOwnWaba(clinicId);
         const base = await this.prisma.messageTemplate.findFirst({
             where: { id: baseTemplateId, clinic_id: null, channel: 'whatsapp' },
         });

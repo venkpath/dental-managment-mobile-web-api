@@ -2646,6 +2646,24 @@ export class CommunicationService {
 
   // ─── WhatsApp Template Approval (5.2) ───
 
+  /**
+   * Throws ForbiddenException unless the clinic has connected its own
+   * WhatsApp Business Account. Templates live at the Meta WABA level, so
+   * clinics on the shared platform WABA cannot submit / edit / delete
+   * their own Meta templates — they use the platform's pre-approved set.
+   */
+  private async ensureOwnWabaForTemplateOps(clinicId: string): Promise<void> {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { has_own_waba: true },
+    });
+    if (!clinic?.has_own_waba) {
+      throw new ForbiddenException(
+        'Connect your own WhatsApp Business Account to manage Meta templates. Templates are managed at the Meta WABA level — clinics on the shared platform WABA can only use the pre-approved system templates.',
+      );
+    }
+  }
+
   async submitWhatsAppTemplate(clinicId: string, templateData: {
     elementName: string;
     languageCode: string;
@@ -2655,6 +2673,7 @@ export class CommunicationService {
     header?: string;
     footer?: string;
   }) {
+    await this.ensureOwnWabaForTemplateOps(clinicId);
     await this.ensureProvidersConfigured(clinicId);
     const result = await this.whatsAppProvider.submitTemplate(clinicId, templateData);
 
@@ -2889,6 +2908,7 @@ export class CommunicationService {
    * Uses template name (required by Meta's API) and optionally removes the local record.
    */
   async deleteWhatsAppTemplateFromMeta(clinicId: string, localTemplateId: string) {
+    await this.ensureOwnWabaForTemplateOps(clinicId);
     await this.ensureProvidersConfigured(clinicId);
 
     // Fetch local template to get its name (required by Meta delete API)
@@ -2926,6 +2946,7 @@ export class CommunicationService {
       category?: string;
     },
   ) {
+    await this.ensureOwnWabaForTemplateOps(clinicId);
     await this.ensureProvidersConfigured(clinicId);
 
     const template = await this.prisma.messageTemplate.findFirst({

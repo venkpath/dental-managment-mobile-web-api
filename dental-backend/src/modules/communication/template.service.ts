@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service.js';
 import { paginate } from '../../common/interfaces/paginated-result.interface.js';
@@ -10,6 +10,15 @@ import type { TemplateVariables } from './template-renderer.js';
 import { getWhatsAppSeedSampleValues, getWhatsAppSeedMetaCategory } from './seed-templates.js';
 import { PLATFORM_TEMPLATE_NAMES } from './platform-templates.js';
 
+/**
+ * Error message used when a clinic on the shared platform WABA attempts to
+ * create/edit/delete WhatsApp templates. Templates only make sense at the
+ * Meta WABA level, so a clinic without its own WABA cannot have its own
+ * approved templates — it inherits the platform's pre-approved set.
+ */
+const NO_OWN_WABA_MSG =
+  'Connect your own WhatsApp Business Account to manage Meta templates. Templates are managed at the Meta WABA level — clinics on the shared platform WABA can only use the pre-approved system templates.';
+
 @Injectable()
 export class TemplateService {
 
@@ -18,7 +27,25 @@ export class TemplateService {
     private readonly renderer: TemplateRenderer,
   ) {}
 
+  /**
+   * Throws ForbiddenException unless the clinic has connected its own
+   * WhatsApp Business Account (has_own_waba = true). Used to gate all
+   * WhatsApp Meta-template management operations.
+   */
+  async ensureOwnWaba(clinicId: string): Promise<void> {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { has_own_waba: true },
+    });
+    if (!clinic?.has_own_waba) {
+      throw new ForbiddenException(NO_OWN_WABA_MSG);
+    }
+  }
+
   async create(clinicId: string, dto: CreateTemplateDto) {
+    if (dto.channel === 'whatsapp') {
+      await this.ensureOwnWaba(clinicId);
+    }
     // Auto-extract variables from body if not provided
     const variables = dto.variables || this.renderer.extractVariables(dto.body);
 
@@ -94,6 +121,10 @@ export class TemplateService {
       );
     }
 
+    if (template.channel === 'whatsapp') {
+      await this.ensureOwnWaba(clinicId);
+    }
+
     // Re-extract variables if body changed
     const variables = dto.body
       ? this.renderer.extractVariables(dto.body)
@@ -117,6 +148,10 @@ export class TemplateService {
       throw new NotFoundException(
         `Template with ID "${id}" not found or is a system template that cannot be deleted`,
       );
+    }
+
+    if (template.channel === 'whatsapp') {
+      await this.ensureOwnWaba(clinicId);
     }
 
     await this.prisma.messageTemplate.delete({ where: { id } });
@@ -165,6 +200,8 @@ export class TemplateService {
    * Does NOT submit to Meta — the controller calls submitWhatsAppTemplate separately.
    */
   async cloneBaseTemplateForClinic(clinicId: string, baseTemplateId: string) {
+    await this.ensureOwnWaba(clinicId);
+
     const base = await this.prisma.messageTemplate.findFirst({
       where: { id: baseTemplateId, clinic_id: null, channel: 'whatsapp' },
     });

@@ -9,6 +9,7 @@ export declare class TemplateService {
     private readonly prisma;
     private readonly renderer;
     constructor(prisma: PrismaService, renderer: TemplateRenderer);
+    ensureOwnWaba(clinicId: string): Promise<void>;
     create(clinicId: string, dto: CreateTemplateDto): Promise<{
         id: string;
         created_at: Date;

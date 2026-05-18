@@ -1985,7 +1985,17 @@ let CommunicationService = class CommunicationService {
             return { is_ndnc: false, checked: false, message: `NDNC check error: ${msg}` };
         }
     }
+    async ensureOwnWabaForTemplateOps(clinicId) {
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: { has_own_waba: true },
+        });
+        if (!clinic?.has_own_waba) {
+            throw new common_1.ForbiddenException('Connect your own WhatsApp Business Account to manage Meta templates. Templates are managed at the Meta WABA level — clinics on the shared platform WABA can only use the pre-approved system templates.');
+        }
+    }
     async submitWhatsAppTemplate(clinicId, templateData) {
+        await this.ensureOwnWabaForTemplateOps(clinicId);
         await this.ensureProvidersConfigured(clinicId);
         const result = await this.whatsAppProvider.submitTemplate(clinicId, templateData);
         if (result.success) {
@@ -2167,6 +2177,7 @@ let CommunicationService = class CommunicationService {
         return status;
     }
     async deleteWhatsAppTemplateFromMeta(clinicId, localTemplateId) {
+        await this.ensureOwnWabaForTemplateOps(clinicId);
         await this.ensureProvidersConfigured(clinicId);
         const template = await this.prisma.messageTemplate.findFirst({
             where: { id: localTemplateId, clinic_id: clinicId, channel: 'whatsapp' },
@@ -2182,6 +2193,7 @@ let CommunicationService = class CommunicationService {
         return { success: true, local_deleted: true };
     }
     async editWhatsAppTemplateOnMeta(clinicId, localTemplateId, updateData) {
+        await this.ensureOwnWabaForTemplateOps(clinicId);
         await this.ensureProvidersConfigured(clinicId);
         const template = await this.prisma.messageTemplate.findFirst({
             where: { id: localTemplateId, clinic_id: clinicId, channel: 'whatsapp' },

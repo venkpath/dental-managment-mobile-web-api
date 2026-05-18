@@ -512,6 +512,7 @@ export declare class CommunicationService {
         checked: boolean;
         message: string;
     }>;
+    private ensureOwnWabaForTemplateOps;
     submitWhatsAppTemplate(clinicId: string, templateData: {
         elementName: string;
         languageCode: string;
