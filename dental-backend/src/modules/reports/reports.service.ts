@@ -241,6 +241,38 @@ export class ReportsService {
     };
   }
 
+  async getTodayPaymentBreakdown(
+    clinicId: string,
+    branchId?: string,
+    dentistId?: string,
+  ): Promise<{ cash: number; card: number; upi: number; other: number; total: number }> {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+    const rows = await this.prisma.$queryRaw<Array<{ method: string; total: number }>>`
+      SELECT p.method, SUM(p.amount)::float as total
+      FROM payments p
+      JOIN invoices i ON p.invoice_id = i.id
+      WHERE i.clinic_id = ${clinicId}::uuid
+        AND DATE(p.paid_at) = ${todayStr}::date
+        ${branchId ? Prisma.sql`AND i.branch_id = ${branchId}::uuid` : Prisma.empty}
+        ${dentistId ? Prisma.sql`AND i.dentist_id = ${dentistId}::uuid` : Prisma.empty}
+      GROUP BY p.method
+    `;
+
+    const out = { cash: 0, card: 0, upi: 0, other: 0, total: 0 };
+    for (const r of rows) {
+      const v = Number(r.total) || 0;
+      out.total += v;
+      if (r.method === 'cash') out.cash += v;
+      else if (r.method === 'card') out.card += v;
+      else if (r.method === 'upi') out.upi += v;
+      else out.other += v;
+    }
+    return out;
+  }
+
   async getDashboardSparklines(
     clinicId: string,
     branchId?: string,

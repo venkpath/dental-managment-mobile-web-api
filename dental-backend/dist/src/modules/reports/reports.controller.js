@@ -37,6 +37,10 @@ let ReportsController = class ReportsController {
         const days = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 7), 365) : 7;
         return this.reportsService.getDashboardSparklines(clinicId, branchId, dentistId, days);
     }
+    async getTodayPaymentBreakdown(clinicId, user, branchId) {
+        const dentistId = (0, dentist_scope_util_js_1.isDentistUser)(user) ? user.sub : undefined;
+        return this.reportsService.getTodayPaymentBreakdown(clinicId, branchId, dentistId);
+    }
     async getRevenueReport(clinicId, user, query) {
         (0, dentist_scope_util_js_1.applyDentistScope)(query, user);
         return this.reportsService.getRevenueReport(clinicId, query);
@@ -94,6 +98,18 @@ __decorate([
     __metadata("design:paramtypes", [String, Object, String, String]),
     __metadata("design:returntype", Promise)
 ], ReportsController.prototype, "getDashboardSparklines", null);
+__decorate([
+    (0, common_1.Get)('payment-breakdown-today'),
+    (0, swagger_1.ApiOperation)({ summary: "Get today's payment breakdown by method (cash/card/upi)" }),
+    (0, swagger_1.ApiOkResponse)({ description: "Payment breakdown totals for today" }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Query)('branch_id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, String]),
+    __metadata("design:returntype", Promise)
+], ReportsController.prototype, "getTodayPaymentBreakdown", null);
 __decorate([
     (0, common_1.Get)('revenue'),
     (0, swagger_1.ApiOperation)({ summary: 'Get revenue report with date range and optional filters' }),

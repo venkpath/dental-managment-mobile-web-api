@@ -21,6 +21,13 @@ export declare class ReportsController {
             net_profit_vs_last_month: number | null;
         };
     }>;
+    getTodayPaymentBreakdown(clinicId: string, user: JwtPayload, branchId?: string): Promise<{
+        cash: number;
+        card: number;
+        upi: number;
+        other: number;
+        total: number;
+    }>;
     getRevenueReport(clinicId: string, user: JwtPayload, query: RevenueQueryDto): Promise<import("./reports.service.js").RevenueReport>;
     getAppointmentAnalytics(clinicId: string, user: JwtPayload, query: AppointmentAnalyticsQueryDto): Promise<import("./reports.service.js").AppointmentAnalytics>;
     getDentistPerformance(clinicId: string, user: JwtPayload, query: DentistPerformanceQueryDto): Promise<import("./reports.service.js").DentistPerformanceItem[]>;

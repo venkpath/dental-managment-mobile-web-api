@@ -55,6 +55,18 @@ export class ReportsController {
     return this.reportsService.getDashboardSparklines(clinicId, branchId, dentistId, days);
   }
 
+  @Get('payment-breakdown-today')
+  @ApiOperation({ summary: "Get today's payment breakdown by method (cash/card/upi)" })
+  @ApiOkResponse({ description: "Payment breakdown totals for today" })
+  async getTodayPaymentBreakdown(
+    @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
+    @Query('branch_id') branchId?: string,
+  ) {
+    const dentistId = isDentistUser(user) ? user.sub : undefined;
+    return this.reportsService.getTodayPaymentBreakdown(clinicId, branchId, dentistId);
+  }
+
   @Get('revenue')
   @ApiOperation({ summary: 'Get revenue report with date range and optional filters' })
   @ApiOkResponse({ description: 'Revenue report with financial metrics' })

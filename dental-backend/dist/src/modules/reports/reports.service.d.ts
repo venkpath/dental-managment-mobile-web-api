@@ -59,6 +59,13 @@ export declare class ReportsService {
     private readonly prisma;
     constructor(prisma: PrismaService);
     getDashboardSummary(clinicId: string, branchId?: string, dentistId?: string, referenceDate?: Date): Promise<DashboardSummary>;
+    getTodayPaymentBreakdown(clinicId: string, branchId?: string, dentistId?: string): Promise<{
+        cash: number;
+        card: number;
+        upi: number;
+        other: number;
+        total: number;
+    }>;
     getDashboardSparklines(clinicId: string, branchId?: string, dentistId?: string, days?: number): Promise<{
         daily: Array<{
             date: string;
