@@ -59,6 +59,22 @@ export declare class ReportsService {
     private readonly prisma;
     constructor(prisma: PrismaService);
     getDashboardSummary(clinicId: string, branchId?: string, dentistId?: string, referenceDate?: Date): Promise<DashboardSummary>;
+    getDashboardSparklines(clinicId: string, branchId?: string, dentistId?: string, days?: number): Promise<{
+        daily: Array<{
+            date: string;
+            revenue: number;
+            appointments: number;
+            expenses: number;
+        }>;
+        trends: {
+            today_revenue_vs_yesterday: number | null;
+            today_appointments_vs_yesterday: number | null;
+            outstanding_vs_last_month: number | null;
+            month_revenue_vs_last_month: number | null;
+            month_expenses_vs_last_month: number | null;
+            net_profit_vs_last_month: number | null;
+        };
+    }>;
     getRevenueReport(clinicId: string, query: RevenueQueryDto): Promise<RevenueReport>;
     getAppointmentAnalytics(clinicId: string, query: AppointmentAnalyticsQueryDto): Promise<AppointmentAnalytics>;
     getDentistPerformance(clinicId: string, query: DentistPerformanceQueryDto): Promise<DentistPerformanceItem[]>;

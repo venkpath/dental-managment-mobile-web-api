@@ -40,6 +40,21 @@ export class ReportsController {
     return this.reportsService.getDashboardSummary(clinicId, branchId, dentistId);
   }
 
+  @Get('sparklines')
+  @ApiOperation({ summary: 'Get N-day daily sparkline data and trend percentages for dashboard stat cards' })
+  @ApiOkResponse({ description: 'N-day daily arrays for revenue/appointments/expenses plus trend percentages' })
+  async getDashboardSparklines(
+    @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
+    @Query('branch_id') branchId?: string,
+    @Query('days') daysParam?: string,
+  ) {
+    const dentistId = isDentistUser(user) ? user.sub : undefined;
+    const parsed = daysParam ? parseInt(daysParam, 10) : 7;
+    const days = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 7), 365) : 7;
+    return this.reportsService.getDashboardSparklines(clinicId, branchId, dentistId, days);
+  }
+
   @Get('revenue')
   @ApiOperation({ summary: 'Get revenue report with date range and optional filters' })
   @ApiOkResponse({ description: 'Revenue report with financial metrics' })

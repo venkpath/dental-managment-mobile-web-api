@@ -146,6 +146,122 @@ let ReportsService = class ReportsService {
             net_profit: thisMonthRevenue - thisMonthExpenses - thisMonthRefunds,
         };
     }
+    async getDashboardSparklines(clinicId, branchId, dentistId, days = 7) {
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const localStr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const windowDays = Math.min(Math.max(Number.isFinite(days) ? days : 7, 7), 365);
+        const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const days7Ago = new Date(todayLocal);
+        days7Ago.setDate(days7Ago.getDate() - (windowDays - 1));
+        const days7AgoStr = localStr(days7Ago);
+        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+        const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        const branchFilter = branchId || null;
+        const invoiceDentistFilter = dentistId ? { dentist_id: dentistId } : {};
+        const [rawRevenue, rawAppointments, rawExpenses, lastMonthRev, lastMonthExp, lastMonthRef, thisMonthRev, thisMonthExp, thisMonthRef, thisMonthOutstanding, lastMonthOutstanding] = await Promise.all([
+            this.prisma.$queryRaw `
+          SELECT TO_CHAR(DATE(p.paid_at), 'YYYY-MM-DD') as day,
+                 SUM(p.amount)::float as total
+          FROM payments p
+          JOIN invoices i ON p.invoice_id = i.id
+          WHERE i.clinic_id = ${clinicId}::uuid
+            AND DATE(p.paid_at) >= ${days7AgoStr}::date
+            ${branchFilter ? client_1.Prisma.sql `AND i.branch_id = ${branchFilter}::uuid` : client_1.Prisma.empty}
+            ${dentistId ? client_1.Prisma.sql `AND i.dentist_id = ${dentistId}::uuid` : client_1.Prisma.empty}
+          GROUP BY 1 ORDER BY 1
+        `,
+            this.prisma.$queryRaw `
+          SELECT TO_CHAR(appointment_date, 'YYYY-MM-DD') as day,
+                 COUNT(*)::float as total
+          FROM appointments
+          WHERE clinic_id = ${clinicId}::uuid
+            AND appointment_date >= ${days7AgoStr}::date
+            AND status != 'cancelled'
+            ${branchFilter ? client_1.Prisma.sql `AND branch_id = ${branchFilter}::uuid` : client_1.Prisma.empty}
+            ${dentistId ? client_1.Prisma.sql `AND dentist_id = ${dentistId}::uuid` : client_1.Prisma.empty}
+          GROUP BY 1 ORDER BY 1
+        `,
+            this.prisma.$queryRaw `
+          SELECT TO_CHAR(date, 'YYYY-MM-DD') as day,
+                 SUM(amount)::float as total
+          FROM expenses
+          WHERE clinic_id = ${clinicId}::uuid
+            AND date >= ${days7AgoStr}::date
+            ${branchFilter ? client_1.Prisma.sql `AND branch_id = ${branchFilter}::uuid` : client_1.Prisma.empty}
+          GROUP BY 1 ORDER BY 1
+        `,
+            this.prisma.payment.aggregate({
+                _sum: { amount: true },
+                where: { invoice: { clinic_id: clinicId, ...(branchFilter && { branch_id: branchFilter }), ...invoiceDentistFilter }, paid_at: { gte: lastMonthStart, lte: lastMonthEnd } },
+            }),
+            this.prisma.expense.aggregate({
+                _sum: { amount: true },
+                where: { clinic_id: clinicId, date: { gte: lastMonthStart, lte: lastMonthEnd }, ...(branchFilter && { branch_id: branchFilter }) },
+            }),
+            this.prisma.refund.aggregate({
+                _sum: { amount: true },
+                where: { invoice: { clinic_id: clinicId, ...(branchFilter && { branch_id: branchFilter }), ...invoiceDentistFilter }, refunded_at: { gte: lastMonthStart, lte: lastMonthEnd } },
+            }),
+            this.prisma.payment.aggregate({
+                _sum: { amount: true },
+                where: { invoice: { clinic_id: clinicId, ...(branchFilter && { branch_id: branchFilter }), ...invoiceDentistFilter }, paid_at: { gte: thisMonthStart, lte: thisMonthEnd } },
+            }),
+            this.prisma.expense.aggregate({
+                _sum: { amount: true },
+                where: { clinic_id: clinicId, date: { gte: thisMonthStart, lte: thisMonthEnd }, ...(branchFilter && { branch_id: branchFilter }) },
+            }),
+            this.prisma.refund.aggregate({
+                _sum: { amount: true },
+                where: { invoice: { clinic_id: clinicId, ...(branchFilter && { branch_id: branchFilter }), ...invoiceDentistFilter }, refunded_at: { gte: thisMonthStart, lte: thisMonthEnd } },
+            }),
+            this.prisma.invoice.aggregate({
+                _sum: { net_amount: true },
+                where: { clinic_id: clinicId, status: { in: ['pending', 'partially_paid'] }, created_at: { gte: thisMonthStart, lte: thisMonthEnd }, ...(branchFilter && { branch_id: branchFilter }), ...invoiceDentistFilter },
+            }),
+            this.prisma.invoice.aggregate({
+                _sum: { net_amount: true },
+                where: { clinic_id: clinicId, status: { in: ['pending', 'partially_paid'] }, created_at: { gte: lastMonthStart, lte: lastMonthEnd }, ...(branchFilter && { branch_id: branchFilter }), ...invoiceDentistFilter },
+            }),
+        ]);
+        const revMap = new Map(rawRevenue.map(r => [r.day, Number(r.total)]));
+        const apptMap = new Map(rawAppointments.map(r => [r.day, Number(r.total)]));
+        const expMap = new Map(rawExpenses.map(r => [r.day, Number(r.total)]));
+        const daily = Array.from({ length: windowDays }, (_, i) => {
+            const d = new Date(days7Ago);
+            d.setDate(d.getDate() + i);
+            const ds = localStr(d);
+            return { date: ds, revenue: revMap.get(ds) ?? 0, appointments: apptMap.get(ds) ?? 0, expenses: expMap.get(ds) ?? 0 };
+        });
+        const pct = (curr, prev) => {
+            if (prev === 0 && curr === 0)
+                return null;
+            if (prev === 0)
+                return 100;
+            return Math.round(((curr - prev) / prev) * 1000) / 10;
+        };
+        const lastMonthRevVal = Number(lastMonthRev._sum.amount ?? 0);
+        const lastMonthExpVal = Number(lastMonthExp._sum.amount ?? 0);
+        const lastMonthRefVal = Number(lastMonthRef._sum.amount ?? 0);
+        const thisMonthRevVal = Number(thisMonthRev._sum.amount ?? 0);
+        const thisMonthExpVal = Number(thisMonthExp._sum.amount ?? 0);
+        const thisMonthRefVal = Number(thisMonthRef._sum.amount ?? 0);
+        const thisMonthOutstandingVal = Number(thisMonthOutstanding._sum.net_amount ?? 0);
+        const lastMonthOutstandingVal = Number(lastMonthOutstanding._sum.net_amount ?? 0);
+        return {
+            daily,
+            trends: {
+                today_revenue_vs_yesterday: pct(daily[6].revenue, daily[5].revenue),
+                today_appointments_vs_yesterday: pct(daily[6].appointments, daily[5].appointments),
+                outstanding_vs_last_month: pct(thisMonthOutstandingVal, lastMonthOutstandingVal),
+                month_revenue_vs_last_month: pct(thisMonthRevVal, lastMonthRevVal),
+                month_expenses_vs_last_month: pct(thisMonthExpVal, lastMonthExpVal),
+                net_profit_vs_last_month: pct(thisMonthRevVal - thisMonthExpVal - thisMonthRefVal, lastMonthRevVal - lastMonthExpVal - lastMonthRefVal),
+            },
+        };
+    }
     async getRevenueReport(clinicId, query) {
         const startDate = new Date(query.start_date);
         startDate.setHours(0, 0, 0, 0);

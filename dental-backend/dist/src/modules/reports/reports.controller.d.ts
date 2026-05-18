@@ -5,6 +5,22 @@ export declare class ReportsController {
     private readonly reportsService;
     constructor(reportsService: ReportsService);
     getDashboardSummary(clinicId: string, user: JwtPayload, branchId?: string): Promise<import("./reports.service.js").DashboardSummary>;
+    getDashboardSparklines(clinicId: string, user: JwtPayload, branchId?: string, daysParam?: string): Promise<{
+        daily: Array<{
+            date: string;
+            revenue: number;
+            appointments: number;
+            expenses: number;
+        }>;
+        trends: {
+            today_revenue_vs_yesterday: number | null;
+            today_appointments_vs_yesterday: number | null;
+            outstanding_vs_last_month: number | null;
+            month_revenue_vs_last_month: number | null;
+            month_expenses_vs_last_month: number | null;
+            net_profit_vs_last_month: number | null;
+        };
+    }>;
     getRevenueReport(clinicId: string, user: JwtPayload, query: RevenueQueryDto): Promise<import("./reports.service.js").RevenueReport>;
     getAppointmentAnalytics(clinicId: string, user: JwtPayload, query: AppointmentAnalyticsQueryDto): Promise<import("./reports.service.js").AppointmentAnalytics>;
     getDentistPerformance(clinicId: string, user: JwtPayload, query: DentistPerformanceQueryDto): Promise<import("./reports.service.js").DentistPerformanceItem[]>;
