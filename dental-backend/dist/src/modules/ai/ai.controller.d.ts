@@ -1,7 +1,7 @@
 import type { Request } from 'express';
 import { AiService } from './ai.service.js';
 import { AiUsageService } from './ai-usage.service.js';
-import { GenerateClinicalNotesDto, GeneratePrescriptionDto, GenerateTreatmentPlanDto, GenerateRevenueInsightsDto, GenerateChartAnalysisDto, GenerateAppointmentSummaryDto, GenerateCampaignContentDto, UpdateAiSettingsDto, CreateAiQuotaApprovalRequestDto } from './dto/index.js';
+import { GenerateClinicalNotesDto, GeneratePrescriptionDto, GenerateTreatmentPlanDto, GenerateRevenueInsightsDto, GenerateChartAnalysisDto, GenerateAppointmentSummaryDto, GenerateCampaignContentDto, UpdateAiSettingsDto, CreateAiQuotaApprovalRequestDto, ExpenseAdvisorChatDto } from './dto/index.js';
 export declare class AiController {
     private readonly aiService;
     private readonly aiUsageService;
@@ -43,6 +43,11 @@ export declare class AiController {
     }>;
     generateCampaignContent(req: Request, dto: GenerateCampaignContentDto): Promise<{
         insight_id: string | undefined;
+        generated_at: string;
+    }>;
+    chatExpenseAdvisor(req: Request, dto: ExpenseAdvisorChatDto): Promise<{
+        response: string;
+        suggestions: any[];
         generated_at: string;
     }>;
     analyzeXray(req: Request, body: {

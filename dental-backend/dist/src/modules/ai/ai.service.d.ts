@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service.js';
 import { AiUsageService } from './ai-usage.service.js';
 import { GenerateClinicalNotesDto, GeneratePrescriptionDto, GenerateTreatmentPlanDto, GenerateRevenueInsightsDto, GenerateChartAnalysisDto, GenerateAppointmentSummaryDto, GenerateCampaignContentDto, GenerateReviewReplyDto } from './dto/index.js';
+import type { ExpenseAdvisorChatDto } from './dto/expense-advisor-chat.dto.js';
 export declare class AiService {
     private readonly prisma;
     private readonly config;
@@ -125,6 +126,11 @@ export declare class AiService {
     }>;
     generateRevenueInsights(clinicId: string, dto: GenerateRevenueInsightsDto, userId?: string): Promise<{
         insight_id: string | undefined;
+        generated_at: string;
+    }>;
+    chatExpenseAdvisor(clinicId: string, dto: ExpenseAdvisorChatDto, userId?: string): Promise<{
+        response: string;
+        suggestions: any[];
         generated_at: string;
     }>;
     generateChartAnalysis(clinicId: string, dto: GenerateChartAnalysisDto, userId?: string): Promise<{

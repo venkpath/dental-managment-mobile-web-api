@@ -13,6 +13,7 @@ import {
   GenerateCampaignContentDto,
   UpdateAiSettingsDto,
   CreateAiQuotaApprovalRequestDto,
+  ExpenseAdvisorChatDto,
 } from './dto/index.js';
 import { UserRole } from '../user/dto/create-user.dto.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -110,6 +111,22 @@ export class AiController {
     @Body() dto: GenerateCampaignContentDto,
   ) {
     return this.aiService.generateCampaignContent(req.user!.clinicId, dto, req.user!.userId);
+  }
+
+  // ─── 4b. Expense Advisor Chat (Spendly) ────────────────────
+
+  @Post('expense-advisor')
+  @Roles(UserRole.ADMIN, UserRole.RECEPTIONIST)
+  @TrackAiUsage()
+  @RequireFeature('AI_CLINICAL_NOTES')
+  @ApiOperation({
+    summary: "Spendly — conversational expense advisor grounded in the clinic's expense data",
+  })
+  async chatExpenseAdvisor(
+    @Req() req: Request,
+    @Body() dto: ExpenseAdvisorChatDto,
+  ) {
+    return this.aiService.chatExpenseAdvisor(req.user!.clinicId, dto, req.user!.userId);
   }
 
   // ─── 8. X-ray Analysis ──────────────────────────────────────

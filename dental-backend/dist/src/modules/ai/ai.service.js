@@ -29,6 +29,7 @@ const appointment_summary_prompt_js_1 = require("./prompts/appointment-summary.p
 const campaign_content_prompt_js_1 = require("./prompts/campaign-content.prompt.js");
 const xray_analysis_prompt_js_1 = require("./prompts/xray-analysis.prompt.js");
 const review_reply_prompt_js_1 = require("./prompts/review-reply.prompt.js");
+const expense_advisor_prompt_js_1 = require("./prompts/expense-advisor.prompt.js");
 let AiService = AiService_1 = class AiService {
     prisma;
     config;
@@ -559,6 +560,104 @@ let AiService = AiService_1 = class AiService {
             userId,
         });
         return { ...response, insight_id: saved?.id };
+    }
+    async chatExpenseAdvisor(clinicId, dto, userId) {
+        const now = new Date();
+        const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+        const branchWhere = dto.branch_id ? { branch_id: dto.branch_id } : {};
+        const [thisMonthExpenses, lastMonthExpenses, thisMonthInvoices, lastMonthInvoices, branch,] = await Promise.all([
+            this.prisma.expense.findMany({
+                where: { clinic_id: clinicId, ...branchWhere, date: { gte: thisMonthStart, lte: thisMonthEnd } },
+                select: { amount: true, vendor: true, category: { select: { name: true } } },
+            }),
+            this.prisma.expense.findMany({
+                where: { clinic_id: clinicId, ...branchWhere, date: { gte: lastMonthStart, lte: lastMonthEnd } },
+                select: { amount: true, category: { select: { name: true } } },
+            }),
+            this.prisma.payment.aggregate({
+                _sum: { amount: true },
+                where: { invoice: { clinic_id: clinicId, ...branchWhere }, paid_at: { gte: thisMonthStart, lte: thisMonthEnd } },
+            }),
+            this.prisma.payment.aggregate({
+                _sum: { amount: true },
+                where: { invoice: { clinic_id: clinicId, ...branchWhere }, paid_at: { gte: lastMonthStart, lte: lastMonthEnd } },
+            }),
+            dto.branch_id
+                ? this.prisma.branch.findUnique({ where: { id: dto.branch_id }, select: { name: true } })
+                : Promise.resolve(null),
+        ]);
+        const thisMonthByCat = new Map();
+        for (const e of thisMonthExpenses) {
+            const cat = e.category?.name ?? 'Uncategorized';
+            const cur = thisMonthByCat.get(cat) ?? { total: 0, count: 0 };
+            cur.total += Number(e.amount);
+            cur.count += 1;
+            thisMonthByCat.set(cat, cur);
+        }
+        const thisMonthTotal = Array.from(thisMonthByCat.values()).reduce((s, v) => s + v.total, 0);
+        const currentMonthByCategory = Array.from(thisMonthByCat.entries())
+            .map(([category_name, v]) => ({
+            category_name,
+            total: Math.round(v.total * 100) / 100,
+            count: v.count,
+            pct_of_month: thisMonthTotal > 0 ? Math.round((v.total / thisMonthTotal) * 1000) / 10 : 0,
+        }))
+            .sort((a, b) => b.total - a.total);
+        const lastMonthByCat = new Map();
+        for (const e of lastMonthExpenses) {
+            const cat = e.category?.name ?? 'Uncategorized';
+            lastMonthByCat.set(cat, (lastMonthByCat.get(cat) ?? 0) + Number(e.amount));
+        }
+        const lastMonthTotal = Array.from(lastMonthByCat.values()).reduce((s, v) => s + v, 0);
+        const lastMonthByCategory = Array.from(lastMonthByCat.entries())
+            .map(([category_name, total]) => ({ category_name, total: Math.round(total * 100) / 100 }))
+            .sort((a, b) => b.total - a.total);
+        const vendorMap = new Map();
+        for (const e of thisMonthExpenses) {
+            const v = e.vendor?.trim();
+            if (!v)
+                continue;
+            const cur = vendorMap.get(v) ?? { total: 0, count: 0 };
+            cur.total += Number(e.amount);
+            cur.count += 1;
+            vendorMap.set(v, cur);
+        }
+        const topVendors = Array.from(vendorMap.entries())
+            .map(([vendor, v]) => ({ vendor, total: Math.round(v.total * 100) / 100, count: v.count }))
+            .sort((a, b) => b.total - a.total)
+            .slice(0, 5);
+        const currentMonthLabel = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+        const userPrompt = (0, expense_advisor_prompt_js_1.buildExpenseAdvisorUserPrompt)({
+            message: dto.message,
+            history: dto.history,
+            context: {
+                current_month_label: currentMonthLabel,
+                current_month_total: Math.round(thisMonthTotal * 100) / 100,
+                last_month_total: lastMonthExpenses.length > 0 ? Math.round(lastMonthTotal * 100) / 100 : null,
+                current_month_by_category: currentMonthByCategory,
+                last_month_by_category: lastMonthByCategory,
+                top_vendors: topVendors,
+                current_month_revenue: Math.round(Number(thisMonthInvoices._sum.amount ?? 0) * 100) / 100,
+                last_month_revenue: lastMonthInvoices._sum.amount != null
+                    ? Math.round(Number(lastMonthInvoices._sum.amount) * 100) / 100
+                    : null,
+                branch_name: branch?.name,
+            },
+        });
+        this.logger.log(`Spendly chat for clinic ${clinicId} (msg len ${dto.message.length})`);
+        const result = await this.callLLM(expense_advisor_prompt_js_1.EXPENSE_ADVISOR_SYSTEM_PROMPT, userPrompt, {
+            clinicId,
+            userId,
+            type: 'expense_advisor',
+        });
+        return {
+            response: typeof result.response === 'string' ? result.response : '',
+            suggestions: Array.isArray(result.suggestions) ? result.suggestions.slice(0, 3) : [],
+            generated_at: new Date().toISOString(),
+        };
     }
     async generateChartAnalysis(clinicId, dto, userId) {
         const { patient, age } = await this.getPatientContext(clinicId, dto.patient_id);

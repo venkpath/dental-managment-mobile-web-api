@@ -51,6 +51,9 @@ let AiController = class AiController {
     async generateCampaignContent(req, dto) {
         return this.aiService.generateCampaignContent(req.user.clinicId, dto, req.user.userId);
     }
+    async chatExpenseAdvisor(req, dto) {
+        return this.aiService.chatExpenseAdvisor(req.user.clinicId, dto, req.user.userId);
+    }
     async analyzeXray(req, body) {
         return this.aiService.analyzeXray(req.user.clinicId, {
             attachmentId: body.attachment_id,
@@ -190,6 +193,21 @@ __decorate([
     __metadata("design:paramtypes", [Object, index_js_1.GenerateCampaignContentDto]),
     __metadata("design:returntype", Promise)
 ], AiController.prototype, "generateCampaignContent", null);
+__decorate([
+    (0, common_1.Post)('expense-advisor'),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.RECEPTIONIST),
+    (0, track_ai_usage_decorator_js_1.TrackAiUsage)(),
+    (0, require_feature_decorator_js_1.RequireFeature)('AI_CLINICAL_NOTES'),
+    (0, swagger_1.ApiOperation)({
+        summary: "Spendly — conversational expense advisor grounded in the clinic's expense data",
+    }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, index_js_1.ExpenseAdvisorChatDto]),
+    __metadata("design:returntype", Promise)
+], AiController.prototype, "chatExpenseAdvisor", null);
 __decorate([
     (0, common_1.Post)('xray-analysis'),
     (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST, create_user_dto_js_1.UserRole.CONSULTANT),

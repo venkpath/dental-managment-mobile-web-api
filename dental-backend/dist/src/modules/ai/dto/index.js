@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MarkOverageChargePaidDto = exports.DecideAiQuotaApprovalRequestDto = exports.CreateAiQuotaApprovalRequestDto = exports.UpdateAiSettingsDto = exports.GenerateReviewReplyDto = exports.GenerateCampaignContentDto = exports.GenerateAppointmentSummaryDto = exports.GenerateChartAnalysisDto = exports.GenerateRevenueInsightsDto = exports.GenerateTreatmentPlanDto = exports.GeneratePrescriptionDto = exports.GenerateClinicalNotesDto = void 0;
+exports.MarkOverageChargePaidDto = exports.DecideAiQuotaApprovalRequestDto = exports.CreateAiQuotaApprovalRequestDto = exports.UpdateAiSettingsDto = exports.ExpenseAdvisorChatDto = exports.GenerateReviewReplyDto = exports.GenerateCampaignContentDto = exports.GenerateAppointmentSummaryDto = exports.GenerateChartAnalysisDto = exports.GenerateRevenueInsightsDto = exports.GenerateTreatmentPlanDto = exports.GeneratePrescriptionDto = exports.GenerateClinicalNotesDto = void 0;
 var generate_clinical_notes_dto_js_1 = require("./generate-clinical-notes.dto.js");
 Object.defineProperty(exports, "GenerateClinicalNotesDto", { enumerable: true, get: function () { return generate_clinical_notes_dto_js_1.GenerateClinicalNotesDto; } });
 var generate_prescription_dto_js_1 = require("./generate-prescription.dto.js");
@@ -17,6 +17,8 @@ var generate_campaign_content_dto_js_1 = require("./generate-campaign-content.dt
 Object.defineProperty(exports, "GenerateCampaignContentDto", { enumerable: true, get: function () { return generate_campaign_content_dto_js_1.GenerateCampaignContentDto; } });
 var generate_review_reply_dto_js_1 = require("./generate-review-reply.dto.js");
 Object.defineProperty(exports, "GenerateReviewReplyDto", { enumerable: true, get: function () { return generate_review_reply_dto_js_1.GenerateReviewReplyDto; } });
+var expense_advisor_chat_dto_js_1 = require("./expense-advisor-chat.dto.js");
+Object.defineProperty(exports, "ExpenseAdvisorChatDto", { enumerable: true, get: function () { return expense_advisor_chat_dto_js_1.ExpenseAdvisorChatDto; } });
 var ai_quota_dto_js_1 = require("./ai-quota.dto.js");
 Object.defineProperty(exports, "UpdateAiSettingsDto", { enumerable: true, get: function () { return ai_quota_dto_js_1.UpdateAiSettingsDto; } });
 Object.defineProperty(exports, "CreateAiQuotaApprovalRequestDto", { enumerable: true, get: function () { return ai_quota_dto_js_1.CreateAiQuotaApprovalRequestDto; } });
