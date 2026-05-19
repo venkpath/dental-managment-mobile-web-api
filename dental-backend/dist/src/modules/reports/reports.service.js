@@ -18,7 +18,12 @@ let ReportsService = class ReportsService {
     constructor(prisma) {
         this.prisma = prisma;
     }
+    _summaryCache = new Map();
     async getDashboardSummary(clinicId, branchId, dentistId, referenceDate) {
+        const cacheKey = `${clinicId}:${branchId ?? ''}:${dentistId ?? ''}`;
+        const cached = this._summaryCache.get(cacheKey);
+        if (cached && Date.now() < cached.expiresAt)
+            return cached.data;
         const now = referenceDate ?? new Date();
         const pad = (n) => String(n).padStart(2, '0');
         const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
@@ -134,7 +139,7 @@ let ReportsService = class ReportsService {
         const partiallyPaidNet = Number(partiallyPaidAgg._sum.net_amount ?? 0);
         const partiallyPaidCollected = Number(partiallyPaidPaymentsAgg._sum.amount ?? 0);
         const outstandingAmount = Math.max(0, pendingNet + (partiallyPaidNet - partiallyPaidCollected));
-        return {
+        const result = {
             today_appointments: todayAppointments,
             today_revenue: Number(todayRevenue._sum.amount ?? 0),
             pending_invoices: pendingInvoices,
@@ -145,6 +150,8 @@ let ReportsService = class ReportsService {
             this_month_refunds: thisMonthRefunds,
             net_profit: thisMonthRevenue - thisMonthExpenses - thisMonthRefunds,
         };
+        this._summaryCache.set(cacheKey, { data: result, expiresAt: Date.now() + 30_000 });
+        return result;
     }
     async getTodayPaymentBreakdown(clinicId, branchId, dentistId) {
         const now = new Date();

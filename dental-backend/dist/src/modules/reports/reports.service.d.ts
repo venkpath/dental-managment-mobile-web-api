@@ -58,6 +58,7 @@ export interface RevenueReport {
 export declare class ReportsService {
     private readonly prisma;
     constructor(prisma: PrismaService);
+    private readonly _summaryCache;
     getDashboardSummary(clinicId: string, branchId?: string, dentistId?: string, referenceDate?: Date): Promise<DashboardSummary>;
     getTodayPaymentBreakdown(clinicId: string, branchId?: string, dentistId?: string): Promise<{
         cash: number;

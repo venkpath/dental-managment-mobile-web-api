@@ -76,7 +76,13 @@ export interface RevenueReport {
 export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private readonly _summaryCache = new Map<string, { data: DashboardSummary; expiresAt: number }>();
+
   async getDashboardSummary(clinicId: string, branchId?: string, dentistId?: string, referenceDate?: Date): Promise<DashboardSummary> {
+    const cacheKey = `${clinicId}:${branchId ?? ''}:${dentistId ?? ''}`;
+    const cached = this._summaryCache.get(cacheKey);
+    if (cached && Date.now() < cached.expiresAt) return cached.data;
+
     const now = referenceDate ?? new Date();
     // Build the date string from LOCAL calendar components, not UTC.
     // Appointments are stored as @db.Date (UTC midnight of the local
@@ -226,7 +232,7 @@ export class ReportsService {
     const partiallyPaidCollected = Number(partiallyPaidPaymentsAgg._sum.amount ?? 0);
     const outstandingAmount = Math.max(0, pendingNet + (partiallyPaidNet - partiallyPaidCollected));
 
-    return {
+    const result: DashboardSummary = {
       today_appointments: todayAppointments,
       today_revenue: Number(todayRevenue._sum.amount ?? 0),
       pending_invoices: pendingInvoices,
@@ -239,6 +245,8 @@ export class ReportsService {
       // cash leaving the business, so the bottom line should reflect them.
       net_profit: thisMonthRevenue - thisMonthExpenses - thisMonthRefunds,
     };
+    this._summaryCache.set(cacheKey, { data: result, expiresAt: Date.now() + 30_000 });
+    return result;
   }
 
   async getTodayPaymentBreakdown(
