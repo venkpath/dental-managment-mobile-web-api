@@ -93,6 +93,8 @@ model Clinic {
   referral_codes             PatientReferralCode[]
   referrals                  Referral[]
   ai_insights                AiInsight[]
+  insight_batches            InsightComputationBatch[]
+  patient_insight_scores     PatientInsightScore[]
   expense_categories         ExpenseCategory[]
   expenses                   Expense[]
   clinical_visits            ClinicalVisit[]
@@ -183,6 +185,7 @@ model Branch {
   treatment_plans        TreatmentPlan[]
   membership_enrollments MembershipEnrollment[]
   patient_consents       PatientConsent[]
+  patient_insight_scores PatientInsightScore[]
 
   @@unique([qr_code_token])
   @@index([clinic_id])
@@ -407,6 +410,7 @@ model Patient {
   covered_memberships      MembershipEnrollmentMember[]    @relation("MembershipCoveredPatient")
   membership_usages        MembershipBenefitUsage[]        @relation("MembershipUsagePatient")
   consents                 PatientConsent[]
+  insight_score            PatientInsightScore?
 
   @@index([clinic_id])
   @@index([branch_id])
@@ -1366,6 +1370,75 @@ model AiInsight {
   @@index([clinic_id, type])
   @@index([created_at])
   @@map("ai_insights")
+}
+
+// ─── Patient Insight Scores ───
+
+model InsightComputationBatch {
+  id            String    @id @default(uuid()) @db.Uuid
+  clinic_id     String    @db.Uuid
+  branch_id     String?   @db.Uuid
+  status        String    @default("running") @db.VarChar(20) // running | completed | failed
+  triggered_by  String    @default("manual") @db.VarChar(20) // manual | cron | event
+  patient_count Int       @default(0)
+  started_at    DateTime  @default(now())
+  completed_at  DateTime?
+  error_message String?   @db.VarChar(500)
+
+  clinic  Clinic   @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  scores  PatientInsightScore[]
+
+  @@index([clinic_id])
+  @@index([clinic_id, status])
+  @@map("insight_computation_batches")
+}
+
+model PatientInsightScore {
+  id          String   @id @default(uuid()) @db.Uuid
+  clinic_id   String   @db.Uuid
+  branch_id   String   @db.Uuid
+  patient_id  String   @unique @db.Uuid
+  batch_id    String?  @db.Uuid
+
+  // No-show risk (used on appointments)
+  no_show_score      Int     @default(0) // 0–100
+  no_show_risk       String  @default("low") @db.VarChar(10) // low | medium | high
+  no_show_factors    Json?   // breakdown for explanation
+
+  // Recall due (used on patient)
+  recall_due         Boolean @default(false)
+  recall_due_days    Int?    // positive = overdue by N days, negative = due in N days
+  recall_treatment   String? @db.VarChar(255) // last treatment that triggered recall
+  recall_last_date   DateTime? @db.Date
+
+  // Churn risk (used on patient)
+  churn_score        Int     @default(0) // 0–100
+  churn_risk         String  @default("low") @db.VarChar(10) // low | medium | high
+  days_since_visit   Int?
+  churn_factors      Json?
+
+  // Treatment conversion (used on dashboard/insights page)
+  conversion_score   Int     @default(0) // 0–100
+  conversion_interest String? @db.VarChar(255) // e.g. "Aligners", "Implant"
+  conversion_value   Decimal @default(0) @db.Decimal(10, 2)
+
+  // Overall
+  confidence_score   Int     @default(0) // 0–100, data completeness
+  computed_at        DateTime @default(now())
+
+  clinic   Clinic                  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch   Branch                  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient  Patient                 @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  batch    InsightComputationBatch? @relation(fields: [batch_id], references: [id], onDelete: SetNull)
+
+  @@unique([clinic_id, patient_id])
+  @@index([clinic_id])
+  @@index([branch_id])
+  @@index([patient_id])
+  @@index([clinic_id, no_show_risk])
+  @@index([clinic_id, churn_risk])
+  @@index([clinic_id, recall_due])
+  @@map("patient_insight_scores")
 }
 
 // ─── Expense Tracking ───

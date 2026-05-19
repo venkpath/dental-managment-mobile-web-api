@@ -59,6 +59,7 @@ import { DemoRequestModule } from './modules/demo-request/demo-request.module.js
 import { PlatformBillingModule } from './modules/platform-billing/platform-billing.module.js';
 import { TutorialModule } from './modules/tutorial/tutorial.module.js';
 import { SupportTicketModule } from './modules/support-ticket/support-ticket.module.js';
+import { PatientInsightsModule } from './modules/patient-insights/patient-insights.module.js';
 import { BranchScopeInterceptor } from './common/interceptors/branch-scope.interceptor.js';
 import { ActivityTrackerInterceptor } from './common/interceptors/activity-tracker.interceptor.js';
 import { SuspensionGuard } from './common/guards/suspension.guard.js';
@@ -138,6 +139,7 @@ import razorpayConfig from './config/razorpay.config.js';
     PlatformBillingModule,
     TutorialModule,
     SupportTicketModule,
+    PatientInsightsModule,
     // GoogleReviewsModule, // DISABLED — pending Google Business Profile API approval
   ],
   providers: [

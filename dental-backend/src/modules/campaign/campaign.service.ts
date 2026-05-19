@@ -640,6 +640,49 @@ export class CampaignService {
         });
       }
 
+      case 'no_show_risk': {
+        const level = config.risk_level as string;
+        const levels = level === 'high' ? ['high'] : level === 'medium' ? ['medium'] : ['high', 'medium'];
+        const scores = await this.prisma.patientInsightScore.findMany({
+          where: { clinic_id: clinicId, no_show_risk: { in: levels } },
+          select: { patient_id: true },
+        });
+        const ids = scores.map((s) => s.patient_id);
+        if (ids.length === 0) return [];
+        return this.prisma.patient.findMany({
+          where: { ...baseWhere, id: { in: ids } },
+          select: { id: true, first_name: true, last_name: true, phone: true, email: true },
+        });
+      }
+
+      case 'churn_risk': {
+        const level = config.risk_level as string;
+        const levels = level === 'high' ? ['high'] : level === 'medium' ? ['medium'] : ['high', 'medium'];
+        const scores = await this.prisma.patientInsightScore.findMany({
+          where: { clinic_id: clinicId, churn_risk: { in: levels } },
+          select: { patient_id: true },
+        });
+        const ids = scores.map((s) => s.patient_id);
+        if (ids.length === 0) return [];
+        return this.prisma.patient.findMany({
+          where: { ...baseWhere, id: { in: ids } },
+          select: { id: true, first_name: true, last_name: true, phone: true, email: true },
+        });
+      }
+
+      case 'recall_due': {
+        const scores = await this.prisma.patientInsightScore.findMany({
+          where: { clinic_id: clinicId, recall_due: true },
+          select: { patient_id: true },
+        });
+        const ids = scores.map((s) => s.patient_id);
+        if (ids.length === 0) return [];
+        return this.prisma.patient.findMany({
+          where: { ...baseWhere, id: { in: ids } },
+          select: { id: true, first_name: true, last_name: true, phone: true, email: true },
+        });
+      }
+
       default:
         throw new BadRequestException(`Unsupported segment type "${segmentType}"`);
     }

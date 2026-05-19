@@ -141,6 +141,7 @@ export class DatabaseSeederService implements OnModuleInit {
       { key: 'AI_CAMPAIGN_CONTENT', description: 'AI-powered campaign message generation with A/B variants' },
       { key: 'APPOINTMENT_CONFIRMATIONS', description: 'Automated appointment confirmation messages to patients' },
       { key: 'CUSTOM_TEMPLATES', description: 'Create, edit, delete, and submit your own WhatsApp/SMS/email templates (system templates remain read-only for everyone)' },
+      { key: 'AI_PATIENT_INSIGHTS', description: 'AI-powered patient risk scoring: no-show prediction, recall due, churn risk, treatment conversion opportunities' },
     ];
 
     let created = 0;
@@ -186,6 +187,7 @@ export class DatabaseSeederService implements OnModuleInit {
       { plan_id: professional.id, feature_id: fm['MARKETING_CAMPAIGNS']! },
       { plan_id: professional.id, feature_id: fm['AUTOMATION_RULES']! },
       { plan_id: professional.id, feature_id: fm['AI_CAMPAIGN_CONTENT']! },
+      { plan_id: professional.id, feature_id: fm['AI_PATIENT_INSIGHTS']! },
 
       // ── Enterprise: everything ──
       { plan_id: enterprise.id, feature_id: fm['INVENTORY_MANAGEMENT']! },
@@ -202,6 +204,7 @@ export class DatabaseSeederService implements OnModuleInit {
       { plan_id: enterprise.id, feature_id: fm['PATIENT_IMPORT']! },
       { plan_id: enterprise.id, feature_id: fm['MARKETING_CAMPAIGNS']! },
       { plan_id: enterprise.id, feature_id: fm['AUTOMATION_RULES']! },
+      { plan_id: enterprise.id, feature_id: fm['AI_PATIENT_INSIGHTS']! },
       // Only Enterprise can create/edit/delete their own templates. Everyone
       // else sees the system-approved templates read-only.
       { plan_id: enterprise.id, feature_id: fm['CUSTOM_TEMPLATES']! },

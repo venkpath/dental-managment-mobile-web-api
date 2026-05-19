@@ -77,6 +77,8 @@ async function main() {
     { key: 'MARKETING_CAMPAIGNS', description: 'Bulk marketing campaigns (SMS/Email/WhatsApp) with segmentation, A/B tests, drip sequences' },
     { key: 'AUTOMATION_RULES', description: 'Automation rules — birthday greetings, reactivation, payment reminders, post-visit follow-ups' },
     { key: 'APPOINTMENT_CONFIRMATIONS', description: 'Automated appointment confirmation messages to patients' },
+    { key: 'CUSTOM_TEMPLATES', description: 'Create, edit, delete, and submit your own WhatsApp/SMS/email templates (system templates remain read-only for everyone)' },
+    { key: 'AI_PATIENT_INSIGHTS', description: 'AI-powered patient risk scoring: no-show prediction, recall due, churn risk, treatment conversion opportunities' },
   ];
 
   for (const feature of features) {
@@ -172,8 +174,8 @@ async function main() {
       keys.map((key) => ({ plan_id: planId, feature_id: featureMap[key]!, is_enabled: true }));
 
     const STARTER_FEATURES = ['INVENTORY_MANAGEMENT', 'APPOINTMENT_CONFIRMATIONS', 'SMS_REMINDERS', 'WHATSAPP_INTEGRATION', 'AI_CLINICAL_NOTES', 'AI_PRESCRIPTION', 'AI_TREATMENT_PLAN', 'AI_CAMPAIGN_CONTENT', 'AI_CONSENT_FORM'];
-    const PROFESSIONAL_FEATURES = ['INVENTORY_MANAGEMENT', 'APPOINTMENT_CONFIRMATIONS', 'SMS_REMINDERS', 'WHATSAPP_INTEGRATION', 'DIGITAL_XRAY', 'AI_CLINICAL_NOTES', 'AI_PRESCRIPTION', 'AI_TREATMENT_PLAN', 'AI_CAMPAIGN_CONTENT', 'AI_CONSENT_FORM', 'CUSTOM_PROVIDER_CONFIG', 'PATIENT_IMPORT', 'MARKETING_CAMPAIGNS', 'AUTOMATION_RULES'];
-    const ENTERPRISE_FEATURES = [...PROFESSIONAL_FEATURES, 'WHATSAPP_INBOX'];
+    const PROFESSIONAL_FEATURES = ['INVENTORY_MANAGEMENT', 'APPOINTMENT_CONFIRMATIONS', 'SMS_REMINDERS', 'WHATSAPP_INTEGRATION', 'DIGITAL_XRAY', 'AI_CLINICAL_NOTES', 'AI_PRESCRIPTION', 'AI_TREATMENT_PLAN', 'AI_CAMPAIGN_CONTENT', 'AI_CONSENT_FORM', 'CUSTOM_PROVIDER_CONFIG', 'PATIENT_IMPORT', 'MARKETING_CAMPAIGNS', 'AUTOMATION_RULES', 'AI_PATIENT_INSIGHTS'];
+    const ENTERPRISE_FEATURES = [...PROFESSIONAL_FEATURES, 'WHATSAPP_INBOX', 'CUSTOM_TEMPLATES'];
 
     const planFeatureMappings = [
       // Free
