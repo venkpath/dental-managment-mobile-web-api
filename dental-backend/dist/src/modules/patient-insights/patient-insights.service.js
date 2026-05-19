@@ -153,24 +153,26 @@ let PatientInsightsService = PatientInsightsService_1 = class PatientInsightsSer
     scorePatient(patient, now) {
         const msPerDay = 86_400_000;
         const past = patient.appointments.filter((a) => new Date(a.appointment_date) < now);
-        const future = patient.appointments.filter((a) => new Date(a.appointment_date) >= now);
+        const future = patient.appointments.filter((a) => new Date(a.appointment_date) >= now && a.status !== 'cancelled');
         const noShowCount = past.filter((a) => a.status === 'no_show').length;
         const cancelCount = past.filter((a) => a.status === 'cancelled').length;
-        let noShowScore = 0;
-        if (noShowCount >= 3)
-            noShowScore += 50;
-        else if (noShowCount === 2)
-            noShowScore += 35;
-        else if (noShowCount === 1)
-            noShowScore += 20;
-        if (cancelCount >= 3)
-            noShowScore += 15;
         const recentNoShow = past
             .filter((a) => a.status === 'no_show')
             .some((a) => (now.getTime() - new Date(a.appointment_date).getTime()) / msPerDay < 90);
-        if (recentNoShow)
-            noShowScore += 15;
-        noShowScore = Math.min(noShowScore, 100);
+        let noShowScore = 0;
+        if (future.length > 0) {
+            if (noShowCount >= 3)
+                noShowScore += 50;
+            else if (noShowCount === 2)
+                noShowScore += 35;
+            else if (noShowCount === 1)
+                noShowScore += 20;
+            if (cancelCount >= 3)
+                noShowScore += 15;
+            if (recentNoShow)
+                noShowScore += 15;
+            noShowScore = Math.min(noShowScore, 100);
+        }
         let recallDue = false;
         let recallDueDays = null;
         let recallTreatment = null;
@@ -183,7 +185,7 @@ let PatientInsightsService = PatientInsightsService_1 = class PatientInsightsSer
             const daysUntilDue = Math.round((dueDate.getTime() - now.getTime()) / msPerDay);
             recallLastDate = lastDate;
             recallTreatment = lastTreatment.procedure;
-            if (daysUntilDue <= 14) {
+            if (daysUntilDue <= 14 && future.length === 0) {
                 recallDue = true;
                 recallDueDays = -daysUntilDue;
             }

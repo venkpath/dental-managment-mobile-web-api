@@ -168,21 +168,29 @@ export class PatientInsightsService {
   ) {
     const msPerDay = 86_400_000;
     const past = patient.appointments.filter((a) => new Date(a.appointment_date) < now);
-    const future = patient.appointments.filter((a) => new Date(a.appointment_date) >= now);
+    const future = patient.appointments.filter(
+      (a) => new Date(a.appointment_date) >= now && a.status !== 'cancelled',
+    );
     const noShowCount = past.filter((a) => a.status === 'no_show').length;
     const cancelCount = past.filter((a) => a.status === 'cancelled').length;
 
     // ── No-show score ──
-    let noShowScore = 0;
-    if (noShowCount >= 3) noShowScore += 50;
-    else if (noShowCount === 2) noShowScore += 35;
-    else if (noShowCount === 1) noShowScore += 20;
-    if (cancelCount >= 3) noShowScore += 15;
+    // Only meaningful when the patient actually has an upcoming appointment.
+    // Past no-show history is informative but you can't "no-show" without a
+    // future booking — flagging here would surface a list with no actionable
+    // dates and produce confusing UI (e.g. "Upcoming appointment" placeholder).
     const recentNoShow = past
       .filter((a) => a.status === 'no_show')
       .some((a) => (now.getTime() - new Date(a.appointment_date).getTime()) / msPerDay < 90);
-    if (recentNoShow) noShowScore += 15;
-    noShowScore = Math.min(noShowScore, 100);
+    let noShowScore = 0;
+    if (future.length > 0) {
+      if (noShowCount >= 3) noShowScore += 50;
+      else if (noShowCount === 2) noShowScore += 35;
+      else if (noShowCount === 1) noShowScore += 20;
+      if (cancelCount >= 3) noShowScore += 15;
+      if (recentNoShow) noShowScore += 15;
+      noShowScore = Math.min(noShowScore, 100);
+    }
 
     // ── Recall due ──
     let recallDue = false;
@@ -198,7 +206,9 @@ export class PatientInsightsService {
       const daysUntilDue = Math.round((dueDate.getTime() - now.getTime()) / msPerDay);
       recallLastDate = lastDate;
       recallTreatment = lastTreatment.procedure;
-      if (daysUntilDue <= 14) {
+      // Don't flag for recall if the patient already has a future appointment
+      // booked — they're coming in soon, no recall outreach needed.
+      if (daysUntilDue <= 14 && future.length === 0) {
         recallDue = true;
         recallDueDays = -daysUntilDue; // positive = overdue
       }
