@@ -40,6 +40,25 @@ export class ReportsController {
     return this.reportsService.getDashboardSummary(clinicId, branchId, dentistId);
   }
 
+  @Get('dashboard-bootstrap')
+  @ApiOperation({
+    summary: 'Single-call payload for the dashboard above-the-fold widgets',
+    description:
+      'Returns dashboard summary + sparklines + today\'s appointments in one response. Use this in place of the three separate calls to cut cross-region latency.',
+  })
+  @ApiOkResponse({ description: 'Combined dashboard bootstrap payload' })
+  async getDashboardBootstrap(
+    @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
+    @Query('branch_id') branchId?: string,
+    @Query('days') daysParam?: string,
+  ) {
+    const dentistId = isDentistUser(user) ? user.sub : undefined;
+    const parsed = daysParam ? parseInt(daysParam, 10) : 7;
+    const days = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 7), 365) : 7;
+    return this.reportsService.getDashboardBootstrap(clinicId, branchId, dentistId, days);
+  }
+
   @Get('sparklines')
   @ApiOperation({ summary: 'Get N-day daily sparkline data and trend percentages for dashboard stat cards' })
   @ApiOkResponse({ description: 'N-day daily arrays for revenue/appointments/expenses plus trend percentages' })

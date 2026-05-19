@@ -153,6 +153,42 @@ let ReportsService = class ReportsService {
         this._summaryCache.set(cacheKey, { data: result, expiresAt: Date.now() + 30_000 });
         return result;
     }
+    async getDashboardBootstrap(clinicId, branchId, dentistId, days = 7) {
+        const todayStr = (() => {
+            const d = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        })();
+        const todayDate = new Date(todayStr);
+        const [summary, sparklines, todayAppointments] = await Promise.all([
+            this.getDashboardSummary(clinicId, branchId, dentistId),
+            this.getDashboardSparklines(clinicId, branchId, dentistId, days),
+            this.prisma.appointment.findMany({
+                where: {
+                    clinic_id: clinicId,
+                    appointment_date: todayDate,
+                    ...(branchId ? { branch_id: branchId } : {}),
+                    ...(dentistId ? { dentist_id: dentistId } : {}),
+                },
+                orderBy: [{ appointment_date: 'asc' }, { start_time: 'asc' }],
+                include: { patient: true, dentist: true, branch: true },
+                take: 50,
+            }),
+        ]);
+        return {
+            summary,
+            sparklines,
+            today_appointments: {
+                data: todayAppointments,
+                meta: {
+                    total: todayAppointments.length,
+                    page: 1,
+                    limit: 50,
+                    totalPages: 1,
+                },
+            },
+        };
+    }
     async getTodayPaymentBreakdown(clinicId, branchId, dentistId) {
         const now = new Date();
         const pad = (n) => String(n).padStart(2, '0');

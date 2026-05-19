@@ -21,12 +21,15 @@ const pg_1 = __importDefault(require("pg"));
 let PrismaService = PrismaService_1 = class PrismaService extends client_1.PrismaClient {
     logger = new common_1.Logger(PrismaService_1.name);
     pool;
+    keepAliveTimer;
     constructor() {
         const pool = new pg_1.default.Pool({
             connectionString: process.env['DATABASE_URL'],
-            min: 0,
-            idleTimeoutMillis: 10_000,
-            allowExitOnIdle: true,
+            min: 2,
+            max: 10,
+            idleTimeoutMillis: 240_000,
+            allowExitOnIdle: false,
+            keepAlive: true,
         });
         const adapter = new adapter_pg_1.PrismaPg(pool);
         super({ adapter });
@@ -35,10 +38,31 @@ let PrismaService = PrismaService_1 = class PrismaService extends client_1.Prism
     async onModuleInit() {
         this.logger.log('Connecting to database...');
         await this.$connect();
+        try {
+            await Promise.all([
+                this.$queryRawUnsafe('SELECT 1'),
+                this.$queryRawUnsafe('SELECT 1'),
+            ]);
+        }
+        catch (err) {
+            this.logger.warn(`Warmup query failed (non-fatal): ${err.message}`);
+        }
         this.logger.log('Database connection established');
+        this.keepAliveTimer = setInterval(() => {
+            this.$queryRawUnsafe('SELECT 1').catch((err) => {
+                this.logger.warn(`Keep-alive ping failed: ${err.message}`);
+            });
+        }, 4 * 60 * 1000);
+        if (typeof this.keepAliveTimer.unref === 'function') {
+            this.keepAliveTimer.unref();
+        }
     }
     async onModuleDestroy() {
         this.logger.log('Disconnecting from database...');
+        if (this.keepAliveTimer) {
+            clearInterval(this.keepAliveTimer);
+            this.keepAliveTimer = undefined;
+        }
         await this.$disconnect();
         await this.pool.end();
         this.logger.log('Database connection closed');

@@ -249,6 +249,57 @@ export class ReportsService {
     return result;
   }
 
+  /**
+   * Single bootstrap endpoint that returns every top-of-fold dashboard
+   * payload (summary stats, sparklines, today's appointments) in one round
+   * trip. Replaces three separate frontend queries — drops ~2 cross-region
+   * RTTs and lets the three underlying queries run in true parallel inside
+   * a single Postgres session.
+   */
+  async getDashboardBootstrap(
+    clinicId: string,
+    branchId?: string,
+    dentistId?: string,
+    days: number = 7,
+  ) {
+    const todayStr = (() => {
+      const d = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    })();
+    const todayDate = new Date(todayStr);
+
+    const [summary, sparklines, todayAppointments] = await Promise.all([
+      this.getDashboardSummary(clinicId, branchId, dentistId),
+      this.getDashboardSparklines(clinicId, branchId, dentistId, days),
+      this.prisma.appointment.findMany({
+        where: {
+          clinic_id: clinicId,
+          appointment_date: todayDate,
+          ...(branchId ? { branch_id: branchId } : {}),
+          ...(dentistId ? { dentist_id: dentistId } : {}),
+        },
+        orderBy: [{ appointment_date: 'asc' }, { start_time: 'asc' }],
+        include: { patient: true, dentist: true, branch: true },
+        take: 50,
+      }),
+    ]);
+
+    return {
+      summary,
+      sparklines,
+      today_appointments: {
+        data: todayAppointments,
+        meta: {
+          total: todayAppointments.length,
+          page: 1,
+          limit: 50,
+          totalPages: 1,
+        },
+      },
+    };
+  }
+
   async getTodayPaymentBreakdown(
     clinicId: string,
     branchId?: string,

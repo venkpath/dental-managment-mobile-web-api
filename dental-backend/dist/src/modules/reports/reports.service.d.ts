@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service.js';
 import { RevenueQueryDto, AppointmentAnalyticsQueryDto, DentistPerformanceQueryDto, PatientAnalyticsQueryDto, TreatmentAnalyticsQueryDto } from './dto/index.js';
 export interface DashboardSummary {
@@ -60,6 +61,120 @@ export declare class ReportsService {
     constructor(prisma: PrismaService);
     private readonly _summaryCache;
     getDashboardSummary(clinicId: string, branchId?: string, dentistId?: string, referenceDate?: Date): Promise<DashboardSummary>;
+    getDashboardBootstrap(clinicId: string, branchId?: string, dentistId?: string, days?: number): Promise<{
+        summary: DashboardSummary;
+        sparklines: {
+            daily: Array<{
+                date: string;
+                revenue: number;
+                appointments: number;
+                expenses: number;
+            }>;
+            trends: {
+                today_revenue_vs_yesterday: number | null;
+                today_appointments_vs_yesterday: number | null;
+                outstanding_vs_last_month: number | null;
+                month_revenue_vs_last_month: number | null;
+                month_expenses_vs_last_month: number | null;
+                net_profit_vs_last_month: number | null;
+            };
+        };
+        today_appointments: {
+            data: ({
+                branch: {
+                    id: string;
+                    name: string;
+                    created_at: Date;
+                    updated_at: Date;
+                    phone: string | null;
+                    address: string | null;
+                    city: string | null;
+                    state: string | null;
+                    country: string | null;
+                    pincode: string | null;
+                    latitude: number | null;
+                    longitude: number | null;
+                    map_url: string | null;
+                    book_now_url: string | null;
+                    working_start_time: string | null;
+                    working_end_time: string | null;
+                    lunch_start_time: string | null;
+                    lunch_end_time: string | null;
+                    slot_duration: number | null;
+                    default_appt_duration: number | null;
+                    buffer_minutes: number | null;
+                    advance_booking_days: number | null;
+                    working_days: string | null;
+                    prescription_template_url: string | null;
+                    prescription_template_config: Prisma.JsonValue | null;
+                    prescription_template_enabled: boolean;
+                    qr_code_token: string | null;
+                    qr_code_enabled: boolean;
+                    qr_code_generated_at: Date | null;
+                    clinic_id: string;
+                };
+                dentist: {
+                    id: string;
+                    email: string;
+                    password_hash: string;
+                    name: string;
+                    status: string;
+                    created_at: Date;
+                    updated_at: Date;
+                    phone: string | null;
+                    clinic_id: string;
+                    role: string;
+                    email_verified: boolean;
+                    phone_verified: boolean;
+                    is_doctor: boolean;
+                    license_number: string | null;
+                    signature_url: string | null;
+                    profile_photo_url: string | null;
+                    branch_id: string | null;
+                };
+                patient: {
+                    id: string;
+                    email: string | null;
+                    created_at: Date;
+                    updated_at: Date;
+                    phone: string;
+                    clinic_id: string;
+                    profile_photo_url: string | null;
+                    branch_id: string;
+                    age: number | null;
+                    gender: string;
+                    first_name: string;
+                    last_name: string;
+                    date_of_birth: Date | null;
+                    blood_group: string | null;
+                    medical_history: Prisma.JsonValue | null;
+                    allergies: string | null;
+                    notes: string | null;
+                    preferred_language: string;
+                };
+            } & {
+                id: string;
+                status: string;
+                created_at: Date;
+                updated_at: Date;
+                clinic_id: string;
+                branch_id: string;
+                appointment_date: Date;
+                patient_id: string;
+                notes: string | null;
+                dentist_id: string;
+                start_time: string;
+                end_time: string;
+                recurrence_group_id: string | null;
+            })[];
+            meta: {
+                total: number;
+                page: number;
+                limit: number;
+                totalPages: number;
+            };
+        };
+    }>;
     getTodayPaymentBreakdown(clinicId: string, branchId?: string, dentistId?: string): Promise<{
         cash: number;
         card: number;
