@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CreateInvoiceDto = exports.InvoiceItemDto = exports.InvoiceItemType = exports.InvoiceStatus = void 0;
+exports.CreateInvoiceDto = exports.InvoiceItemDto = exports.CoverageCategory = exports.InvoiceItemType = exports.InvoiceStatus = void 0;
 const openapi = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
@@ -26,14 +26,24 @@ var InvoiceItemType;
     InvoiceItemType["SERVICE"] = "service";
     InvoiceItemType["PHARMACY"] = "pharmacy";
 })(InvoiceItemType || (exports.InvoiceItemType = InvoiceItemType = {}));
+var CoverageCategory;
+(function (CoverageCategory) {
+    CoverageCategory["PREVENTIVE"] = "preventive";
+    CoverageCategory["BASIC"] = "basic";
+    CoverageCategory["MAJOR"] = "major";
+    CoverageCategory["ORTHO"] = "ortho";
+    CoverageCategory["EMERGENCY"] = "emergency";
+})(CoverageCategory || (exports.CoverageCategory = CoverageCategory = {}));
 class InvoiceItemDto {
     treatment_id;
     item_type;
     description;
     quantity;
     unit_price;
+    coverage_category;
+    scheme_max_fee;
     static _OPENAPI_METADATA_FACTORY() {
-        return { treatment_id: { required: false, type: () => String, format: "uuid" }, item_type: { required: true, enum: require("./create-invoice.dto").InvoiceItemType }, description: { required: true, type: () => String, maxLength: 500 }, quantity: { required: true, type: () => Number, minimum: 1 }, unit_price: { required: true, type: () => Number, minimum: 0 } };
+        return { treatment_id: { required: false, type: () => String, format: "uuid" }, item_type: { required: true, enum: require("./create-invoice.dto").InvoiceItemType }, description: { required: true, type: () => String, maxLength: 500 }, quantity: { required: true, type: () => Number, minimum: 1 }, unit_price: { required: true, type: () => Number, minimum: 0 }, coverage_category: { required: false, enum: require("./create-invoice.dto").CoverageCategory }, scheme_max_fee: { required: false, type: () => Number, minimum: 0 } };
     }
 }
 exports.InvoiceItemDto = InvoiceItemDto;
@@ -68,6 +78,26 @@ __decorate([
     (0, class_transformer_1.Type)(() => Number),
     __metadata("design:type", Number)
 ], InvoiceItemDto.prototype, "unit_price", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        enum: CoverageCategory,
+        description: 'Insurance coverage category — drives which plan % applies. Defaults to "basic" when patient_insurance_id is set and category is omitted.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(CoverageCategory),
+    __metadata("design:type", String)
+], InvoiceItemDto.prototype, "coverage_category", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: 1200.0,
+        description: 'CGHS / scheme rate cap for this procedure. When set, insurance pays only up to this amount (CGHS-style billing). Patient pays the gap.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)({ maxDecimalPlaces: 2 }),
+    (0, class_validator_1.Min)(0),
+    (0, class_transformer_1.Type)(() => Number),
+    __metadata("design:type", Number)
+], InvoiceItemDto.prototype, "scheme_max_fee", void 0);
 class CreateInvoiceDto {
     branch_id;
     patient_id;
@@ -78,9 +108,12 @@ class CreateInvoiceDto {
     gst_number;
     tax_breakdown;
     as_draft;
+    patient_insurance_id;
+    override_insurance_covered_amount;
+    override_patient_copay_amount;
     items;
     static _OPENAPI_METADATA_FACTORY() {
-        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: false, type: () => String, format: "uuid" }, treatment_date: { required: false, type: () => String }, tax_percentage: { required: false, type: () => Number, minimum: 0 }, discount_amount: { required: false, type: () => Number, minimum: 0 }, gst_number: { required: false, type: () => String, maxLength: 20, pattern: "/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/" }, tax_breakdown: { required: false, type: () => Object }, as_draft: { required: false, type: () => Boolean }, items: { required: true, type: () => [require("./create-invoice.dto").InvoiceItemDto], minItems: 1 } };
+        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: false, type: () => String, format: "uuid" }, treatment_date: { required: false, type: () => String }, tax_percentage: { required: false, type: () => Number, minimum: 0 }, discount_amount: { required: false, type: () => Number, minimum: 0 }, gst_number: { required: false, type: () => String, maxLength: 20, pattern: "/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/" }, tax_breakdown: { required: false, type: () => Object }, as_draft: { required: false, type: () => Boolean }, patient_insurance_id: { required: false, type: () => String, format: "uuid" }, override_insurance_covered_amount: { required: false, type: () => Number, minimum: 0 }, override_patient_copay_amount: { required: false, type: () => Number, minimum: 0 }, items: { required: true, type: () => [require("./create-invoice.dto").InvoiceItemDto], minItems: 1 } };
     }
 }
 exports.CreateInvoiceDto = CreateInvoiceDto;
@@ -161,6 +194,36 @@ __decorate([
     (0, class_transformer_1.Type)(() => Boolean),
     __metadata("design:type", Boolean)
 ], CreateInvoiceDto.prototype, "as_draft", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Patient insurance / EHS enrollment UUID. When set, the invoice is billed under that plan; insurance vs patient portions are auto-calculated and stored on the invoice.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], CreateInvoiceDto.prototype, "patient_insurance_id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Manual override of the insurance-covered amount. When set, replaces the auto-calculated value from the country strategy. Use for negotiated rates or partial scheme approvals.',
+        example: 1500,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)({ maxDecimalPlaces: 2 }),
+    (0, class_validator_1.Min)(0),
+    (0, class_transformer_1.Type)(() => Number),
+    __metadata("design:type", Number)
+], CreateInvoiceDto.prototype, "override_insurance_covered_amount", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Manual override of the patient co-pay amount. Pair with override_insurance_covered_amount to fully control the split.',
+        example: 500,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)({ maxDecimalPlaces: 2 }),
+    (0, class_validator_1.Min)(0),
+    (0, class_transformer_1.Type)(() => Number),
+    __metadata("design:type", Number)
+], CreateInvoiceDto.prototype, "override_patient_copay_amount", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ type: [InvoiceItemDto], description: 'Line items for the invoice' }),
     (0, class_validator_1.IsArray)(),

@@ -32,6 +32,7 @@ export declare class ReferralService {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            notes: string | null;
             age: number | null;
             gender: string;
             first_name: string;
@@ -40,7 +41,6 @@ export declare class ReferralService {
             blood_group: string | null;
             medical_history: import("@prisma/client/runtime/client").JsonValue | null;
             allergies: string | null;
-            notes: string | null;
             preferred_language: string;
         };
         referred: {
@@ -52,6 +52,7 @@ export declare class ReferralService {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            notes: string | null;
             age: number | null;
             gender: string;
             first_name: string;
@@ -60,7 +61,6 @@ export declare class ReferralService {
             blood_group: string | null;
             medical_history: import("@prisma/client/runtime/client").JsonValue | null;
             allergies: string | null;
-            notes: string | null;
             preferred_language: string;
         } | null;
     } & {

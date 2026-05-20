@@ -92,10 +92,10 @@ export declare class CommunicationController {
             status: string;
             created_at: Date;
             channel: string;
+            provider: string;
             cost: import("@prisma/client-runtime-utils").Decimal | null;
             sent_at: Date | null;
             message_id: string;
-            provider: string;
             provider_message_id: string | null;
             error_message: string | null;
             delivered_at: Date | null;
@@ -203,10 +203,10 @@ export declare class CommunicationController {
             status: string;
             created_at: Date;
             channel: string;
+            provider: string;
             cost: import("@prisma/client-runtime-utils").Decimal | null;
             sent_at: Date | null;
             message_id: string;
-            provider: string;
             provider_message_id: string | null;
             error_message: string | null;
             delivered_at: Date | null;
@@ -262,10 +262,10 @@ export declare class CommunicationController {
                 status: string;
                 created_at: Date;
                 channel: string;
+                provider: string;
                 cost: import("@prisma/client-runtime-utils").Decimal | null;
                 sent_at: Date | null;
                 message_id: string;
-                provider: string;
                 provider_message_id: string | null;
                 error_message: string | null;
                 delivered_at: Date | null;

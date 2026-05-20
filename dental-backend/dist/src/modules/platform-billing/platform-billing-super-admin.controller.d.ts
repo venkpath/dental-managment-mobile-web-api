@@ -31,6 +31,7 @@ export declare class PlatformBillingSuperAdminController {
             due_date: Date | null;
             currency: string;
             notes: string | null;
+            plan_name: string;
             period_start: Date;
             created_by_user_id: string | null;
             invoice_number: string;
@@ -38,7 +39,6 @@ export declare class PlatformBillingSuperAdminController {
             tax_amount: import("@prisma/client-runtime-utils").Decimal;
             issued_at: Date;
             paid_at: Date | null;
-            plan_name: string;
             period_end: Date;
             subtotal: import("@prisma/client-runtime-utils").Decimal;
             tax_rate: import("@prisma/client-runtime-utils").Decimal;
@@ -89,6 +89,7 @@ export declare class PlatformBillingSuperAdminController {
         due_date: Date | null;
         currency: string;
         notes: string | null;
+        plan_name: string;
         period_start: Date;
         created_by_user_id: string | null;
         invoice_number: string;
@@ -96,7 +97,6 @@ export declare class PlatformBillingSuperAdminController {
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         issued_at: Date;
         paid_at: Date | null;
-        plan_name: string;
         period_end: Date;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
         tax_rate: import("@prisma/client-runtime-utils").Decimal;
@@ -146,6 +146,7 @@ export declare class PlatformBillingSuperAdminController {
         due_date: Date | null;
         currency: string;
         notes: string | null;
+        plan_name: string;
         period_start: Date;
         created_by_user_id: string | null;
         invoice_number: string;
@@ -153,7 +154,6 @@ export declare class PlatformBillingSuperAdminController {
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         issued_at: Date;
         paid_at: Date | null;
-        plan_name: string;
         period_end: Date;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
         tax_rate: import("@prisma/client-runtime-utils").Decimal;
@@ -196,6 +196,7 @@ export declare class PlatformBillingSuperAdminController {
         due_date: Date | null;
         currency: string;
         notes: string | null;
+        plan_name: string;
         period_start: Date;
         created_by_user_id: string | null;
         invoice_number: string;
@@ -203,7 +204,6 @@ export declare class PlatformBillingSuperAdminController {
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         issued_at: Date;
         paid_at: Date | null;
-        plan_name: string;
         period_end: Date;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
         tax_rate: import("@prisma/client-runtime-utils").Decimal;

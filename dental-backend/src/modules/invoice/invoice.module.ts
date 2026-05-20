@@ -4,9 +4,10 @@ import { InvoiceService } from './invoice.service.js';
 import { InvoicePdfService } from './invoice-pdf.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 import { AutomationModule } from '../automation/automation.module.js';
+import { InsuranceModule } from '../insurance/insurance.module.js';
 
 @Module({
-  imports: [AutomationModule],
+  imports: [AutomationModule, InsuranceModule],
   controllers: [InvoiceController, InvoicePublicController],
   providers: [InvoiceService, InvoicePdfService, S3Service],
   exports: [InvoiceService],

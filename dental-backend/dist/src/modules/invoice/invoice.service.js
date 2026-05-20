@@ -22,6 +22,7 @@ const invoice_pdf_service_js_1 = require("./invoice-pdf.service.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
 const currency_util_js_1 = require("../../common/utils/currency.util.js");
 const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
+const patient_insurance_service_js_1 = require("../insurance/services/patient-insurance.service.js");
 const INVOICE_INCLUDE = {
     items: { include: { treatment: { include: { dentist: true } } } },
     payments: { include: { installment_item: true }, orderBy: { paid_at: 'asc' } },
@@ -32,6 +33,16 @@ const INVOICE_INCLUDE = {
     dentist: true,
     created_by: true,
     installment_plan: { include: { items: { orderBy: { installment_number: 'asc' } } } },
+    patient_insurance: {
+        include: {
+            plan: {
+                include: {
+                    provider: { select: { id: true, name: true, short_code: true, type: true, country: true, claim_method: true } },
+                },
+            },
+        },
+    },
+    insurance_claims: { orderBy: { created_at: 'desc' } },
 };
 let InvoiceService = InvoiceService_1 = class InvoiceService {
     prisma;
@@ -40,14 +51,16 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
     invoicePdfService;
     s3Service;
     planLimit;
+    patientInsurance;
     logger = new common_1.Logger(InvoiceService_1.name);
-    constructor(prisma, communicationService, automationService, invoicePdfService, s3Service, planLimit) {
+    constructor(prisma, communicationService, automationService, invoicePdfService, s3Service, planLimit, patientInsurance) {
         this.prisma = prisma;
         this.communicationService = communicationService;
         this.automationService = automationService;
         this.invoicePdfService = invoicePdfService;
         this.s3Service = s3Service;
         this.planLimit = planLimit;
+        this.patientInsurance = patientInsurance;
     }
     async create(clinicId, dto, createdByUserId) {
         await this.planLimit.enforceMonthlyCap(clinicId, 'invoices');
@@ -82,12 +95,31 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         const taxPercent = dto.tax_percentage ?? 0;
         const taxAmount = Math.round(taxableAmount * (taxPercent / 100) * 100) / 100;
         const netAmount = Math.round((taxableAmount + taxAmount) * 100) / 100;
-        const { items, tax_percentage, tax_breakdown, as_draft, ...rest } = dto;
+        const { items, tax_percentage, tax_breakdown, as_draft, patient_insurance_id, override_insurance_covered_amount, override_patient_copay_amount, ...rest } = dto;
         const isDraft = as_draft === true;
         const now = new Date();
+        let insuranceCovered = null;
+        let patientCopay = null;
+        if (patient_insurance_id) {
+            const breakdown = await this.patientInsurance.previewCoverage(clinicId, patient_insurance_id, items.map((it) => ({
+                description: it.description,
+                category: it.coverage_category ?? 'basic',
+                clinic_rate: it.unit_price,
+                quantity: it.quantity,
+                scheme_max_fee: it.scheme_max_fee ?? null,
+            })));
+            insuranceCovered = breakdown.insurance_total;
+            patientCopay = breakdown.patient_copay_total;
+            if (override_insurance_covered_amount !== undefined) {
+                insuranceCovered = override_insurance_covered_amount;
+            }
+            if (override_patient_copay_amount !== undefined) {
+                patientCopay = override_patient_copay_amount;
+            }
+        }
         return this.prisma.$transaction(async (tx) => {
             const invoiceNumber = await this.generateInvoiceNumber(clinicId, tx);
-            return tx.invoice.create({
+            const invoice = await tx.invoice.create({
                 data: {
                     clinic_id: clinicId,
                     branch_id: rest.branch_id,
@@ -105,6 +137,9 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                     lifecycle_status: isDraft ? 'draft' : 'issued',
                     issued_at: isDraft ? null : now,
                     issued_by_user_id: isDraft ? null : (createdByUserId ?? null),
+                    patient_insurance_id: patient_insurance_id ?? null,
+                    insurance_covered_amount: insuranceCovered != null ? new client_1.Prisma.Decimal(insuranceCovered) : null,
+                    patient_copay_amount: patientCopay != null ? new client_1.Prisma.Decimal(patientCopay) : null,
                     items: {
                         create: items.map((item) => ({
                             treatment_id: item.treatment_id,
@@ -117,6 +152,34 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                     },
                 },
             });
+            if (patient_insurance_id && !isDraft && insuranceCovered != null) {
+                const insurancePlan = await tx.patientInsurance.findUnique({
+                    where: { id: patient_insurance_id },
+                    include: { plan: true },
+                });
+                if (insurancePlan) {
+                    await tx.insuranceClaim.create({
+                        data: {
+                            clinic_id: clinicId,
+                            invoice_id: invoice.id,
+                            patient_insurance_id,
+                            billed_amount: new client_1.Prisma.Decimal(insuranceCovered),
+                            patient_portion: patientCopay != null ? new client_1.Prisma.Decimal(patientCopay) : null,
+                            currency: insurancePlan.plan.currency,
+                            status: 'DRAFT',
+                            status_history: {
+                                create: {
+                                    from_status: null,
+                                    to_status: 'DRAFT',
+                                    changed_by_user_id: createdByUserId ?? null,
+                                    note: 'Auto-created on invoice issue',
+                                },
+                            },
+                        },
+                    });
+                }
+            }
+            return invoice;
         });
     }
     async findAll(clinicId, query) {
@@ -323,14 +386,50 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         if (invoice.lifecycle_status === 'cancelled') {
             throw new common_1.BadRequestException('Cannot issue a cancelled invoice');
         }
-        return this.prisma.invoice.update({
-            where: { id: invoiceId },
-            data: {
-                lifecycle_status: 'issued',
-                issued_at: new Date(),
-                issued_by_user_id: userId ?? null,
-            },
-            include: INVOICE_INCLUDE,
+        return this.prisma.$transaction(async (tx) => {
+            const updated = await tx.invoice.update({
+                where: { id: invoiceId },
+                data: {
+                    lifecycle_status: 'issued',
+                    issued_at: new Date(),
+                    issued_by_user_id: userId ?? null,
+                },
+                include: INVOICE_INCLUDE,
+            });
+            if (updated.patient_insurance_id && updated.insurance_covered_amount) {
+                const existingClaim = await tx.insuranceClaim.findFirst({
+                    where: { invoice_id: invoiceId },
+                    select: { id: true },
+                });
+                if (!existingClaim) {
+                    const enrollment = await tx.patientInsurance.findUnique({
+                        where: { id: updated.patient_insurance_id },
+                        include: { plan: true },
+                    });
+                    if (enrollment) {
+                        await tx.insuranceClaim.create({
+                            data: {
+                                clinic_id: clinicId,
+                                invoice_id: invoiceId,
+                                patient_insurance_id: updated.patient_insurance_id,
+                                billed_amount: updated.insurance_covered_amount,
+                                patient_portion: updated.patient_copay_amount,
+                                currency: enrollment.plan.currency,
+                                status: 'DRAFT',
+                                status_history: {
+                                    create: {
+                                        from_status: null,
+                                        to_status: 'DRAFT',
+                                        changed_by_user_id: userId ?? null,
+                                        note: 'Auto-created on invoice issue (from draft)',
+                                    },
+                                },
+                            },
+                        });
+                    }
+                }
+            }
+            return updated;
         });
     }
     async cancelInvoice(clinicId, invoiceId, userId, reason) {
@@ -699,6 +798,7 @@ exports.InvoiceService = InvoiceService = InvoiceService_1 = __decorate([
         automation_service_js_1.AutomationService,
         invoice_pdf_service_js_1.InvoicePdfService,
         s3_service_js_1.S3Service,
-        plan_limit_service_js_1.PlanLimitService])
+        plan_limit_service_js_1.PlanLimitService,
+        patient_insurance_service_js_1.PatientInsuranceService])
 ], InvoiceService);
 //# sourceMappingURL=invoice.service.js.map

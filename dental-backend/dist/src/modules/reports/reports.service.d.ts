@@ -141,6 +141,7 @@ export declare class ReportsService {
                     clinic_id: string;
                     profile_photo_url: string | null;
                     branch_id: string;
+                    notes: string | null;
                     age: number | null;
                     gender: string;
                     first_name: string;
@@ -149,7 +150,6 @@ export declare class ReportsService {
                     blood_group: string | null;
                     medical_history: Prisma.JsonValue | null;
                     allergies: string | null;
-                    notes: string | null;
                     preferred_language: string;
                 };
             } & {
@@ -160,8 +160,8 @@ export declare class ReportsService {
                 clinic_id: string;
                 branch_id: string;
                 appointment_date: Date;
-                patient_id: string;
                 notes: string | null;
+                patient_id: string;
                 dentist_id: string;
                 start_time: string;
                 end_time: string;

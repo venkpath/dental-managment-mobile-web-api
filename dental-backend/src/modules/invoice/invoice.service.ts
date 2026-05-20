@@ -11,6 +11,7 @@ import { InvoicePdfService } from './invoice-pdf.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 import { getCurrencySymbol, getCurrencyLocale } from '../../common/utils/currency.util.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
+import { PatientInsuranceService } from '../insurance/services/patient-insurance.service.js';
 
 const INVOICE_INCLUDE = {
   items: { include: { treatment: { include: { dentist: true } } } },
@@ -22,6 +23,17 @@ const INVOICE_INCLUDE = {
   dentist: true,
   created_by: true,
   installment_plan: { include: { items: { orderBy: { installment_number: 'asc' as const } } } },
+  // Insurance details (Phase 7) — only populated when patient_insurance_id is set.
+  patient_insurance: {
+    include: {
+      plan: {
+        include: {
+          provider: { select: { id: true, name: true, short_code: true, type: true, country: true, claim_method: true } },
+        },
+      },
+    },
+  },
+  insurance_claims: { orderBy: { created_at: 'desc' as const } },
 } as const;
 
 type InvoiceWithIncludes = Prisma.InvoiceGetPayload<{ include: typeof INVOICE_INCLUDE }>;
@@ -37,6 +49,7 @@ export class InvoiceService {
     private readonly invoicePdfService: InvoicePdfService,
     private readonly s3Service: S3Service,
     private readonly planLimit: PlanLimitService,
+    private readonly patientInsurance: PatientInsuranceService,
   ) {}
 
   async create(clinicId: string, dto: CreateInvoiceDto, createdByUserId?: string): Promise<Invoice> {
@@ -84,9 +97,52 @@ export class InvoiceService {
     const taxAmount = Math.round(taxableAmount * (taxPercent / 100) * 100) / 100;
     const netAmount = Math.round((taxableAmount + taxAmount) * 100) / 100;
 
-    const { items, tax_percentage, tax_breakdown, as_draft, ...rest } = dto;
+    const {
+      items,
+      tax_percentage,
+      tax_breakdown,
+      as_draft,
+      patient_insurance_id,
+      override_insurance_covered_amount,
+      override_patient_copay_amount,
+      ...rest
+    } = dto;
     const isDraft = as_draft === true;
     const now = new Date();
+
+    // ── Insurance coverage calculation ────────────────────────────────────
+    // When an enrollment is attached, run the country-specific strategy over
+    // the invoice items to compute insurance vs patient portions, then
+    // persist them on the invoice (denormalised) so the bill view + claim
+    // creation flow can read them without re-running the engine.
+    //
+    // Manual overrides (`override_insurance_covered_amount` /
+    // `override_patient_copay_amount`) win over the calculated values when
+    // present — use case is negotiated rates, partial scheme approvals, or
+    // when staff already know what the scheme will pay.
+    let insuranceCovered: number | null = null;
+    let patientCopay: number | null = null;
+    if (patient_insurance_id) {
+      const breakdown = await this.patientInsurance.previewCoverage(
+        clinicId,
+        patient_insurance_id,
+        items.map((it) => ({
+          description: it.description,
+          category: it.coverage_category ?? 'basic',
+          clinic_rate: it.unit_price,
+          quantity: it.quantity,
+          scheme_max_fee: it.scheme_max_fee ?? null,
+        })),
+      );
+      insuranceCovered = breakdown.insurance_total;
+      patientCopay = breakdown.patient_copay_total;
+      if (override_insurance_covered_amount !== undefined) {
+        insuranceCovered = override_insurance_covered_amount;
+      }
+      if (override_patient_copay_amount !== undefined) {
+        patientCopay = override_patient_copay_amount;
+      }
+    }
 
     // Transaction: generate invoice number + create invoice with items atomically.
     // Return only bare Invoice (no includes) — the caller only needs the id to
@@ -94,7 +150,7 @@ export class InvoiceService {
     return this.prisma.$transaction(async (tx) => {
       const invoiceNumber = await this.generateInvoiceNumber(clinicId, tx);
 
-      return tx.invoice.create({
+      const invoice = await tx.invoice.create({
         data: {
           clinic_id: clinicId,
           branch_id: rest.branch_id,
@@ -114,6 +170,12 @@ export class InvoiceService {
           lifecycle_status: isDraft ? 'draft' : 'issued',
           issued_at: isDraft ? null : now,
           issued_by_user_id: isDraft ? null : (createdByUserId ?? null),
+          // Insurance breakdown (denormalised; canonical claim lives in
+          // insurance_claims). Only set when the invoice is associated with
+          // a patient insurance enrollment.
+          patient_insurance_id: patient_insurance_id ?? null,
+          insurance_covered_amount: insuranceCovered != null ? new Prisma.Decimal(insuranceCovered) : null,
+          patient_copay_amount: patientCopay != null ? new Prisma.Decimal(patientCopay) : null,
           items: {
             create: items.map((item) => ({
               treatment_id: item.treatment_id,
@@ -128,6 +190,42 @@ export class InvoiceService {
           },
         },
       });
+
+      // Auto-create a DRAFT claim record when:
+      //   - patient has insurance attached AND
+      //   - invoice is immediately issued (not saved as draft).
+      // Draft invoices skip this — the claim materialises only when the bill
+      // is committed. The claim itself stays in DRAFT until staff submits it
+      // (Sprint 3 flow).
+      if (patient_insurance_id && !isDraft && insuranceCovered != null) {
+        const insurancePlan = await tx.patientInsurance.findUnique({
+          where: { id: patient_insurance_id },
+          include: { plan: true },
+        });
+        if (insurancePlan) {
+          await tx.insuranceClaim.create({
+            data: {
+              clinic_id: clinicId,
+              invoice_id: invoice.id,
+              patient_insurance_id,
+              billed_amount: new Prisma.Decimal(insuranceCovered),
+              patient_portion: patientCopay != null ? new Prisma.Decimal(patientCopay) : null,
+              currency: insurancePlan.plan.currency,
+              status: 'DRAFT',
+              status_history: {
+                create: {
+                  from_status: null,
+                  to_status: 'DRAFT',
+                  changed_by_user_id: createdByUserId ?? null,
+                  note: 'Auto-created on invoice issue',
+                },
+              },
+            },
+          });
+        }
+      }
+
+      return invoice;
     });
   }
 
@@ -427,14 +525,56 @@ export class InvoiceService {
     }
     // Anything else here would be a draft.
 
-    return this.prisma.invoice.update({
-      where: { id: invoiceId },
-      data: {
-        lifecycle_status: 'issued',
-        issued_at: new Date(),
-        issued_by_user_id: userId ?? null,
-      },
-      include: INVOICE_INCLUDE,
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          lifecycle_status: 'issued',
+          issued_at: new Date(),
+          issued_by_user_id: userId ?? null,
+        },
+        include: INVOICE_INCLUDE,
+      });
+
+      // Materialise the DRAFT insurance claim now that the invoice is real.
+      // We only do this for invoices that were saved as draft with insurance
+      // attached — immediate-issue invoices create the claim inside create()
+      // already. Skip if a claim already exists (idempotent).
+      if (updated.patient_insurance_id && updated.insurance_covered_amount) {
+        const existingClaim = await tx.insuranceClaim.findFirst({
+          where: { invoice_id: invoiceId },
+          select: { id: true },
+        });
+        if (!existingClaim) {
+          const enrollment = await tx.patientInsurance.findUnique({
+            where: { id: updated.patient_insurance_id },
+            include: { plan: true },
+          });
+          if (enrollment) {
+            await tx.insuranceClaim.create({
+              data: {
+                clinic_id: clinicId,
+                invoice_id: invoiceId,
+                patient_insurance_id: updated.patient_insurance_id,
+                billed_amount: updated.insurance_covered_amount,
+                patient_portion: updated.patient_copay_amount,
+                currency: enrollment.plan.currency,
+                status: 'DRAFT',
+                status_history: {
+                  create: {
+                    from_status: null,
+                    to_status: 'DRAFT',
+                    changed_by_user_id: userId ?? null,
+                    note: 'Auto-created on invoice issue (from draft)',
+                  },
+                },
+              },
+            });
+          }
+        }
+      }
+
+      return updated;
     });
   }
 

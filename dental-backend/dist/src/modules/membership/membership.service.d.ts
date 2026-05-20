@@ -161,6 +161,7 @@ export declare class MembershipService {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            notes: string | null;
             age: number | null;
             gender: string;
             first_name: string;
@@ -169,7 +170,6 @@ export declare class MembershipService {
             blood_group: string | null;
             medical_history: Prisma.JsonValue | null;
             allergies: string | null;
-            notes: string | null;
             preferred_language: string;
         };
         members: ({
@@ -182,6 +182,7 @@ export declare class MembershipService {
                 clinic_id: string;
                 profile_photo_url: string | null;
                 branch_id: string;
+                notes: string | null;
                 age: number | null;
                 gender: string;
                 first_name: string;
@@ -190,7 +191,6 @@ export declare class MembershipService {
                 blood_group: string | null;
                 medical_history: Prisma.JsonValue | null;
                 allergies: string | null;
-                notes: string | null;
                 preferred_language: string;
             };
         } & {
@@ -211,6 +211,7 @@ export declare class MembershipService {
                 clinic_id: string;
                 profile_photo_url: string | null;
                 branch_id: string;
+                notes: string | null;
                 age: number | null;
                 gender: string;
                 first_name: string;
@@ -219,7 +220,6 @@ export declare class MembershipService {
                 blood_group: string | null;
                 medical_history: Prisma.JsonValue | null;
                 allergies: string | null;
-                notes: string | null;
                 preferred_language: string;
             };
             treatment: {
@@ -229,11 +229,11 @@ export declare class MembershipService {
                 updated_at: Date;
                 clinic_id: string;
                 branch_id: string;
+                notes: string | null;
                 patient_id: string;
                 procedure: string;
                 tooth_number: string | null;
                 cost: Prisma.Decimal;
-                notes: string | null;
                 dentist_id: string;
                 clinical_visit_id: string | null;
                 treatment_plan_id: string | null;
@@ -263,6 +263,9 @@ export declare class MembershipService {
                 cancelled_at: Date | null;
                 cancelled_by_user_id: string | null;
                 cancel_reason: string | null;
+                patient_insurance_id: string | null;
+                insurance_covered_amount: Prisma.Decimal | null;
+                patient_copay_amount: Prisma.Decimal | null;
             } | null;
             benefit: {
                 id: string;
@@ -286,8 +289,8 @@ export declare class MembershipService {
             id: string;
             created_at: Date;
             clinic_id: string;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
             invoice_id: string | null;
             treatment_id: string | null;
             membership_enrollment_id: string;
@@ -303,9 +306,9 @@ export declare class MembershipService {
         updated_at: Date;
         clinic_id: string;
         branch_id: string;
+        notes: string | null;
         start_date: Date;
         end_date: Date;
-        notes: string | null;
         membership_plan_id: string;
         primary_patient_id: string;
         enrollment_number: string;
@@ -389,6 +392,7 @@ export declare class MembershipService {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            notes: string | null;
             age: number | null;
             gender: string;
             first_name: string;
@@ -397,7 +401,6 @@ export declare class MembershipService {
             blood_group: string | null;
             medical_history: Prisma.JsonValue | null;
             allergies: string | null;
-            notes: string | null;
             preferred_language: string;
         };
         members: ({
@@ -410,6 +413,7 @@ export declare class MembershipService {
                 clinic_id: string;
                 profile_photo_url: string | null;
                 branch_id: string;
+                notes: string | null;
                 age: number | null;
                 gender: string;
                 first_name: string;
@@ -418,7 +422,6 @@ export declare class MembershipService {
                 blood_group: string | null;
                 medical_history: Prisma.JsonValue | null;
                 allergies: string | null;
-                notes: string | null;
                 preferred_language: string;
             };
         } & {
@@ -439,6 +442,7 @@ export declare class MembershipService {
                 clinic_id: string;
                 profile_photo_url: string | null;
                 branch_id: string;
+                notes: string | null;
                 age: number | null;
                 gender: string;
                 first_name: string;
@@ -447,7 +451,6 @@ export declare class MembershipService {
                 blood_group: string | null;
                 medical_history: Prisma.JsonValue | null;
                 allergies: string | null;
-                notes: string | null;
                 preferred_language: string;
             };
             treatment: {
@@ -457,11 +460,11 @@ export declare class MembershipService {
                 updated_at: Date;
                 clinic_id: string;
                 branch_id: string;
+                notes: string | null;
                 patient_id: string;
                 procedure: string;
                 tooth_number: string | null;
                 cost: Prisma.Decimal;
-                notes: string | null;
                 dentist_id: string;
                 clinical_visit_id: string | null;
                 treatment_plan_id: string | null;
@@ -491,6 +494,9 @@ export declare class MembershipService {
                 cancelled_at: Date | null;
                 cancelled_by_user_id: string | null;
                 cancel_reason: string | null;
+                patient_insurance_id: string | null;
+                insurance_covered_amount: Prisma.Decimal | null;
+                patient_copay_amount: Prisma.Decimal | null;
             } | null;
             benefit: {
                 id: string;
@@ -514,8 +520,8 @@ export declare class MembershipService {
             id: string;
             created_at: Date;
             clinic_id: string;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
             invoice_id: string | null;
             treatment_id: string | null;
             membership_enrollment_id: string;
@@ -531,9 +537,9 @@ export declare class MembershipService {
         updated_at: Date;
         clinic_id: string;
         branch_id: string;
+        notes: string | null;
         start_date: Date;
         end_date: Date;
-        notes: string | null;
         membership_plan_id: string;
         primary_patient_id: string;
         enrollment_number: string;
@@ -617,6 +623,7 @@ export declare class MembershipService {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            notes: string | null;
             age: number | null;
             gender: string;
             first_name: string;
@@ -625,7 +632,6 @@ export declare class MembershipService {
             blood_group: string | null;
             medical_history: Prisma.JsonValue | null;
             allergies: string | null;
-            notes: string | null;
             preferred_language: string;
         };
         members: ({
@@ -638,6 +644,7 @@ export declare class MembershipService {
                 clinic_id: string;
                 profile_photo_url: string | null;
                 branch_id: string;
+                notes: string | null;
                 age: number | null;
                 gender: string;
                 first_name: string;
@@ -646,7 +653,6 @@ export declare class MembershipService {
                 blood_group: string | null;
                 medical_history: Prisma.JsonValue | null;
                 allergies: string | null;
-                notes: string | null;
                 preferred_language: string;
             };
         } & {
@@ -667,6 +673,7 @@ export declare class MembershipService {
                 clinic_id: string;
                 profile_photo_url: string | null;
                 branch_id: string;
+                notes: string | null;
                 age: number | null;
                 gender: string;
                 first_name: string;
@@ -675,7 +682,6 @@ export declare class MembershipService {
                 blood_group: string | null;
                 medical_history: Prisma.JsonValue | null;
                 allergies: string | null;
-                notes: string | null;
                 preferred_language: string;
             };
             treatment: {
@@ -685,11 +691,11 @@ export declare class MembershipService {
                 updated_at: Date;
                 clinic_id: string;
                 branch_id: string;
+                notes: string | null;
                 patient_id: string;
                 procedure: string;
                 tooth_number: string | null;
                 cost: Prisma.Decimal;
-                notes: string | null;
                 dentist_id: string;
                 clinical_visit_id: string | null;
                 treatment_plan_id: string | null;
@@ -719,6 +725,9 @@ export declare class MembershipService {
                 cancelled_at: Date | null;
                 cancelled_by_user_id: string | null;
                 cancel_reason: string | null;
+                patient_insurance_id: string | null;
+                insurance_covered_amount: Prisma.Decimal | null;
+                patient_copay_amount: Prisma.Decimal | null;
             } | null;
             benefit: {
                 id: string;
@@ -742,8 +751,8 @@ export declare class MembershipService {
             id: string;
             created_at: Date;
             clinic_id: string;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
             invoice_id: string | null;
             treatment_id: string | null;
             membership_enrollment_id: string;
@@ -759,9 +768,9 @@ export declare class MembershipService {
         updated_at: Date;
         clinic_id: string;
         branch_id: string;
+        notes: string | null;
         start_date: Date;
         end_date: Date;
-        notes: string | null;
         membership_plan_id: string;
         primary_patient_id: string;
         enrollment_number: string;
@@ -777,6 +786,7 @@ export declare class MembershipService {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            notes: string | null;
             age: number | null;
             gender: string;
             first_name: string;
@@ -785,7 +795,6 @@ export declare class MembershipService {
             blood_group: string | null;
             medical_history: Prisma.JsonValue | null;
             allergies: string | null;
-            notes: string | null;
             preferred_language: string;
         };
         treatment: {
@@ -795,11 +804,11 @@ export declare class MembershipService {
             updated_at: Date;
             clinic_id: string;
             branch_id: string;
+            notes: string | null;
             patient_id: string;
             procedure: string;
             tooth_number: string | null;
             cost: Prisma.Decimal;
-            notes: string | null;
             dentist_id: string;
             clinical_visit_id: string | null;
             treatment_plan_id: string | null;
@@ -829,6 +838,9 @@ export declare class MembershipService {
             cancelled_at: Date | null;
             cancelled_by_user_id: string | null;
             cancel_reason: string | null;
+            patient_insurance_id: string | null;
+            insurance_covered_amount: Prisma.Decimal | null;
+            patient_copay_amount: Prisma.Decimal | null;
         } | null;
         benefit: {
             id: string;
@@ -852,8 +864,8 @@ export declare class MembershipService {
         id: string;
         created_at: Date;
         clinic_id: string;
-        patient_id: string;
         notes: string | null;
+        patient_id: string;
         invoice_id: string | null;
         treatment_id: string | null;
         membership_enrollment_id: string;
@@ -872,6 +884,7 @@ export declare class MembershipService {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            notes: string | null;
             age: number | null;
             gender: string;
             first_name: string;
@@ -880,7 +893,6 @@ export declare class MembershipService {
             blood_group: string | null;
             medical_history: Prisma.JsonValue | null;
             allergies: string | null;
-            notes: string | null;
             preferred_language: string;
         };
         active_enrollments: {
@@ -947,6 +959,7 @@ export declare class MembershipService {
                     clinic_id: string;
                     profile_photo_url: string | null;
                     branch_id: string;
+                    notes: string | null;
                     age: number | null;
                     gender: string;
                     first_name: string;
@@ -955,7 +968,6 @@ export declare class MembershipService {
                     blood_group: string | null;
                     medical_history: Prisma.JsonValue | null;
                     allergies: string | null;
-                    notes: string | null;
                     preferred_language: string;
                 };
             }[];
@@ -984,6 +996,7 @@ export declare class MembershipService {
                     clinic_id: string;
                     profile_photo_url: string | null;
                     branch_id: string;
+                    notes: string | null;
                     age: number | null;
                     gender: string;
                     first_name: string;
@@ -992,7 +1005,6 @@ export declare class MembershipService {
                     blood_group: string | null;
                     medical_history: Prisma.JsonValue | null;
                     allergies: string | null;
-                    notes: string | null;
                     preferred_language: string;
                 };
                 treatment: {
@@ -1002,11 +1014,11 @@ export declare class MembershipService {
                     updated_at: Date;
                     clinic_id: string;
                     branch_id: string;
+                    notes: string | null;
                     patient_id: string;
                     procedure: string;
                     tooth_number: string | null;
                     cost: Prisma.Decimal;
-                    notes: string | null;
                     dentist_id: string;
                     clinical_visit_id: string | null;
                     treatment_plan_id: string | null;
@@ -1036,6 +1048,9 @@ export declare class MembershipService {
                     cancelled_at: Date | null;
                     cancelled_by_user_id: string | null;
                     cancel_reason: string | null;
+                    patient_insurance_id: string | null;
+                    insurance_covered_amount: Prisma.Decimal | null;
+                    patient_copay_amount: Prisma.Decimal | null;
                 } | null;
                 benefit: {
                     id: string;
@@ -1059,8 +1074,8 @@ export declare class MembershipService {
                 id: string;
                 created_at: Date;
                 clinic_id: string;
-                patient_id: string;
                 notes: string | null;
+                patient_id: string;
                 invoice_id: string | null;
                 treatment_id: string | null;
                 membership_enrollment_id: string;
@@ -1134,6 +1149,7 @@ export declare class MembershipService {
                     clinic_id: string;
                     profile_photo_url: string | null;
                     branch_id: string;
+                    notes: string | null;
                     age: number | null;
                     gender: string;
                     first_name: string;
@@ -1142,7 +1158,6 @@ export declare class MembershipService {
                     blood_group: string | null;
                     medical_history: Prisma.JsonValue | null;
                     allergies: string | null;
-                    notes: string | null;
                     preferred_language: string;
                 };
             }[];
@@ -1171,6 +1186,7 @@ export declare class MembershipService {
                     clinic_id: string;
                     profile_photo_url: string | null;
                     branch_id: string;
+                    notes: string | null;
                     age: number | null;
                     gender: string;
                     first_name: string;
@@ -1179,7 +1195,6 @@ export declare class MembershipService {
                     blood_group: string | null;
                     medical_history: Prisma.JsonValue | null;
                     allergies: string | null;
-                    notes: string | null;
                     preferred_language: string;
                 };
                 treatment: {
@@ -1189,11 +1204,11 @@ export declare class MembershipService {
                     updated_at: Date;
                     clinic_id: string;
                     branch_id: string;
+                    notes: string | null;
                     patient_id: string;
                     procedure: string;
                     tooth_number: string | null;
                     cost: Prisma.Decimal;
-                    notes: string | null;
                     dentist_id: string;
                     clinical_visit_id: string | null;
                     treatment_plan_id: string | null;
@@ -1223,6 +1238,9 @@ export declare class MembershipService {
                     cancelled_at: Date | null;
                     cancelled_by_user_id: string | null;
                     cancel_reason: string | null;
+                    patient_insurance_id: string | null;
+                    insurance_covered_amount: Prisma.Decimal | null;
+                    patient_copay_amount: Prisma.Decimal | null;
                 } | null;
                 benefit: {
                     id: string;
@@ -1246,8 +1264,8 @@ export declare class MembershipService {
                 id: string;
                 created_at: Date;
                 clinic_id: string;
-                patient_id: string;
                 notes: string | null;
+                patient_id: string;
                 invoice_id: string | null;
                 treatment_id: string | null;
                 membership_enrollment_id: string;

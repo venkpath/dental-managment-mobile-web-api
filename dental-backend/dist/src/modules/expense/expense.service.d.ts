@@ -93,9 +93,9 @@ export declare class ExpenseService {
         clinic_id: string;
         branch_id: string | null;
         amount: Prisma.Decimal;
+        notes: string | null;
         date: Date;
         title: string;
-        notes: string | null;
         created_by: string;
         category_id: string;
         payment_mode: string | null;
@@ -159,9 +159,9 @@ export declare class ExpenseService {
         clinic_id: string;
         branch_id: string | null;
         amount: Prisma.Decimal;
+        notes: string | null;
         date: Date;
         title: string;
-        notes: string | null;
         created_by: string;
         category_id: string;
         payment_mode: string | null;
@@ -224,9 +224,9 @@ export declare class ExpenseService {
         clinic_id: string;
         branch_id: string | null;
         amount: Prisma.Decimal;
+        notes: string | null;
         date: Date;
         title: string;
-        notes: string | null;
         created_by: string;
         category_id: string;
         payment_mode: string | null;

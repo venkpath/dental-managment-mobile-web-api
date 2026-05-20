@@ -72,6 +72,7 @@ const platform_billing_module_js_1 = require("./modules/platform-billing/platfor
 const tutorial_module_js_1 = require("./modules/tutorial/tutorial.module.js");
 const support_ticket_module_js_1 = require("./modules/support-ticket/support-ticket.module.js");
 const patient_insights_module_js_1 = require("./modules/patient-insights/patient-insights.module.js");
+const insurance_module_js_1 = require("./modules/insurance/insurance.module.js");
 const branch_scope_interceptor_js_1 = require("./common/interceptors/branch-scope.interceptor.js");
 const activity_tracker_interceptor_js_1 = require("./common/interceptors/activity-tracker.interceptor.js");
 const suspension_guard_js_1 = require("./common/guards/suspension.guard.js");
@@ -155,6 +156,7 @@ exports.AppModule = AppModule = __decorate([
             tutorial_module_js_1.TutorialModule,
             support_ticket_module_js_1.SupportTicketModule,
             patient_insights_module_js_1.PatientInsightsModule,
+            insurance_module_js_1.InsuranceModule,
         ],
         providers: [
             { provide: core_1.APP_GUARD, useClass: throttler_1.ThrottlerGuard },

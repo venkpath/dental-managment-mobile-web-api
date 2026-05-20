@@ -132,9 +132,9 @@ export declare class ConsentController {
         clinic_id: string;
         branch_id: string;
         language: string;
+        notes: string | null;
         patient_id: string;
         template_id: string;
-        notes: string | null;
         appointment_id: string | null;
         treatment_id: string | null;
         template_version: number;
@@ -166,9 +166,9 @@ export declare class ConsentController {
         clinic_id: string;
         branch_id: string;
         language: string;
+        notes: string | null;
         patient_id: string;
         template_id: string;
-        notes: string | null;
         appointment_id: string | null;
         treatment_id: string | null;
         template_version: number;
@@ -202,9 +202,9 @@ export declare class ConsentController {
         clinic_id: string;
         branch_id: string;
         language: string;
+        notes: string | null;
         patient_id: string;
         template_id: string;
-        notes: string | null;
         appointment_id: string | null;
         treatment_id: string | null;
         template_version: number;
@@ -235,9 +235,9 @@ export declare class ConsentController {
         clinic_id: string;
         branch_id: string;
         language: string;
+        notes: string | null;
         patient_id: string;
         template_id: string;
-        notes: string | null;
         appointment_id: string | null;
         treatment_id: string | null;
         template_version: number;
@@ -268,9 +268,9 @@ export declare class ConsentController {
         clinic_id: string;
         branch_id: string;
         language: string;
+        notes: string | null;
         patient_id: string;
         template_id: string;
-        notes: string | null;
         appointment_id: string | null;
         treatment_id: string | null;
         template_version: number;

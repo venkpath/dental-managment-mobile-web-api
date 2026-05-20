@@ -23,9 +23,9 @@ export declare class DemoRequestService {
         updated_at: Date;
         phone: string;
         clinic_name: string | null;
+        notes: string | null;
         source: string;
         scheduled_at: Date | null;
-        notes: string | null;
         chairs: string | null;
         meeting_link: string | null;
     }>;
@@ -38,9 +38,9 @@ export declare class DemoRequestService {
         updated_at: Date;
         phone: string;
         clinic_name: string | null;
+        notes: string | null;
         source: string;
         scheduled_at: Date | null;
-        notes: string | null;
         chairs: string | null;
         meeting_link: string | null;
     }[]>;
@@ -53,9 +53,9 @@ export declare class DemoRequestService {
         updated_at: Date;
         phone: string;
         clinic_name: string | null;
+        notes: string | null;
         source: string;
         scheduled_at: Date | null;
-        notes: string | null;
         chairs: string | null;
         meeting_link: string | null;
     }>;
@@ -68,9 +68,9 @@ export declare class DemoRequestService {
         updated_at: Date;
         phone: string;
         clinic_name: string | null;
+        notes: string | null;
         source: string;
         scheduled_at: Date | null;
-        notes: string | null;
         chairs: string | null;
         meeting_link: string | null;
     }>;

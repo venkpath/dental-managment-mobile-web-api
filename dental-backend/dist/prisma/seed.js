@@ -102,6 +102,7 @@ async function main() {
         { key: 'APPOINTMENT_CONFIRMATIONS', description: 'Automated appointment confirmation messages to patients' },
         { key: 'CUSTOM_TEMPLATES', description: 'Create, edit, delete, and submit your own WhatsApp/SMS/email templates (system templates remain read-only for everyone)' },
         { key: 'AI_PATIENT_INSIGHTS', description: 'AI-powered patient risk scoring: no-show prediction, recall due, churn risk, treatment conversion opportunities' },
+        { key: 'INSURANCE_MODULE', description: 'Insurance & EHS empanelment, eligibility checks, coverage-aware invoicing, and claim management (CGHS, ECHS, state EHS, private insurers)' },
     ];
     for (const feature of features) {
         const existingFeature = await prisma.feature.findUnique({ where: { key: feature.key } });
@@ -179,17 +180,23 @@ async function main() {
     if (freePlan && starterPlan && professionalPlan && enterprisePlan && starterYearlyPlan && professionalYearlyPlan && enterpriseYearlyPlan && allFeatures.length > 0) {
         const featureMap = Object.fromEntries(allFeatures.map((f) => [f.key, f.id]));
         const planFeatures = (planId, keys) => keys.map((key) => ({ plan_id: planId, feature_id: featureMap[key], is_enabled: true }));
+        const planFeaturesOptIn = (planId, keys) => keys.map((key) => ({ plan_id: planId, feature_id: featureMap[key], is_enabled: false }));
         const STARTER_FEATURES = ['INVENTORY_MANAGEMENT', 'APPOINTMENT_CONFIRMATIONS', 'SMS_REMINDERS', 'WHATSAPP_INTEGRATION', 'AI_CLINICAL_NOTES', 'AI_PRESCRIPTION', 'AI_TREATMENT_PLAN', 'AI_CAMPAIGN_CONTENT', 'AI_CONSENT_FORM'];
         const PROFESSIONAL_FEATURES = ['INVENTORY_MANAGEMENT', 'APPOINTMENT_CONFIRMATIONS', 'SMS_REMINDERS', 'WHATSAPP_INTEGRATION', 'DIGITAL_XRAY', 'AI_CLINICAL_NOTES', 'AI_PRESCRIPTION', 'AI_TREATMENT_PLAN', 'AI_CAMPAIGN_CONTENT', 'AI_CONSENT_FORM', 'CUSTOM_PROVIDER_CONFIG', 'PATIENT_IMPORT', 'MARKETING_CAMPAIGNS', 'AUTOMATION_RULES', 'AI_PATIENT_INSIGHTS'];
         const ENTERPRISE_FEATURES = [...PROFESSIONAL_FEATURES, 'WHATSAPP_INBOX', 'CUSTOM_TEMPLATES'];
+        const OPT_IN_PROFESSIONAL_FEATURES = ['INSURANCE_MODULE'];
         const planFeatureMappings = [
             ...planFeatures(freePlan.id, ['INVENTORY_MANAGEMENT', 'AI_CLINICAL_NOTES', 'AI_PRESCRIPTION', 'AI_TREATMENT_PLAN', 'AI_CAMPAIGN_CONTENT', 'AI_CONSENT_FORM', 'APPOINTMENT_CONFIRMATIONS', 'DIGITAL_XRAY', 'PATIENT_IMPORT', 'CUSTOM_PROVIDER_CONFIG', 'WHATSAPP_INTEGRATION']),
             ...planFeatures(starterPlan.id, STARTER_FEATURES),
             ...planFeatures(professionalPlan.id, PROFESSIONAL_FEATURES),
             ...planFeatures(enterprisePlan.id, ENTERPRISE_FEATURES),
+            ...planFeaturesOptIn(professionalPlan.id, OPT_IN_PROFESSIONAL_FEATURES),
+            ...planFeaturesOptIn(enterprisePlan.id, OPT_IN_PROFESSIONAL_FEATURES),
             ...planFeatures(starterYearlyPlan.id, STARTER_FEATURES),
             ...planFeatures(professionalYearlyPlan.id, PROFESSIONAL_FEATURES),
             ...planFeatures(enterpriseYearlyPlan.id, ENTERPRISE_FEATURES),
+            ...planFeaturesOptIn(professionalYearlyPlan.id, OPT_IN_PROFESSIONAL_FEATURES),
+            ...planFeaturesOptIn(enterpriseYearlyPlan.id, OPT_IN_PROFESSIONAL_FEATURES),
         ];
         for (const mapping of planFeatureMappings) {
             await prisma.planFeature.upsert({
@@ -256,6 +263,8 @@ async function main() {
         console.log(`Test clinic "${testClinicEmail}" already exists, skipping.`);
     }
     await seedCommunicationTemplates(prisma);
+    await seedInsuranceProviders(prisma);
+    await seedApEhsDentalRateCard(prisma);
 }
 async function seedCommunicationTemplates(prismaClient) {
     const templates = [
@@ -288,6 +297,551 @@ async function seedCommunicationTemplates(prismaClient) {
         }
     }
     console.log(`Seeded ${created} default communication templates (${templates.length - created} already existed).`);
+}
+async function seedInsuranceProviders(prismaClient) {
+    const providers = [
+        {
+            short_code: 'CGHS',
+            name: 'Central Government Health Scheme',
+            type: 'EHS_GOVERNMENT',
+            country: 'IN',
+            claim_method: 'PHYSICAL',
+            website: 'https://cghs.gov.in',
+            notes: 'For central govt employees, pensioners and dependents. Bills at CGHS rate schedule; patient co-pay typically nil for pensioners.',
+            plans: [{
+                    plan_name: 'CGHS — Standard',
+                    plan_code: 'CGHS-STD',
+                    preventive_coverage: 100, basic_coverage: 100, major_coverage: 100, ortho_coverage: 0,
+                    annual_max_amount: null, deductible_amount: 0,
+                    requires_preauth: true, requires_referral: true,
+                    coverage_rules: { uses_cghs_rates: true, rate_card_version: '2024', preauth_threshold_inr: 5000 },
+                }],
+        },
+        {
+            short_code: 'ECHS',
+            name: 'Ex-Servicemen Contributory Health Scheme',
+            type: 'EHS_GOVERNMENT',
+            country: 'IN',
+            claim_method: 'PHYSICAL',
+            website: 'https://echs.gov.in',
+            notes: 'For ex-servicemen and dependents. Polyclinic referral required for most dental work at empanelled clinics.',
+            plans: [{
+                    plan_name: 'ECHS — Standard',
+                    plan_code: 'ECHS-STD',
+                    preventive_coverage: 100, basic_coverage: 100, major_coverage: 100,
+                    annual_max_amount: null, deductible_amount: 0,
+                    requires_preauth: true, requires_referral: true,
+                    coverage_rules: { uses_cghs_rates: true, polyclinic_referral_required: true },
+                }],
+        },
+        {
+            short_code: 'ESI',
+            name: 'Employees State Insurance Scheme',
+            type: 'EHS_GOVERNMENT',
+            country: 'IN',
+            claim_method: 'PHYSICAL',
+            website: 'https://esic.gov.in',
+            notes: 'For factory/industrial workers earning up to Rs. 21,000/month. Limited dental coverage — primarily extractions and emergency care.',
+            plans: [{
+                    plan_name: 'ESI — Standard',
+                    plan_code: 'ESI-STD',
+                    preventive_coverage: 100, basic_coverage: 80, major_coverage: 30, ortho_coverage: 0,
+                    annual_max_amount: 25000, deductible_amount: 0,
+                    requires_preauth: false, requires_referral: true,
+                    coverage_rules: { dispensary_referral_required: true },
+                }],
+        },
+        {
+            short_code: 'AYUSHMAN',
+            name: 'Ayushman Bharat (PM-JAY)',
+            type: 'NATIONAL_PLAN',
+            country: 'IN',
+            claim_method: 'ONLINE_PORTAL',
+            website: 'https://pmjay.gov.in',
+            notes: 'National Health Protection scheme for low-income families. Dental coverage is minimal — mostly trauma/emergency.',
+            plans: [{
+                    plan_name: 'PM-JAY Standard',
+                    plan_code: 'PMJAY-STD',
+                    preventive_coverage: 0, basic_coverage: 50, major_coverage: 30, ortho_coverage: 0,
+                    annual_max_amount: 500000, deductible_amount: 0,
+                    requires_preauth: true, requires_referral: false,
+                    coverage_rules: { family_floater: true, hospital_admission_required_for_most: true },
+                }],
+        },
+        {
+            short_code: 'AP_EHS',
+            name: 'Andhra Pradesh Employees Health Scheme',
+            type: 'EHS_GOVERNMENT',
+            country: 'IN',
+            claim_method: 'ONLINE_PORTAL',
+            website: 'https://drntrvaidyaseva.ap.gov.in/ehs',
+            notes: 'For AP state govt employees, pensioners, journalists, AIS officers serving in AP, and dependents. Cashless at empanelled hospitals; needs WBN beneficiary ID. Administered by Dr. NTR Vaidya Seva Trust. Empanelment portal: https://www.ehs.ap.gov.in/EmpanelmentsAP/login.htm',
+            plans: [{
+                    plan_name: 'AP EHS — Standard',
+                    plan_code: 'APEHS-STD',
+                    preventive_coverage: 100, basic_coverage: 100, major_coverage: 100, ortho_coverage: 0,
+                    annual_max_amount: null, deductible_amount: 0,
+                    requires_preauth: true, requires_referral: true,
+                    coverage_rules: { uses_cghs_rates: true, state: 'AP', card_id_label: 'WBN (Welfare Benefit Number)', referral_required: true, package_rate_based: true },
+                }],
+        },
+        {
+            short_code: 'TS_EHS',
+            name: 'Telangana State Employees Health Scheme',
+            type: 'EHS_GOVERNMENT',
+            country: 'IN',
+            claim_method: 'ONLINE_PORTAL',
+            notes: 'For Telangana state govt employees, pensioners, journalists and dependents. Successor to undivided AP EHS post 2014 state bifurcation. Cashless at empanelled hospitals.',
+            plans: [{
+                    plan_name: 'TS EHS — Standard',
+                    plan_code: 'TSEHS-STD',
+                    preventive_coverage: 100, basic_coverage: 100, major_coverage: 100,
+                    annual_max_amount: null, deductible_amount: 0,
+                    requires_preauth: true, requires_referral: true,
+                    coverage_rules: { uses_cghs_rates: true, state: 'TS', card_id_label: 'WBN', package_rate_based: true },
+                }],
+        },
+        {
+            short_code: 'TN_CMCHIS',
+            name: 'Chief Minister\'s Comprehensive Health Insurance Scheme (Tamil Nadu)',
+            type: 'EHS_GOVERNMENT',
+            country: 'IN',
+            claim_method: 'ONLINE_PORTAL',
+            notes: 'Tamil Nadu state scheme covering govt employees + low-income families. Administered by United India Insurance on behalf of the TN govt.',
+            plans: [{
+                    plan_name: 'TN CMCHIS — Standard',
+                    plan_code: 'TNCMCHIS-STD',
+                    preventive_coverage: 100, basic_coverage: 100, major_coverage: 100,
+                    annual_max_amount: 500000, deductible_amount: 0,
+                    requires_preauth: true, requires_referral: true,
+                    coverage_rules: { uses_cghs_rates: true, state: 'TN', package_rate_based: true },
+                }],
+        },
+        {
+            short_code: 'KA_KSGEHIS',
+            name: 'Karnataka State Govt Employees Health Insurance Scheme',
+            type: 'EHS_GOVERNMENT',
+            country: 'IN',
+            claim_method: 'ONLINE_PORTAL',
+            notes: 'Karnataka state employees + pensioners. Cashless at empanelled hospitals.',
+            plans: [{
+                    plan_name: 'KA KSGEHIS — Standard',
+                    plan_code: 'KAKSGEHIS-STD',
+                    preventive_coverage: 100, basic_coverage: 100, major_coverage: 100,
+                    annual_max_amount: null, deductible_amount: 0,
+                    requires_preauth: true, requires_referral: true,
+                    coverage_rules: { uses_cghs_rates: true, state: 'KA', package_rate_based: true },
+                }],
+        },
+        {
+            short_code: 'RJ_RGHS',
+            name: 'Rajasthan Government Health Scheme',
+            type: 'EHS_GOVERNMENT',
+            country: 'IN',
+            claim_method: 'ONLINE_PORTAL',
+            notes: 'Rajasthan state employees, pensioners, MLAs and dependents.',
+            plans: [{
+                    plan_name: 'RJ RGHS — Standard',
+                    plan_code: 'RJRGHS-STD',
+                    preventive_coverage: 100, basic_coverage: 100, major_coverage: 100,
+                    annual_max_amount: null, deductible_amount: 0,
+                    requires_preauth: true, requires_referral: true,
+                    coverage_rules: { uses_cghs_rates: true, state: 'RJ', package_rate_based: true },
+                }],
+        },
+        {
+            short_code: 'DL_DGEHS',
+            name: 'Delhi Government Employees Health Scheme',
+            type: 'EHS_GOVERNMENT',
+            country: 'IN',
+            claim_method: 'PHYSICAL',
+            notes: 'Delhi GNCT employees and dependents. Empanelled hospitals + dispensaries.',
+            plans: [{
+                    plan_name: 'DL DGEHS — Standard',
+                    plan_code: 'DLDGEHS-STD',
+                    preventive_coverage: 100, basic_coverage: 100, major_coverage: 100,
+                    annual_max_amount: null, deductible_amount: 0,
+                    requires_preauth: true, requires_referral: true,
+                    coverage_rules: { uses_cghs_rates: true, state: 'DL', package_rate_based: true },
+                }],
+        },
+        {
+            short_code: 'MH_MJPJAY',
+            name: 'Maharashtra Jan Arogya Yojana',
+            type: 'EHS_GOVERNMENT',
+            country: 'IN',
+            claim_method: 'ONLINE_PORTAL',
+            notes: 'Maharashtra state scheme. Cashless treatment at empanelled hospitals for listed packages.',
+            plans: [{
+                    plan_name: 'MH Jan Arogya — Standard',
+                    plan_code: 'MHJAY-STD',
+                    preventive_coverage: 100, basic_coverage: 100, major_coverage: 100,
+                    annual_max_amount: 500000, deductible_amount: 0,
+                    requires_preauth: true, requires_referral: false,
+                    coverage_rules: { uses_cghs_rates: true, state: 'MH', package_rate_based: true, family_floater: true },
+                }],
+        },
+        {
+            short_code: 'WB_SS',
+            name: 'Swasthya Sathi (West Bengal)',
+            type: 'EHS_GOVERNMENT',
+            country: 'IN',
+            claim_method: 'ONLINE_PORTAL',
+            notes: 'West Bengal universal health scheme — covers most residents not under ESI/CGHS. Smart-card based.',
+            plans: [{
+                    plan_name: 'WB Swasthya Sathi — Standard',
+                    plan_code: 'WBSS-STD',
+                    preventive_coverage: 100, basic_coverage: 100, major_coverage: 100,
+                    annual_max_amount: 500000, deductible_amount: 0,
+                    requires_preauth: true, requires_referral: false,
+                    coverage_rules: { uses_cghs_rates: true, state: 'WB', package_rate_based: true, family_floater: true, smart_card: true },
+                }],
+        },
+        {
+            short_code: 'KL_KASP',
+            name: 'Karunya Arogya Suraksha Padhathi (Kerala)',
+            type: 'EHS_GOVERNMENT',
+            country: 'IN',
+            claim_method: 'ONLINE_PORTAL',
+            notes: 'Kerala state health scheme. Administered by State Health Agency. Often integrated with PM-JAY.',
+            plans: [{
+                    plan_name: 'KL KASP — Standard',
+                    plan_code: 'KLKASP-STD',
+                    preventive_coverage: 100, basic_coverage: 100, major_coverage: 100,
+                    annual_max_amount: 500000, deductible_amount: 0,
+                    requires_preauth: true, requires_referral: false,
+                    coverage_rules: { uses_cghs_rates: true, state: 'KL', package_rate_based: true, family_floater: true },
+                }],
+        },
+        {
+            short_code: 'STAR_HEALTH',
+            name: 'Star Health and Allied Insurance',
+            type: 'GROUP_INSURANCE',
+            country: 'IN',
+            claim_method: 'ONLINE_PORTAL',
+            website: 'https://starhealth.in',
+            notes: 'Largest standalone health insurer in India. Dental usually as an add-on rider on health policies.',
+            plans: [
+                {
+                    plan_name: 'Star Comprehensive — Dental Rider',
+                    plan_code: 'STAR-COMP-DEN',
+                    preventive_coverage: 100, basic_coverage: 80, major_coverage: 50, ortho_coverage: 0,
+                    annual_max_amount: 10000, deductible_amount: 0,
+                    requires_preauth: true,
+                },
+            ],
+        },
+        {
+            short_code: 'HDFC_ERGO',
+            name: 'HDFC ERGO General Insurance',
+            type: 'GROUP_INSURANCE',
+            country: 'IN',
+            claim_method: 'ONLINE_PORTAL',
+            website: 'https://hdfcergo.com',
+            plans: [{
+                    plan_name: 'my:health Suraksha — Dental Add-on',
+                    plan_code: 'HDFCERGO-MHS-DEN',
+                    preventive_coverage: 100, basic_coverage: 80, major_coverage: 50,
+                    annual_max_amount: 15000, deductible_amount: 500,
+                    requires_preauth: true,
+                }],
+        },
+        {
+            short_code: 'NIVA_BUPA',
+            name: 'Niva Bupa Health Insurance',
+            type: 'GROUP_INSURANCE',
+            country: 'IN',
+            claim_method: 'ONLINE_PORTAL',
+            website: 'https://nivabupa.com',
+            plans: [{
+                    plan_name: 'ReAssure — Dental Add-on',
+                    plan_code: 'NIVA-REA-DEN',
+                    preventive_coverage: 100, basic_coverage: 75, major_coverage: 50,
+                    annual_max_amount: 20000, deductible_amount: 500,
+                    requires_preauth: true,
+                }],
+        },
+        {
+            short_code: 'CARE',
+            name: 'Care Health Insurance',
+            type: 'GROUP_INSURANCE',
+            country: 'IN',
+            claim_method: 'ONLINE_PORTAL',
+            website: 'https://careinsurance.com',
+            plans: [{
+                    plan_name: 'Care Plus — Dental Cover',
+                    plan_code: 'CARE-PLUS-DEN',
+                    preventive_coverage: 100, basic_coverage: 75, major_coverage: 50,
+                    annual_max_amount: 10000, deductible_amount: 0,
+                    requires_preauth: true,
+                }],
+        },
+        {
+            short_code: 'VIDAL_TPA',
+            name: 'Vidal Health TPA',
+            type: 'TPA',
+            country: 'IN',
+            claim_method: 'TPA',
+            tpa_name: 'Vidal Health Insurance TPA',
+            website: 'https://vidalhealthtpa.com',
+            notes: 'Third-party administrator handling corporate group health policies (Infosys, TCS, Wipro, etc.).',
+            plans: [{
+                    plan_name: 'Vidal Corporate Group — Generic',
+                    plan_code: 'VIDAL-CORP-GEN',
+                    preventive_coverage: 100, basic_coverage: 80, major_coverage: 50,
+                    annual_max_amount: 25000, deductible_amount: 0,
+                    requires_preauth: true,
+                }],
+        },
+        {
+            short_code: 'CDCP',
+            name: 'Canadian Dental Care Plan',
+            type: 'NATIONAL_PLAN',
+            country: 'CA',
+            claim_method: 'ONLINE_PORTAL',
+            website: 'https://canada.ca/en/services/benefits/dental.html',
+            notes: 'Federal dental plan for low/middle-income Canadians; administered by Sun Life on behalf of the government.',
+            plans: [{
+                    plan_name: 'CDCP — Standard',
+                    plan_code: 'CDCP-STD',
+                    preventive_coverage: 100, basic_coverage: 80, major_coverage: 50,
+                    annual_max_amount: null, deductible_amount: 0,
+                    requires_preauth: true,
+                    coverage_rules: { currency: 'CAD', household_income_based: true },
+                }],
+        },
+        {
+            short_code: 'SUNLIFE_CA',
+            name: 'Sun Life Financial (Canada)',
+            type: 'GROUP_INSURANCE',
+            country: 'CA',
+            claim_method: 'EDI_837',
+            website: 'https://sunlife.ca',
+            plans: [{
+                    plan_name: 'Sun Life Group Benefits — Standard',
+                    plan_code: 'SUNLIFE-GRP-STD',
+                    preventive_coverage: 100, basic_coverage: 80, major_coverage: 50, ortho_coverage: 50,
+                    annual_max_amount: 1500, deductible_amount: 0,
+                    requires_preauth: true,
+                    coverage_rules: { currency: 'CAD', cdanet: true },
+                }],
+        },
+        {
+            short_code: 'DELTA_US',
+            name: 'Delta Dental (USA)',
+            type: 'PRIVATE_INSURANCE',
+            country: 'US',
+            claim_method: 'EDI_837',
+            website: 'https://deltadental.com',
+            notes: 'Largest dental insurer in the USA. PPO/Premier networks.',
+            plans: [{
+                    plan_name: 'Delta PPO — Standard',
+                    plan_code: 'DELTA-PPO-STD',
+                    preventive_coverage: 100, basic_coverage: 80, major_coverage: 50, ortho_coverage: 50,
+                    annual_max_amount: 1500, deductible_amount: 50,
+                    requires_preauth: true,
+                    coverage_rules: { currency: 'USD', in_network_pct: 80, out_network_pct: 50 },
+                }],
+        },
+        {
+            short_code: 'METLIFE_US',
+            name: 'MetLife Dental (USA)',
+            type: 'PRIVATE_INSURANCE',
+            country: 'US',
+            claim_method: 'EDI_837',
+            website: 'https://metlife.com/insurance/dental-insurance',
+            plans: [{
+                    plan_name: 'MetLife PDP Plus — Standard',
+                    plan_code: 'METLIFE-PDP-STD',
+                    preventive_coverage: 100, basic_coverage: 80, major_coverage: 50,
+                    annual_max_amount: 1500, deductible_amount: 50,
+                    requires_preauth: true,
+                    coverage_rules: { currency: 'USD' },
+                }],
+        },
+    ];
+    let providersCreated = 0;
+    let plansCreated = 0;
+    for (const p of providers) {
+        const existing = await prismaClient.insuranceProvider.findFirst({
+            where: { clinic_id: null, short_code: p.short_code },
+        });
+        const providerRow = existing
+            ? await prismaClient.insuranceProvider.update({
+                where: { id: existing.id },
+                data: {
+                    name: p.name,
+                    type: p.type,
+                    country: p.country,
+                    claim_method: p.claim_method,
+                    tpa_name: p.tpa_name,
+                    website: p.website,
+                    notes: p.notes,
+                    is_active: true,
+                },
+            })
+            : await (async () => {
+                providersCreated++;
+                return prismaClient.insuranceProvider.create({
+                    data: {
+                        clinic_id: null,
+                        short_code: p.short_code,
+                        name: p.name,
+                        type: p.type,
+                        country: p.country,
+                        claim_method: p.claim_method,
+                        tpa_name: p.tpa_name,
+                        website: p.website,
+                        notes: p.notes,
+                        is_active: true,
+                    },
+                });
+            })();
+        for (const plan of p.plans) {
+            const existingPlan = await prismaClient.insurancePlan.findFirst({
+                where: { provider_id: providerRow.id, plan_name: plan.plan_name },
+            });
+            if (existingPlan)
+                continue;
+            plansCreated++;
+            const currency = plan.coverage_rules?.['currency'] ??
+                (p.country === 'US' ? 'USD' : p.country === 'CA' ? 'CAD' : 'INR');
+            await prismaClient.insurancePlan.create({
+                data: {
+                    provider_id: providerRow.id,
+                    plan_name: plan.plan_name,
+                    plan_code: plan.plan_code,
+                    coverage_rules: (plan.coverage_rules ?? {}),
+                    preventive_coverage: plan.preventive_coverage ?? 100,
+                    basic_coverage: plan.basic_coverage ?? 80,
+                    major_coverage: plan.major_coverage ?? 50,
+                    ortho_coverage: plan.ortho_coverage ?? 0,
+                    annual_max_amount: plan.annual_max_amount === undefined ? null : plan.annual_max_amount,
+                    deductible_amount: (plan.deductible_amount ?? 0),
+                    currency,
+                    requires_preauth: plan.requires_preauth ?? false,
+                    requires_referral: plan.requires_referral ?? false,
+                },
+            });
+        }
+    }
+    console.log(`Insurance providers: ${providersCreated} created (${providers.length - providersCreated} already existed); ${plansCreated} new plans seeded.`);
+}
+async function seedApEhsDentalRateCard(prismaClient) {
+    const provider = await prismaClient.insuranceProvider.findFirst({
+        where: { clinic_id: null, short_code: 'AP_EHS' },
+        include: { plans: true },
+    });
+    if (!provider) {
+        console.log('AP_EHS provider not found — skipping rate card seed.');
+        return;
+    }
+    const plan = provider.plans.find((p) => p.plan_code === 'APEHS-STD');
+    if (!plan) {
+        console.log('AP_EHS standard plan not found — skipping rate card seed.');
+        return;
+    }
+    const rows = [
+        { code: '23.2.1', description: 'Application Of Pit & Fissure Sealants (Pedo)', category: 'preventive', max_fee: 702, preauth: 'RVG' },
+        { code: '23.4.1', description: 'Fluoride Gel Application (Pedo)', category: 'preventive', max_fee: 1696, preauth: 'Clinical Photograph' },
+        { code: '96.54.2', description: 'Oral Prophylaxis - Calculi (Upper/Lower)', category: 'preventive', max_fee: 678, preauth: 'BT/CT, CBP, RBS' },
+        { code: '23.01', description: 'Simple Extraction Of Tooth', category: 'basic', max_fee: 363, preauth: 'BT/CT, CBP, IOPA/RVG, OPG' },
+        { code: '23.2.2', description: 'Amalgam Restoration Per Tooth', category: 'basic', max_fee: 400, preauth: 'IOPA' },
+        { code: '23.2.4', description: 'Tooth Coloured Restoration Per Tooth', category: 'basic', max_fee: 545, preauth: 'IOPA' },
+        { code: '23.4.7', description: 'Pulpotomy & Pulpectomy With SSC', category: 'basic', max_fee: 1090, preauth: 'IOPA/RVG' },
+        { code: '23.5', description: 'Management Of Avulsed Tooth', category: 'basic', max_fee: 1126, preauth: 'IOPA, RVG' },
+        { code: '23.6.2', description: 'Treatment With Micro Implants (Each)', category: 'basic', max_fee: 727, preauth: 'BT/CT, CBP, IOPA, OPG' },
+        { code: '23.7.2', description: 'Root Canal Treatment', category: 'basic', max_fee: 2422, preauth: 'IOPA, OPG, RVG' },
+        { code: '23.7.3', description: 'Apicoectomy', category: 'basic', max_fee: 2422, preauth: 'BT/CT, CBP, IOPA, RVG, RBS' },
+        { code: '23.7.6', description: 'Apicoectomy With Grafting', category: 'basic', max_fee: 2689, preauth: 'BT/CT, CBP, IOPA, RVG, RBS' },
+        { code: '24.1', description: 'Operculectomy', category: 'basic', max_fee: 533, preauth: 'IOPA' },
+        { code: '24.2.1', description: 'Sub Gingival Curretage Per Quadrant', category: 'basic', max_fee: 1005, preauth: 'OPG' },
+        { code: '24.2.2', description: 'Gingivectomy (Per Quadrant)', category: 'basic', max_fee: 1417, preauth: 'BT/CT, CBP, OPG, RBS' },
+        { code: '25.92', description: 'Frenectomy', category: 'basic', max_fee: 799, preauth: 'BT/CT, CBP, RBS' },
+        { code: '27.3', description: 'Incision & Drainage Of Facial Abscess Under L.A', category: 'basic', max_fee: 1817, preauth: 'BT/CT, CBP, OPG, RBS' },
+        { code: '93.55.2', description: 'Splinting Of Teeth Under L.A', category: 'basic', max_fee: 1151, preauth: 'BT/CT, CBP, IOPA, OPG, RBS' },
+        { code: 'K13.5.C', description: 'Medical Management Of OSMF', category: 'basic', max_fee: 3633, preauth: 'Clinical evaluation' },
+        { code: 'L43', description: 'Medical Management Of Lichen Planus', category: 'basic', max_fee: 1344, preauth: 'Clinical evaluation' },
+        { code: '23.19.1', description: 'Extraction Of III Molar / Impacted Tooth Under L.A', category: 'major', max_fee: 2422, preauth: 'BT/CT, CBP, IOPA, OPG, RVG' },
+        { code: '23.19.2', description: 'Surgical Extraction Of Tooth', category: 'major', max_fee: 1211, preauth: 'BT/CT, CBP, IOPA, OPG, RVG' },
+        { code: '23.19.3', description: 'Extraction Of Deep Bony Impacted Tooth Under G.A.', category: 'major', max_fee: 12111, preauth: 'BT/CT, CBP, OPG, PAC' },
+        { code: '23.41.1', description: 'Preparation And Cementation Of Acrylic Crown', category: 'major', max_fee: 254, preauth: 'Lab — Model pouring, IOPA, OPG' },
+        { code: '23.41.2', description: 'Fabrication & Cementation Of Metal Ceramic Crown (Per Unit)', category: 'major', max_fee: 1635, preauth: 'Lab — Model pouring, IOPA, OPG' },
+        { code: '23.41.3', description: 'Preparation & Cementation Of Anterior All Ceramic Crown', category: 'major', max_fee: 3694, preauth: 'Lab — Model pouring, IOPA, OPG' },
+        { code: '23.41.5', description: 'Fibre Post & Core Restoration With Anterior All Ceramic Crown', category: 'major', max_fee: 4299, preauth: 'Lab — Model pouring, IOPA, OPG' },
+        { code: '23.41.7', description: 'Metal Post & Core Restoration With Metal Ceramic Crown', category: 'major', max_fee: 2422, preauth: 'Lab — Model pouring, IOPA, OPG' },
+        { code: '23.43.4', description: 'Removable Partial Denture - Single Tooth', category: 'major', max_fee: 666, preauth: 'Lab — Model pouring' },
+        { code: '24.3.2', description: 'Flap Surgery (Per Quadrant)', category: 'major', max_fee: 2083, preauth: 'BT/CT, CBP, OPG, RBS' },
+        { code: '24.4.3', description: 'Surgical Management Of Cyst (<2.5 cm) Under L.A.', category: 'major', max_fee: 2071, preauth: 'BT/CT, CBP, OPG, RBS' },
+        { code: '24.4.4', description: 'Excision Of Growth Under L.A.', category: 'major', max_fee: 4021, preauth: 'BT/CT, CBP, OPG, RBS' },
+        { code: '24.4.5', description: 'Surgical Management Of Cyst (>2.5 cm) Under G.A.', category: 'major', max_fee: 12922, preauth: 'BT/CT, CBP, IOPA, RBS' },
+        { code: '24.5.1', description: 'Alveoloplasty (Quadrant)', category: 'major', max_fee: 836, preauth: 'BT/CT, CBP, OPG, PAC' },
+        { code: '24.7.8', description: 'Fabrication & Insertion Of Feeding Plate (Acrylic)', category: 'major', max_fee: 1114, preauth: 'Lab — Model pouring, OPG' },
+        { code: '24.7.9', description: 'Fabrication & Insertion Of Obturator - Acrylic', category: 'major', max_fee: 1029, preauth: 'Lab — Model pouring' },
+        { code: '76.74.2', description: 'Open Reduction & Internal Fixation Of Jaw Fractures Under G.A.', category: 'major', max_fee: 15249, private_fee: 15549, preauth: 'BT/CT, CBP, OPG, RBS' },
+        { code: '76.75.2', description: 'Closed Reduction & Immobilisation Of Mandibular Fracture Under L.A.', category: 'major', max_fee: 2277, preauth: 'BT/CT, CBP, OPG, PAC' },
+        { code: '81.2', description: 'Surgical Management Of TMJ Ankylosis (G.A.)', category: 'major', max_fee: 20436, private_fee: 21936, preauth: 'BT/CT, CBP, OPG, RBS' },
+        { code: '93.55.1', description: 'Intermaxillary Fixation (IMF) For Alveolar Fractures Under L.A.', category: 'major', max_fee: 5050, preauth: 'BT/CT, CBP, IOPA, OPG, RBS' },
+        { code: '99.97.2', description: 'Fabrication & Insertion Of Complete Denture (Upper/Lower)', category: 'major', max_fee: 3851, preauth: 'OPG, Patient photo, Study Models' },
+        { code: '99.97.6', description: 'Fabrication Of Over Dentures - Implant Supported (2 units)', category: 'major', max_fee: 31925, preauth: 'BT/CT, CBP, Patient photo, RBS, OPG' },
+        { code: '99.97.7', description: 'Fabrication Of Over Dentures With Attachments', category: 'major', max_fee: 13552, preauth: 'OPG, Patient photo, Study Models' },
+        { code: 'K73.9.B', description: 'Chronic Hepatitis, Unspecified (medical management)', category: 'major', max_fee: 16591, private_fee: 18691, preauth: 'ALT, AST, alpha anti-trypsin, alpha-fetoprotein' },
+        { code: '23.42.1', description: 'Placement Of Fixed Habit Breaking Appliances', category: 'ortho', max_fee: 2483, preauth: 'Lab — Model pouring, IOPA, OPG' },
+        { code: '23.42.2', description: 'Treatment With Expansion Plate', category: 'ortho', max_fee: 1986, preauth: 'Lab — Model pouring, IOPA, OPG' },
+        { code: '23.43.1', description: 'Fabrication & Insertion Of Removable Habit Breaking Appliance', category: 'ortho', max_fee: 1841, preauth: 'Lab — Model pouring' },
+        { code: '23.43.3', description: 'Fabrication & Insertion Of Removable Functional Appliance', category: 'ortho', max_fee: 3452, preauth: 'Lab — Model pouring' },
+        { code: '23.43.5', description: 'Fabrication & Insertion Of Removable Retainers - Each Arch', category: 'ortho', max_fee: 824, preauth: 'Lab — Model pouring, OPG' },
+        { code: '23.43.6', description: 'Fabrication & Insertion Of Fixed Space Maintainers / Space Retainer', category: 'ortho', max_fee: 1550, preauth: 'Lab — Model pouring, OPG' },
+        { code: '23.43.8', description: 'Treatment With Inclined Plane', category: 'ortho', max_fee: 1078, preauth: 'Lab — Model pouring, OPG' },
+        { code: '24.7.1', description: 'Rapid Maxillary Expansion With Hyrax Screw / Palatal Expanders', category: 'ortho', max_fee: 4336, preauth: 'Lab — Model pouring, OPG' },
+        { code: '24.7.3', description: 'Treatment With Fixed Functional Appliances', category: 'ortho', max_fee: 5716, preauth: 'Lab — Model pouring, Lateral Cephalogram, OPG' },
+        { code: '24.7.5', description: 'Fixed Orthodontics Treatment - Metal Braces', category: 'ortho', max_fee: 12935, preauth: 'Lab — Model pouring, Lateral Cephalogram, OPG' },
+        { code: '24.7.6', description: 'Treatment With Fixed Retainers', category: 'ortho', max_fee: 1235, preauth: 'Lab — Model pouring, Lateral Cephalogram, OPG' },
+        { code: '93.23.1', description: 'Chin Cup Therapy', category: 'ortho', max_fee: 5280, preauth: 'Lab — Model pouring, Lateral Cephalogram, Case sheet, OPG' },
+        { code: '93.23.2', description: 'Head Gear Therapy', category: 'ortho', max_fee: 5026, preauth: 'Lab — Model pouring, Lateral Cephalogram, Case sheet, OPG' },
+        { code: '93.23.3', description: 'Face Mask Therapy', category: 'ortho', max_fee: 4178, preauth: 'Lab — Model pouring, Lateral Cephalogram, Case sheet, OPG' },
+    ];
+    let created = 0;
+    let updated = 0;
+    for (const r of rows) {
+        const notesParts = [];
+        if (r.preauth)
+            notesParts.push(`Pre-auth evidence: ${r.preauth}`);
+        if (r.private_fee && r.private_fee !== r.max_fee) {
+            notesParts.push(`Private ward: ₹${r.private_fee}`);
+        }
+        const noteText = notesParts.length > 0 ? notesParts.join(' · ') : undefined;
+        const existing = await prismaClient.insuranceProcedureCode.findUnique({
+            where: { plan_id_code: { plan_id: plan.id, code: r.code } },
+        });
+        if (existing) {
+            await prismaClient.insuranceProcedureCode.update({
+                where: { id: existing.id },
+                data: {
+                    description: r.description,
+                    category: r.category,
+                    max_fee: r.max_fee,
+                    notes: noteText,
+                },
+            });
+            updated++;
+        }
+        else {
+            await prismaClient.insuranceProcedureCode.create({
+                data: {
+                    plan_id: plan.id,
+                    code: r.code,
+                    description: r.description,
+                    category: r.category,
+                    coverage_pct: 100,
+                    max_fee: r.max_fee,
+                    notes: noteText,
+                },
+            });
+            created++;
+        }
+    }
+    console.log(`AP EHS rate card: ${created} procedure codes created, ${updated} updated (${rows.length} total).`);
 }
 main()
     .catch((e) => {

@@ -11,9 +11,9 @@ export declare class InventoryController {
         clinic_id: string;
         branch_id: string;
         category: string | null;
+        notes: string | null;
         unit: string;
         location: string | null;
-        notes: string | null;
         quantity: number;
         reorder_level: number;
         supplier: string | null;
@@ -40,9 +40,9 @@ export declare class InventoryController {
         clinic_id: string;
         branch_id: string;
         category: string | null;
+        notes: string | null;
         unit: string;
         location: string | null;
-        notes: string | null;
         quantity: number;
         reorder_level: number;
         supplier: string | null;
@@ -69,9 +69,9 @@ export declare class InventoryController {
         clinic_id: string;
         branch_id: string;
         category: string | null;
+        notes: string | null;
         unit: string;
         location: string | null;
-        notes: string | null;
         quantity: number;
         reorder_level: number;
         supplier: string | null;
@@ -98,9 +98,9 @@ export declare class InventoryController {
         clinic_id: string;
         branch_id: string;
         category: string | null;
+        notes: string | null;
         unit: string;
         location: string | null;
-        notes: string | null;
         quantity: number;
         reorder_level: number;
         supplier: string | null;

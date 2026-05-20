@@ -37,6 +37,9 @@ export declare class InvoiceController {
         cancelled_at: Date | null;
         cancelled_by_user_id: string | null;
         cancel_reason: string | null;
+        patient_insurance_id: string | null;
+        insurance_covered_amount: import("@prisma/client-runtime-utils").Decimal | null;
+        patient_copay_amount: import("@prisma/client-runtime-utils").Decimal | null;
     }>;
     findAll(clinicId: string, user: JwtPayload, query: QueryInvoiceDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         id: string;
@@ -62,6 +65,9 @@ export declare class InvoiceController {
         cancelled_at: Date | null;
         cancelled_by_user_id: string | null;
         cancel_reason: string | null;
+        patient_insurance_id: string | null;
+        insurance_covered_amount: import("@prisma/client-runtime-utils").Decimal | null;
+        patient_copay_amount: import("@prisma/client-runtime-utils").Decimal | null;
     }>>;
     findOne(clinicId: string, id: string): Promise<{
         clinic: {
@@ -110,6 +116,36 @@ export declare class InvoiceController {
             inactivity_reminder_30_sent: boolean;
             inactivity_reminder_40_sent: boolean;
         };
+        insurance_claims: {
+            id: string;
+            status: string;
+            created_at: Date;
+            updated_at: Date;
+            clinic_id: string;
+            currency: string;
+            notes: string | null;
+            patient_insurance_id: string;
+            invoice_id: string;
+            paid_at: Date | null;
+            approved_amount: import("@prisma/client-runtime-utils").Decimal | null;
+            submission_method: string | null;
+            submission_ref: string | null;
+            submitted_at: Date | null;
+            submitted_by_user_id: string | null;
+            decision_at: Date | null;
+            claim_number: string | null;
+            pre_auth_code: string | null;
+            pre_auth_id: string | null;
+            billed_amount: import("@prisma/client-runtime-utils").Decimal;
+            patient_portion: import("@prisma/client-runtime-utils").Decimal | null;
+            disallowed_amount: import("@prisma/client-runtime-utils").Decimal | null;
+            paid_amount: import("@prisma/client-runtime-utils").Decimal | null;
+            rejection_reason: string | null;
+            query_text: string | null;
+            query_response_at: Date | null;
+            claim_form_url: string | null;
+            consolidated_package_url: string | null;
+        }[];
         branch: {
             id: string;
             name: string;
@@ -170,6 +206,7 @@ export declare class InvoiceController {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            notes: string | null;
             age: number | null;
             gender: string;
             first_name: string;
@@ -178,7 +215,6 @@ export declare class InvoiceController {
             blood_group: string | null;
             medical_history: import("@prisma/client/runtime/client").JsonValue | null;
             allergies: string | null;
-            notes: string | null;
             preferred_language: string;
         };
         items: ({
@@ -209,11 +245,11 @@ export declare class InvoiceController {
                 updated_at: Date;
                 clinic_id: string;
                 branch_id: string;
+                notes: string | null;
                 patient_id: string;
                 procedure: string;
                 tooth_number: string | null;
                 cost: import("@prisma/client-runtime-utils").Decimal;
-                notes: string | null;
                 dentist_id: string;
                 clinical_visit_id: string | null;
                 treatment_plan_id: string | null;
@@ -248,6 +284,58 @@ export declare class InvoiceController {
             profile_photo_url: string | null;
             branch_id: string | null;
         } | null;
+        patient_insurance: ({
+            plan: {
+                provider: {
+                    id: string;
+                    name: string;
+                    country: string;
+                    short_code: string;
+                    type: string;
+                    claim_method: string;
+                };
+            } & {
+                id: string;
+                created_at: Date;
+                updated_at: Date;
+                is_active: boolean;
+                currency: string;
+                coverage_rules: import("@prisma/client/runtime/client").JsonValue;
+                ortho_coverage: number;
+                requires_referral: boolean;
+                provider_id: string;
+                plan_name: string;
+                plan_code: string | null;
+                preventive_coverage: number;
+                basic_coverage: number;
+                major_coverage: number;
+                annual_max_amount: import("@prisma/client-runtime-utils").Decimal | null;
+                deductible_amount: import("@prisma/client-runtime-utils").Decimal;
+                requires_preauth: boolean;
+            };
+        } & {
+            id: string;
+            created_at: Date;
+            updated_at: Date;
+            plan_id: string;
+            clinic_id: string;
+            is_active: boolean;
+            notes: string | null;
+            patient_id: string;
+            priority: number;
+            member_id: string;
+            group_number: string | null;
+            employee_id: string | null;
+            beneficiary_id: string | null;
+            company_name: string | null;
+            subscriber_name: string | null;
+            relationship: string | null;
+            coverage_start: Date | null;
+            coverage_end: Date | null;
+            card_front_url: string | null;
+            card_back_url: string | null;
+            referral_letter_url: string | null;
+        }) | null;
         payments: ({
             installment_item: {
                 id: string;
@@ -262,8 +350,8 @@ export declare class InvoiceController {
         } & {
             id: string;
             amount: import("@prisma/client-runtime-utils").Decimal;
-            method: string;
             notes: string | null;
+            method: string;
             invoice_id: string;
             installment_item_id: string | null;
             paid_at: Date;
@@ -323,6 +411,9 @@ export declare class InvoiceController {
         cancelled_at: Date | null;
         cancelled_by_user_id: string | null;
         cancel_reason: string | null;
+        patient_insurance_id: string | null;
+        insurance_covered_amount: import("@prisma/client-runtime-utils").Decimal | null;
+        patient_copay_amount: import("@prisma/client-runtime-utils").Decimal | null;
     }>;
     updateInvoice(clinicId: string, id: string, dto: UpdateInvoiceDto): Promise<{
         id: string;
@@ -348,6 +439,9 @@ export declare class InvoiceController {
         cancelled_at: Date | null;
         cancelled_by_user_id: string | null;
         cancel_reason: string | null;
+        patient_insurance_id: string | null;
+        insurance_covered_amount: import("@prisma/client-runtime-utils").Decimal | null;
+        patient_copay_amount: import("@prisma/client-runtime-utils").Decimal | null;
     }>;
     issueInvoice(clinicId: string, user: JwtPayload, id: string): Promise<{
         id: string;
@@ -373,6 +467,9 @@ export declare class InvoiceController {
         cancelled_at: Date | null;
         cancelled_by_user_id: string | null;
         cancel_reason: string | null;
+        patient_insurance_id: string | null;
+        insurance_covered_amount: import("@prisma/client-runtime-utils").Decimal | null;
+        patient_copay_amount: import("@prisma/client-runtime-utils").Decimal | null;
     }>;
     cancelInvoice(clinicId: string, user: JwtPayload, id: string, dto: CancelInvoiceDto): Promise<{
         id: string;
@@ -398,12 +495,15 @@ export declare class InvoiceController {
         cancelled_at: Date | null;
         cancelled_by_user_id: string | null;
         cancel_reason: string | null;
+        patient_insurance_id: string | null;
+        insurance_covered_amount: import("@prisma/client-runtime-utils").Decimal | null;
+        patient_copay_amount: import("@prisma/client-runtime-utils").Decimal | null;
     }>;
     createPayment(clinicId: string, dto: CreatePaymentDto): Promise<{
         id: string;
         amount: import("@prisma/client-runtime-utils").Decimal;
-        method: string;
         notes: string | null;
+        method: string;
         invoice_id: string;
         installment_item_id: string | null;
         paid_at: Date;

@@ -12,6 +12,7 @@ export declare class PatientController {
         clinic_id: string;
         profile_photo_url: string | null;
         branch_id: string;
+        notes: string | null;
         age: number | null;
         gender: string;
         first_name: string;
@@ -20,7 +21,6 @@ export declare class PatientController {
         blood_group: string | null;
         medical_history: import("@prisma/client/runtime/client").JsonValue | null;
         allergies: string | null;
-        notes: string | null;
         preferred_language: string;
     }>;
     findAll(clinicId: string, query: QueryPatientDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
@@ -32,6 +32,7 @@ export declare class PatientController {
         clinic_id: string;
         profile_photo_url: string | null;
         branch_id: string;
+        notes: string | null;
         age: number | null;
         gender: string;
         first_name: string;
@@ -40,7 +41,6 @@ export declare class PatientController {
         blood_group: string | null;
         medical_history: import("@prisma/client/runtime/client").JsonValue | null;
         allergies: string | null;
-        notes: string | null;
         preferred_language: string;
     }>>;
     findOne(clinicId: string, id: string): Promise<{
@@ -52,6 +52,7 @@ export declare class PatientController {
         clinic_id: string;
         profile_photo_url: string | null;
         branch_id: string;
+        notes: string | null;
         age: number | null;
         gender: string;
         first_name: string;
@@ -60,7 +61,6 @@ export declare class PatientController {
         blood_group: string | null;
         medical_history: import("@prisma/client/runtime/client").JsonValue | null;
         allergies: string | null;
-        notes: string | null;
         preferred_language: string;
     }>;
     update(clinicId: string, id: string, dto: UpdatePatientDto): Promise<{
@@ -72,6 +72,7 @@ export declare class PatientController {
         clinic_id: string;
         profile_photo_url: string | null;
         branch_id: string;
+        notes: string | null;
         age: number | null;
         gender: string;
         first_name: string;
@@ -80,7 +81,6 @@ export declare class PatientController {
         blood_group: string | null;
         medical_history: import("@prisma/client/runtime/client").JsonValue | null;
         allergies: string | null;
-        notes: string | null;
         preferred_language: string;
     }>;
     remove(clinicId: string, id: string): Promise<{
@@ -92,6 +92,7 @@ export declare class PatientController {
         clinic_id: string;
         profile_photo_url: string | null;
         branch_id: string;
+        notes: string | null;
         age: number | null;
         gender: string;
         first_name: string;
@@ -100,7 +101,6 @@ export declare class PatientController {
         blood_group: string | null;
         medical_history: import("@prisma/client/runtime/client").JsonValue | null;
         allergies: string | null;
-        notes: string | null;
         preferred_language: string;
     }>;
     uploadProfilePhoto(clinicId: string, id: string, file: Express.Multer.File): Promise<{

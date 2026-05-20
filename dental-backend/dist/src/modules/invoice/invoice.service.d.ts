@@ -8,6 +8,7 @@ import { PaginatedResult } from '../../common/interfaces/paginated-result.interf
 import { InvoicePdfService } from './invoice-pdf.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
+import { PatientInsuranceService } from '../insurance/services/patient-insurance.service.js';
 declare const INVOICE_INCLUDE: {
     readonly items: {
         readonly include: {
@@ -45,6 +46,29 @@ declare const INVOICE_INCLUDE: {
             };
         };
     };
+    readonly patient_insurance: {
+        readonly include: {
+            readonly plan: {
+                readonly include: {
+                    readonly provider: {
+                        readonly select: {
+                            readonly id: true;
+                            readonly name: true;
+                            readonly short_code: true;
+                            readonly type: true;
+                            readonly country: true;
+                            readonly claim_method: true;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    readonly insurance_claims: {
+        readonly orderBy: {
+            readonly created_at: "desc";
+        };
+    };
 };
 type InvoiceWithIncludes = Prisma.InvoiceGetPayload<{
     include: typeof INVOICE_INCLUDE;
@@ -56,8 +80,9 @@ export declare class InvoiceService {
     private readonly invoicePdfService;
     private readonly s3Service;
     private readonly planLimit;
+    private readonly patientInsurance;
     private readonly logger;
-    constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService, invoicePdfService: InvoicePdfService, s3Service: S3Service, planLimit: PlanLimitService);
+    constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService, invoicePdfService: InvoicePdfService, s3Service: S3Service, planLimit: PlanLimitService, patientInsurance: PatientInsuranceService);
     create(clinicId: string, dto: CreateInvoiceDto, createdByUserId?: string): Promise<Invoice>;
     findAll(clinicId: string, query: QueryInvoiceDto): Promise<PaginatedResult<Invoice>>;
     findOne(clinicId: string, id: string): Promise<InvoiceWithIncludes>;

@@ -37,13 +37,13 @@ export declare class SuperAdminWhatsAppService {
             channel: string;
             template_name: string | null;
             body: string;
+            contact_phone: string;
             metadata: import("@prisma/client/runtime/client").JsonValue | null;
             direction: string;
             wa_message_id: string | null;
             sent_at: Date | null;
             from_phone: string;
             to_phone: string;
-            contact_phone: string;
             contact_name: string | null;
             message_type: string;
         }[];

@@ -53,8 +53,8 @@ export declare class ToothChartController {
             updated_at: Date;
             clinic_id: string;
             branch_id: string;
-            patient_id: string;
             notes: string | null;
+            patient_id: string;
             clinical_visit_id: string | null;
             condition: string;
             severity: string | null;
@@ -76,11 +76,11 @@ export declare class ToothChartController {
             updated_at: Date;
             clinic_id: string;
             branch_id: string;
+            notes: string | null;
             patient_id: string;
             procedure: string;
             tooth_number: string | null;
             cost: import("@prisma/client-runtime-utils").Decimal;
-            notes: string | null;
             dentist_id: string;
             clinical_visit_id: string | null;
             treatment_plan_id: string | null;
@@ -93,8 +93,8 @@ export declare class ToothChartController {
         updated_at: Date;
         clinic_id: string;
         branch_id: string;
-        patient_id: string;
         notes: string | null;
+        patient_id: string;
         clinical_visit_id: string | null;
         condition: string;
         severity: string | null;
@@ -108,8 +108,8 @@ export declare class ToothChartController {
         updated_at: Date;
         clinic_id: string;
         branch_id: string;
-        patient_id: string;
         notes: string | null;
+        patient_id: string;
         clinical_visit_id: string | null;
         condition: string;
         severity: string | null;

@@ -29,6 +29,14 @@ export enum InvoiceItemType {
   PHARMACY = 'pharmacy',
 }
 
+export enum CoverageCategory {
+  PREVENTIVE = 'preventive',
+  BASIC = 'basic',
+  MAJOR = 'major',
+  ORTHO = 'ortho',
+  EMERGENCY = 'emergency',
+}
+
 export class InvoiceItemDto {
   @ApiPropertyOptional({ description: 'Treatment UUID (optional – links line item to a treatment)' })
   @IsOptional()
@@ -55,6 +63,24 @@ export class InvoiceItemDto {
   @Min(0)
   @Type(() => Number)
   unit_price!: number;
+
+  @ApiPropertyOptional({
+    enum: CoverageCategory,
+    description: 'Insurance coverage category — drives which plan % applies. Defaults to "basic" when patient_insurance_id is set and category is omitted.',
+  })
+  @IsOptional()
+  @IsEnum(CoverageCategory)
+  coverage_category?: CoverageCategory;
+
+  @ApiPropertyOptional({
+    example: 1200.0,
+    description: 'CGHS / scheme rate cap for this procedure. When set, insurance pays only up to this amount (CGHS-style billing). Patient pays the gap.',
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Type(() => Number)
+  scheme_max_fee?: number;
 }
 
 export class CreateInvoiceDto {
@@ -127,6 +153,33 @@ export class CreateInvoiceDto {
   @IsBoolean()
   @Type(() => Boolean)
   as_draft?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Patient insurance / EHS enrollment UUID. When set, the invoice is billed under that plan; insurance vs patient portions are auto-calculated and stored on the invoice.',
+  })
+  @IsOptional()
+  @IsUUID()
+  patient_insurance_id?: string;
+
+  @ApiPropertyOptional({
+    description: 'Manual override of the insurance-covered amount. When set, replaces the auto-calculated value from the country strategy. Use for negotiated rates or partial scheme approvals.',
+    example: 1500,
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Type(() => Number)
+  override_insurance_covered_amount?: number;
+
+  @ApiPropertyOptional({
+    description: 'Manual override of the patient co-pay amount. Pair with override_insurance_covered_amount to fully control the split.',
+    example: 500,
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Type(() => Number)
+  override_patient_copay_amount?: number;
 
   @ApiProperty({ type: [InvoiceItemDto], description: 'Line items for the invoice' })
   @IsArray()

@@ -8,33 +8,33 @@ datasource db {
 }
 
 model Clinic {
-  id                  String    @id @default(uuid()) @db.Uuid
-  name                String    @db.VarChar(255)
-  email               String    @db.VarChar(255)
-  phone               String?   @db.VarChar(50)
-  address             String?   @db.VarChar(500)
-  city                String?   @db.VarChar(100)
-  state               String?   @db.VarChar(100)
-  country             String?   @db.VarChar(100)
-  pincode             String?   @db.VarChar(10)
-  plan_id             String?   @db.Uuid
-  subscription_status String    @default("trial") @db.VarChar(20)
-  subscription_id     String?   @db.VarChar(100)
-  billing_cycle       String    @default("monthly") @db.VarChar(10) // monthly | yearly
-  trial_ends_at       DateTime?
+  id                        String    @id @default(uuid()) @db.Uuid
+  name                      String    @db.VarChar(255)
+  email                     String    @db.VarChar(255)
+  phone                     String?   @db.VarChar(50)
+  address                   String?   @db.VarChar(500)
+  city                      String?   @db.VarChar(100)
+  state                     String?   @db.VarChar(100)
+  country                   String?   @db.VarChar(100)
+  pincode                   String?   @db.VarChar(10)
+  plan_id                   String?   @db.Uuid
+  subscription_status       String    @default("trial") @db.VarChar(20)
+  subscription_id           String?   @db.VarChar(100)
+  billing_cycle             String    @default("monthly") @db.VarChar(10) // monthly | yearly
+  trial_ends_at             DateTime?
   // Next Razorpay subscription charge time. Populated from
   // subscription.activated / subscription.charged webhooks (using the
   // Razorpay `current_end` field). Used by the daily renewal-reminder cron
   // so we don't have to call Razorpay for every clinic. NULL until the
   // first subscription event arrives (trial clinics or unconfigured).
-  next_billing_at     DateTime?
-  is_complimentary    Boolean   @default(false)
-  has_own_waba        Boolean   @default(false) // true = clinic brings their own WhatsApp Business Account (no platform WA billing)
-  logo_url            String?   @db.Text
-  currency_code              String    @default("INR") @db.VarChar(10)
-  default_phone_country      String    @default("in") @db.VarChar(10)
-  ai_usage_count      Int       @default(0)
-  ai_quota_override   Int? // per-clinic AI quota override (null = use plan default)
+  next_billing_at           DateTime?
+  is_complimentary          Boolean   @default(false)
+  has_own_waba              Boolean   @default(false) // true = clinic brings their own WhatsApp Business Account (no platform WA billing)
+  logo_url                  String?   @db.Text
+  currency_code             String    @default("INR") @db.VarChar(10)
+  default_phone_country     String    @default("in") @db.VarChar(10)
+  ai_usage_count            Int       @default(0)
+  ai_quota_override         Int? // per-clinic AI quota override (null = use plan default)
   // Per-clinic structural + monthly limit overrides (set by super admin; null = use plan default).
   // Together with ClinicFeatureOverride these let a single clinic run "Starter + a few extras"
   // without spawning a one-off Plan row.
@@ -58,14 +58,14 @@ model Clinic {
   custom_price_reason                    String?   @db.VarChar(500)
   custom_price_granted_by_super_admin_id String?   @db.Uuid
   // Inactivity tracking & suspension
-  last_active_at               DateTime?
-  is_suspended                 Boolean   @default(false)
-  suspended_at                 DateTime?
-  suspension_reason            String?   @db.VarChar(255)
-  inactivity_reminder_30_sent  Boolean   @default(false)
-  inactivity_reminder_40_sent  Boolean   @default(false)
-  created_at          DateTime  @default(now())
-  updated_at          DateTime  @updatedAt
+  last_active_at                         DateTime?
+  is_suspended                           Boolean   @default(false)
+  suspended_at                           DateTime?
+  suspension_reason                      String?   @db.VarChar(255)
+  inactivity_reminder_30_sent            Boolean   @default(false)
+  inactivity_reminder_40_sent            Boolean   @default(false)
+  created_at                             DateTime  @default(now())
+  updated_at                             DateTime  @updatedAt
 
   ai_settings                ClinicAiSettings?
   ai_usage_records           AiUsageRecord[]
@@ -117,8 +117,15 @@ model Clinic {
 
   platform_invoices PlatformInvoice[]
 
-  feature_overrides            ClinicFeatureOverride[]
-  custom_price_granted_by      SuperAdmin?             @relation("ClinicCustomPriceGrantedBy", fields: [custom_price_granted_by_super_admin_id], references: [id], onDelete: SetNull)
+  feature_overrides       ClinicFeatureOverride[]
+  custom_price_granted_by SuperAdmin?             @relation("ClinicCustomPriceGrantedBy", fields: [custom_price_granted_by_super_admin_id], references: [id], onDelete: SetNull)
+
+  insurance_providers      InsuranceProvider[]
+  clinic_empanelments      ClinicEmpanelment[]
+  patient_insurances       PatientInsurance[]
+  insurance_pre_auths      InsurancePreAuth[]
+  insurance_claims         InsuranceClaim[]
+  insurance_reimbursements InsuranceReimbursement[]
 
   @@index([email])
   @@index([plan_id])
@@ -228,8 +235,8 @@ model Feature {
   description String   @db.VarChar(500)
   created_at  DateTime @default(now())
 
-  plan_features     PlanFeature[]
-  clinic_overrides  ClinicFeatureOverride[]
+  plan_features    PlanFeature[]
+  clinic_overrides ClinicFeatureOverride[]
 
   @@map("features")
 }
@@ -411,6 +418,7 @@ model Patient {
   membership_usages        MembershipBenefitUsage[]        @relation("MembershipUsagePatient")
   consents                 PatientConsent[]
   insight_score            PatientInsightScore?
+  insurances               PatientInsurance[]
 
   @@index([clinic_id])
   @@index([branch_id])
@@ -491,20 +499,20 @@ model Treatment {
 }
 
 model Prescription {
-  id                        String   @id @default(uuid()) @db.Uuid
-  clinic_id                 String   @db.Uuid
-  branch_id                 String   @db.Uuid
-  patient_id                String   @db.Uuid
-  dentist_id                String   @db.Uuid
-  clinical_visit_id         String?  @db.Uuid // Optional link to consultation
+  id                          String   @id @default(uuid()) @db.Uuid
+  clinic_id                   String   @db.Uuid
+  branch_id                   String   @db.Uuid
+  patient_id                  String   @db.Uuid
+  dentist_id                  String   @db.Uuid
+  clinical_visit_id           String?  @db.Uuid // Optional link to consultation
   // Frozen-at-issue clinical context. We snapshot these on the prescription
   // so it stays a stable, printable record even if the linked ClinicalVisit
   // is later edited.
-  chief_complaint           String?  @db.Text
-  past_dental_history       String?  @db.Text
-  allergies_medical_history String?  @db.Text
-  diagnosis                 String   @db.VarChar(500)
-  instructions              String?  @db.Text
+  chief_complaint             String?  @db.Text
+  past_dental_history         String?  @db.Text
+  allergies_medical_history   String?  @db.Text
+  diagnosis                   String   @db.VarChar(500)
+  instructions                String?  @db.Text
   // AI-generated safety fields. Optional — populated when the prescription was
   // produced or seeded by the AI assistant; rendered on the printable Rx so the
   // patient leaves with the same safety guidance the dentist saw.
@@ -512,7 +520,7 @@ model Prescription {
   dietary_advice              String?  @db.Text
   post_procedure_instructions String?  @db.Text
   follow_up                   String?  @db.Text
-  created_at                DateTime @default(now())
+  created_at                  DateTime @default(now())
 
   clinic         Clinic             @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   branch         Branch             @relation(fields: [branch_id], references: [id], onDelete: Cascade)
@@ -593,19 +601,31 @@ model Invoice {
   cancelled_at         DateTime?
   cancelled_by_user_id String?   @db.Uuid
   cancel_reason        String?   @db.VarChar(500)
-  created_at           DateTime  @default(now())
-  updated_at           DateTime  @updatedAt
+
+  // ─── Insurance fields ─────────────────────────────────────────────────
+  // Set when this invoice is associated with a patient insurance/EHS plan.
+  // `insurance_covered_amount` is the portion the insurer is expected to
+  // reimburse; `patient_copay_amount` is what the patient pays out of pocket.
+  // Both are nullable so non-insurance invoices stay clean.
+  patient_insurance_id     String?  @db.Uuid
+  insurance_covered_amount Decimal? @db.Decimal(10, 2)
+  patient_copay_amount     Decimal? @db.Decimal(10, 2)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   clinic            Clinic                   @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   branch            Branch                   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
   patient           Patient                  @relation(fields: [patient_id], references: [id], onDelete: Cascade)
   dentist           User?                    @relation("InvoiceDentist", fields: [dentist_id], references: [id], onDelete: SetNull)
   created_by        User?                    @relation("InvoiceCreatedBy", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  patient_insurance PatientInsurance?        @relation(fields: [patient_insurance_id], references: [id], onDelete: SetNull)
   items             InvoiceItem[]
   payments          Payment[]
   refunds           Refund[]
   installment_plan  InstallmentPlan?
   membership_usages MembershipBenefitUsage[]
+  insurance_claims  InsuranceClaim[]
 
   @@unique([clinic_id, invoice_number])
   @@index([clinic_id])
@@ -1385,8 +1405,8 @@ model InsightComputationBatch {
   completed_at  DateTime?
   error_message String?   @db.VarChar(500)
 
-  clinic  Clinic   @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  scores  PatientInsightScore[]
+  clinic Clinic                @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  scores PatientInsightScore[]
 
   @@index([clinic_id])
   @@index([clinic_id, status])
@@ -1394,42 +1414,42 @@ model InsightComputationBatch {
 }
 
 model PatientInsightScore {
-  id          String   @id @default(uuid()) @db.Uuid
-  clinic_id   String   @db.Uuid
-  branch_id   String   @db.Uuid
-  patient_id  String   @unique @db.Uuid
-  batch_id    String?  @db.Uuid
+  id         String  @id @default(uuid()) @db.Uuid
+  clinic_id  String  @db.Uuid
+  branch_id  String  @db.Uuid
+  patient_id String  @unique @db.Uuid
+  batch_id   String? @db.Uuid
 
   // No-show risk (used on appointments)
-  no_show_score      Int     @default(0) // 0–100
-  no_show_risk       String  @default("low") @db.VarChar(10) // low | medium | high
-  no_show_factors    Json?   // breakdown for explanation
+  no_show_score   Int    @default(0) // 0–100
+  no_show_risk    String @default("low") @db.VarChar(10) // low | medium | high
+  no_show_factors Json? // breakdown for explanation
 
   // Recall due (used on patient)
-  recall_due         Boolean @default(false)
-  recall_due_days    Int?    // positive = overdue by N days, negative = due in N days
-  recall_treatment   String? @db.VarChar(255) // last treatment that triggered recall
-  recall_last_date   DateTime? @db.Date
+  recall_due       Boolean   @default(false)
+  recall_due_days  Int? // positive = overdue by N days, negative = due in N days
+  recall_treatment String?   @db.VarChar(255) // last treatment that triggered recall
+  recall_last_date DateTime? @db.Date
 
   // Churn risk (used on patient)
-  churn_score        Int     @default(0) // 0–100
-  churn_risk         String  @default("low") @db.VarChar(10) // low | medium | high
-  days_since_visit   Int?
-  churn_factors      Json?
+  churn_score      Int    @default(0) // 0–100
+  churn_risk       String @default("low") @db.VarChar(10) // low | medium | high
+  days_since_visit Int?
+  churn_factors    Json?
 
   // Treatment conversion (used on dashboard/insights page)
-  conversion_score   Int     @default(0) // 0–100
+  conversion_score    Int     @default(0) // 0–100
   conversion_interest String? @db.VarChar(255) // e.g. "Aligners", "Implant"
-  conversion_value   Decimal @default(0) @db.Decimal(10, 2)
+  conversion_value    Decimal @default(0) @db.Decimal(10, 2)
 
   // Overall
-  confidence_score   Int     @default(0) // 0–100, data completeness
-  computed_at        DateTime @default(now())
+  confidence_score Int      @default(0) // 0–100, data completeness
+  computed_at      DateTime @default(now())
 
-  clinic   Clinic                  @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  branch   Branch                  @relation(fields: [branch_id], references: [id], onDelete: Cascade)
-  patient  Patient                 @relation(fields: [patient_id], references: [id], onDelete: Cascade)
-  batch    InsightComputationBatch? @relation(fields: [batch_id], references: [id], onDelete: SetNull)
+  clinic  Clinic                   @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch  Branch                   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient Patient                  @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  batch   InsightComputationBatch? @relation(fields: [batch_id], references: [id], onDelete: SetNull)
 
   @@unique([clinic_id, patient_id])
   @@index([clinic_id])
@@ -1792,9 +1812,9 @@ model PlatformInvoice {
   paid_at  DateTime? // when the invoice transitioned to 'paid'
 
   // Origin tracking
-  is_manual         Boolean @default(false) // true when super-admin created it (offline / pre-renewal manual)
-  created_by_user_id String? @db.Uuid       // super-admin user that issued it manually
-  notes             String? @db.Text         // internal note from super-admin (e.g. "Offline cheque #1234")
+  is_manual          Boolean @default(false) // true when super-admin created it (offline / pre-renewal manual)
+  created_by_user_id String? @db.Uuid // super-admin user that issued it manually
+  notes              String? @db.Text // internal note from super-admin (e.g. "Offline cheque #1234")
 
   // Delivery tracking (we send via WhatsApp + Email)
   delivery_status  String    @default("pending") @db.VarChar(30) // pending | sent | partial | failed
@@ -1819,6 +1839,385 @@ model PlatformInvoice {
   @@index([due_date])
   @@index([razorpay_subscription_id])
   @@map("platform_invoices")
+}
+
+// ─── Insurance & EHS (Phase 7) ────────────────────────────────────────────
+//
+// End-to-end insurance / Employee Health Scheme (EHS) module. Designed to be
+// country-agnostic via per-row `country` codes and per-plan `coverage_rules`
+// JSON, with India (CGHS / ECHS / ESI / corporate EHS / private insurers) as
+// the first supported market. USA (CDT codes, PPO/HMO) and Canada (CDA codes,
+// CDCP, group benefits) plug in via country-specific strategy classes without
+// any schema change. See docs in src/modules/insurance/strategies/.
+
+/// Master list of insurance providers / EHS schemes.
+/// - clinic_id NULL = global/shared provider (seeded for all clinics, e.g.
+///   CGHS, ECHS, Star Health).
+/// - clinic_id set = clinic-specific (e.g. a corporate EHS the clinic has a
+///   direct MoU with).
+model InsuranceProvider {
+  id            String   @id @default(uuid()) @db.Uuid
+  clinic_id     String?  @db.Uuid
+  name          String   @db.VarChar(200)
+  short_code    String   @db.VarChar(50) // CGHS, ECHS, ESI, STAR, HDFC_ERGO, NIVA_BUPA, CARE
+  // EHS_GOVERNMENT | EHS_CORPORATE | GROUP_INSURANCE | PRIVATE_INSURANCE | NATIONAL_PLAN | TPA
+  type          String   @db.VarChar(30)
+  country       String   @db.VarChar(5) // ISO 3166-1 alpha-2: IN, US, CA, GB
+  contact_email String?  @db.VarChar(255)
+  contact_phone String?  @db.VarChar(50)
+  website       String?  @db.VarChar(500)
+  // ONLINE_PORTAL | EMAIL | PHYSICAL | COURIER | TPA | EDI_837
+  claim_method  String   @default("PHYSICAL") @db.VarChar(20)
+  tpa_name      String?  @db.VarChar(200) // Third-party administrator (e.g. "Vidal Health")
+  notes         String?  @db.Text
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  clinic       Clinic?             @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  plans        InsurancePlan[]
+  empanelments ClinicEmpanelment[]
+
+  @@unique([clinic_id, short_code])
+  @@index([country])
+  @@index([type])
+  @@index([clinic_id])
+  @@map("insurance_providers")
+}
+
+/// A specific plan/policy under a provider (e.g. "CGHS Pensioner", "Star
+/// Health Senior Citizen Red Carpet"). One provider can have many plans with
+/// different coverage rules.
+model InsurancePlan {
+  id             String  @id @default(uuid()) @db.Uuid
+  provider_id    String  @db.Uuid
+  plan_name      String  @db.VarChar(200)
+  plan_code      String? @db.VarChar(100)
+  // Free-form JSON used by country strategies for rules that don't map cleanly
+  // to columns. Examples:
+  //   India CGHS:  { "uses_cghs_rates": true, "rate_card_version": "2024" }
+  //   USA PPO:     { "in_network_pct": 80, "out_network_pct": 60 }
+  //   Canada:      { "direct_billing": true }
+  coverage_rules Json    @default("{}")
+
+  // Standard ADA / dental coverage categories (% of approved amount)
+  preventive_coverage Int @default(100) // exams, cleanings, X-rays
+  basic_coverage      Int @default(80) // fillings, simple extractions
+  major_coverage      Int @default(50) // crowns, bridges, dentures
+  ortho_coverage      Int @default(0) // orthodontics
+
+  annual_max_amount Decimal? @db.Decimal(12, 2) // per beneficiary/year (null = no cap, e.g. CGHS)
+  deductible_amount Decimal  @default(0) @db.Decimal(10, 2)
+  currency          String   @default("INR") @db.VarChar(5)
+
+  requires_preauth  Boolean @default(false)
+  requires_referral Boolean @default(false) // India EHS: CGHS often needs referral
+
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  provider           InsuranceProvider        @relation(fields: [provider_id], references: [id], onDelete: Cascade)
+  procedure_codes    InsuranceProcedureCode[]
+  patient_insurances PatientInsurance[]
+
+  @@index([provider_id])
+  @@map("insurance_plans")
+}
+
+/// Procedure code catalogue per plan. CGHS rate schedule for India, CDT codes
+/// for USA, CDA codes for Canada. Used by the coverage calculator to look up
+/// the approved fee and category-specific coverage %.
+model InsuranceProcedureCode {
+  id                  String   @id @default(uuid()) @db.Uuid
+  plan_id             String   @db.Uuid
+  code                String   @db.VarChar(30) // CGHS-DEN-001, D0120, etc.
+  description         String   @db.VarChar(500)
+  category            String   @db.VarChar(20) // preventive | basic | major | ortho | emergency
+  coverage_pct        Int      @default(100) // overrides plan-level category default
+  max_fee             Decimal? @db.Decimal(10, 2) // CGHS rate cap / UCR fee
+  waiting_period_days Int      @default(0)
+  frequency_limit     String?  @db.VarChar(100) // "once per 6 months", "2 per year"
+  notes               String?  @db.VarChar(500)
+
+  plan InsurancePlan @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+
+  @@unique([plan_id, code])
+  @@index([plan_id])
+  @@map("insurance_procedure_codes")
+}
+
+/// Clinic's empanelment record for a scheme/provider. Stage 0 of the
+/// lifecycle — a clinic must be empanelled before it can directly bill the
+/// scheme (otherwise the patient reimburses themselves from their employer).
+model ClinicEmpanelment {
+  id                   String    @id @default(uuid()) @db.Uuid
+  clinic_id            String    @db.Uuid
+  provider_id          String    @db.Uuid
+  empanelment_number   String    @db.VarChar(100)
+  valid_from           DateTime? @db.Date
+  valid_to             DateTime? @db.Date
+  // Uploaded artefacts — local-storage paths (uploads/insurance/...)
+  certificate_url      String?   @db.VarChar(500)
+  rate_card_url        String?   @db.VarChar(500)
+  tpa_mou_url          String?   @db.VarChar(500)
+  // Reimbursement bank account (free-text; integration with payment module
+  // can come later). Keep it simple for now — most clinics know their account.
+  bank_account_name    String?   @db.VarChar(200)
+  bank_account_number  String?   @db.VarChar(50)
+  bank_ifsc            String?   @db.VarChar(20)
+  bank_name            String?   @db.VarChar(200)
+  contact_person_name  String?   @db.VarChar(200)
+  contact_person_phone String?   @db.VarChar(50)
+  contact_person_email String?   @db.VarChar(255)
+  notes                String?   @db.Text
+  // ACTIVE | EXPIRED | SUSPENDED | PENDING
+  status               String    @default("ACTIVE") @db.VarChar(20)
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+
+  clinic   Clinic            @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  provider InsuranceProvider @relation(fields: [provider_id], references: [id], onDelete: Cascade)
+
+  @@unique([clinic_id, provider_id])
+  @@index([clinic_id])
+  @@index([provider_id])
+  @@index([valid_to])
+  @@map("clinic_empanelments")
+}
+
+/// A patient's insurance enrollment / EHS card. A patient can have multiple
+/// rows for primary + secondary coverage (priority field, COB).
+model PatientInsurance {
+  id         String @id @default(uuid()) @db.Uuid
+  patient_id String @db.Uuid
+  clinic_id  String @db.Uuid
+  plan_id    String @db.Uuid
+  priority   Int    @default(1) // 1 = primary, 2 = secondary
+
+  // Core member identification
+  member_id    String  @db.VarChar(100) // Insurance member / policy ID
+  group_number String? @db.VarChar(100)
+
+  // India EHS specific
+  employee_id    String? @db.VarChar(100) // Employer-issued employee number
+  beneficiary_id String? @db.VarChar(100) // CGHS beneficiary number / ECHS card number
+  company_name   String? @db.VarChar(200) // Employer for corporate EHS
+
+  // Subscriber (policyholder) details — when patient is a dependent
+  subscriber_name String? @db.VarChar(200)
+  relationship    String? @db.VarChar(50) // self | spouse | child | parent
+
+  // Validity window
+  coverage_start DateTime? @db.Date
+  coverage_end   DateTime? @db.Date
+
+  // Uploaded card scans / referral letters
+  card_front_url      String? @db.VarChar(500)
+  card_back_url       String? @db.VarChar(500)
+  referral_letter_url String? @db.VarChar(500)
+
+  is_active  Boolean  @default(true)
+  notes      String?  @db.Text
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  patient   Patient            @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  clinic    Clinic             @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  plan      InsurancePlan      @relation(fields: [plan_id], references: [id])
+  pre_auths InsurancePreAuth[]
+  claims    InsuranceClaim[]
+  invoices  Invoice[]
+
+  @@index([patient_id])
+  @@index([clinic_id])
+  @@index([plan_id])
+  @@map("patient_insurances")
+}
+
+/// Pre-authorization request for procedures that require insurer approval
+/// before treatment (CGHS major work, USA crowns/implants, etc.). Stage 3 of
+/// the lifecycle.
+model InsurancePreAuth {
+  id                   String  @id @default(uuid()) @db.Uuid
+  clinic_id            String  @db.Uuid
+  patient_insurance_id String  @db.Uuid
+  treatment_plan_id    String? @db.Uuid // optional link to treatment plan
+
+  // Submission tracking
+  submission_method    String?   @db.VarChar(20) // PORTAL | EMAIL | PHYSICAL | COURIER
+  submission_ref       String?   @db.VarChar(100) // portal ID / courier AWB
+  submitted_at         DateTime?
+  submitted_by_user_id String?   @db.Uuid
+
+  // Auto-generated request PDF + insurer's response letter (local file paths)
+  request_pdf_url      String? @db.VarChar(500)
+  approval_letter_url  String? @db.VarChar(500)
+  rejection_letter_url String? @db.VarChar(500)
+
+  approval_code       String?   @db.VarChar(100)
+  approved_amount_cap Decimal?  @db.Decimal(10, 2)
+  valid_from          DateTime? @db.Date
+  valid_to            DateTime? @db.Date
+
+  // REQUESTED | SUBMITTED | UNDER_REVIEW | APPROVED | REJECTED | EXPIRED
+  status      String    @default("REQUESTED") @db.VarChar(20)
+  decision_at DateTime?
+  notes       String?   @db.Text
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  clinic            Clinic           @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  patient_insurance PatientInsurance @relation(fields: [patient_insurance_id], references: [id], onDelete: Cascade)
+
+  @@index([clinic_id])
+  @@index([patient_insurance_id])
+  @@index([status])
+  @@map("insurance_pre_auths")
+}
+
+/// One claim per invoice (or per treatment course). Stage 5-7 of the
+/// lifecycle. Links the financial side (invoice) to the insurance side
+/// (patient_insurance + reimbursement).
+model InsuranceClaim {
+  id                   String @id @default(uuid()) @db.Uuid
+  clinic_id            String @db.Uuid
+  invoice_id           String @db.Uuid
+  patient_insurance_id String @db.Uuid
+
+  claim_number  String? @db.VarChar(100) // assigned by insurer/scheme
+  pre_auth_code String? @db.VarChar(100) // copied from InsurancePreAuth if linked
+  pre_auth_id   String? @db.Uuid
+
+  billed_amount     Decimal  @db.Decimal(10, 2)
+  approved_amount   Decimal? @db.Decimal(10, 2)
+  patient_portion   Decimal? @db.Decimal(10, 2)
+  disallowed_amount Decimal? @db.Decimal(10, 2)
+  paid_amount       Decimal? @db.Decimal(10, 2)
+  currency          String   @default("INR") @db.VarChar(5)
+
+  // DRAFT | SUBMITTED | UNDER_REVIEW | QUERY_RAISED | APPROVED | PARTIALLY_APPROVED | REJECTED | PAID | CANCELLED
+  status               String    @default("DRAFT") @db.VarChar(30)
+  submission_method    String?   @db.VarChar(20) // PORTAL | EMAIL | PHYSICAL | COURIER | EDI_837
+  submission_ref       String?   @db.VarChar(100)
+  submitted_at         DateTime?
+  submitted_by_user_id String?   @db.Uuid
+  decision_at          DateTime?
+  paid_at              DateTime?
+  rejection_reason     String?   @db.VarChar(1000)
+  query_text           String?   @db.Text
+  query_response_at    DateTime?
+
+  // Auto-generated documents (local file paths)
+  claim_form_url           String? @db.VarChar(500) // filled scheme-specific claim form PDF
+  consolidated_package_url String? @db.VarChar(500) // ZIP of all supporting docs
+
+  notes      String?  @db.Text
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  clinic            Clinic                             @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  invoice           Invoice                            @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  patient_insurance PatientInsurance                   @relation(fields: [patient_insurance_id], references: [id])
+  status_history    InsuranceClaimStatusHistory[]
+  attachments       InsuranceClaimAttachment[]
+  allocations       InsuranceReimbursementAllocation[]
+
+  @@index([clinic_id])
+  @@index([invoice_id])
+  @@index([patient_insurance_id])
+  @@index([status])
+  @@map("insurance_claims")
+}
+
+/// Audit trail of claim status transitions (Stage 7 of lifecycle).
+model InsuranceClaimStatusHistory {
+  id                 String   @id @default(uuid()) @db.Uuid
+  claim_id           String   @db.Uuid
+  from_status        String?  @db.VarChar(30)
+  to_status          String   @db.VarChar(30)
+  changed_by_user_id String?  @db.Uuid
+  note               String?  @db.VarChar(1000)
+  changed_at         DateTime @default(now())
+
+  claim InsuranceClaim @relation(fields: [claim_id], references: [id], onDelete: Cascade)
+
+  @@index([claim_id])
+  @@map("insurance_claim_status_history")
+}
+
+/// Supporting documents attached to a claim (X-rays, consent forms, EOBs,
+/// query responses, etc.). One claim can have many attachments of varying
+/// types. File paths point to local storage (uploads/insurance/...).
+model InsuranceClaimAttachment {
+  id                  String   @id @default(uuid()) @db.Uuid
+  claim_id            String   @db.Uuid
+  // XRAY | CONSENT | TREATMENT_PLAN | PRESCRIPTION | INVOICE_COPY |
+  // APPROVAL_LETTER | REJECTION_LETTER | QUERY_LETTER | QUERY_RESPONSE |
+  // EOB | SETTLEMENT_LETTER | OTHER
+  type                String   @db.VarChar(30)
+  file_url            String   @db.VarChar(500)
+  file_name           String   @db.VarChar(255)
+  original_name       String   @db.VarChar(255)
+  mime_type           String   @db.VarChar(100)
+  size_bytes          Int?
+  uploaded_by_user_id String?  @db.Uuid
+  description         String?  @db.VarChar(500)
+  uploaded_at         DateTime @default(now())
+
+  claim InsuranceClaim @relation(fields: [claim_id], references: [id], onDelete: Cascade)
+
+  @@index([claim_id])
+  @@index([type])
+  @@map("insurance_claim_attachments")
+}
+
+/// Reimbursement received from an insurer/scheme. One payment can settle
+/// multiple claims (typical for monthly TPA batches). Stage 8 of lifecycle.
+model InsuranceReimbursement {
+  id                  String   @id @default(uuid()) @db.Uuid
+  clinic_id           String   @db.Uuid
+  received_at         DateTime @db.Date
+  amount_received     Decimal  @db.Decimal(12, 2)
+  tds_deducted        Decimal  @default(0) @db.Decimal(10, 2)
+  bank_utr_ref        String?  @db.VarChar(100)
+  currency            String   @default("INR") @db.VarChar(5)
+  // Uploaded bank statement excerpt / EOB / settlement letter
+  proof_document_url  String?  @db.VarChar(500)
+  recorded_by_user_id String?  @db.Uuid
+  notes               String?  @db.Text
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  clinic      Clinic                             @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  allocations InsuranceReimbursementAllocation[]
+
+  @@index([clinic_id])
+  @@index([received_at])
+  @@map("insurance_reimbursements")
+}
+
+/// Per-claim allocation of a reimbursement. Handles partial approvals,
+/// disallowances, and write-off vs re-bill decisions.
+model InsuranceReimbursementAllocation {
+  id                  String   @id @default(uuid()) @db.Uuid
+  reimbursement_id    String   @db.Uuid
+  claim_id            String   @db.Uuid
+  allocated_amount    Decimal  @db.Decimal(10, 2)
+  disallowed_amount   Decimal  @default(0) @db.Decimal(10, 2)
+  disallowance_reason String?  @db.VarChar(500)
+  // WRITE_OFF | REBILL_PATIENT | NONE
+  action_taken        String   @default("NONE") @db.VarChar(20)
+  created_at          DateTime @default(now())
+
+  reimbursement InsuranceReimbursement @relation(fields: [reimbursement_id], references: [id], onDelete: Cascade)
+  claim         InsuranceClaim         @relation(fields: [claim_id], references: [id], onDelete: Cascade)
+
+  @@unique([reimbursement_id, claim_id])
+  @@index([reimbursement_id])
+  @@index([claim_id])
+  @@map("insurance_reimbursement_allocations")
 }
 
 // ─── DISABLED: Google Business Profile integration ────────────────────────
@@ -1988,17 +2387,17 @@ model PatientConsent {
 
   // ── Remote-link signing (patient signs on their own phone) ──
   // 'in_clinic_digital' | 'paper_upload' | 'remote_link'
-  signed_via              String?   @db.VarChar(30)
-  signing_token_hash      String?   @db.VarChar(128) // SHA-256 of one-time link token
+  signed_via               String?   @db.VarChar(30)
+  signing_token_hash       String?   @db.VarChar(128) // SHA-256 of one-time link token
   signing_token_expires_at DateTime?
-  signing_link_sent_at    DateTime?
-  signing_link_sent_to    String?   @db.VarChar(50) // phone/email the link went to
-  otp_code_hash           String?   @db.VarChar(128) // SHA-256 of current OTP
-  otp_expires_at          DateTime?
-  otp_verified_at         DateTime?
-  otp_attempts            Int       @default(0)
-  signed_ip               String?   @db.VarChar(64)
-  signed_user_agent       String?   @db.VarChar(500)
+  signing_link_sent_at     DateTime?
+  signing_link_sent_to     String?   @db.VarChar(50) // phone/email the link went to
+  otp_code_hash            String?   @db.VarChar(128) // SHA-256 of current OTP
+  otp_expires_at           DateTime?
+  otp_verified_at          DateTime?
+  otp_attempts             Int       @default(0)
+  signed_ip                String?   @db.VarChar(64)
+  signed_user_agent        String?   @db.VarChar(500)
 
   notes      String?  @db.Text
   created_at DateTime @default(now())
@@ -2026,18 +2425,18 @@ model PatientConsent {
 // S3 bucket; viewers receive short-lived signed URLs. Role-gated via
 // allowed_roles (lowercase role names, e.g. ["admin","dentist"]).
 model Tutorial {
-  id                 String   @id @default(uuid()) @db.Uuid
-  title              String   @db.VarChar(255)
-  description        String?  @db.Text
-  s3_key             String   @db.VarChar(500)
-  thumbnail_s3_key   String?  @db.VarChar(500)
-  duration_seconds   Int?
-  category           String?  @db.VarChar(100)
-  display_order      Int      @default(0)
-  allowed_roles      String[] // lowercase role names
-  is_published       Boolean  @default(true)
-  created_at         DateTime @default(now())
-  updated_at         DateTime @updatedAt
+  id               String   @id @default(uuid()) @db.Uuid
+  title            String   @db.VarChar(255)
+  description      String?  @db.Text
+  s3_key           String   @db.VarChar(500)
+  thumbnail_s3_key String?  @db.VarChar(500)
+  duration_seconds Int?
+  category         String?  @db.VarChar(100)
+  display_order    Int      @default(0)
+  allowed_roles    String[] // lowercase role names
+  is_published     Boolean  @default(true)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
 
   progress TutorialProgress[]
 
@@ -2049,21 +2448,21 @@ model Tutorial {
 // Support tickets submitted from inside the authenticated dashboard.
 // Distinct from DemoRequest (prospects) — these come from existing clinic users.
 model SupportTicket {
-  id          String   @id @default(uuid()) @db.Uuid
-  clinic_id   String   @db.Uuid
-  user_id     String   @db.Uuid
-  user_name   String   @db.VarChar(255) // snapshot at submission time
-  user_email  String   @db.VarChar(255)
-  user_phone  String?  @db.VarChar(20)
-  clinic_name String?  @db.VarChar(255) // snapshot
-  category    String   @db.VarChar(50)  // bug | feature_request | billing | account | general
-  subject     String   @db.VarChar(255)
-  message     String   @db.Text
-  status      String   @default("open") @db.VarChar(20) // open | in_progress | resolved | closed
-  admin_notes String?  @db.Text
+  id          String    @id @default(uuid()) @db.Uuid
+  clinic_id   String    @db.Uuid
+  user_id     String    @db.Uuid
+  user_name   String    @db.VarChar(255) // snapshot at submission time
+  user_email  String    @db.VarChar(255)
+  user_phone  String?   @db.VarChar(20)
+  clinic_name String?   @db.VarChar(255) // snapshot
+  category    String    @db.VarChar(50) // bug | feature_request | billing | account | general
+  subject     String    @db.VarChar(255)
+  message     String    @db.Text
+  status      String    @default("open") @db.VarChar(20) // open | in_progress | resolved | closed
+  admin_notes String?   @db.Text
   resolved_at DateTime?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
 
   @@index([clinic_id])
   @@index([status])
@@ -2072,11 +2471,11 @@ model SupportTicket {
 }
 
 model TutorialProgress {
-  tutorial_id           String   @db.Uuid
-  user_id               String   @db.Uuid
-  last_position_seconds Int      @default(0)
+  tutorial_id           String    @db.Uuid
+  user_id               String    @db.Uuid
+  last_position_seconds Int       @default(0)
   completed_at          DateTime?
-  updated_at            DateTime @updatedAt
+  updated_at            DateTime  @updatedAt
 
   tutorial Tutorial @relation(fields: [tutorial_id], references: [id], onDelete: Cascade)
 
