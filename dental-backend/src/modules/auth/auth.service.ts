@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, ForbiddenException, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { randomInt } from 'crypto';
@@ -12,6 +12,7 @@ import { SmsProvider } from '../communication/providers/sms.provider.js';
 import { EmailProvider } from '../communication/providers/email.provider.js';
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
 import { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
+import { decodeHtmlEntities } from '../../common/utils/name.util.js';
 import { LoginDto, LookupDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
 
 /** Synthetic clinic ID used to configure the platform-level SMTP transporter */
@@ -39,6 +40,14 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   /** In-memory OTP store: key → { code, expiresAt, attempts } */
   private readonly otpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
+
+  /** Registration OTP store (pre-signup, no clinic_id): phone → { code, expiresAt, attempts } */
+  private readonly regOtpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
+
+  /** Rate-limit tracker for registration OTP sends: phone → list of send timestamps */
+  private readonly regOtpSendTracker = new Map<string, number[]>();
+
+  private static readonly META_GRAPH_API = 'https://graph.facebook.com/v21.0';
 
   constructor(
     private readonly userService: UserService,
@@ -185,6 +194,22 @@ export class AuthService {
     const PAID_TRIAL_DAYS = 14;
     const FREE_GRACE_DAYS = 30;
 
+    // Validate WhatsApp phone verification token
+    try {
+      const payload = await this.jwtService.verifyAsync<{ phone: string; type: string }>(
+        dto.phone_verification_token,
+      );
+      if (payload.type !== 'phone_reg_verified') {
+        throw new BadRequestException('Invalid phone verification token');
+      }
+      if (payload.phone !== dto.admin_phone) {
+        throw new BadRequestException('Verified phone does not match the admin phone provided');
+      }
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      throw new BadRequestException('Phone verification token is invalid or has expired. Please verify your WhatsApp number again.');
+    }
+
     // Check if clinic email already exists
     const existingClinic = await this.prisma.clinic.findFirst({
       where: { email: dto.clinic_email },
@@ -223,7 +248,7 @@ export class AuthService {
     const result = await this.prisma.$transaction(async (tx) => {
       const clinic = await tx.clinic.create({
         data: {
-          name: dto.clinic_name,
+          name: decodeHtmlEntities(dto.clinic_name),
           email: dto.clinic_email,
           phone: dto.clinic_phone,
           address: dto.address,
@@ -259,7 +284,7 @@ export class AuthService {
         data: {
           clinic_id: clinic.id,
           branch_id: branch.id,
-          name: dto.admin_name,
+          name: decodeHtmlEntities(dto.admin_name),
           email: dto.admin_email,
           phone: dto.admin_phone,
           password_hash: await this.passwordService.hash(dto.admin_password),
@@ -843,6 +868,117 @@ export class AuthService {
     // OTP is valid — remove it (one-time use)
     this.otpStore.delete(key);
     return { valid: true, message: 'OTP verified successfully.' };
+  }
+
+  // ─── Registration WhatsApp OTP ───
+
+  async sendRegistrationOtp(phone: string): Promise<{ message: string }> {
+    // Rate limit: max 3 sends per phone per hour
+    const now = Date.now();
+    const ONE_HOUR = 60 * 60 * 1000;
+    const sends = (this.regOtpSendTracker.get(phone) ?? []).filter((t) => now - t < ONE_HOUR);
+    if (sends.length >= 3) {
+      throw new HttpException(
+        'Too many OTP requests for this number. Please wait before trying again.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    sends.push(now);
+    this.regOtpSendTracker.set(phone, sends);
+
+    const otp = String(randomInt(100000, 999999));
+    const OTP_EXPIRY_MS = 10 * 60 * 1000;
+
+    this.regOtpStore.set(phone, { code: otp, expiresAt: now + OTP_EXPIRY_MS, attempts: 0 });
+
+    // Send via platform WhatsApp credentials
+    const accessToken = this.configService.get<string>('app.whatsapp.accessToken');
+    const phoneNumberId = this.configService.get<string>('app.whatsapp.phoneNumberId');
+
+    if (!accessToken || !phoneNumberId) {
+      this.logger.warn('Platform WhatsApp not configured — registration OTP not sent via WhatsApp');
+      return { message: 'OTP generated (WhatsApp not configured on server).' };
+    }
+
+    // Normalize to Meta format: strip leading +
+    const destination = phone.startsWith('+') ? phone.slice(1) : phone.replace(/[^0-9]/g, '');
+
+    const payload = {
+      messaging_product: 'whatsapp',
+      to: destination,
+      type: 'template',
+      template: {
+        name: 'registration_otp',
+        language: { code: 'en' },
+        components: [
+          {
+            type: 'body',
+            parameters: [{ type: 'text', text: otp }],
+          },
+        ],
+      },
+    };
+
+    try {
+      const url = `${AuthService.META_GRAPH_API}/${phoneNumberId}/messages`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000),
+      });
+
+      const data = await response.json() as Record<string, unknown>;
+      if (!response.ok) {
+        const error = (data.error as Record<string, unknown> | undefined)?.message ?? 'Meta API error';
+        this.logger.warn(`Registration OTP WhatsApp send failed to ${destination}: ${error}`);
+        throw new BadRequestException(`Could not send WhatsApp message: ${error}`);
+      }
+      this.logger.log(`Registration OTP sent via WhatsApp to ${destination}`);
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      this.logger.error(`Registration OTP WhatsApp fetch error: ${(err as Error).message}`);
+      throw new BadRequestException('Failed to send WhatsApp OTP. Please check the number and try again.');
+    }
+
+    return { message: 'OTP sent to your WhatsApp number. Valid for 10 minutes.' };
+  }
+
+  async verifyRegistrationOtp(phone: string, code: string): Promise<{ verified: boolean; token?: string; message: string }> {
+    const entry = this.regOtpStore.get(phone);
+
+    if (!entry) {
+      return { verified: false, message: 'OTP not found or expired. Please request a new one.' };
+    }
+    if (Date.now() > entry.expiresAt) {
+      this.regOtpStore.delete(phone);
+      return { verified: false, message: 'OTP has expired. Please request a new one.' };
+    }
+    if (entry.attempts >= 3) {
+      this.regOtpStore.delete(phone);
+      return { verified: false, message: 'Too many failed attempts. Please request a new OTP.' };
+    }
+
+    // Constant-time comparison
+    const codeBuffer = Buffer.from(code);
+    const storedBuffer = Buffer.from(entry.code);
+    let diff = codeBuffer.length !== storedBuffer.length ? 1 : 0;
+    const len = Math.min(codeBuffer.length, storedBuffer.length);
+    for (let i = 0; i < len; i++) diff |= codeBuffer[i] ^ storedBuffer[i];
+
+    if (diff !== 0) {
+      entry.attempts++;
+      return { verified: false, message: 'Invalid OTP.' };
+    }
+
+    // OTP valid — delete it and issue a 15-min verification JWT
+    this.regOtpStore.delete(phone);
+    const token = await this.jwtService.signAsync(
+      { phone, type: 'phone_reg_verified' },
+      { expiresIn: '15m' },
+    );
+
+    return { verified: true, token, message: 'Phone verified successfully.' };
   }
 
   private cleanExpiredOtps(): void {

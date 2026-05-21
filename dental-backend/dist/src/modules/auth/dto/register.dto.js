@@ -29,8 +29,9 @@ class RegisterClinicDto {
     license_number;
     plan_key;
     billing_cycle;
+    phone_verification_token;
     static _OPENAPI_METADATA_FACTORY() {
-        return { clinic_name: { required: true, type: () => String, maxLength: 255 }, clinic_email: { required: true, type: () => String, maxLength: 255, format: "email" }, clinic_phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, admin_name: { required: true, type: () => String, maxLength: 255 }, admin_email: { required: true, type: () => String, maxLength: 255, format: "email" }, admin_phone: { required: true, type: () => String, pattern: "/^\\+[1-9]\\d{6,14}$/" }, admin_password: { required: true, type: () => String, minLength: 8 }, is_doctor: { required: false, type: () => Boolean }, license_number: { required: false, type: () => String, maxLength: 100 }, plan_key: { required: false, type: () => String, maxLength: 50 }, billing_cycle: { required: false, type: () => Object, enum: ['monthly', 'yearly'] } };
+        return { clinic_name: { required: true, type: () => String, maxLength: 255 }, clinic_email: { required: true, type: () => String, maxLength: 255, format: "email" }, clinic_phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, admin_name: { required: true, type: () => String, maxLength: 255 }, admin_email: { required: true, type: () => String, maxLength: 255, format: "email" }, admin_phone: { required: true, type: () => String, pattern: "/^\\+[1-9]\\d{6,14}$/" }, admin_password: { required: true, type: () => String, minLength: 8 }, is_doctor: { required: false, type: () => Boolean }, license_number: { required: false, type: () => String, maxLength: 100 }, plan_key: { required: false, type: () => String, maxLength: 50 }, billing_cycle: { required: false, type: () => Object, enum: ['monthly', 'yearly'] }, phone_verification_token: { required: true, type: () => String } };
     }
 }
 exports.RegisterClinicDto = RegisterClinicDto;
@@ -131,4 +132,9 @@ __decorate([
     (0, class_validator_1.IsIn)(['monthly', 'yearly']),
     __metadata("design:type", String)
 ], RegisterClinicDto.prototype, "billing_cycle", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Short-lived JWT issued after successful WhatsApp OTP verification. Must match admin_phone.' }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], RegisterClinicDto.prototype, "phone_verification_token", void 0);
 //# sourceMappingURL=register.dto.js.map

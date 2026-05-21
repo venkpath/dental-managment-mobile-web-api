@@ -3,6 +3,7 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { ClinicFeatureService } from '../feature/clinic-feature.service.js';
 import { CreateClinicDto, UpdateClinicDto, UpdateSubscriptionDto } from './dto/index.js';
 import { Clinic } from '@prisma/client';
+import { decodeHtmlEntities } from '../../common/utils/name.util.js';
 
 const TRIAL_DAYS = 14;
 
@@ -88,6 +89,7 @@ export class ClinicService {
 
   async update(id: string, dto: UpdateClinicDto): Promise<Clinic> {
     await this.findOne(id);
+    if (dto.name) dto.name = decodeHtmlEntities(dto.name);
     return this.prisma.clinic.update({
       where: { id },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

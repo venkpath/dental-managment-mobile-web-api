@@ -23,8 +23,10 @@ const communication_service_js_1 = require("../communication/communication.servi
 const sms_provider_js_1 = require("../communication/providers/sms.provider.js");
 const email_provider_js_1 = require("../communication/providers/email.provider.js");
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
+const name_util_js_1 = require("../../common/utils/name.util.js");
 const PLATFORM_CLINIC_ID = '__platform__';
-let AuthService = AuthService_1 = class AuthService {
+let AuthService = class AuthService {
+    static { AuthService_1 = this; }
     userService;
     passwordService;
     jwtService;
@@ -36,6 +38,9 @@ let AuthService = AuthService_1 = class AuthService {
     emailProvider;
     logger = new common_1.Logger(AuthService_1.name);
     otpStore = new Map();
+    regOtpStore = new Map();
+    regOtpSendTracker = new Map();
+    static META_GRAPH_API = 'https://graph.facebook.com/v21.0';
     constructor(userService, passwordService, jwtService, configService, prisma, auditLogService, communicationService, smsProvider, emailProvider) {
         this.userService = userService;
         this.passwordService = passwordService;
@@ -154,6 +159,20 @@ let AuthService = AuthService_1 = class AuthService {
     async register(dto) {
         const PAID_TRIAL_DAYS = 14;
         const FREE_GRACE_DAYS = 30;
+        try {
+            const payload = await this.jwtService.verifyAsync(dto.phone_verification_token);
+            if (payload.type !== 'phone_reg_verified') {
+                throw new common_1.BadRequestException('Invalid phone verification token');
+            }
+            if (payload.phone !== dto.admin_phone) {
+                throw new common_1.BadRequestException('Verified phone does not match the admin phone provided');
+            }
+        }
+        catch (err) {
+            if (err instanceof common_1.BadRequestException)
+                throw err;
+            throw new common_1.BadRequestException('Phone verification token is invalid or has expired. Please verify your WhatsApp number again.');
+        }
         const existingClinic = await this.prisma.clinic.findFirst({
             where: { email: dto.clinic_email },
         });
@@ -182,7 +201,7 @@ let AuthService = AuthService_1 = class AuthService {
         const result = await this.prisma.$transaction(async (tx) => {
             const clinic = await tx.clinic.create({
                 data: {
-                    name: dto.clinic_name,
+                    name: (0, name_util_js_1.decodeHtmlEntities)(dto.clinic_name),
                     email: dto.clinic_email,
                     phone: dto.clinic_phone,
                     address: dto.address,
@@ -213,7 +232,7 @@ let AuthService = AuthService_1 = class AuthService {
                 data: {
                     clinic_id: clinic.id,
                     branch_id: branch.id,
-                    name: dto.admin_name,
+                    name: (0, name_util_js_1.decodeHtmlEntities)(dto.admin_name),
                     email: dto.admin_email,
                     phone: dto.admin_phone,
                     password_hash: await this.passwordService.hash(dto.admin_password),
@@ -680,6 +699,91 @@ let AuthService = AuthService_1 = class AuthService {
         }
         this.otpStore.delete(key);
         return { valid: true, message: 'OTP verified successfully.' };
+    }
+    async sendRegistrationOtp(phone) {
+        const now = Date.now();
+        const ONE_HOUR = 60 * 60 * 1000;
+        const sends = (this.regOtpSendTracker.get(phone) ?? []).filter((t) => now - t < ONE_HOUR);
+        if (sends.length >= 3) {
+            throw new common_1.HttpException('Too many OTP requests for this number. Please wait before trying again.', common_1.HttpStatus.TOO_MANY_REQUESTS);
+        }
+        sends.push(now);
+        this.regOtpSendTracker.set(phone, sends);
+        const otp = String((0, crypto_1.randomInt)(100000, 999999));
+        const OTP_EXPIRY_MS = 10 * 60 * 1000;
+        this.regOtpStore.set(phone, { code: otp, expiresAt: now + OTP_EXPIRY_MS, attempts: 0 });
+        const accessToken = this.configService.get('app.whatsapp.accessToken');
+        const phoneNumberId = this.configService.get('app.whatsapp.phoneNumberId');
+        if (!accessToken || !phoneNumberId) {
+            this.logger.warn('Platform WhatsApp not configured — registration OTP not sent via WhatsApp');
+            return { message: 'OTP generated (WhatsApp not configured on server).' };
+        }
+        const destination = phone.startsWith('+') ? phone.slice(1) : phone.replace(/[^0-9]/g, '');
+        const payload = {
+            messaging_product: 'whatsapp',
+            to: destination,
+            type: 'template',
+            template: {
+                name: 'registration_otp',
+                language: { code: 'en' },
+                components: [
+                    {
+                        type: 'body',
+                        parameters: [{ type: 'text', text: otp }],
+                    },
+                ],
+            },
+        };
+        try {
+            const url = `${AuthService_1.META_GRAPH_API}/${phoneNumberId}/messages`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: AbortSignal.timeout(15000),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                const error = data.error?.message ?? 'Meta API error';
+                this.logger.warn(`Registration OTP WhatsApp send failed to ${destination}: ${error}`);
+                throw new common_1.BadRequestException(`Could not send WhatsApp message: ${error}`);
+            }
+            this.logger.log(`Registration OTP sent via WhatsApp to ${destination}`);
+        }
+        catch (err) {
+            if (err instanceof common_1.BadRequestException)
+                throw err;
+            this.logger.error(`Registration OTP WhatsApp fetch error: ${err.message}`);
+            throw new common_1.BadRequestException('Failed to send WhatsApp OTP. Please check the number and try again.');
+        }
+        return { message: 'OTP sent to your WhatsApp number. Valid for 10 minutes.' };
+    }
+    async verifyRegistrationOtp(phone, code) {
+        const entry = this.regOtpStore.get(phone);
+        if (!entry) {
+            return { verified: false, message: 'OTP not found or expired. Please request a new one.' };
+        }
+        if (Date.now() > entry.expiresAt) {
+            this.regOtpStore.delete(phone);
+            return { verified: false, message: 'OTP has expired. Please request a new one.' };
+        }
+        if (entry.attempts >= 3) {
+            this.regOtpStore.delete(phone);
+            return { verified: false, message: 'Too many failed attempts. Please request a new OTP.' };
+        }
+        const codeBuffer = Buffer.from(code);
+        const storedBuffer = Buffer.from(entry.code);
+        let diff = codeBuffer.length !== storedBuffer.length ? 1 : 0;
+        const len = Math.min(codeBuffer.length, storedBuffer.length);
+        for (let i = 0; i < len; i++)
+            diff |= codeBuffer[i] ^ storedBuffer[i];
+        if (diff !== 0) {
+            entry.attempts++;
+            return { verified: false, message: 'Invalid OTP.' };
+        }
+        this.regOtpStore.delete(phone);
+        const token = await this.jwtService.signAsync({ phone, type: 'phone_reg_verified' }, { expiresIn: '15m' });
+        return { verified: true, token, message: 'Phone verified successfully.' };
     }
     cleanExpiredOtps() {
         const now = Date.now();

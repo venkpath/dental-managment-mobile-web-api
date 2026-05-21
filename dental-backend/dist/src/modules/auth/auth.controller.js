@@ -65,6 +65,12 @@ let AuthController = class AuthController {
     async verifyPhone(user, body) {
         return this.authService.verifyPhone(user.sub, user.clinic_id, body.phone, body.code);
     }
+    async sendRegistrationOtp(body) {
+        return this.authService.sendRegistrationOtp(body.phone);
+    }
+    async verifyRegistrationOtp(body) {
+        return this.authService.verifyRegistrationOtp(body.phone, body.code);
+    }
     async sendOtp(body) {
         return this.authService.sendOtp(body.identifier, body.clinic_id, body.channel);
     }
@@ -209,6 +215,33 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "verifyPhone", null);
+__decorate([
+    (0, public_decorator_js_1.Public)(),
+    (0, throttler_1.Throttle)({ default: { ttl: 3600000, limit: 5 } }),
+    (0, common_1.Post)('register/send-otp'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Send WhatsApp OTP to admin phone before clinic registration' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'OTP sent via WhatsApp' }),
+    (0, swagger_1.ApiResponse)({ status: 429, description: 'Too many OTP requests' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "sendRegistrationOtp", null);
+__decorate([
+    (0, public_decorator_js_1.Public)(),
+    (0, throttler_1.Throttle)({ default: { ttl: 60000, limit: 5 } }),
+    (0, common_1.Post)('register/verify-otp'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Verify WhatsApp OTP and receive a short-lived verification token for registration' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'OTP verified, returns token' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "verifyRegistrationOtp", null);
 __decorate([
     (0, public_decorator_js_1.Public)(),
     (0, throttler_1.Throttle)({ default: { ttl: 60000, limit: 5 } }),

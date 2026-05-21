@@ -13,6 +13,7 @@ exports.ClinicService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const clinic_feature_service_js_1 = require("../feature/clinic-feature.service.js");
+const name_util_js_1 = require("../../common/utils/name.util.js");
 const TRIAL_DAYS = 14;
 let ClinicService = class ClinicService {
     prisma;
@@ -79,6 +80,8 @@ let ClinicService = class ClinicService {
     }
     async update(id, dto) {
         await this.findOne(id);
+        if (dto.name)
+            dto.name = (0, name_util_js_1.decodeHtmlEntities)(dto.name);
         return this.prisma.clinic.update({
             where: { id },
             data: dto,

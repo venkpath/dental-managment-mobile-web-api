@@ -71,6 +71,19 @@ export declare class AuthController {
         valid: boolean;
         message: string;
     }>;
+    sendRegistrationOtp(body: {
+        phone: string;
+    }): Promise<{
+        message: string;
+    }>;
+    verifyRegistrationOtp(body: {
+        phone: string;
+        code: string;
+    }): Promise<{
+        verified: boolean;
+        token?: string;
+        message: string;
+    }>;
     sendOtp(body: {
         identifier: string;
         clinic_id: string;

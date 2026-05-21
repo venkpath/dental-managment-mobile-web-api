@@ -134,6 +134,29 @@ export class AuthController {
     return this.authService.verifyPhone(user.sub, user.clinic_id, body.phone, body.code);
   }
 
+  // ─── Registration WhatsApp OTP ───
+
+  @Public()
+  @Throttle({ default: { ttl: 3600000, limit: 5 } })
+  @Post('register/send-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Send WhatsApp OTP to admin phone before clinic registration' })
+  @ApiResponse({ status: 200, description: 'OTP sent via WhatsApp' })
+  @ApiResponse({ status: 429, description: 'Too many OTP requests' })
+  async sendRegistrationOtp(@Body() body: { phone: string }) {
+    return this.authService.sendRegistrationOtp(body.phone);
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Post('register/verify-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify WhatsApp OTP and receive a short-lived verification token for registration' })
+  @ApiResponse({ status: 200, description: 'OTP verified, returns token' })
+  async verifyRegistrationOtp(@Body() body: { phone: string; code: string }) {
+    return this.authService.verifyRegistrationOtp(body.phone, body.code);
+  }
+
   // ─── OTP (13.3) ───
 
   @Public()

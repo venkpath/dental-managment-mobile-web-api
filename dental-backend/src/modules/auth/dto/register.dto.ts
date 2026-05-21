@@ -83,4 +83,8 @@ export class RegisterClinicDto {
   @IsOptional()
   @IsIn(['monthly', 'yearly'])
   billing_cycle?: 'monthly' | 'yearly';
+
+  @ApiProperty({ description: 'Short-lived JWT issued after successful WhatsApp OTP verification. Must match admin_phone.' })
+  @IsString()
+  phone_verification_token!: string;
 }

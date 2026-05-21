@@ -37,6 +37,9 @@ export declare class AuthService {
     private readonly emailProvider;
     private readonly logger;
     private readonly otpStore;
+    private readonly regOtpStore;
+    private readonly regOtpSendTracker;
+    private static readonly META_GRAPH_API;
     constructor(userService: UserService, passwordService: PasswordService, jwtService: JwtService, configService: ConfigService, prisma: PrismaService, auditLogService: AuditLogService, communicationService: CommunicationService, smsProvider: SmsProvider, emailProvider: EmailProvider);
     lookup(dto: LookupDto): Promise<{
         clinics: {
@@ -98,6 +101,14 @@ export declare class AuthService {
     }>;
     verifyOtp(identifier: string, clinicId: string, code: string): Promise<{
         valid: boolean;
+        message: string;
+    }>;
+    sendRegistrationOtp(phone: string): Promise<{
+        message: string;
+    }>;
+    verifyRegistrationOtp(phone: string, code: string): Promise<{
+        verified: boolean;
+        token?: string;
         message: string;
     }>;
     private cleanExpiredOtps;

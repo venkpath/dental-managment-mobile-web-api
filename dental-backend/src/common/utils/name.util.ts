@@ -1,4 +1,19 @@
 /**
+ * Decode common HTML entities in a string so names stored from web forms
+ * display correctly (e.g. "&amp;" → "&", "&amp;amp;" → "&").
+ */
+export function decodeHtmlEntities(value: string | undefined | null): string {
+  if (!value) return value ?? '';
+  return value
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'");
+}
+
+/**
  * Normalize a doctor's name to always render with a single "Dr." prefix.
  * Strips any existing leading "Dr.", "Dr ", "DR.", "doctor" (case-insensitive)
  * before re-adding "Dr. ", so we never produce "Dr. Dr. Priya".
