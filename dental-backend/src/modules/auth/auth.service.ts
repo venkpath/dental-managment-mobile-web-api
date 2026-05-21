@@ -905,6 +905,7 @@ export class AuthService {
 
     const payload = {
       messaging_product: 'whatsapp',
+      recipient_type: 'individual',
       to: destination,
       type: 'template',
       template: {
@@ -913,6 +914,14 @@ export class AuthService {
         components: [
           {
             type: 'body',
+            parameters: [{ type: 'text', text: otp }],
+          },
+          {
+            // AUTHENTICATION templates auto-include a "Copy Code" button (index 0).
+            // Meta requires the OTP to be passed here as well.
+            type: 'button',
+            sub_type: 'url',
+            index: '0',
             parameters: [{ type: 'text', text: otp }],
           },
         ],

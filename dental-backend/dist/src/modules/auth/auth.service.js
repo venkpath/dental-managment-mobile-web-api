@@ -721,6 +721,7 @@ let AuthService = class AuthService {
         const destination = phone.startsWith('+') ? phone.slice(1) : phone.replace(/[^0-9]/g, '');
         const payload = {
             messaging_product: 'whatsapp',
+            recipient_type: 'individual',
             to: destination,
             type: 'template',
             template: {
@@ -729,6 +730,12 @@ let AuthService = class AuthService {
                 components: [
                     {
                         type: 'body',
+                        parameters: [{ type: 'text', text: otp }],
+                    },
+                    {
+                        type: 'button',
+                        sub_type: 'url',
+                        index: '0',
                         parameters: [{ type: 'text', text: otp }],
                     },
                 ],
