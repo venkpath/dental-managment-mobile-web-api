@@ -113,7 +113,7 @@ export class AppointmentService {
         clinic_id: clinicId,
         appointment_date: new Date(appointment_date),
       },
-      include: { patient: true, dentist: true, branch: true },
+      include: { patient: true, dentist: true, branch: true, room: { select: { id: true, name: true, room_type: true } } },
     });
 
     // Send WhatsApp confirmation (fire-and-forget — don't block the response)
@@ -248,7 +248,7 @@ export class AppointmentService {
       this.prisma.appointment.findMany({
         where,
         orderBy: [{ appointment_date: 'asc' }, { start_time: 'asc' }],
-        include: { patient: true, dentist: true, branch: true },
+        include: { patient: true, dentist: true, branch: true, room: { select: { id: true, name: true, room_type: true } } },
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -261,7 +261,7 @@ export class AppointmentService {
   async findOne(clinicId: string, id: string): Promise<Appointment> {
     const appointment = await this.prisma.appointment.findUnique({
       where: { id },
-      include: { patient: true, dentist: true, branch: true },
+      include: { patient: true, dentist: true, branch: true, room: { select: { id: true, name: true, room_type: true } } },
     });
     if (!appointment || appointment.clinic_id !== clinicId) {
       throw new NotFoundException(`Appointment with ID "${id}" not found`);
@@ -324,15 +324,27 @@ export class AppointmentService {
     const isRescheduled = !!(dto.appointment_date || dto.start_time || dto.end_time);
     const isCancelled = dto.status === 'cancelled' && existing.status !== 'cancelled';
 
+    // When appointment is finished, auto-release its room to cleaning
+    const terminalStatuses = ['completed', 'no_show', 'cancelled'];
+    const releasesRoom = terminalStatuses.includes(dto.status ?? '') && !!existing.room_id;
+
     const { appointment_date, ...rest } = dto;
     const updated = await this.prisma.appointment.update({
       where: { id },
       data: {
         ...rest,
         ...(appointment_date !== undefined ? { appointment_date: new Date(appointment_date) } : {}),
+        ...(releasesRoom ? { room_id: null } : {}),
       },
-      include: { patient: true, dentist: true, branch: true },
+      include: { patient: true, dentist: true, branch: true, room: { select: { id: true, name: true, room_type: true } } },
     });
+
+    if (releasesRoom) {
+      await this.prisma.room.update({
+        where: { id: existing.room_id! },
+        data: { status: 'cleaning', cleaning_started_at: new Date() },
+      }).catch((e: Error) => this.logger.warn(`Room auto-release failed for room ${existing.room_id}: ${e.message}`));
+    }
 
     // Send WhatsApp notifications (fire-and-forget)
     if (isCancelled) {
@@ -456,7 +468,7 @@ export class AppointmentService {
             notes: dto.notes,
             recurrence_group_id: recurrenceGroupId,
           },
-          include: { patient: true, dentist: true, branch: true },
+          include: { patient: true, dentist: true, branch: true, room: { select: { id: true, name: true, room_type: true } } },
         }),
       ),
     );

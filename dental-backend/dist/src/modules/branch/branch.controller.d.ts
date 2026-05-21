@@ -2,12 +2,14 @@ import type { Response } from 'express';
 import { BranchService } from './branch.service.js';
 import { BranchPrescriptionTemplateService } from './branch-prescription-template.service.js';
 import { QrCodeService } from './qr-code.service.js';
+import { DisplayTokenService } from './display-token.service.js';
 import { CreateBranchDto, UpdateBranchDto, UpdateBranchSchedulingDto, SaveTemplateConfigDto, PreviewTemplateDto } from './dto/index.js';
 export declare class BranchController {
     private readonly branchService;
     private readonly templateService;
     private readonly qrCodeService;
-    constructor(branchService: BranchService, templateService: BranchPrescriptionTemplateService, qrCodeService: QrCodeService);
+    private readonly displayTokenService;
+    constructor(branchService: BranchService, templateService: BranchPrescriptionTemplateService, qrCodeService: QrCodeService, displayTokenService: DisplayTokenService);
     create(clinicId: string, dto: CreateBranchDto): Promise<{
         id: string;
         name: string;
@@ -32,12 +34,15 @@ export declare class BranchController {
         buffer_minutes: number | null;
         advance_booking_days: number | null;
         working_days: string | null;
+        room_cleaning_duration_minutes: number | null;
         prescription_template_url: string | null;
         prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
         prescription_template_enabled: boolean;
         qr_code_token: string | null;
         qr_code_enabled: boolean;
         qr_code_generated_at: Date | null;
+        display_token: string | null;
+        display_token_enabled: boolean;
         clinic_id: string;
     }>;
     findAll(clinicId: string): Promise<{
@@ -64,12 +69,15 @@ export declare class BranchController {
         buffer_minutes: number | null;
         advance_booking_days: number | null;
         working_days: string | null;
+        room_cleaning_duration_minutes: number | null;
         prescription_template_url: string | null;
         prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
         prescription_template_enabled: boolean;
         qr_code_token: string | null;
         qr_code_enabled: boolean;
         qr_code_generated_at: Date | null;
+        display_token: string | null;
+        display_token_enabled: boolean;
         clinic_id: string;
     }[]>;
     findOne(clinicId: string, id: string): Promise<{
@@ -96,12 +104,15 @@ export declare class BranchController {
         buffer_minutes: number | null;
         advance_booking_days: number | null;
         working_days: string | null;
+        room_cleaning_duration_minutes: number | null;
         prescription_template_url: string | null;
         prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
         prescription_template_enabled: boolean;
         qr_code_token: string | null;
         qr_code_enabled: boolean;
         qr_code_generated_at: Date | null;
+        display_token: string | null;
+        display_token_enabled: boolean;
         clinic_id: string;
     }>;
     update(clinicId: string, id: string, dto: UpdateBranchDto): Promise<{
@@ -128,12 +139,15 @@ export declare class BranchController {
         buffer_minutes: number | null;
         advance_booking_days: number | null;
         working_days: string | null;
+        room_cleaning_duration_minutes: number | null;
         prescription_template_url: string | null;
         prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
         prescription_template_enabled: boolean;
         qr_code_token: string | null;
         qr_code_enabled: boolean;
         qr_code_generated_at: Date | null;
+        display_token: string | null;
+        display_token_enabled: boolean;
         clinic_id: string;
     }>;
     getSchedulingSettings(clinicId: string, id: string): Promise<{
@@ -171,12 +185,15 @@ export declare class BranchController {
         buffer_minutes: number | null;
         advance_booking_days: number | null;
         working_days: string | null;
+        room_cleaning_duration_minutes: number | null;
         prescription_template_url: string | null;
         prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
         prescription_template_enabled: boolean;
         qr_code_token: string | null;
         qr_code_enabled: boolean;
         qr_code_generated_at: Date | null;
+        display_token: string | null;
+        display_token_enabled: boolean;
         clinic_id: string;
     }>;
     getTemplate(clinicId: string, id: string): Promise<{
@@ -229,6 +246,26 @@ export declare class BranchController {
         generated_at: Date | null;
     }>;
     disableQrCode(clinicId: string, id: string): Promise<{
+        message: string;
+    }>;
+    generateDisplayToken(clinicId: string, id: string): Promise<{
+        token: string;
+        display_url: string;
+        branch_name: string;
+        enabled: boolean;
+    }>;
+    getDisplayToken(clinicId: string, id: string): Promise<{
+        enabled: boolean;
+        token: null;
+        display_url: null;
+        branch_name: string;
+    } | {
+        token: string;
+        display_url: string;
+        branch_name: string;
+        enabled: boolean;
+    }>;
+    revokeDisplayToken(clinicId: string, id: string): Promise<{
         message: string;
     }>;
 }

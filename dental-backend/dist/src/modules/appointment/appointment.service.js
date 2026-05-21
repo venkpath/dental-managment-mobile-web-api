@@ -97,7 +97,7 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
                 clinic_id: clinicId,
                 appointment_date: new Date(appointment_date),
             },
-            include: { patient: true, dentist: true, branch: true },
+            include: { patient: true, dentist: true, branch: true, room: { select: { id: true, name: true, room_type: true } } },
         });
         this.notificationService.sendConfirmation(clinicId, appointment.id).catch((e) => {
             this.logger.warn(`Appointment confirmation notification failed: ${e.message}`);
@@ -199,7 +199,7 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
             this.prisma.appointment.findMany({
                 where,
                 orderBy: [{ appointment_date: 'asc' }, { start_time: 'asc' }],
-                include: { patient: true, dentist: true, branch: true },
+                include: { patient: true, dentist: true, branch: true, room: { select: { id: true, name: true, room_type: true } } },
                 skip: (page - 1) * limit,
                 take: limit,
             }),
@@ -210,7 +210,7 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
     async findOne(clinicId, id) {
         const appointment = await this.prisma.appointment.findUnique({
             where: { id },
-            include: { patient: true, dentist: true, branch: true },
+            include: { patient: true, dentist: true, branch: true, room: { select: { id: true, name: true, room_type: true } } },
         });
         if (!appointment || appointment.clinic_id !== clinicId) {
             throw new common_1.NotFoundException(`Appointment with ID "${id}" not found`);
@@ -263,15 +263,24 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
         const oldTime = existing.start_time;
         const isRescheduled = !!(dto.appointment_date || dto.start_time || dto.end_time);
         const isCancelled = dto.status === 'cancelled' && existing.status !== 'cancelled';
+        const terminalStatuses = ['completed', 'no_show', 'cancelled'];
+        const releasesRoom = terminalStatuses.includes(dto.status ?? '') && !!existing.room_id;
         const { appointment_date, ...rest } = dto;
         const updated = await this.prisma.appointment.update({
             where: { id },
             data: {
                 ...rest,
                 ...(appointment_date !== undefined ? { appointment_date: new Date(appointment_date) } : {}),
+                ...(releasesRoom ? { room_id: null } : {}),
             },
-            include: { patient: true, dentist: true, branch: true },
+            include: { patient: true, dentist: true, branch: true, room: { select: { id: true, name: true, room_type: true } } },
         });
+        if (releasesRoom) {
+            await this.prisma.room.update({
+                where: { id: existing.room_id },
+                data: { status: 'cleaning', cleaning_started_at: new Date() },
+            }).catch((e) => this.logger.warn(`Room auto-release failed for room ${existing.room_id}: ${e.message}`));
+        }
         if (isCancelled) {
             this.notificationService.sendCancellation(clinicId, id).catch((e) => {
                 this.logger.warn(`Cancellation notification failed: ${e.message}`);
@@ -372,7 +381,7 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
                 notes: dto.notes,
                 recurrence_group_id: recurrenceGroupId,
             },
-            include: { patient: true, dentist: true, branch: true },
+            include: { patient: true, dentist: true, branch: true, room: { select: { id: true, name: true, room_type: true } } },
         })));
         const reminderResults = await Promise.allSettled(appointments.map((appt) => this.reminderProducer.scheduleReminders(appt.id, clinicId, appt.appointment_date, appt.start_time)));
         reminderResults.forEach((r, idx) => {

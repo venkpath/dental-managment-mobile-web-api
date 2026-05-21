@@ -20,6 +20,7 @@ const platform_express_1 = require("@nestjs/platform-express");
 const branch_service_js_1 = require("./branch.service.js");
 const branch_prescription_template_service_js_1 = require("./branch-prescription-template.service.js");
 const qr_code_service_js_1 = require("./qr-code.service.js");
+const display_token_service_js_1 = require("./display-token.service.js");
 const index_js_1 = require("./dto/index.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
@@ -29,10 +30,12 @@ let BranchController = class BranchController {
     branchService;
     templateService;
     qrCodeService;
-    constructor(branchService, templateService, qrCodeService) {
+    displayTokenService;
+    constructor(branchService, templateService, qrCodeService, displayTokenService) {
         this.branchService = branchService;
         this.templateService = templateService;
         this.qrCodeService = qrCodeService;
+        this.displayTokenService = displayTokenService;
     }
     async create(clinicId, dto) {
         return this.branchService.create(clinicId, dto);
@@ -87,6 +90,15 @@ let BranchController = class BranchController {
     }
     async disableQrCode(clinicId, id) {
         return this.qrCodeService.disable(clinicId, id);
+    }
+    async generateDisplayToken(clinicId, id) {
+        return this.displayTokenService.generate(clinicId, id);
+    }
+    async getDisplayToken(clinicId, id) {
+        return this.displayTokenService.get(clinicId, id);
+    }
+    async revokeDisplayToken(clinicId, id) {
+        return this.displayTokenService.revoke(clinicId, id);
     }
 };
 exports.BranchController = BranchController;
@@ -275,6 +287,41 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], BranchController.prototype, "disableQrCode", null);
+__decorate([
+    (0, common_1.Post)(':id/display-token'),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN, create_user_dto_js_1.UserRole.ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Generate (or regenerate) a room display link for the waiting-room TV — no login required on the TV' }),
+    (0, swagger_1.ApiCreatedResponse)({ description: 'Display token and shareable URL' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], BranchController.prototype, "generateDisplayToken", null);
+__decorate([
+    (0, common_1.Get)(':id/display-token'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get the current room display link for a branch' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Display token details' }),
+    openapi.ApiResponse({ status: 200, type: Object }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], BranchController.prototype, "getDisplayToken", null);
+__decorate([
+    (0, common_1.Delete)(':id/display-token'),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN, create_user_dto_js_1.UserRole.ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Revoke the room display link — existing TVs using it will stop working' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Display link revoked' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], BranchController.prototype, "revokeDisplayToken", null);
 exports.BranchController = BranchController = __decorate([
     (0, swagger_1.ApiTags)('Branches'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' }),
@@ -283,6 +330,7 @@ exports.BranchController = BranchController = __decorate([
     (0, common_1.Controller)('branches'),
     __metadata("design:paramtypes", [branch_service_js_1.BranchService,
         branch_prescription_template_service_js_1.BranchPrescriptionTemplateService,
-        qr_code_service_js_1.QrCodeService])
+        qr_code_service_js_1.QrCodeService,
+        display_token_service_js_1.DisplayTokenService])
 ], BranchController);
 //# sourceMappingURL=branch.controller.js.map

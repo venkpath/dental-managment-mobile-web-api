@@ -14,6 +14,7 @@ const branch_service_js_1 = require("./branch.service.js");
 const branch_prescription_template_service_js_1 = require("./branch-prescription-template.service.js");
 const prescription_pdf_service_js_1 = require("../prescription/prescription-pdf.service.js");
 const qr_code_service_js_1 = require("./qr-code.service.js");
+const display_token_service_js_1 = require("./display-token.service.js");
 let BranchModule = class BranchModule {
 };
 exports.BranchModule = BranchModule;
@@ -21,8 +22,8 @@ exports.BranchModule = BranchModule = __decorate([
     (0, common_1.Module)({
         imports: [config_1.ConfigModule],
         controllers: [branch_controller_js_1.BranchController],
-        providers: [branch_service_js_1.BranchService, branch_prescription_template_service_js_1.BranchPrescriptionTemplateService, prescription_pdf_service_js_1.PrescriptionPdfService, qr_code_service_js_1.QrCodeService],
-        exports: [branch_service_js_1.BranchService, qr_code_service_js_1.QrCodeService],
+        providers: [branch_service_js_1.BranchService, branch_prescription_template_service_js_1.BranchPrescriptionTemplateService, prescription_pdf_service_js_1.PrescriptionPdfService, qr_code_service_js_1.QrCodeService, display_token_service_js_1.DisplayTokenService],
+        exports: [branch_service_js_1.BranchService, qr_code_service_js_1.QrCodeService, display_token_service_js_1.DisplayTokenService],
     })
 ], BranchModule);
 //# sourceMappingURL=branch.module.js.map

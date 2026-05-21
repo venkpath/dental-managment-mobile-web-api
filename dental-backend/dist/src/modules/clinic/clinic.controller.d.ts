@@ -35,6 +35,7 @@ export declare class ClinicController {
         logo_url: string | null;
         currency_code: string;
         default_phone_country: string;
+        rooms_enabled: boolean;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -84,6 +85,7 @@ export declare class ClinicController {
         logo_url: string | null;
         currency_code: string;
         default_phone_country: string;
+        rooms_enabled: boolean;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -149,6 +151,7 @@ export declare class ClinicController {
         logo_url: string | null;
         currency_code: string;
         default_phone_country: string;
+        rooms_enabled: boolean;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -195,6 +198,7 @@ export declare class ClinicController {
         logo_url: string | null;
         currency_code: string;
         default_phone_country: string;
+        rooms_enabled: boolean;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -241,6 +245,7 @@ export declare class ClinicController {
         logo_url: string | null;
         currency_code: string;
         default_phone_country: string;
+        rooms_enabled: boolean;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -287,6 +292,7 @@ export declare class ClinicController {
         logo_url: string | null;
         currency_code: string;
         default_phone_country: string;
+        rooms_enabled: boolean;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -333,6 +339,7 @@ export declare class ClinicController {
         logo_url: string | null;
         currency_code: string;
         default_phone_country: string;
+        rooms_enabled: boolean;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -379,6 +386,7 @@ export declare class ClinicController {
         logo_url: string | null;
         currency_code: string;
         default_phone_country: string;
+        rooms_enabled: boolean;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;

@@ -58,4 +58,11 @@ export class UpdateBranchSchedulingDto {
   @IsString()
   @Matches(/^[1-7](,[1-7])*$/, { message: 'working_days must be comma-separated day numbers (1=Mon..7=Sun)' })
   working_days?: string;
+
+  @ApiPropertyOptional({ example: 2, description: 'Minutes to wait after patient leaves before room is marked available again (default 2)' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(60)
+  room_cleaning_duration_minutes?: number;
 }

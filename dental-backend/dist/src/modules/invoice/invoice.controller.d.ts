@@ -93,6 +93,7 @@ export declare class InvoiceController {
             logo_url: string | null;
             currency_code: string;
             default_phone_country: string;
+            rooms_enabled: boolean;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -170,12 +171,15 @@ export declare class InvoiceController {
             buffer_minutes: number | null;
             advance_booking_days: number | null;
             working_days: string | null;
+            room_cleaning_duration_minutes: number | null;
             prescription_template_url: string | null;
             prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
             prescription_template_enabled: boolean;
             qr_code_token: string | null;
             qr_code_enabled: boolean;
             qr_code_generated_at: Date | null;
+            display_token: string | null;
+            display_token_enabled: boolean;
             clinic_id: string;
         };
         dentist: {

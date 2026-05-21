@@ -147,12 +147,15 @@ export declare class ClinicalVisitService {
             buffer_minutes: number | null;
             advance_booking_days: number | null;
             working_days: string | null;
+            room_cleaning_duration_minutes: number | null;
             prescription_template_url: string | null;
             prescription_template_config: Prisma.JsonValue | null;
             prescription_template_enabled: boolean;
             qr_code_token: string | null;
             qr_code_enabled: boolean;
             qr_code_generated_at: Date | null;
+            display_token: string | null;
+            display_token_enabled: boolean;
             clinic_id: string;
         };
         dentist: {
@@ -208,6 +211,7 @@ export declare class ClinicalVisitService {
             start_time: string;
             end_time: string;
             recurrence_group_id: string | null;
+            room_id: string | null;
         } | null;
     } & {
         id: string;
@@ -277,12 +281,15 @@ export declare class ClinicalVisitService {
             buffer_minutes: number | null;
             advance_booking_days: number | null;
             working_days: string | null;
+            room_cleaning_duration_minutes: number | null;
             prescription_template_url: string | null;
             prescription_template_config: Prisma.JsonValue | null;
             prescription_template_enabled: boolean;
             qr_code_token: string | null;
             qr_code_enabled: boolean;
             qr_code_generated_at: Date | null;
+            display_token: string | null;
+            display_token_enabled: boolean;
             clinic_id: string;
         };
         dentist: {

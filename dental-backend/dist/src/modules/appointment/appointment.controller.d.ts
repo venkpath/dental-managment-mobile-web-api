@@ -18,6 +18,7 @@ export declare class AppointmentController {
         start_time: string;
         end_time: string;
         recurrence_group_id: string | null;
+        room_id: string | null;
     }>;
     createRecurring(clinicId: string, dto: CreateRecurringAppointmentDto): Promise<{
         id: string;
@@ -33,6 +34,7 @@ export declare class AppointmentController {
         start_time: string;
         end_time: string;
         recurrence_group_id: string | null;
+        room_id: string | null;
     }[]>;
     findAll(clinicId: string, user: JwtPayload, query: QueryAppointmentDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         id: string;
@@ -48,6 +50,7 @@ export declare class AppointmentController {
         start_time: string;
         end_time: string;
         recurrence_group_id: string | null;
+        room_id: string | null;
     }>>;
     getAvailableSlots(clinicId: string, query: QueryAvailableSlotsDto): Promise<import("./appointment.service.js").AvailableSlot[]>;
     findOne(clinicId: string, id: string): Promise<{
@@ -64,6 +67,7 @@ export declare class AppointmentController {
         start_time: string;
         end_time: string;
         recurrence_group_id: string | null;
+        room_id: string | null;
     }>;
     update(clinicId: string, id: string, dto: UpdateAppointmentDto): Promise<{
         id: string;
@@ -79,6 +83,7 @@ export declare class AppointmentController {
         start_time: string;
         end_time: string;
         recurrence_group_id: string | null;
+        room_id: string | null;
     }>;
     remove(clinicId: string, id: string): Promise<{
         id: string;
@@ -94,5 +99,6 @@ export declare class AppointmentController {
         start_time: string;
         end_time: string;
         recurrence_group_id: string | null;
+        room_id: string | null;
     }>;
 }

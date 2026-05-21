@@ -23,8 +23,9 @@ class UpdateBranchSchedulingDto {
     buffer_minutes;
     advance_booking_days;
     working_days;
+    room_cleaning_duration_minutes;
     static _OPENAPI_METADATA_FACTORY() {
-        return { working_start_time: { required: false, type: () => String, pattern: "/^([01]\\d|2[0-3]):[0-5]\\d$/" }, working_end_time: { required: false, type: () => String, pattern: "/^([01]\\d|2[0-3]):[0-5]\\d$/" }, lunch_start_time: { required: false, type: () => String, pattern: "/^([01]\\d|2[0-3]):[0-5]\\d$/" }, lunch_end_time: { required: false, type: () => String, pattern: "/^([01]\\d|2[0-3]):[0-5]\\d$/" }, slot_duration: { required: false, type: () => Number, enum: [15, 20, 30, 45, 60] }, default_appt_duration: { required: false, type: () => Number, minimum: 10, maximum: 240 }, buffer_minutes: { required: false, type: () => Number, minimum: 0, maximum: 60 }, advance_booking_days: { required: false, type: () => Number, minimum: 0, maximum: 365 }, working_days: { required: false, type: () => String, pattern: "/^[1-7](,[1-7])*$/" } };
+        return { working_start_time: { required: false, type: () => String, pattern: "/^([01]\\d|2[0-3]):[0-5]\\d$/" }, working_end_time: { required: false, type: () => String, pattern: "/^([01]\\d|2[0-3]):[0-5]\\d$/" }, lunch_start_time: { required: false, type: () => String, pattern: "/^([01]\\d|2[0-3]):[0-5]\\d$/" }, lunch_end_time: { required: false, type: () => String, pattern: "/^([01]\\d|2[0-3]):[0-5]\\d$/" }, slot_duration: { required: false, type: () => Number, enum: [15, 20, 30, 45, 60] }, default_appt_duration: { required: false, type: () => Number, minimum: 10, maximum: 240 }, buffer_minutes: { required: false, type: () => Number, minimum: 0, maximum: 60 }, advance_booking_days: { required: false, type: () => Number, minimum: 0, maximum: 365 }, working_days: { required: false, type: () => String, pattern: "/^[1-7](,[1-7])*$/" }, room_cleaning_duration_minutes: { required: false, type: () => Number, minimum: 1, maximum: 60 } };
     }
 }
 exports.UpdateBranchSchedulingDto = UpdateBranchSchedulingDto;
@@ -94,4 +95,12 @@ __decorate([
     (0, class_validator_1.Matches)(/^[1-7](,[1-7])*$/, { message: 'working_days must be comma-separated day numbers (1=Mon..7=Sun)' }),
     __metadata("design:type", String)
 ], UpdateBranchSchedulingDto.prototype, "working_days", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 2, description: 'Minutes to wait after patient leaves before room is marked available again (default 2)' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(60),
+    __metadata("design:type", Number)
+], UpdateBranchSchedulingDto.prototype, "room_cleaning_duration_minutes", void 0);
 //# sourceMappingURL=update-branch-scheduling.dto.js.map

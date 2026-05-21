@@ -64,12 +64,15 @@ export declare class ExpenseService {
             buffer_minutes: number | null;
             advance_booking_days: number | null;
             working_days: string | null;
+            room_cleaning_duration_minutes: number | null;
             prescription_template_url: string | null;
             prescription_template_config: Prisma.JsonValue | null;
             prescription_template_enabled: boolean;
             qr_code_token: string | null;
             qr_code_enabled: boolean;
             qr_code_generated_at: Date | null;
+            display_token: string | null;
+            display_token_enabled: boolean;
             clinic_id: string;
         } | null;
         user: {
@@ -130,12 +133,15 @@ export declare class ExpenseService {
             buffer_minutes: number | null;
             advance_booking_days: number | null;
             working_days: string | null;
+            room_cleaning_duration_minutes: number | null;
             prescription_template_url: string | null;
             prescription_template_config: Prisma.JsonValue | null;
             prescription_template_enabled: boolean;
             qr_code_token: string | null;
             qr_code_enabled: boolean;
             qr_code_generated_at: Date | null;
+            display_token: string | null;
+            display_token_enabled: boolean;
             clinic_id: string;
         } | null;
         user: {
@@ -195,12 +201,15 @@ export declare class ExpenseService {
             buffer_minutes: number | null;
             advance_booking_days: number | null;
             working_days: string | null;
+            room_cleaning_duration_minutes: number | null;
             prescription_template_url: string | null;
             prescription_template_config: Prisma.JsonValue | null;
             prescription_template_enabled: boolean;
             qr_code_token: string | null;
             qr_code_enabled: boolean;
             qr_code_generated_at: Date | null;
+            display_token: string | null;
+            display_token_enabled: boolean;
             clinic_id: string;
         } | null;
         user: {

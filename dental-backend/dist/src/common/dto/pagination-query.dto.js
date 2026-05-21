@@ -18,7 +18,7 @@ class PaginationQueryDto {
     page = 1;
     limit = 20;
     static _OPENAPI_METADATA_FACTORY() {
-        return { page: { required: false, type: () => Number, default: 1, minimum: 1 }, limit: { required: false, type: () => Number, default: 20, minimum: 1, maximum: 100 } };
+        return { page: { required: false, type: () => Number, default: 1, minimum: 1 }, limit: { required: false, type: () => Number, default: 20, minimum: 1, maximum: 200 } };
     }
 }
 exports.PaginationQueryDto = PaginationQueryDto;
@@ -31,11 +31,11 @@ __decorate([
     __metadata("design:type", Number)
 ], PaginationQueryDto.prototype, "page", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ description: 'Items per page', default: 20, minimum: 1, maximum: 100 }),
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Items per page', default: 20, minimum: 1, maximum: 200 }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
-    (0, class_validator_1.Max)(100),
+    (0, class_validator_1.Max)(200),
     (0, class_transformer_1.Type)(() => Number),
     __metadata("design:type", Number)
 ], PaginationQueryDto.prototype, "limit", void 0);

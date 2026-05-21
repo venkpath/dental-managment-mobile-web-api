@@ -17,6 +17,7 @@ import type { Response } from 'express';
 import { BranchService } from './branch.service.js';
 import { BranchPrescriptionTemplateService } from './branch-prescription-template.service.js';
 import { QrCodeService } from './qr-code.service.js';
+import { DisplayTokenService } from './display-token.service.js';
 import {
   CreateBranchDto,
   UpdateBranchDto,
@@ -39,6 +40,7 @@ export class BranchController {
     private readonly branchService: BranchService,
     private readonly templateService: BranchPrescriptionTemplateService,
     private readonly qrCodeService: QrCodeService,
+    private readonly displayTokenService: DisplayTokenService,
   ) {}
 
   @Post()
@@ -225,5 +227,39 @@ export class BranchController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.qrCodeService.disable(clinicId, id);
+  }
+
+  // ─────────── Room Display Token ───────────
+
+  @Post(':id/display-token')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Generate (or regenerate) a room display link for the waiting-room TV — no login required on the TV' })
+  @ApiCreatedResponse({ description: 'Display token and shareable URL' })
+  async generateDisplayToken(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.displayTokenService.generate(clinicId, id);
+  }
+
+  @Get(':id/display-token')
+  @ApiOperation({ summary: 'Get the current room display link for a branch' })
+  @ApiOkResponse({ description: 'Display token details' })
+  async getDisplayToken(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.displayTokenService.get(clinicId, id);
+  }
+
+  @Delete(':id/display-token')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Revoke the room display link — existing TVs using it will stop working' })
+  @ApiOkResponse({ description: 'Display link revoked' })
+  async revokeDisplayToken(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.displayTokenService.revoke(clinicId, id);
   }
 }

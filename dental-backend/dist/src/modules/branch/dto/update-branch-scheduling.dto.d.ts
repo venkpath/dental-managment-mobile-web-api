@@ -8,4 +8,5 @@ export declare class UpdateBranchSchedulingDto {
     buffer_minutes?: number;
     advance_booking_days?: number;
     working_days?: string;
+    room_cleaning_duration_minutes?: number;
 }
