@@ -73,6 +73,10 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
                     destination = '91' + destination.slice(1);
                 }
             }
+            if (destination.length < 10 || destination.length > 15) {
+                this.logger.warn(`Invalid phone number skipped (${destination.length} digits): ${options.to}`);
+                return { success: false, error: `Invalid phone number: ${options.to}`, errorCode: -1 };
+            }
             const interactiveButtons = options.metadata?.['interactive_buttons'];
             const mediaOptions = options.metadata?.['media'];
             let messagePayload;
@@ -116,8 +120,9 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             else {
                 const error = data.error;
                 const errorMsg = (error?.message || 'Meta API error');
-                this.logger.warn(`WhatsApp send failed to ${destination}: ${errorMsg}`);
-                return { success: false, error: errorMsg };
+                const errorCode = typeof error?.code === 'number' ? error.code : undefined;
+                this.logger.warn(`WhatsApp send failed to ${destination}: [${errorCode ?? '?'}] ${errorMsg}`);
+                return { success: false, error: errorMsg, errorCode };
             }
         }
         catch (error) {

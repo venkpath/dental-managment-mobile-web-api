@@ -135,8 +135,12 @@ let PaymentService = PaymentService_1 = class PaymentService {
             });
         if (!plan)
             throw new common_1.BadRequestException(`Plan "${dto.planId ?? dto.planKey}" not found`);
-        if (!plan.razorpay_plan_id) {
-            throw new common_1.BadRequestException('Razorpay plan not configured for this plan. Contact support.');
+        const requestedCycle = dto.billingCycle === 'yearly' ? 'yearly' : 'monthly';
+        const razorpayPlanId = requestedCycle === 'yearly' ? plan.razorpay_plan_id_yearly : plan.razorpay_plan_id;
+        if (!razorpayPlanId) {
+            throw new common_1.BadRequestException(requestedCycle === 'yearly'
+                ? 'Yearly billing is not configured for this plan yet. Try monthly or contact support.'
+                : 'Razorpay plan not configured for this plan. Contact support.');
         }
         const clinic = await this.prisma.clinic.findUnique({ where: { id: dto.clinicId } });
         if (!clinic)
@@ -180,24 +184,26 @@ let PaymentService = PaymentService_1 = class PaymentService {
             ['authenticated', 'active', 'paused'].includes(oldSubStatus ?? '')) {
             startAt = oldSubCurrentEnd;
         }
+        const totalCount = requestedCycle === 'yearly' ? 1 : 12;
         let subscription;
         try {
             subscription = await this.razorpay.subscriptions.create({
-                plan_id: plan.razorpay_plan_id,
-                total_count: 12,
+                plan_id: razorpayPlanId,
+                total_count: totalCount,
                 quantity: 1,
                 ...(startAt ? { start_at: startAt } : {}),
                 notes: {
                     clinic_id: dto.clinicId,
                     plan_id: plan.id,
                     plan_name: plan.name,
+                    billing_cycle: requestedCycle,
                     previous_subscription_id: clinic.subscription_id || '',
                 },
             });
         }
         catch (e) {
             const msg = unwrapRazorpayError(e);
-            this.logger.error(`Razorpay subscriptions.create failed for clinic ${dto.clinicId} (plan=${plan.name}, razorpay_plan_id=${plan.razorpay_plan_id}, start_at=${startAt ?? 'none'}): ${msg}`);
+            this.logger.error(`Razorpay subscriptions.create failed for clinic ${dto.clinicId} (plan=${plan.name}, cycle=${requestedCycle}, razorpay_plan_id=${razorpayPlanId}, start_at=${startAt ?? 'none'}): ${msg}`);
             throw new common_1.BadRequestException(`Could not create subscription: ${msg}`);
         }
         const newStatus = clinic.subscription_status === 'active' ? 'active' : 'created';
@@ -214,6 +220,7 @@ let PaymentService = PaymentService_1 = class PaymentService {
             data: {
                 subscription_id: subscription.id,
                 subscription_status: newStatus,
+                billing_cycle: requestedCycle,
                 ...(changeEffective === 'now' && !isPaidUpgrade ? { plan_id: plan.id } : {}),
             },
         });

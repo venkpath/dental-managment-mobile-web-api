@@ -120,7 +120,7 @@ __decorate([
     __metadata("design:type", String)
 ], RegisterClinicDto.prototype, "license_number", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: 'starter', description: 'Plan key: free, starter, professional, enterprise. Defaults to trial.' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: 'standard', description: 'Plan key: free, standard, growth. Defaults to free.' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(50),

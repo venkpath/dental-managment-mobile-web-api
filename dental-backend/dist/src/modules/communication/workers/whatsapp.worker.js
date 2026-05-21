@@ -56,8 +56,9 @@ let WhatsAppWorker = WhatsAppWorker_1 = class WhatsAppWorker extends bullmq_1.Wo
                 this.logger.debug(`WhatsApp sent: ${messageId} → ${to}`);
             }
             else {
+                const failMeta = result.errorCode !== undefined ? { meta_error_code: result.errorCode } : undefined;
                 await Promise.all([
-                    this.communicationService.updateMessageStatus(messageId, 'failed'),
+                    this.communicationService.updateMessageStatus(messageId, 'failed', failMeta),
                     this.communicationService.createLog({
                         message_id: messageId,
                         channel: 'whatsapp',
@@ -66,6 +67,9 @@ let WhatsAppWorker = WhatsAppWorker_1 = class WhatsAppWorker extends bullmq_1.Wo
                         error_message: result.error,
                     }),
                 ]);
+                if (result.errorCode === 131026) {
+                    await this.communicationService.disablePatientWhatsApp(messageId);
+                }
                 throw new Error(result.error);
             }
         }

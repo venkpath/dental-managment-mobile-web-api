@@ -106,11 +106,59 @@ export class DatabaseSeederService implements OnModuleInit {
   private async seedPlans() {
     // Idempotent: upsert-by-name. Won't overwrite prices for existing plans
     // (in case super-admin UI has customized them). Only creates missing plans.
+    //
+    // New 3-plan structure (replaces old Free/Starter/Professional/Enterprise):
+    //   - Free      → trial / try the software
+    //   - Standard  → run your clinic professionally (₹699/mo · ₹6,999/yr)
+    //   - Growth    → grow & automate (₹1,299/mo · ₹12,999/yr)
+    // Historical Starter/Professional/Enterprise rows are migrated by
+    // prisma/migrations/<rename-plans-to-standard-growth>.
     const plans = [
-      { name: 'Free',         price_monthly: 0,    max_branches: 1,  max_staff: 2,  ai_quota: 5,  max_patients_per_month: 20,   max_appointments_per_month: 20,   max_invoices_per_month: 20,   max_treatments_per_month: 20 },
-      { name: 'Starter',      price_monthly: 999,  max_branches: 1,  max_staff: 5,  ai_quota: 15, max_patients_per_month: null, max_appointments_per_month: null, max_invoices_per_month: null, max_treatments_per_month: null },
-      { name: 'Professional', price_monthly: 1999, max_branches: 3,  max_staff: 15, ai_quota: 25, max_patients_per_month: null, max_appointments_per_month: null, max_invoices_per_month: null, max_treatments_per_month: null },
-      { name: 'Enterprise',   price_monthly: 2999, max_branches: 10, max_staff: 50, ai_quota: 50, max_patients_per_month: null, max_appointments_per_month: null, max_invoices_per_month: null, max_treatments_per_month: null },
+      {
+        name: 'Free',
+        price_monthly: 0,
+        price_yearly: null,
+        max_branches: 1,
+        max_staff: 2,
+        ai_quota: 5,
+        max_patients_per_month: 10,
+        max_appointments_per_month: 10,
+        max_invoices_per_month: 10,
+        max_treatments_per_month: 10,
+        whatsapp_included_monthly: 0,
+        whatsapp_hard_limit_monthly: 0,
+        allow_whatsapp_overage_billing: false,
+      },
+      {
+        name: 'Standard',
+        price_monthly: 699,
+        price_yearly: 6999,
+        max_branches: 999, // effectively unlimited
+        max_staff: 999,
+        ai_quota: 30,
+        max_patients_per_month: null,
+        max_appointments_per_month: null,
+        max_invoices_per_month: null,
+        max_treatments_per_month: null,
+        whatsapp_included_monthly: 300,
+        whatsapp_hard_limit_monthly: null,
+        allow_whatsapp_overage_billing: true,
+      },
+      {
+        name: 'Growth',
+        price_monthly: 1299,
+        price_yearly: 12999,
+        max_branches: 999,
+        max_staff: 999,
+        ai_quota: 60,
+        max_patients_per_month: null,
+        max_appointments_per_month: null,
+        max_invoices_per_month: null,
+        max_treatments_per_month: null,
+        whatsapp_included_monthly: 600,
+        whatsapp_hard_limit_monthly: null,
+        allow_whatsapp_overage_billing: true,
+      },
     ];
 
     let created = 0;
@@ -157,57 +205,44 @@ export class DatabaseSeederService implements OnModuleInit {
 
   private async seedPlanFeatures() {
     const free = await this.prisma.plan.findUnique({ where: { name: 'Free' } });
-    const starter = await this.prisma.plan.findUnique({ where: { name: 'Starter' } });
-    const professional = await this.prisma.plan.findUnique({ where: { name: 'Professional' } });
-    const enterprise = await this.prisma.plan.findUnique({ where: { name: 'Enterprise' } });
+    const standard = await this.prisma.plan.findUnique({ where: { name: 'Standard' } });
+    const growth = await this.prisma.plan.findUnique({ where: { name: 'Growth' } });
     const allFeatures = await this.prisma.feature.findMany();
-    if (!free || !starter || !professional || !enterprise || allFeatures.length === 0) return;
+    if (!free || !standard || !growth || allFeatures.length === 0) return;
 
     const fm = Object.fromEntries(allFeatures.map((f) => [f.key, f.id]));
 
     const mappings = [
-      // ── Free: inventory only, no confirmations, no messaging, no AI ──
+      // ── Free: inventory only — no messaging, no AI ──
       { plan_id: free.id, feature_id: fm['INVENTORY_MANAGEMENT']! },
 
-      // ── Starter: Free + appointment confirmations + SMS reminders ──
-      { plan_id: starter.id, feature_id: fm['INVENTORY_MANAGEMENT']! },
-      { plan_id: starter.id, feature_id: fm['APPOINTMENT_CONFIRMATIONS']! },
-      { plan_id: starter.id, feature_id: fm['SMS_REMINDERS']! },
+      // ── Standard: core clinic operations + WhatsApp reminders + base AI ──
+      { plan_id: standard.id, feature_id: fm['INVENTORY_MANAGEMENT']! },
+      { plan_id: standard.id, feature_id: fm['APPOINTMENT_CONFIRMATIONS']! },
+      { plan_id: standard.id, feature_id: fm['SMS_REMINDERS']! },
+      { plan_id: standard.id, feature_id: fm['WHATSAPP_INTEGRATION']! }, // reminders only
+      { plan_id: standard.id, feature_id: fm['DIGITAL_XRAY']! },
+      { plan_id: standard.id, feature_id: fm['AI_CLINICAL_NOTES']! },
+      { plan_id: standard.id, feature_id: fm['AI_PRESCRIPTION']! },
+      { plan_id: standard.id, feature_id: fm['PATIENT_IMPORT']! },
 
-      // ── Professional: Starter + WhatsApp + marketing + AI (except treatment plan) ──
-      { plan_id: professional.id, feature_id: fm['INVENTORY_MANAGEMENT']! },
-      { plan_id: professional.id, feature_id: fm['APPOINTMENT_CONFIRMATIONS']! },
-      { plan_id: professional.id, feature_id: fm['SMS_REMINDERS']! },
-      { plan_id: professional.id, feature_id: fm['WHATSAPP_INTEGRATION']! },
-      { plan_id: professional.id, feature_id: fm['DIGITAL_XRAY']! },
-      { plan_id: professional.id, feature_id: fm['AI_CLINICAL_NOTES']! },
-      { plan_id: professional.id, feature_id: fm['AI_PRESCRIPTION']! },
-      { plan_id: professional.id, feature_id: fm['CUSTOM_PROVIDER_CONFIG']! },
-      { plan_id: professional.id, feature_id: fm['PATIENT_IMPORT']! },
-      { plan_id: professional.id, feature_id: fm['MARKETING_CAMPAIGNS']! },
-      { plan_id: professional.id, feature_id: fm['AUTOMATION_RULES']! },
-      { plan_id: professional.id, feature_id: fm['AI_CAMPAIGN_CONTENT']! },
-      { plan_id: professional.id, feature_id: fm['AI_PATIENT_INSIGHTS']! },
-
-      // ── Enterprise: everything ──
-      { plan_id: enterprise.id, feature_id: fm['INVENTORY_MANAGEMENT']! },
-      { plan_id: enterprise.id, feature_id: fm['APPOINTMENT_CONFIRMATIONS']! },
-      { plan_id: enterprise.id, feature_id: fm['SMS_REMINDERS']! },
-      { plan_id: enterprise.id, feature_id: fm['WHATSAPP_INTEGRATION']! },
-      { plan_id: enterprise.id, feature_id: fm['WHATSAPP_INBOX']! },
-      { plan_id: enterprise.id, feature_id: fm['DIGITAL_XRAY']! },
-      { plan_id: enterprise.id, feature_id: fm['AI_CLINICAL_NOTES']! },
-      { plan_id: enterprise.id, feature_id: fm['AI_PRESCRIPTION']! },
-      { plan_id: enterprise.id, feature_id: fm['AI_TREATMENT_PLAN']! },
-      { plan_id: enterprise.id, feature_id: fm['AI_CAMPAIGN_CONTENT']! },
-      { plan_id: enterprise.id, feature_id: fm['CUSTOM_PROVIDER_CONFIG']! },
-      { plan_id: enterprise.id, feature_id: fm['PATIENT_IMPORT']! },
-      { plan_id: enterprise.id, feature_id: fm['MARKETING_CAMPAIGNS']! },
-      { plan_id: enterprise.id, feature_id: fm['AUTOMATION_RULES']! },
-      { plan_id: enterprise.id, feature_id: fm['AI_PATIENT_INSIGHTS']! },
-      // Only Enterprise can create/edit/delete their own templates. Everyone
-      // else sees the system-approved templates read-only.
-      { plan_id: enterprise.id, feature_id: fm['CUSTOM_TEMPLATES']! },
+      // ── Growth: everything in Standard + campaigns, automation, advanced AI, own WABA ──
+      { plan_id: growth.id, feature_id: fm['INVENTORY_MANAGEMENT']! },
+      { plan_id: growth.id, feature_id: fm['APPOINTMENT_CONFIRMATIONS']! },
+      { plan_id: growth.id, feature_id: fm['SMS_REMINDERS']! },
+      { plan_id: growth.id, feature_id: fm['WHATSAPP_INTEGRATION']! },
+      { plan_id: growth.id, feature_id: fm['WHATSAPP_INBOX']! }, // own WABA / 2-way inbox
+      { plan_id: growth.id, feature_id: fm['DIGITAL_XRAY']! },
+      { plan_id: growth.id, feature_id: fm['AI_CLINICAL_NOTES']! },
+      { plan_id: growth.id, feature_id: fm['AI_PRESCRIPTION']! },
+      { plan_id: growth.id, feature_id: fm['AI_TREATMENT_PLAN']! },
+      { plan_id: growth.id, feature_id: fm['AI_CAMPAIGN_CONTENT']! },
+      { plan_id: growth.id, feature_id: fm['AI_PATIENT_INSIGHTS']! },
+      { plan_id: growth.id, feature_id: fm['CUSTOM_PROVIDER_CONFIG']! },
+      { plan_id: growth.id, feature_id: fm['PATIENT_IMPORT']! },
+      { plan_id: growth.id, feature_id: fm['MARKETING_CAMPAIGNS']! },
+      { plan_id: growth.id, feature_id: fm['AUTOMATION_RULES']! },
+      { plan_id: growth.id, feature_id: fm['CUSTOM_TEMPLATES']! },
     ];
 
     let created = 0;
@@ -228,8 +263,8 @@ export class DatabaseSeederService implements OnModuleInit {
     const existing = await this.prisma.clinic.findFirst({ where: { email: testEmail } });
     if (existing) return;
 
-    const professional = await this.prisma.plan.findUnique({ where: { name: 'Professional' } });
-    if (!professional) return;
+    const standard = await this.prisma.plan.findUnique({ where: { name: 'Standard' } });
+    if (!standard) return;
 
     const clinic = await this.prisma.clinic.create({
       data: {
@@ -240,7 +275,7 @@ export class DatabaseSeederService implements OnModuleInit {
         city: 'Bangalore',
         state: 'Karnataka',
         country: 'India',
-        plan_id: professional.id,
+        plan_id: standard.id,
         subscription_status: 'active',
         trial_ends_at: null,
       },

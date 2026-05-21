@@ -123,7 +123,7 @@ export class InsuranceModuleController {
       : null;
     if (!planFeature) {
       throw new ForbiddenException(
-        `The Insurance & EHS module is not included in the ${clinic.plan?.name ?? 'current'} plan. Upgrade to Professional or higher to enable it.`,
+        `The Insurance & EHS module is not included in the ${clinic.plan?.name ?? 'current'} plan. Upgrade to Growth to enable it.`,
       );
     }
 

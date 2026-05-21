@@ -5,6 +5,7 @@ declare class CreateSubscriptionBodyDto {
     planId?: string;
     planKey?: string;
     change_effective?: 'now' | 'cycle_end';
+    billing_cycle?: 'monthly' | 'yearly';
 }
 export declare class PaymentController {
     private readonly paymentService;

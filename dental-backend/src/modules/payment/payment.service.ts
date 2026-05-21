@@ -14,6 +14,15 @@ interface CreateSubscriptionDto {
   planKey?: string;
   planId?: string;
   /**
+   * Billing cycle for the new subscription.
+   *   - `monthly` (default) → uses `plan.razorpay_plan_id`, total_count = 12 (1 year of monthly charges).
+   *   - `yearly`            → uses `plan.razorpay_plan_id_yearly`, total_count = 1 (one yearly charge,
+   *                           renews automatically the next year unless cancelled).
+   * If `yearly` is requested but the plan has no `razorpay_plan_id_yearly`, the
+   * request is rejected (super-admin must create the Razorpay yearly plan first).
+   */
+  billingCycle?: 'monthly' | 'yearly';
+  /**
    * When the customer wants the plan change to take effect.
    *   - `now`       → Razorpay billing still flips at cycle end (no double-charge),
    *                   but `clinic.plan_id` is updated immediately and an upgrade
@@ -196,8 +205,19 @@ export class PaymentService implements OnModuleInit {
           where: { name: { equals: dto.planKey, mode: 'insensitive' } },
         });
     if (!plan) throw new BadRequestException(`Plan "${dto.planId ?? dto.planKey}" not found`);
-    if (!plan.razorpay_plan_id) {
-      throw new BadRequestException('Razorpay plan not configured for this plan. Contact support.');
+
+    // Resolve the Razorpay plan ID for the requested cycle. Yearly uses a
+    // separate Razorpay plan (one yearly billing entity per plan); monthly
+    // uses the default plan id.
+    const requestedCycle: 'monthly' | 'yearly' = dto.billingCycle === 'yearly' ? 'yearly' : 'monthly';
+    const razorpayPlanId =
+      requestedCycle === 'yearly' ? plan.razorpay_plan_id_yearly : plan.razorpay_plan_id;
+    if (!razorpayPlanId) {
+      throw new BadRequestException(
+        requestedCycle === 'yearly'
+          ? 'Yearly billing is not configured for this plan yet. Try monthly or contact support.'
+          : 'Razorpay plan not configured for this plan. Contact support.',
+      );
     }
 
     const clinic = await this.prisma.clinic.findUnique({ where: { id: dto.clinicId } });
@@ -269,24 +289,30 @@ export class PaymentService implements OnModuleInit {
       startAt = oldSubCurrentEnd;
     }
 
+    // total_count = number of billing cycles before Razorpay stops charging.
+    //   monthly → 12 (one year of monthly charges, then auto-renew handled by re-subscribe)
+    //   yearly  → 1  (one yearly charge; customer re-subscribes after the year)
+    const totalCount = requestedCycle === 'yearly' ? 1 : 12;
+
     let subscription;
     try {
       subscription = await this.razorpay.subscriptions.create({
-        plan_id: plan.razorpay_plan_id,
-        total_count: 12,
+        plan_id: razorpayPlanId,
+        total_count: totalCount,
         quantity: 1,
         ...(startAt ? { start_at: startAt } : {}),
         notes: {
           clinic_id: dto.clinicId,
           plan_id: plan.id,
           plan_name: plan.name,
+          billing_cycle: requestedCycle,
           previous_subscription_id: clinic.subscription_id || '',
         },
       });
     } catch (e) {
       const msg = unwrapRazorpayError(e);
       this.logger.error(
-        `Razorpay subscriptions.create failed for clinic ${dto.clinicId} (plan=${plan.name}, razorpay_plan_id=${plan.razorpay_plan_id}, start_at=${startAt ?? 'none'}): ${msg}`,
+        `Razorpay subscriptions.create failed for clinic ${dto.clinicId} (plan=${plan.name}, cycle=${requestedCycle}, razorpay_plan_id=${razorpayPlanId}, start_at=${startAt ?? 'none'}): ${msg}`,
       );
       throw new BadRequestException(`Could not create subscription: ${msg}`);
     }
@@ -318,6 +344,7 @@ export class PaymentService implements OnModuleInit {
       data: {
         subscription_id: subscription.id,
         subscription_status: newStatus,
+        billing_cycle: requestedCycle,
         // Flip plan_id locally ONLY when no payment gate is required:
         //   - First-time subscribe (no current plan to "lose")
         //   - Apply-now downgrade / same-price (no proration to pay)

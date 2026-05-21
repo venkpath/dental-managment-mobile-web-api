@@ -73,7 +73,7 @@ export class RegisterClinicDto {
   @MaxLength(100)
   license_number?: string;
 
-  @ApiPropertyOptional({ example: 'starter', description: 'Plan key: free, starter, professional, enterprise. Defaults to trial.' })
+  @ApiPropertyOptional({ example: 'standard', description: 'Plan key: free, standard, growth. Defaults to free.' })
   @IsOptional()
   @IsString()
   @MaxLength(50)

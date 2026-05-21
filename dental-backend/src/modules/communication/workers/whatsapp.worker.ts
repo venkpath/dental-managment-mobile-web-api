@@ -53,8 +53,9 @@ export class WhatsAppWorker extends WorkerHost {
         ]);
         this.logger.debug(`WhatsApp sent: ${messageId} → ${to}`);
       } else {
+        const failMeta = result.errorCode !== undefined ? { meta_error_code: result.errorCode } : undefined;
         await Promise.all([
-          this.communicationService.updateMessageStatus(messageId, 'failed'),
+          this.communicationService.updateMessageStatus(messageId, 'failed', failMeta),
           this.communicationService.createLog({
             message_id: messageId,
             channel: 'whatsapp',
@@ -63,6 +64,12 @@ export class WhatsAppWorker extends WorkerHost {
             error_message: result.error,
           }),
         ]);
+
+        // 131026 = recipient not on WhatsApp — permanently suppress to protect quality rating
+        if (result.errorCode === 131026) {
+          await this.communicationService.disablePatientWhatsApp(messageId);
+        }
+
         throw new Error(result.error);
       }
     } catch (error) {

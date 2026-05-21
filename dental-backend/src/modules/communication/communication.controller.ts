@@ -322,8 +322,8 @@ export class CommunicationController {
   @Post('whatsapp/templates/submit')
   @RequireFeature('CUSTOM_TEMPLATES')
   @ApiOperation({
-    summary: 'Submit a WhatsApp message template for Meta approval (Enterprise plan only)',
-    description: 'Only Enterprise clinics can submit their own templates to Meta. Lower-tier plans can read the existing approved templates but cannot create new ones.',
+    summary: 'Submit a WhatsApp message template for Meta approval (Growth plan only)',
+    description: 'Only Growth clinics can submit their own templates to Meta. Lower-tier plans can read the existing approved templates but cannot create new ones.',
   })
   async submitWhatsAppTemplate(
     @CurrentClinic() clinicId: string,
@@ -356,7 +356,7 @@ export class CommunicationController {
   @Delete('whatsapp/templates/:id/meta')
   @RequireFeature('CUSTOM_TEMPLATES')
   @ApiOperation({
-    summary: 'Delete a WhatsApp template from Meta AND local DB (Enterprise plan only)',
+    summary: 'Delete a WhatsApp template from Meta AND local DB (Growth plan only)',
     description: 'Permanently removes the template from your Meta WABA and from the local database. This cannot be undone. Only clinic-owned templates are deletable; system-approved templates are immutable for everyone.',
   })
   @ApiOkResponse({ description: 'Template deleted from Meta and local DB' })
@@ -370,7 +370,7 @@ export class CommunicationController {
   @Patch('whatsapp/templates/:id/meta')
   @RequireFeature('CUSTOM_TEMPLATES')
   @ApiOperation({
-    summary: 'Edit a REJECTED WhatsApp template on Meta and resubmit (Enterprise plan only)',
+    summary: 'Edit a REJECTED WhatsApp template on Meta and resubmit (Growth plan only)',
     description: 'Meta only allows editing templates that are in REJECTED status. After editing, the template is resubmitted for approval. Only clinic-owned templates are editable; system-approved templates are immutable for everyone.',
   })
   @ApiOkResponse({ description: 'Template updated on Meta and resubmitted for approval' })
@@ -406,7 +406,7 @@ export class CommunicationController {
     return this.communicationService.disconnectWhatsApp(clinicId);
   }
 
-  // ─── WhatsApp Inbox (Enterprise — own WABA required) ───
+  // ─── WhatsApp Inbox (Growth — own WABA required) ───
 
   @Get('whatsapp/inbox')
   @RequireFeature('WHATSAPP_INBOX')

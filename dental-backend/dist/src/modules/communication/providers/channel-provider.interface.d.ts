@@ -14,6 +14,7 @@ export interface SendResult {
     success: boolean;
     providerMessageId?: string;
     error?: string;
+    errorCode?: number;
     cost?: number;
 }
 export interface DeliveryStatus {

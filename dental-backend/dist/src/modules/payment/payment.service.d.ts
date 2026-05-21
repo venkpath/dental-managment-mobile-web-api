@@ -8,6 +8,7 @@ interface CreateSubscriptionDto {
     clinicId: string;
     planKey?: string;
     planId?: string;
+    billingCycle?: 'monthly' | 'yearly';
     changeEffective?: 'now' | 'cycle_end';
 }
 interface RazorpayWebhookPayload {

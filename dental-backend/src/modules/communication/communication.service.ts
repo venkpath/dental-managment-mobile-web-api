@@ -105,7 +105,7 @@ export class CommunicationService {
       }
     }
 
-    // 4.7 WhatsApp quota check (skipped for Enterprise BYO-WABA clinics)
+    // 4.7 WhatsApp quota check (skipped for Growth BYO-WABA clinics)
     if (dto.channel === 'whatsapp') {
       const quotaExceeded = await this.checkWhatsAppQuota(clinicId);
       if (quotaExceeded) {
@@ -510,19 +510,61 @@ export class CommunicationService {
     }
   }
 
-  async updateMessageStatus(messageId: string, status: string) {
+  async updateMessageStatus(messageId: string, status: string, extraMetadata?: Record<string, unknown>) {
     try {
       return await this.prisma.communicationMessage.update({
         where: { id: messageId },
         data: {
           status,
           sent_at: status === 'sent' ? new Date() : undefined,
+          ...(extraMetadata ? { metadata: JSON.parse(JSON.stringify(extraMetadata)) } : {}),
         },
       });
     } catch (err: unknown) {
       // P2025 = record not found (e.g. system-level jobs with no pre-created DB record)
       if ((err as { code?: string })?.code === 'P2025') return;
       throw err;
+    }
+  }
+
+  // ─── Auto-suppress: number not on WhatsApp (Meta error 131026) ───
+
+  /**
+   * Called by the WhatsApp worker when Meta returns error 131026
+   * ("Recipient phone number not on WhatsApp"). Sets allow_whatsapp = false
+   * on the patient's communication preferences so we never retry.
+   */
+  async disablePatientWhatsApp(messageId: string): Promise<void> {
+    try {
+      const msg = await this.prisma.communicationMessage.findUnique({
+        where: { id: messageId },
+        select: { patient_id: true, clinic_id: true, recipient: true },
+      });
+      if (!msg?.patient_id) return;
+
+      await this.prisma.patientCommunicationPreference.upsert({
+        where: { patient_id: msg.patient_id },
+        create: { patient_id: msg.patient_id, allow_whatsapp: false },
+        update: { allow_whatsapp: false },
+      });
+
+      await this.prisma.consentAuditLog.create({
+        data: {
+          patient_id: msg.patient_id,
+          field_changed: 'allow_whatsapp',
+          old_value: 'true',
+          new_value: 'false',
+          changed_by: 'system',
+          source: 'auto_suppressed',
+          ip_address: null,
+        },
+      }).catch(() => { /* non-critical */ });
+
+      this.logger.warn(
+        `Auto-disabled WhatsApp for patient ${msg.patient_id} (${msg.recipient}) — Meta 131026: number not on WhatsApp`,
+      );
+    } catch (err) {
+      this.logger.error(`disablePatientWhatsApp failed for message ${messageId}: ${(err as Error).message}`);
     }
   }
 
@@ -726,7 +768,7 @@ export class CommunicationService {
 
       if (!canCustomize && (dto.email_config || dto.sms_config || dto.whatsapp_config)) {
         throw new ForbiddenException(
-          'Custom provider configuration is available on Professional and Enterprise plans. ' +
+          'Custom provider configuration is available on the Growth plan. ' +
           'Your clinic currently uses the platform default settings.',
         );
       }
@@ -855,7 +897,7 @@ export class CommunicationService {
 
     // Check if email provider is configured (either from clinic config or env)
     if (!this.emailProvider.isConfigured(clinicId)) {
-      throw new BadRequestException('Email provider not configured. Set SMTP env vars or configure in Communication → Settings (Professional+ plans).');
+      throw new BadRequestException('Email provider not configured. Set SMTP env vars or configure in Communication → Settings (Growth plan).');
     }
 
     // Verify SMTP connectivity before sending
@@ -906,7 +948,7 @@ export class CommunicationService {
     }
 
     if (!this.smsProvider.isConfigured(clinicId)) {
-      throw new BadRequestException('SMS provider not configured. Set SMS env vars or configure in Communication → Settings (Professional+ plans).');
+      throw new BadRequestException('SMS provider not configured. Set SMS env vars or configure in Communication → Settings (Growth plan).');
     }
 
     // Resolve DLT template ID: explicit param → env default
@@ -958,7 +1000,7 @@ export class CommunicationService {
     await this.ensureProvidersConfigured(clinicId);
 
     if (!this.emailProvider.isConfigured(clinicId)) {
-      return { ok: false, error: 'Email not configured. Set SMTP env vars or configure in Communication → Settings (Professional+ plans).' };
+      return { ok: false, error: 'Email not configured. Set SMTP env vars or configure in Communication → Settings (Growth plan).' };
     }
 
     const result = await this.emailProvider.verify(clinicId);

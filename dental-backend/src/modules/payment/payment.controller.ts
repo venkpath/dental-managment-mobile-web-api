@@ -24,6 +24,16 @@ class CreateSubscriptionBodyDto {
   @IsOptional()
   @IsIn(['now', 'cycle_end'])
   change_effective?: 'now' | 'cycle_end';
+
+  @ApiPropertyOptional({
+    enum: ['monthly', 'yearly'],
+    default: 'monthly',
+    description:
+      'Billing cycle. Yearly subscriptions use the plan\'s razorpay_plan_id_yearly and bill once per year.',
+  })
+  @IsOptional()
+  @IsIn(['monthly', 'yearly'])
+  billing_cycle?: 'monthly' | 'yearly';
 }
 
 @ApiTags('Payment')
@@ -71,6 +81,7 @@ export class PaymentController {
       planKey: body.planKey,
       planId: body.planId,
       changeEffective: body.change_effective,
+      billingCycle: body.billing_cycle,
     });
   }
 

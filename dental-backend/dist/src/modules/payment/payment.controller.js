@@ -27,6 +27,7 @@ class CreateSubscriptionBodyDto {
     planId;
     planKey;
     change_effective;
+    billing_cycle;
 }
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Plan UUID (preferred over planKey).' }),
@@ -46,6 +47,16 @@ __decorate([
     (0, class_validator_1.IsIn)(['now', 'cycle_end']),
     __metadata("design:type", String)
 ], CreateSubscriptionBodyDto.prototype, "change_effective", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        enum: ['monthly', 'yearly'],
+        default: 'monthly',
+        description: 'Billing cycle. Yearly subscriptions use the plan\'s razorpay_plan_id_yearly and bill once per year.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['monthly', 'yearly']),
+    __metadata("design:type", String)
+], CreateSubscriptionBodyDto.prototype, "billing_cycle", void 0);
 let PaymentController = PaymentController_1 = class PaymentController {
     paymentService;
     logger = new common_1.Logger(PaymentController_1.name);
@@ -70,6 +81,7 @@ let PaymentController = PaymentController_1 = class PaymentController {
             planKey: body.planKey,
             planId: body.planId,
             changeEffective: body.change_effective,
+            billingCycle: body.billing_cycle,
         });
     }
     async cancelSubscription(clinicId) {

@@ -116,6 +116,12 @@ export class WhatsAppProvider implements ChannelProvider {
         }
       }
 
+      // Reject clearly malformed numbers before hitting Meta
+      if (destination.length < 10 || destination.length > 15) {
+        this.logger.warn(`Invalid phone number skipped (${destination.length} digits): ${options.to}`);
+        return { success: false, error: `Invalid phone number: ${options.to}`, errorCode: -1 };
+      }
+
       // Determine message type based on options
       const interactiveButtons = options.metadata?.['interactive_buttons'] as WhatsAppInteractiveButton[] | undefined;
       const mediaOptions = options.metadata?.['media'] as WhatsAppMediaOptions | undefined;
@@ -163,8 +169,9 @@ export class WhatsAppProvider implements ChannelProvider {
       } else {
         const error = data.error as Record<string, unknown> | undefined;
         const errorMsg = (error?.message || 'Meta API error') as string;
-        this.logger.warn(`WhatsApp send failed to ${destination}: ${errorMsg}`);
-        return { success: false, error: errorMsg };
+        const errorCode = typeof error?.code === 'number' ? error.code : undefined;
+        this.logger.warn(`WhatsApp send failed to ${destination}: [${errorCode ?? '?'}] ${errorMsg}`);
+        return { success: false, error: errorMsg, errorCode };
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown WhatsApp error';

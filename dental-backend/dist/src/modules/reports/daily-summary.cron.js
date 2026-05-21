@@ -142,6 +142,21 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
                         }
                         if (sendWhatsApp && recipient.phone && !seenPhones.has(recipient.phone)) {
                             seenPhones.add(recipient.phone);
+                            const lastTen = recipient.phone.replace(/\D/g, '').slice(-10);
+                            const recentFailures = await this.prisma.communicationMessage.count({
+                                where: {
+                                    clinic_id: clinic.id,
+                                    channel: 'whatsapp',
+                                    category: 'daily_summary',
+                                    status: 'failed',
+                                    recipient: { endsWith: lastTen },
+                                    created_at: { gte: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) },
+                                },
+                            });
+                            if (recentFailures >= 3) {
+                                this.logger.warn(`Suppressing daily_summary WhatsApp to ${recipient.phone} (clinic ${clinic.name}) — ${recentFailures} recent failures`);
+                                continue;
+                            }
                             try {
                                 await this.communicationService.enqueueSystemMessage({
                                     clinicId: clinic.id,

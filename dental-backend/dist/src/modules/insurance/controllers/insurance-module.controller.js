@@ -89,7 +89,7 @@ let InsuranceModuleController = class InsuranceModuleController {
             })
             : null;
         if (!planFeature) {
-            throw new common_1.ForbiddenException(`The Insurance & EHS module is not included in the ${clinic.plan?.name ?? 'current'} plan. Upgrade to Professional or higher to enable it.`);
+            throw new common_1.ForbiddenException(`The Insurance & EHS module is not included in the ${clinic.plan?.name ?? 'current'} plan. Upgrade to Growth to enable it.`);
         }
         await this.clinicFeatureService.upsertOverrides(clinicId, [
             { feature_id: feature.id, is_enabled: dto.enabled },

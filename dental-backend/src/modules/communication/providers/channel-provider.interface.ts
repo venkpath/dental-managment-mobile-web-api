@@ -15,6 +15,8 @@ export interface SendResult {
   success: boolean;
   providerMessageId?: string;
   error?: string;
+  /** Numeric Meta error code (e.g. 131026 = not on WhatsApp, 131008 = missing param) */
+  errorCode?: number;
   cost?: number;
 }
 

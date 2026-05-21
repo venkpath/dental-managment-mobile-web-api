@@ -216,7 +216,7 @@ export declare class CommunicationService {
         read_at: Date | null;
         failed_at: Date | null;
     } | undefined>;
-    updateMessageStatus(messageId: string, status: string): Promise<{
+    updateMessageStatus(messageId: string, status: string, extraMetadata?: Record<string, unknown>): Promise<{
         id: string;
         status: string;
         created_at: Date;
@@ -235,6 +235,7 @@ export declare class CommunicationService {
         wa_message_id: string | null;
         sent_at: Date | null;
     } | undefined>;
+    disablePatientWhatsApp(messageId: string): Promise<void>;
     getPatientPreferences(clinicId: string, patientId: string): Promise<{
         id: string;
         created_at: Date;

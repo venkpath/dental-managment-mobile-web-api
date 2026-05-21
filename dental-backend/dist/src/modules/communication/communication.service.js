@@ -384,13 +384,14 @@ let CommunicationService = class CommunicationService {
             throw err;
         }
     }
-    async updateMessageStatus(messageId, status) {
+    async updateMessageStatus(messageId, status, extraMetadata) {
         try {
             return await this.prisma.communicationMessage.update({
                 where: { id: messageId },
                 data: {
                     status,
                     sent_at: status === 'sent' ? new Date() : undefined,
+                    ...(extraMetadata ? { metadata: JSON.parse(JSON.stringify(extraMetadata)) } : {}),
                 },
             });
         }
@@ -398,6 +399,36 @@ let CommunicationService = class CommunicationService {
             if (err?.code === 'P2025')
                 return;
             throw err;
+        }
+    }
+    async disablePatientWhatsApp(messageId) {
+        try {
+            const msg = await this.prisma.communicationMessage.findUnique({
+                where: { id: messageId },
+                select: { patient_id: true, clinic_id: true, recipient: true },
+            });
+            if (!msg?.patient_id)
+                return;
+            await this.prisma.patientCommunicationPreference.upsert({
+                where: { patient_id: msg.patient_id },
+                create: { patient_id: msg.patient_id, allow_whatsapp: false },
+                update: { allow_whatsapp: false },
+            });
+            await this.prisma.consentAuditLog.create({
+                data: {
+                    patient_id: msg.patient_id,
+                    field_changed: 'allow_whatsapp',
+                    old_value: 'true',
+                    new_value: 'false',
+                    changed_by: 'system',
+                    source: 'auto_suppressed',
+                    ip_address: null,
+                },
+            }).catch(() => { });
+            this.logger.warn(`Auto-disabled WhatsApp for patient ${msg.patient_id} (${msg.recipient}) — Meta 131026: number not on WhatsApp`);
+        }
+        catch (err) {
+            this.logger.error(`disablePatientWhatsApp failed for message ${messageId}: ${err.message}`);
         }
     }
     async getPatientPreferences(clinicId, patientId) {
@@ -552,7 +583,7 @@ let CommunicationService = class CommunicationService {
         if (!options?.skipFeatureCheck) {
             const canCustomize = await this.hasClinicFeature(clinicId, 'CUSTOM_PROVIDER_CONFIG');
             if (!canCustomize && (dto.email_config || dto.sms_config || dto.whatsapp_config)) {
-                throw new common_1.ForbiddenException('Custom provider configuration is available on Professional and Enterprise plans. ' +
+                throw new common_1.ForbiddenException('Custom provider configuration is available on the Growth plan. ' +
                     'Your clinic currently uses the platform default settings.');
             }
         }
@@ -653,7 +684,7 @@ let CommunicationService = class CommunicationService {
             throw new common_1.BadRequestException('Email is not enabled. Go to Communication → Settings and enable email first.');
         }
         if (!this.emailProvider.isConfigured(clinicId)) {
-            throw new common_1.BadRequestException('Email provider not configured. Set SMTP env vars or configure in Communication → Settings (Professional+ plans).');
+            throw new common_1.BadRequestException('Email provider not configured. Set SMTP env vars or configure in Communication → Settings (Growth plan).');
         }
         const verification = await this.emailProvider.verify(clinicId);
         if (!verification.ok) {
@@ -684,7 +715,7 @@ let CommunicationService = class CommunicationService {
             throw new common_1.BadRequestException('SMS is not enabled. Go to Communication → Settings and enable SMS first.');
         }
         if (!this.smsProvider.isConfigured(clinicId)) {
-            throw new common_1.BadRequestException('SMS provider not configured. Set SMS env vars or configure in Communication → Settings (Professional+ plans).');
+            throw new common_1.BadRequestException('SMS provider not configured. Set SMS env vars or configure in Communication → Settings (Growth plan).');
         }
         const templateId = dltTemplateId
             || this.configService.get('app.sms.defaultDltTemplateId')
@@ -722,7 +753,7 @@ let CommunicationService = class CommunicationService {
     async verifySmtp(clinicId) {
         await this.ensureProvidersConfigured(clinicId);
         if (!this.emailProvider.isConfigured(clinicId)) {
-            return { ok: false, error: 'Email not configured. Set SMTP env vars or configure in Communication → Settings (Professional+ plans).' };
+            return { ok: false, error: 'Email not configured. Set SMTP env vars or configure in Communication → Settings (Growth plan).' };
         }
         const result = await this.emailProvider.verify(clinicId);
         return result;

@@ -76,7 +76,7 @@ export class AiUsageService {
    *      Month 2                                     → 10
    *      Month 3+                                    → plan.ai_quota (5)
    *    This gives new Free users a taste of AI before settling at the plan base.
-   * 3. plan.ai_quota — standard per-plan quota (Starter 15, Professional 25, Enterprise 50).
+   * 3. plan.ai_quota — standard per-plan quota (Standard 30, Growth 60).
    */
   private resolveBaseQuota(clinic: {
     ai_quota_override: number | null;
