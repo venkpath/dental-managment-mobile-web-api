@@ -97,6 +97,9 @@ let TreatmentService = class TreatmentService {
         if (query.status) {
             where.status = query.status;
         }
+        if (query.unbilled_only) {
+            where.invoice_items = { none: {} };
+        }
         const page = query.page ?? 1;
         const limit = query.limit ?? 20;
         const [data, total] = await Promise.all([

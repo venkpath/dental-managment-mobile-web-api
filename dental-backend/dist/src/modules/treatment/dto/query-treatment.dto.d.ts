@@ -5,4 +5,5 @@ export declare class QueryTreatmentDto extends PaginationQueryDto {
     dentist_id?: string;
     branch_id?: string;
     status?: TreatmentStatus;
+    unbilled_only?: boolean;
 }

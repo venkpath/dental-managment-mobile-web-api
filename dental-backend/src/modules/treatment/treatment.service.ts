@@ -97,6 +97,11 @@ export class TreatmentService {
     if (query.status) {
       where.status = query.status;
     }
+    // Unbilled = treatment is not referenced by any InvoiceItem. Used by the
+    // patient-profile "Create Invoice" flow to prefill only outstanding work.
+    if (query.unbilled_only) {
+      where.invoice_items = { none: {} };
+    }
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;

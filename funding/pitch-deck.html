@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Smart Dental Desk — Investor Pitch Deck</title>
+<style>
+  :root{
+    --bg:#0b1220;
+    --panel:#0f1a2e;
+    --ink:#e7edf5;
+    --muted:#9fb0c8;
+    --accent:#4ea1ff;
+    --accent2:#7afcc0;
+    --warn:#ffb454;
+    --border:rgba(255,255,255,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  .deck{display:flex;flex-direction:column;align-items:center;gap:28px;padding:32px 16px 80px}
+  .slide{
+    width:min(1180px,96vw);
+    aspect-ratio: 16/9;
+    background:linear-gradient(160deg,#0f1a2e 0%,#0b1220 70%);
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:48px 56px;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 30px 80px -40px rgba(78,161,255,.35), 0 1px 0 rgba(255,255,255,.04) inset;
+  }
+  .slide::before{
+    content:"";position:absolute;inset:auto -120px -120px auto;width:380px;height:380px;border-radius:50%;
+    background:radial-gradient(circle,rgba(78,161,255,.18),transparent 70%);pointer-events:none;
+  }
+  .slide::after{
+    content:attr(data-num);position:absolute;right:28px;bottom:20px;color:var(--muted);font-size:13px;letter-spacing:.08em;
+  }
+  .brand{position:absolute;left:28px;bottom:20px;color:var(--muted);font-size:13px;letter-spacing:.06em}
+  .brand strong{color:var(--ink)}
+  h1,h2,h3{margin:0 0 16px;line-height:1.15}
+  h1{font-size:54px;font-weight:800;letter-spacing:-.02em}
+  h2{font-size:36px;font-weight:700;letter-spacing:-.01em}
+  h3{font-size:20px;color:var(--accent);text-transform:uppercase;letter-spacing:.16em;font-weight:600;margin-bottom:6px}
+  p,li{font-size:18px;color:var(--ink)}
+  .lead{font-size:22px;color:var(--muted);max-width:880px}
+  .grid{display:grid;gap:18px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:1fr 1fr 1fr}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .card{
+    background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:14px;padding:18px 20px;
+  }
+  .card .k{font-size:32px;font-weight:800;color:var(--accent2);letter-spacing:-.02em}
+  .card .l{font-size:13px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);margin-bottom:6px}
+  .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:rgba(78,161,255,.15);color:var(--accent);font-size:12px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:18px}
+  ul{margin:8px 0 0 0;padding-left:20px}
+  li{margin:6px 0}
+  table{width:100%;border-collapse:collapse;font-size:16px}
+  th,td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:left}
+  th{color:var(--muted);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.1em}
+  .accent{color:var(--accent2);font-weight:700}
+  .warn{color:var(--warn)}
+  .muted{color:var(--muted)}
+  .tagline{font-size:24px;color:var(--muted);max-width:780px;margin-top:8px}
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .chip{padding:6px 12px;border:1px solid var(--border);border-radius:999px;font-size:14px;color:var(--ink);background:rgba(255,255,255,.02)}
+  .footer-cta{font-size:18px;color:var(--accent2)}
+  .center{text-align:center}
+  .big{font-size:64px;font-weight:800;letter-spacing:-.02em}
+  .split{display:grid;grid-template-columns:1.1fr .9fr;gap:32px;align-items:start}
+  .ascii{
+    font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:var(--muted);background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:12px;padding:16px;white-space:pre;overflow:hidden
+  }
+  @media print{
+    @page { size: 13.333in 7.5in; margin: 0; }
+    html,body{background:#fff;color:#000;margin:0;padding:0}
+    .deck{padding:0;gap:0;display:block}
+    .slide{
+      page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;
+      border:0;border-radius:0;box-shadow:none;background:#fff;color:#000;
+      width:13.333in;height:7.5in;max-width:none;aspect-ratio:auto;
+      padding:0.5in 0.6in;overflow:hidden;
+    }
+    .slide:last-child{page-break-after:auto;break-after:auto}
+    .slide::before{display:none}
+    h1{font-size:42px}
+    h2{font-size:28px}
+    h3{color:#1d4ed8;font-size:16px}
+    p,li{font-size:15px}
+    .lead,.tagline{font-size:18px}
+    .card{background:#f3f6fb;border-color:#e2e8f0;padding:12px 14px}
+    .card .k{color:#0a8a5a;font-size:26px}
+    .card .l{font-size:11px}
+    .ascii{background:#f8fafc;color:#334155;border-color:#e2e8f0;font-size:11px;padding:10px}
+    .pill{background:#dbeafe;color:#1d4ed8}
+    .lead,.muted,th{color:#475569}
+    .brand,.slide::after{color:#64748b;font-size:11px}
+    .big{font-size:42px}
+    table{font-size:13px}
+    th,td{padding:6px 10px}
+    .grid{gap:12px}
+  }
+</style>
+</head>
+<body>
+
+<div class="deck">
+
+<!-- Slide 1 — Cover -->
+<section class="slide" data-num="01 / 14">
+  <div class="brand"><strong>Smart Dental Desk</strong> · Investor Pitch · 2026</div>
+  <span class="pill">Pre-Seed / Seed · Healthcare AI</span>
+  <h1>The AI-Powered Operating<br/>System for Dental Practices.</h1>
+  <p class="tagline">Cloud-native, AI-first practice management — built to cut admin workload by 40%, no-shows by 30%, and bring real AI to every dental chair.</p>
+  <div class="row" style="margin-top:36px">
+    <span class="chip">7 AI features live</span>
+    <span class="chip">Web · Mobile · API</span>
+    <span class="chip">Multi-tenant SaaS</span>
+    <span class="chip">Pilot revenue in India</span>
+    <span class="chip">Canada-ready architecture</span>
+  </div>
+  <div style="position:absolute;right:48px;top:48px;text-align:right">
+    <div class="muted" style="font-size:13px;letter-spacing:.14em;text-transform:uppercase">Raising</div>
+    <div class="big" style="color:var(--accent2)">CAD&nbsp;$[TBD]</div>
+    <div class="muted">Pre-seed / Seed · [TBD]&nbsp;month runway</div>
+  </div>
+</section>
+
+<!-- Slide 2 — Problem -->
+<section class="slide" data-num="02 / 14">
+  <div class="brand"><strong>Smart Dental Desk</strong></div>
+  <h3>The Problem</h3>
+  <h2>Dental practices run on software<br/>built before the cloud — and before AI.</h2>
+  <div class="grid g2" style="margin-top:28px">
+    <div class="card">
+      <div class="l">Admin overload</div>
+      <p>Front-desk teams spend <span class="accent">30–45% of their day</span> on appointments, recalls, insurance forms, and follow-up — work that is repetitive and rules-based.</p>
+    </div>
+    <div class="card">
+      <div class="l">No-show economics</div>
+      <p>A typical 3-operatory clinic loses <span class="accent">CAD&nbsp;$[TBD]/year</span> to no-shows alone. Most clinics have no system that flags high-risk appointments.</p>
+    </div>
+    <div class="card">
+      <div class="l">Documentation burnout</div>
+      <p>Dentists spend <span class="accent">30+ minutes/day</span> retyping the same SOAP notes and prescriptions. Top-3 driver of mid-career burnout in CDA surveys.</p>
+    </div>
+    <div class="card">
+      <div class="l">Stagnant incumbents</div>
+      <p>Dentrix, ABELDent, ClearDent — all <span class="accent">pre-2010 architectures</span>, on-prem, bolted-on AI, priced for chains, hostile to single-chair clinics.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Slide 3 — Solution -->
+<section class="slide" data-num="03 / 14">
+  <div class="brand"><strong>Smart Dental Desk</strong></div>
+  <h3>Our Solution</h3>
+  <h2>One integrated platform. Three surfaces. Seven live AI features.</h2>
+  <div class="grid g3" style="margin-top:24px">
+    <div class="card">
+      <div class="l">Web app — Next.js</div>
+      <p>Patients · scheduling · clinical · dental chart · treatment plans · prescriptions · invoicing · insurance · campaigns.</p>
+    </div>
+    <div class="card">
+      <div class="l">Mobile — React Native</div>
+      <p>Clinician on-the-go: patient lookup, treatments, prescriptions, billing, WhatsApp inbox.</p>
+    </div>
+    <div class="card">
+      <div class="l">AI layer — Claude + GPT</div>
+      <p>Real LLM features in production with prompt-cache cost engineering — not template substitution.</p>
+    </div>
+  </div>
+  <div class="ascii" style="margin-top:24px">
+                   ┌──────────────────────────────────────────────┐
+                   │  AI Layer (Claude · GPT · Whisper · Vision)  │
+                   └──────────────────────────────────────────────┘
+                          │ prompt cache · plan-gated quotas
+   ┌──────────┐   ┌───────┴────────┐   ┌──────────────┐   ┌──────────────┐
+   │ Next.js  │←→│ NestJS API     │←→│ PostgreSQL   │←→│  S3 / files   │
+   │ Web app  │   │ multi-tenant   │   │ + Prisma     │   │  uploads      │
+   └──────────┘   └───────┬────────┘   └──────────────┘   └──────────────┘
+   ┌──────────┐           │
+   │ Expo RN  │───────────┘   WhatsApp · Email · SMS · Razorpay/Stripe
+   │ Mobile   │
+   └──────────┘
+  </div>
+</section>
+
+<!-- Slide 4 — Product -->
+<section class="slide" data-num="04 / 14">
+  <div class="brand"><strong>Smart Dental Desk</strong></div>
+  <h3>Product Surface</h3>
+  <h2>Full clinic operations in one cloud-native suite.</h2>
+  <div class="grid g4" style="margin-top:24px">
+    <div class="card"><div class="l">Clinical</div><ul><li>Dental chart</li><li>SOAP visits</li><li>Treatment plans</li><li>Prescriptions</li><li>X-ray + photos</li></ul></div>
+    <div class="card"><div class="l">Operations</div><ul><li>Smart scheduling</li><li>Recall automation</li><li>Inventory + stock</li><li>Expenses</li><li>Reports + exports</li></ul></div>
+    <div class="card"><div class="l">Revenue</div><ul><li>Invoices + GST/tax</li><li>Payments (Razorpay; Stripe Canada)</li><li>Insurance claims</li><li>Pre-auth + reimbursement</li><li>Revenue insights</li></ul></div>
+    <div class="card"><div class="l">Engagement</div><ul><li>WhatsApp Business</li><li>SMS + Email</li><li>Campaigns + A/B</li><li>Referrals</li><li>Feedback / NPS</li></ul></div>
+  </div>
+  <p class="muted" style="margin-top:18px;font-size:15px">Phase 1–6 complete · Phase 7 (Insurance/EHS) backend live, frontend in progress · 365+ backend tests · Playwright + Vitest on frontend.</p>
+</section>
+
+<!-- Slide 5 — AI relevance -->
+<section class="slide" data-num="05 / 14">
+  <div class="brand"><strong>Smart Dental Desk</strong></div>
+  <h3>AI Relevance — real AI, not basic automation</h3>
+  <h2>Seven AI features in production today.</h2>
+  <div class="grid g2" style="margin-top:24px">
+    <div class="card"><div class="l">1 · AI Clinical Notes</div><p>Generates structured SOAP notes; populates the <em>same</em> clinical model as manual entry — no parallel storage.</p></div>
+    <div class="card"><div class="l">2 · AI Treatment Plan</div><p>Multi-phase plans with urgency, alternatives, cost — full <code>TreatmentPlan</code> + <code>Item</code> rows.</p></div>
+    <div class="card"><div class="l">3 · AI Prescription + Safety</div><p>Allergy / age / pregnancy aware · drug-interaction flagged · inventory-aware (prescribes from clinic stock first).</p></div>
+    <div class="card"><div class="l">4 · AI Dental Chart Vision</div><p>Claude Vision · GPT-4V — analyzes uploaded charts and X-rays (assistive, not diagnostic).</p></div>
+    <div class="card"><div class="l">5 · AI Revenue Insights</div><p>Surfaces anomalies and growth levers from billing data.</p></div>
+    <div class="card"><div class="l">6 · AI Patient Insights (rules + LLM)</div><p>Nightly batch scores no-show, recall, churn, conversion. LLM reserved for click-to-explain. Zero hot-path AI cost.</p></div>
+  </div>
+  <p class="muted" style="margin-top:18px;font-size:15px">+ AI Appointment Summary · AI Campaign Content. Voice-to-Consultation (Whisper) in roadmap.</p>
+</section>
+
+<!-- Slide 6 — Productivity Impact -->
+<section class="slide" data-num="06 / 14">
+  <div class="brand"><strong>Smart Dental Desk</strong></div>
+  <h3>Productivity Impact</h3>
+  <h2>Quantified targets, mapped to features.</h2>
+  <div class="grid g4" style="margin-top:24px">
+    <div class="card"><div class="l">Admin time</div><div class="k">−40%</div><p class="muted" style="font-size:14px">Recall automation, multi-channel reminders, AI-drafted messages.</p></div>
+    <div class="card"><div class="l">No-shows</div><div class="k">−30%</div><p class="muted" style="font-size:14px">WhatsApp + SMS + risk scoring + waitlist auto-fill.</p></div>
+    <div class="card"><div class="l">Documentation time</div><div class="k">−50%</div><p class="muted" style="font-size:14px">AI clinical notes + voice (roadmap).</p></div>
+    <div class="card"><div class="l">Operational efficiency</div><div class="k">+25%</div><p class="muted" style="font-size:14px">Unified UI + automation cron + dashboards.</p></div>
+  </div>
+  <p class="muted" style="margin-top:22px">Targets validated through 3-clinic Canadian pilot in Year 1 (Section 9 of grant proposal).</p>
+</section>
+
+<!-- Slide 7 — Market -->
+<section class="slide" data-num="07 / 14">
+  <div class="brand"><strong>Smart Dental Desk</strong></div>
+  <h3>Market</h3>
+  <h2>Canadian dental software · $[TBD]M TAM and growing.</h2>
+  <div class="split" style="margin-top:18px">
+    <div>
+      <div class="grid g3">
+        <div class="card"><div class="l">TAM</div><div class="k">$[TBD]M</div><p class="muted" style="font-size:14px">Global dental practice mgmt software</p></div>
+        <div class="card"><div class="l">SAM</div><div class="k">$[TBD]M</div><p class="muted" style="font-size:14px">Canada + adjacent English-speaking markets</p></div>
+        <div class="card"><div class="l">SOM (Y3)</div><div class="k">$[TBD]M</div><p class="muted" style="font-size:14px">Target 1,500 Canadian clinics</p></div>
+      </div>
+      <ul style="margin-top:16px">
+        <li><span class="accent">~16,000</span> dental practices in Canada</li>
+        <li><span class="accent">Independent + DSO</span> mix — both underserved by AI</li>
+        <li>Incumbents (Dentrix, ABELDent, ClearDent) priced at <span class="accent">CAD&nbsp;$200–500+/op/mo</span></li>
+        <li>Cloud-native AI-first entrant has clear pricing + product wedge</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="l">Geographic playbook</div>
+      <p><strong>Year 1:</strong> Ontario + BC pilots → Canada launch.</p>
+      <p><strong>Year 2:</strong> Canada scale + select US states (insurance strategies for Delta Dental, MetLife already seeded in code).</p>
+      <p><strong>Year 3:</strong> US expansion + UK / AU exploration. India pilot continues as cost-efficient revenue base.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Slide 8 — Competitive -->
+<section class="slide" data-num="08 / 14">
+  <div class="brand"><strong>Smart Dental Desk</strong></div>
+  <h3>Competitive Landscape</h3>
+  <h2>Bolt-on AI vs. AI-native cloud platform.</h2>
+  <table style="margin-top:18px">
+    <thead><tr><th>Capability</th><th>Dentrix / ABEL / ClearDent</th><th>Dentally / Curve (cloud-newer)</th><th>Smart Dental Desk</th></tr></thead>
+    <tbody>
+      <tr><td>Architecture</td><td class="muted">On-prem / hybrid</td><td>Cloud</td><td class="accent">Cloud-native, multi-tenant</td></tr>
+      <tr><td>AI</td><td class="muted">Bolted-on / partner</td><td class="muted">Limited</td><td class="accent">7 live features, prompt-cached</td></tr>
+      <tr><td>Mobile (clinician)</td><td class="muted">Limited</td><td>Web-mobile</td><td class="accent">Native React Native app</td></tr>
+      <tr><td>WhatsApp / multi-channel</td><td class="muted">No</td><td class="muted">Partial</td><td class="accent">Native + Meta-approved</td></tr>
+      <tr><td>Insurance/EHS abstraction</td><td class="muted">Region-locked</td><td class="muted">Region-locked</td><td class="accent">Country-strategy pattern</td></tr>
+      <tr><td>Entry price</td><td class="muted">$200–500+/op/mo</td><td>$150–250/op/mo</td><td class="accent">$49–149/clinic/mo</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- Slide 9 — Traction -->
+<section class="slide" data-num="09 / 14">
+  <div class="brand"><strong>Smart Dental Desk</strong></div>
+  <h3>Traction & Readiness</h3>
+  <h2>Production platform with paying clinics today.</h2>
+  <div class="grid g4" style="margin-top:24px">
+    <div class="card"><div class="l">Clinics live</div><div class="k">[X]</div><p class="muted" style="font-size:14px">Pilot market (India) — paying customers</p></div>
+    <div class="card"><div class="l">MRR (INR)</div><div class="k">₹[X]K</div><p class="muted" style="font-size:14px">Validates pricing + retention</p></div>
+    <div class="card"><div class="l">Code maturity</div><div class="k">365+</div><p class="muted" style="font-size:14px">Backend tests · Vitest + Playwright on web</p></div>
+    <div class="card"><div class="l">Mobile app</div><div class="k">v1</div><p class="muted" style="font-size:14px">Expo build, app-store ready</p></div>
+  </div>
+  <div class="grid g2" style="margin-top:18px">
+    <div class="card">
+      <div class="l">What's done</div>
+      <ul>
+        <li>Phases 1–6: backend, web, hardening, comms, prod readiness, AI, mobile ✓</li>
+        <li>Phase 7 (Insurance/EHS) backend complete — 11 Prisma models, country-strategy pattern</li>
+        <li>WhatsApp Meta-approved · embedded signup in flight</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="l">What's next (with funding)</div>
+      <ul>
+        <li>PIPEDA/PHIPA adaptation · Canadian cloud region</li>
+        <li>3-clinic Canadian pilot · publish KPI study</li>
+        <li>Public Canadian launch + association partnerships</li>
+        <li>SOC 2 Type I</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- Slide 10 — Business model -->
+<section class="slide" data-num="10 / 14">
+  <div class="brand"><strong>Smart Dental Desk</strong></div>
+  <h3>Business Model</h3>
+  <h2>Validated 3-tier SaaS — repriced for Canada.</h2>
+  <table style="margin-top:18px">
+    <thead><tr><th>Plan</th><th>India (validated)</th><th>Canada (proposed)</th><th>Who it's for</th></tr></thead>
+    <tbody>
+      <tr><td>Free</td><td>₹0</td><td>CAD&nbsp;$0</td><td class="muted">Try-before-buy · 1 doctor</td></tr>
+      <tr><td><strong>Standard</strong> ⭐</td><td>₹699/mo</td><td class="accent">CAD&nbsp;$49–69/mo</td><td>Solo/duo practice · most popular</td></tr>
+      <tr><td><strong>Growth</strong></td><td>₹1,299/mo</td><td class="accent">CAD&nbsp;$99–149/mo</td><td>Multi-op · automation · own WABA</td></tr>
+      <tr><td>Enterprise</td><td>Custom</td><td>Custom</td><td class="muted">DSO / multi-branch chains</td></tr>
+    </tbody>
+  </table>
+  <div class="grid g3" style="margin-top:18px">
+    <div class="card"><div class="l">Gross margin</div><div class="k">80%+</div><p class="muted" style="font-size:14px">Cloud SaaS, capped AI quota</p></div>
+    <div class="card"><div class="l">Overage</div><div class="k">PAYG</div><p class="muted" style="font-size:14px">WhatsApp / SMS / AI usage</p></div>
+    <div class="card"><div class="l">Expansion</div><div class="k">Marketplace</div><p class="muted" style="font-size:14px">Labs · imaging · insurance fees (Y2+)</p></div>
+  </div>
+</section>
+
+<!-- Slide 11 — Collaboration / consortium -->
+<section class="slide" data-num="11 / 14">
+  <div class="brand"><strong>Smart Dental Desk</strong></div>
+  <h3>Collaboration & Consortium</h3>
+  <h2>Building a Canadian healthcare-AI alliance.</h2>
+  <div class="grid g2" style="margin-top:18px">
+    <div class="card"><div class="l">Academic partner</div><p>Canadian dental school for clinical validation, research publication, resident training. <span class="muted">[Schulich / U of T / UBC — outreach planned]</span></p></div>
+    <div class="card"><div class="l">Clinical partner</div><p>Multi-location DSO or independent dentist association for pilot deployment + real-world data. <span class="muted">[3 candidates being identified]</span></p></div>
+    <div class="card"><div class="l">Cloud + infra partner</div><p>Canadian region (AWS Canada Central / Azure Canada Central), MLOps support, Canadian data residency. <span class="muted">[CSP engagement]</span></p></div>
+    <div class="card"><div class="l">Compliance partner</div><p>PIPEDA / PHIPA specialist for audit + ongoing compliance. <span class="muted">[Quote in progress]</span></p></div>
+  </div>
+  <p class="muted" style="margin-top:18px">LOIs and MOUs to be attached as Annex A of the grant submission.</p>
+</section>
+
+<!-- Slide 12 — Team -->
+<section class="slide" data-num="12 / 14">
+  <div class="brand"><strong>Smart Dental Desk</strong></div>
+  <h3>Team</h3>
+  <h2>Builders who ship.</h2>
+  <div class="grid g3" style="margin-top:24px">
+    <div class="card">
+      <div class="l">Founder / CEO</div>
+      <h3 style="color:var(--ink);font-size:22px;letter-spacing:-.01em;text-transform:none">[Name]</h3>
+      <p class="muted" style="font-size:14px">[Background — clinical / commercial leadership]</p>
+    </div>
+    <div class="card">
+      <div class="l">Co-founder / Tech lead</div>
+      <h3 style="color:var(--ink);font-size:22px;letter-spacing:-.01em;text-transform:none">Prasanth V</h3>
+      <p class="muted" style="font-size:14px">Full-stack engineer. Built the entire platform across web, backend, mobile, AI integration, and prompt-cache cost engineering.</p>
+    </div>
+    <div class="card">
+      <div class="l">Clinical advisor</div>
+      <h3 style="color:var(--ink);font-size:22px;letter-spacing:-.01em;text-transform:none">[Name, BDS/MDS]</h3>
+      <p class="muted" style="font-size:14px">[Practicing dentist · clinical workflow validation · advisory board]</p>
+    </div>
+  </div>
+  <div class="grid g3" style="margin-top:18px">
+    <div class="card"><div class="l">Post-funding hires</div><p>Canadian market lead · 2nd backend engineer · Customer success</p></div>
+    <div class="card"><div class="l">Advisors to add</div><p>Practicing Canadian dentist · Healthcare regulatory veteran · GTM lead</p></div>
+    <div class="card"><div class="l">Why us</div><p>We've already built and shipped what most pre-seed teams promise. Funding accelerates a working product into a new geography.</p></div>
+  </div>
+</section>
+
+<!-- Slide 13 — Ask & use of funds -->
+<section class="slide" data-num="13 / 14">
+  <div class="brand"><strong>Smart Dental Desk</strong></div>
+  <h3>The Ask</h3>
+  <h2>CAD <span class="accent">$[TBD]</span> over <span class="accent">[TBD] months</span>.</h2>
+  <div class="grid g2" style="margin-top:22px">
+    <div>
+      <table>
+        <thead><tr><th>Use of funds</th><th>%</th></tr></thead>
+        <tbody>
+          <tr><td>Engineering (Canadian features, compliance, hardening)</td><td class="accent">35%</td></tr>
+          <tr><td>Pilot operations + clinical validation</td><td class="accent">20%</td></tr>
+          <tr><td>Go-to-market (marketing, content, sales)</td><td class="accent">20%</td></tr>
+          <tr><td>Compliance + security (SOC 2, PIPEDA, pen test)</td><td class="accent">10%</td></tr>
+          <tr><td>Infrastructure (Canadian cloud)</td><td class="accent">5%</td></tr>
+          <tr><td>Working capital + contingency</td><td class="accent">10%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="l">12-month milestones</div>
+      <ul>
+        <li>M1: Canadian cloud live · PIPEDA gap analysis</li>
+        <li>M3: First pilot clinic live in Ontario</li>
+        <li>M6: Validated KPIs from 3 pilots</li>
+        <li>M7: Public Canadian launch</li>
+        <li>M11: SOC 2 Type I complete</li>
+        <li>M12: <span class="accent">50</span> paying Canadian clinics</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- Slide 14 — Closing -->
+<section class="slide" data-num="14 / 14">
+  <div class="brand"><strong>Smart Dental Desk</strong></div>
+  <div style="display:flex;flex-direction:column;justify-content:center;height:100%">
+    <span class="pill">Let's build it</span>
+    <h1>A scalable Canadian<br/>healthcare-AI platform —<br/>shipped, not promised.</h1>
+    <p class="tagline" style="margin-top:18px">We have the product, the architecture, and the pilot data path. With this round we bring it to Canadian dental practices and a measurable, publishable clinical outcome.</p>
+    <div class="row" style="margin-top:36px">
+      <span class="chip">pvprasanth474@gmail.com</span>
+      <span class="chip">smartdentaldesk.com</span>
+      <span class="chip">Smart Dental Desk · FB 61572113176366</span>
+    </div>
+    <p class="footer-cta" style="margin-top:28px">→ Schedule a 30-minute product walkthrough.</p>
+  </div>
+</section>
+
+</div>
+
+<script>
+  // Press P to print, → / ← to navigate (for live presentation).
+  document.addEventListener('keydown', e => {
+    if (e.key.toLowerCase() === 'p') { window.print(); return; }
+    const slides = [...document.querySelectorAll('.slide')];
+    const i = slides.findIndex(s => s.getBoundingClientRect().top > -window.innerHeight/2);
+    if (e.key === 'ArrowRight' && slides[i+1]) slides[i+1].scrollIntoView({behavior:'smooth',block:'start'});
+    if (e.key === 'ArrowLeft' && slides[i-1]) slides[i-1].scrollIntoView({behavior:'smooth',block:'start'});
+  });
+</script>
+</body>
+</html>

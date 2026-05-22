@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.QueryTreatmentDto = void 0;
 const openapi = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
 const swagger_1 = require("@nestjs/swagger");
 const pagination_query_dto_js_1 = require("../../../common/dto/pagination-query.dto.js");
 const create_treatment_dto_js_1 = require("./create-treatment.dto.js");
@@ -20,8 +21,9 @@ class QueryTreatmentDto extends pagination_query_dto_js_1.PaginationQueryDto {
     dentist_id;
     branch_id;
     status;
+    unbilled_only;
     static _OPENAPI_METADATA_FACTORY() {
-        return { patient_id: { required: false, type: () => String, format: "uuid" }, dentist_id: { required: false, type: () => String, format: "uuid" }, branch_id: { required: false, type: () => String, format: "uuid" }, status: { required: false, enum: require("./create-treatment.dto").TreatmentStatus } };
+        return { patient_id: { required: false, type: () => String, format: "uuid" }, dentist_id: { required: false, type: () => String, format: "uuid" }, branch_id: { required: false, type: () => String, format: "uuid" }, status: { required: false, enum: require("./create-treatment.dto").TreatmentStatus }, unbilled_only: { required: false, type: () => Boolean } };
     }
 }
 exports.QueryTreatmentDto = QueryTreatmentDto;
@@ -49,4 +51,13 @@ __decorate([
     (0, class_validator_1.IsEnum)(create_treatment_dto_js_1.TreatmentStatus),
     __metadata("design:type", String)
 ], QueryTreatmentDto.prototype, "status", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'When true, only treatments that have NOT yet been linked to any invoice item are returned. Used by the auto-prefill invoice flow on the patient profile.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    (0, class_transformer_1.Transform)(({ value }) => value === true || value === 'true' || value === '1'),
+    __metadata("design:type", Boolean)
+], QueryTreatmentDto.prototype, "unbilled_only", void 0);
 //# sourceMappingURL=query-treatment.dto.js.map
