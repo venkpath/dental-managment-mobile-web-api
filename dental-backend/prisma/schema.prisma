@@ -307,7 +307,13 @@ model ClinicUsageCounter {
   id            String   @id @default(uuid()) @db.Uuid
   clinic_id     String   @db.Uuid
   period_start  DateTime @db.Date // first day of the month
+  // Total WhatsApp sends in the period (sum of the three category counters below).
   whatsapp_sent Int      @default(0)
+  // Per Meta WA category — used to bill overage at per-category rates.
+  // (UTILITY ₹0.40, MARKETING ₹1.00, AUTHENTICATION ₹0.30 — see whatsapp-pricing.constants.ts)
+  whatsapp_utility_sent        Int @default(0)
+  whatsapp_marketing_sent      Int @default(0)
+  whatsapp_authentication_sent Int @default(0)
   sms_sent      Int      @default(0)
   email_sent    Int      @default(0)
   created_at    DateTime @default(now())
@@ -1093,6 +1099,9 @@ model CommunicationMessage {
   direction     String    @default("outbound") @db.VarChar(10) // outbound | inbound
   skip_reason   String?   @db.VarChar(255) // if skipped: preference_disabled, dnd_hours, dedup, etc.
   wa_message_id String?   @db.VarChar(255) // Meta WhatsApp message ID (wamid.xxx)
+  /// Meta WhatsApp category for this message: UTILITY | MARKETING | AUTHENTICATION.
+  /// Used to bill overage at per-category rates and for audit/recompute.
+  wa_category   String?   @db.VarChar(20)
   scheduled_at  DateTime?
   sent_at       DateTime?
   metadata      Json? // extra context: campaign_id, appointment_id, etc.
@@ -1114,6 +1123,7 @@ model CommunicationMessage {
   @@index([patient_id, template_id, channel, created_at]) // deduplication query
   @@index([clinic_id, channel, recipient, created_at]) // inbox conversation query
   @@index([wa_message_id]) // webhook status update lookup
+  @@index([wa_category])
   @@map("communication_messages")
 }
 
@@ -1769,12 +1779,24 @@ model PlatformInvoice {
   clinic_id      String @db.Uuid
   invoice_number String @unique @db.VarChar(50)
 
+  /// Discriminator for what this invoice charges for.
+  ///   subscription → plan renewal / trial-end / upgrade proration (default).
+  ///   wa_overage   → WhatsApp messages above plan quota at per-category rates.
+  ///                  Plan + period still set; subtotal/total come from line_items.
+  invoice_type String @default("subscription") @db.VarChar(30)
+
   // Plan + period covered by this charge
   plan_id       String?  @db.Uuid
   plan_name     String   @db.VarChar(100)
   billing_cycle String   @db.VarChar(10) // monthly | yearly
   period_start  DateTime
   period_end    DateTime
+
+  /// Structured line items for invoices with multiple charges (e.g. WA overage
+  /// invoices carrying separate rows for utility / marketing / authentication).
+  /// Shape: Array<{ description: string; quantity: number; unit_price: number; amount: number; category?: string }>
+  /// Subscription invoices leave this null and use subtotal/total directly.
+  line_items Json?
 
   // Money. Plan price is treated as INCLUSIVE of GST: subtotal is reverse-
   // computed (total / (1 + tax_rate/100)), then tax_amount = total - subtotal.
@@ -1849,6 +1871,7 @@ model PlatformInvoice {
   @@index([status])
   @@index([due_date])
   @@index([razorpay_subscription_id])
+  @@index([invoice_type])
   @@map("platform_invoices")
 }
 

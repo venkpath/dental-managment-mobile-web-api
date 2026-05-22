@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import * as nodemailer from 'nodemailer';
 import Razorpay from 'razorpay';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 import { PlatformInvoicePdfService } from './platform-invoice-pdf.service.js';
@@ -104,6 +105,25 @@ export interface CreateManualInvoiceInput {
   notes?: string | null;
   /** Super-admin user id that issued this invoice (for audit). */
   createdByUserId?: string | null;
+  /** When true, generates a hosted Razorpay Pay Link and delivers via WA+Email. */
+  sendImmediately?: boolean;
+}
+
+export interface CreateOverageInvoiceInput {
+  clinicId: string;
+  periodStart: Date;
+  periodEnd: Date;
+  /** GST-inclusive total in INR rupees. */
+  totalAmount: number;
+  /** Per-category line items rendered on the PDF. */
+  lineItems: Array<{
+    description: string;
+    quantity: number;
+    unit_price: number;
+    amount: number;
+    category?: string;
+  }>;
+  dueDate?: Date | null;
   /** When true, generates a hosted Razorpay Pay Link and delivers via WA+Email. */
   sendImmediately?: boolean;
 }
@@ -350,6 +370,115 @@ export class PlatformBillingService implements OnModuleInit {
     if (input.sendImmediately !== false) {
       await this.deliverInvoice(invoice.id).catch((err) =>
         this.logger.warn(`Initial delivery failed for ${invoiceNumber}: ${(err as Error).message}`),
+      );
+    }
+
+    return { invoiceId: invoice.id, payLinkUrl };
+  }
+
+  /**
+   * Issue an `invoice_type=wa_overage` PlatformInvoice for a clinic's
+   * WhatsApp message overage in a billing period.
+   *
+   * Differs from createManualInvoice in three ways:
+   *   1. No `planId` required — the clinic's current plan is used only for
+   *      reporting (`plan_name` on the row); the charge has no plan reference.
+   *   2. Structured `line_items` JSON carries per-category breakdown
+   *      (utility / marketing / authentication) for PDF + dashboard display.
+   *   3. `invoice_type='wa_overage'` so dashboards can filter and the
+   *      subscription-renewal cron skips it.
+   *
+   * Caller must guarantee no double-billing — the WhatsApp overage cron checks
+   * for an existing wa_overage invoice for (clinic_id, period_start) first.
+   */
+  async createOverageInvoice(
+    input: CreateOverageInvoiceInput,
+  ): Promise<{ invoiceId: string; payLinkUrl: string | null }> {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: input.clinicId },
+      include: { plan: true },
+    });
+    if (!clinic) throw new NotFoundException(`Clinic ${input.clinicId} not found`);
+    if (!(input.totalAmount > 0)) {
+      throw new BadRequestException('Overage invoice amount must be > 0');
+    }
+    if (input.periodEnd <= input.periodStart) {
+      throw new BadRequestException('Period end must be after period start');
+    }
+
+    // GST split (same convention as subscription invoices — total is GST-inclusive)
+    const taxRate = PLATFORM_GST_RATE;
+    const subtotal = round2(input.totalAmount / (1 + taxRate / 100));
+    const taxAmount = round2(input.totalAmount - subtotal);
+    const intraState = isIntraStateBilling(clinic.state);
+    const cgstAmount = intraState ? round2(taxAmount / 2) : 0;
+    const sgstAmount = intraState ? round2(taxAmount - cgstAmount) : 0;
+    const igstAmount = intraState ? 0 : taxAmount;
+
+    const issuedAt = new Date();
+    const dueDate = input.dueDate ?? this.computeDefaultDueDate(input.periodStart);
+    const invoiceNumber = await this.generateInvoiceNumber(issuedAt);
+
+    const invoice = await this.prisma.platformInvoice.create({
+      data: {
+        clinic_id: clinic.id,
+        invoice_number: invoiceNumber,
+        invoice_type: 'wa_overage',
+        plan_id: clinic.plan_id,
+        plan_name: clinic.plan?.name ?? 'WhatsApp Overage',
+        billing_cycle: clinic.billing_cycle ?? 'monthly',
+        period_start: input.periodStart,
+        period_end: input.periodEnd,
+
+        subtotal,
+        tax_rate: taxRate,
+        tax_amount: taxAmount,
+        total_amount: input.totalAmount,
+        currency: 'INR',
+        cgst_amount: cgstAmount,
+        sgst_amount: sgstAmount,
+        igst_amount: igstAmount,
+
+        line_items: input.lineItems as unknown as Prisma.InputJsonValue,
+
+        bill_to_name: clinic.name,
+        bill_to_email: clinic.email,
+        bill_to_phone: clinic.phone,
+        bill_to_address: clinic.address,
+        bill_to_city: clinic.city,
+        bill_to_state: clinic.state,
+        bill_to_pincode: clinic.pincode,
+
+        status: 'due',
+        due_date: dueDate,
+        issued_at: issuedAt,
+        is_manual: false,
+      },
+    });
+
+    this.logger.log(
+      `WhatsApp overage invoice ${invoiceNumber} issued for clinic ${clinic.id} (₹${input.totalAmount}, due ${dueDate.toISOString()})`,
+    );
+
+    let payLinkUrl: string | null = null;
+    try {
+      const link = await this.createPaymentLink(invoice.id);
+      payLinkUrl = link.short_url;
+    } catch (err) {
+      this.logger.error(
+        `Failed to create Payment Link for overage invoice ${invoiceNumber}: ${(err as Error).message}`,
+      );
+    }
+
+    try {
+      await this.renderAndUploadPdf(invoice.id);
+    } catch (err) {
+      this.logger.error(`Failed to render PDF for overage invoice ${invoiceNumber}: ${(err as Error).message}`);
+    }
+
+    if (input.sendImmediately !== false) {
+      await this.deliverInvoice(invoice.id).catch((err) =>
+        this.logger.warn(`Initial delivery failed for overage invoice ${invoiceNumber}: ${(err as Error).message}`),
       );
     }
 

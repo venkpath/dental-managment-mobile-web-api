@@ -2,6 +2,7 @@ import { Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { PlatformBillingService } from './platform-billing.service.js';
+import { WhatsAppOverageService } from './whatsapp-overage.service.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../user/dto/create-user.dto.js';
 import { ListPlatformInvoicesQueryDto } from './dto/list-invoices-query.dto.js';
@@ -10,7 +11,23 @@ import { ListPlatformInvoicesQueryDto } from './dto/list-invoices-query.dto.js';
 @ApiBearerAuth()
 @Controller('platform-billing')
 export class PlatformBillingController {
-  constructor(private readonly billing: PlatformBillingService) {}
+  constructor(
+    private readonly billing: PlatformBillingService,
+    private readonly waOverage: WhatsAppOverageService,
+  ) {}
+
+  @Get('whatsapp-overage/current')
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({
+    summary: 'Get current month WhatsApp overage estimate',
+    description:
+      'Returns the running projected overage charge for the current billing month, ' +
+      'broken down by category (utility / marketing / authentication). Useful for the dashboard ' +
+      '"Projected overage this month: ₹X" panel.',
+  })
+  currentWhatsAppOverage(@Req() req: Request) {
+    return this.waOverage.getCurrentMonthEstimate(req.user!.clinicId);
+  }
 
   @Get('invoices')
   @Roles(UserRole.SUPER_ADMIN)

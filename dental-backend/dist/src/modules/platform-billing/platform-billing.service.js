@@ -269,6 +269,81 @@ let PlatformBillingService = PlatformBillingService_1 = class PlatformBillingSer
         }
         return { invoiceId: invoice.id, payLinkUrl };
     }
+    async createOverageInvoice(input) {
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: input.clinicId },
+            include: { plan: true },
+        });
+        if (!clinic)
+            throw new common_1.NotFoundException(`Clinic ${input.clinicId} not found`);
+        if (!(input.totalAmount > 0)) {
+            throw new common_1.BadRequestException('Overage invoice amount must be > 0');
+        }
+        if (input.periodEnd <= input.periodStart) {
+            throw new common_1.BadRequestException('Period end must be after period start');
+        }
+        const taxRate = platform_billing_constants_js_1.PLATFORM_GST_RATE;
+        const subtotal = round2(input.totalAmount / (1 + taxRate / 100));
+        const taxAmount = round2(input.totalAmount - subtotal);
+        const intraState = (0, platform_billing_constants_js_1.isIntraStateBilling)(clinic.state);
+        const cgstAmount = intraState ? round2(taxAmount / 2) : 0;
+        const sgstAmount = intraState ? round2(taxAmount - cgstAmount) : 0;
+        const igstAmount = intraState ? 0 : taxAmount;
+        const issuedAt = new Date();
+        const dueDate = input.dueDate ?? this.computeDefaultDueDate(input.periodStart);
+        const invoiceNumber = await this.generateInvoiceNumber(issuedAt);
+        const invoice = await this.prisma.platformInvoice.create({
+            data: {
+                clinic_id: clinic.id,
+                invoice_number: invoiceNumber,
+                invoice_type: 'wa_overage',
+                plan_id: clinic.plan_id,
+                plan_name: clinic.plan?.name ?? 'WhatsApp Overage',
+                billing_cycle: clinic.billing_cycle ?? 'monthly',
+                period_start: input.periodStart,
+                period_end: input.periodEnd,
+                subtotal,
+                tax_rate: taxRate,
+                tax_amount: taxAmount,
+                total_amount: input.totalAmount,
+                currency: 'INR',
+                cgst_amount: cgstAmount,
+                sgst_amount: sgstAmount,
+                igst_amount: igstAmount,
+                line_items: input.lineItems,
+                bill_to_name: clinic.name,
+                bill_to_email: clinic.email,
+                bill_to_phone: clinic.phone,
+                bill_to_address: clinic.address,
+                bill_to_city: clinic.city,
+                bill_to_state: clinic.state,
+                bill_to_pincode: clinic.pincode,
+                status: 'due',
+                due_date: dueDate,
+                issued_at: issuedAt,
+                is_manual: false,
+            },
+        });
+        this.logger.log(`WhatsApp overage invoice ${invoiceNumber} issued for clinic ${clinic.id} (₹${input.totalAmount}, due ${dueDate.toISOString()})`);
+        let payLinkUrl = null;
+        try {
+            const link = await this.createPaymentLink(invoice.id);
+            payLinkUrl = link.short_url;
+        }
+        catch (err) {
+            this.logger.error(`Failed to create Payment Link for overage invoice ${invoiceNumber}: ${err.message}`);
+        }
+        try {
+            await this.renderAndUploadPdf(invoice.id);
+        }
+        catch (err) {
+            this.logger.error(`Failed to render PDF for overage invoice ${invoiceNumber}: ${err.message}`);
+        }
+        if (input.sendImmediately !== false) {
+            await this.deliverInvoice(invoice.id).catch((err) => this.logger.warn(`Initial delivery failed for overage invoice ${invoiceNumber}: ${err.message}`));
+        }
+        return { invoiceId: invoice.id, payLinkUrl };
+    }
     async createPaymentLink(invoiceId) {
         if (!this.razorpay) {
             throw new common_1.BadRequestException('Razorpay not configured — cannot generate payment link');

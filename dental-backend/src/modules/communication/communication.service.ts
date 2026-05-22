@@ -14,6 +14,11 @@ import { WhatsAppProvider } from './providers/whatsapp.provider.js';
 import type { EmailProviderConfig } from './providers/email.provider.js';
 import type { SmsProviderConfig } from './providers/sms.provider.js';
 import type { WhatsAppProviderConfig } from './providers/whatsapp.provider.js';
+import {
+  mapInternalCategoryToWa,
+  normalizeWhatsAppCategory,
+  type WhatsAppCategory,
+} from './whatsapp-pricing.constants.js';
 import type { SendMessageDto } from './dto/send-message.dto.js';
 import type { QueryMessageDto } from './dto/query-message.dto.js';
 import type { UpdatePreferencesDto } from './dto/update-preferences.dto.js';
@@ -125,6 +130,16 @@ export class CommunicationService {
     let whatsappOrderedVars: string[] | undefined;
     /** Template language code for WhatsApp (e.g. 'en', 'en_US') */
     let whatsappLanguage: string | undefined;
+    /**
+     * Meta WhatsApp category for billing: UTILITY (₹0.40) / MARKETING (₹1.00) /
+     * AUTHENTICATION (₹0.30). Default UTILITY when no template + no override.
+     * Callers can force a category via `dto.metadata.wa_category` — used by
+     * the OTP flow to flag messages as AUTHENTICATION.
+     */
+    let waCategory: WhatsAppCategory | null =
+      dto.channel === 'whatsapp'
+        ? normalizeWhatsAppCategory(dto.metadata?.['wa_category'] as string | undefined)
+        : null;
 
     // Build enriched variables with common aliases so any template resolves cleanly.
     // e.g. automation sends patient_first_name → also available as {{name}}.
@@ -164,6 +179,13 @@ export class CommunicationService {
       if (dto.channel === 'whatsapp') {
         whatsappTemplateName = template.template_name;
         whatsappLanguage = template.language || 'en';
+
+        // Resolve the Meta WhatsApp category from the internal template.category
+        // (reminder/greeting/campaign/...) UNLESS the caller already supplied
+        // an override via metadata (e.g. OTP flow → 'AUTHENTICATION').
+        if (!dto.metadata?.['wa_category']) {
+          waCategory = mapInternalCategoryToWa(template.category);
+        }
 
         // template.variables can be:
         //   - string[] like ["1","2","3"] (body vars only)
@@ -303,6 +325,9 @@ export class CommunicationService {
         template_id: dto.template_id,
         channel: dto.channel,
         category: dto.category || 'transactional',
+        // Persist the Meta WA category so end-of-month overage can be priced
+        // accurately even after a refund / dispute / recompute.
+        wa_category: dto.channel === 'whatsapp' ? waCategory : null,
         subject,
         body,
         recipient,
@@ -334,7 +359,7 @@ export class CommunicationService {
     });
 
     // 10.5 Increment usage counter (fire-and-forget — failure should not block send)
-    this.incrementUsageCounter(clinicId, dto.channel).catch((err) =>
+    this.incrementUsageCounter(clinicId, dto.channel, waCategory).catch((err) =>
       this.logger.warn(`Failed to increment ${dto.channel} usage counter for clinic ${clinicId}: ${err instanceof Error ? err.message : String(err)}`),
     );
 
@@ -1785,14 +1810,47 @@ export class CommunicationService {
     return currentUsage >= plan.whatsapp_hard_limit_monthly;
   }
 
-  private async incrementUsageCounter(clinicId: string, channel: string): Promise<void> {
+  /**
+   * Bumps the per-clinic monthly usage counter for the given channel. For
+   * WhatsApp, also bumps the per-Meta-category counter so end-of-month overage
+   * can be priced correctly (utility/marketing/auth rates differ).
+   */
+  private async incrementUsageCounter(
+    clinicId: string,
+    channel: string,
+    waCategory?: WhatsAppCategory | null,
+  ): Promise<void> {
     const now = new Date();
     const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    let column: 'whatsapp_sent' | 'sms_sent' | 'email_sent';
     if (channel === 'whatsapp') {
-      column = 'whatsapp_sent';
-    } else if (channel === 'sms') {
+      const cat: WhatsAppCategory = normalizeWhatsAppCategory(waCategory);
+      const categoryColumn =
+        cat === 'MARKETING'
+          ? 'whatsapp_marketing_sent'
+          : cat === 'AUTHENTICATION'
+          ? 'whatsapp_authentication_sent'
+          : 'whatsapp_utility_sent';
+      await this.prisma.clinicUsageCounter.upsert({
+        where: {
+          clinic_id_period_start: { clinic_id: clinicId, period_start: periodStart },
+        },
+        create: {
+          clinic_id: clinicId,
+          period_start: periodStart,
+          whatsapp_sent: 1,
+          [categoryColumn]: 1,
+        },
+        update: {
+          whatsapp_sent: { increment: 1 },
+          [categoryColumn]: { increment: 1 },
+        },
+      });
+      return;
+    }
+
+    let column: 'sms_sent' | 'email_sent';
+    if (channel === 'sms') {
       column = 'sms_sent';
     } else if (channel === 'email') {
       column = 'email_sent';
@@ -1802,10 +1860,7 @@ export class CommunicationService {
 
     await this.prisma.clinicUsageCounter.upsert({
       where: {
-        clinic_id_period_start: {
-          clinic_id: clinicId,
-          period_start: periodStart,
-        },
+        clinic_id_period_start: { clinic_id: clinicId, period_start: periodStart },
       },
       create: {
         clinic_id: clinicId,
@@ -2462,6 +2517,7 @@ export class CommunicationService {
 
     const mergedMetadata = { ...(metadata || {}), staff_recipient: true };
 
+    const staffWaCategory = mapInternalCategoryToWa(template.category);
     const message = await this.prisma.communicationMessage.create({
       data: {
         clinic_id: clinicId,
@@ -2469,6 +2525,7 @@ export class CommunicationService {
         template_id: template.id,
         channel: 'whatsapp',
         category: 'transactional',
+        wa_category: staffWaCategory,
         body: renderedBody,
         recipient: normalizedPhone,
         status: 'queued',
@@ -2489,7 +2546,7 @@ export class CommunicationService {
       metadata: mergedMetadata,
     });
 
-    this.incrementUsageCounter(clinicId, 'whatsapp').catch((err) =>
+    this.incrementUsageCounter(clinicId, 'whatsapp', staffWaCategory).catch((err) =>
       this.logger.warn(`Failed to increment whatsapp usage counter: ${err instanceof Error ? err.message : String(err)}`),
     );
 

@@ -17,13 +17,19 @@ const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const platform_billing_service_js_1 = require("./platform-billing.service.js");
+const whatsapp_overage_service_js_1 = require("./whatsapp-overage.service.js");
 const roles_decorator_js_1 = require("../../common/decorators/roles.decorator.js");
 const create_user_dto_js_1 = require("../user/dto/create-user.dto.js");
 const list_invoices_query_dto_js_1 = require("./dto/list-invoices-query.dto.js");
 let PlatformBillingController = class PlatformBillingController {
     billing;
-    constructor(billing) {
+    waOverage;
+    constructor(billing, waOverage) {
         this.billing = billing;
+        this.waOverage = waOverage;
+    }
+    currentWhatsAppOverage(req) {
+        return this.waOverage.getCurrentMonthEstimate(req.user.clinicId);
     }
     list(req, query) {
         return this.billing.listInvoicesForClinic(req.user.clinicId, query);
@@ -45,6 +51,21 @@ let PlatformBillingController = class PlatformBillingController {
     }
 };
 exports.PlatformBillingController = PlatformBillingController;
+__decorate([
+    (0, common_1.Get)('whatsapp-overage/current'),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.SUPER_ADMIN),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get current month WhatsApp overage estimate',
+        description: 'Returns the running projected overage charge for the current billing month, ' +
+            'broken down by category (utility / marketing / authentication). Useful for the dashboard ' +
+            '"Projected overage this month: ₹X" panel.',
+    }),
+    openapi.ApiResponse({ status: 200, type: Object }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], PlatformBillingController.prototype, "currentWhatsAppOverage", null);
 __decorate([
     (0, common_1.Get)('invoices'),
     (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
@@ -114,6 +135,7 @@ exports.PlatformBillingController = PlatformBillingController = __decorate([
     (0, swagger_1.ApiTags)('Platform Billing'),
     (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.Controller)('platform-billing'),
-    __metadata("design:paramtypes", [platform_billing_service_js_1.PlatformBillingService])
+    __metadata("design:paramtypes", [platform_billing_service_js_1.PlatformBillingService,
+        whatsapp_overage_service_js_1.WhatsAppOverageService])
 ], PlatformBillingController);
 //# sourceMappingURL=platform-billing.controller.js.map

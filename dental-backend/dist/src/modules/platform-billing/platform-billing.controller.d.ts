@@ -1,9 +1,12 @@
 import type { Request } from 'express';
 import { PlatformBillingService } from './platform-billing.service.js';
+import { WhatsAppOverageService } from './whatsapp-overage.service.js';
 import { ListPlatformInvoicesQueryDto } from './dto/list-invoices-query.dto.js';
 export declare class PlatformBillingController {
     private readonly billing;
-    constructor(billing: PlatformBillingService);
+    private readonly waOverage;
+    constructor(billing: PlatformBillingService, waOverage: WhatsAppOverageService);
+    currentWhatsAppOverage(req: Request): Promise<import("./whatsapp-overage.service.js").OverageBreakdown>;
     list(req: Request, query: ListPlatformInvoicesQueryDto): Promise<{
         items: {
             id: string;
