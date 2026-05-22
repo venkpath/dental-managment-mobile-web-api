@@ -25,6 +25,7 @@ export declare class PaymentController {
             id: string;
             name: string;
             price_monthly: import("@prisma/client-runtime-utils").Decimal;
+            price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
         } | null;
         billing_cycle: "monthly" | "yearly";
         next_billing_at: Date | null;

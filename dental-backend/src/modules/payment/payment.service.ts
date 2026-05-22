@@ -150,7 +150,14 @@ export class PaymentService implements OnModuleInit {
 
     return {
       subscription_status: clinic.subscription_status,
-      plan: clinic.plan ? { id: clinic.plan.id, name: clinic.plan.name, price_monthly: clinic.plan.price_monthly } : null,
+      plan: clinic.plan
+        ? {
+            id: clinic.plan.id,
+            name: clinic.plan.name,
+            price_monthly: clinic.plan.price_monthly,
+            price_yearly: clinic.plan.price_yearly,
+          }
+        : null,
       billing_cycle: billingCycle,
       next_billing_at: clinic.next_billing_at,
       effective_price: effectivePrice?.amount ?? null,
