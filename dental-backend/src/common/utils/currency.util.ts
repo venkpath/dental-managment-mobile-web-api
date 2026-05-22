@@ -29,13 +29,19 @@ export const CURRENCY_SYMBOLS_PDF_SAFE: Record<string, string> = {
   CAD: 'C$',
 };
 
+// Formatting locale used for numbers and dates on invoices.
+// We deliberately use English variants for currencies whose native locale
+// produces comma-decimals or non-Latin date glyphs that PDFKit's standard
+// fonts can't render — e.g. de-DE → "1.500,00", ka-GE → "22 ი ი ი. 2026".
+// English variants (en-IE for EUR, en-US for GEL, en-AE for AED) keep the
+// correct currency symbol while giving us dot-decimals and Latin dates.
 export const CURRENCY_LOCALES: Record<string, string> = {
   INR: 'en-IN',
   USD: 'en-US',
-  EUR: 'de-DE',
+  EUR: 'en-IE',
   GBP: 'en-GB',
-  GEL: 'ka-GE',
-  AED: 'ar-AE',
+  GEL: 'en-US',
+  AED: 'en-AE',
   SGD: 'en-SG',
   AUD: 'en-AU',
   CAD: 'en-CA',

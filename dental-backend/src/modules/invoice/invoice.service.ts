@@ -12,6 +12,7 @@ import { S3Service } from '../../common/services/s3.service.js';
 import { getCurrencySymbol, getCurrencyLocale } from '../../common/utils/currency.util.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 import { PatientInsuranceService } from '../insurance/services/patient-insurance.service.js';
+import { AuditLogService } from '../audit-log/audit-log.service.js';
 
 const INVOICE_INCLUDE = {
   items: { include: { treatment: { include: { dentist: true } } } },
@@ -50,6 +51,7 @@ export class InvoiceService {
     private readonly s3Service: S3Service,
     private readonly planLimit: PlanLimitService,
     private readonly patientInsurance: PatientInsuranceService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   async create(clinicId: string, dto: CreateInvoiceDto, createdByUserId?: string): Promise<Invoice> {
@@ -276,49 +278,90 @@ export class InvoiceService {
     return invoice;
   }
 
-  async update(clinicId: string, id: string, dto: UpdateInvoiceDto): Promise<Invoice> {
+  async update(
+    clinicId: string,
+    id: string,
+    dto: UpdateInvoiceDto,
+    actingUserId?: string,
+  ): Promise<Invoice> {
     // Ensure invoice belongs to clinic
     const existing = await this.findOne(clinicId, id);
 
-    // Lifecycle gate: only DRAFT invoices can be edited. Issued invoices are
-    // legal documents — corrections happen through credit notes / debit
-    // notes, not by silently mutating fields. Cancelled invoices are frozen.
+    // Lifecycle gate:
+    //   - draft      → freely editable (all fields the DTO exposes)
+    //   - issued     → only non-financial metadata (dentist_id, gst_number)
+    //                  is editable, with an audit-log entry recording the
+    //                  change. Totals/items/payments still require a credit
+    //                  note (handled by their own endpoints).
+    //   - cancelled  → frozen, no edits at all
     if (existing.lifecycle_status === 'cancelled') {
       throw new BadRequestException('Cannot edit a cancelled invoice');
     }
-    if (existing.lifecycle_status === 'issued') {
-      throw new BadRequestException(
-        'Cannot edit an issued invoice. Cancel and recreate, or issue a credit note for adjustments.',
-      );
-    }
+    const isIssued = existing.lifecycle_status === 'issued';
 
     const data: Prisma.InvoiceUpdateInput = {};
+    const beforeAfter: Record<string, { from: unknown; to: unknown }> = {};
 
     if (dto.dentist_id !== undefined) {
+      const fromDentistId = existing.dentist_id ?? null;
+      let toDentistId: string | null;
       if (dto.dentist_id === null || dto.dentist_id === '') {
         data.dentist = { disconnect: true };
+        toDentistId = null;
       } else {
         const dentist = await this.prisma.user.findUnique({ where: { id: dto.dentist_id } });
         if (!dentist || dentist.clinic_id !== clinicId) {
           throw new NotFoundException(`Dentist with ID "${dto.dentist_id}" not found in this clinic`);
         }
         data.dentist = { connect: { id: dto.dentist_id } };
+        toDentistId = dto.dentist_id;
+      }
+      if (fromDentistId !== toDentistId) {
+        beforeAfter.dentist_id = { from: fromDentistId, to: toDentistId };
       }
     }
 
     if (dto.gst_number !== undefined) {
       data.gst_number = dto.gst_number;
+      if ((existing.gst_number ?? null) !== (dto.gst_number ?? null)) {
+        beforeAfter.gst_number = { from: existing.gst_number ?? null, to: dto.gst_number ?? null };
+      }
     }
 
     if (Object.keys(data).length === 0) {
       return this.findOne(clinicId, id);
     }
 
-    return this.prisma.invoice.update({
+    const updated = await this.prisma.invoice.update({
       where: { id },
       data,
       include: INVOICE_INCLUDE,
     });
+
+    // Audit trail for post-issue metadata corrections. We record this even
+    // when actingUserId is missing (system-driven flow) so accounting can
+    // still trace what changed.
+    if (isIssued && Object.keys(beforeAfter).length > 0) {
+      try {
+        await this.auditLog.log({
+          clinic_id: clinicId,
+          user_id: actingUserId,
+          action: 'invoice.metadata_corrected_post_issue',
+          entity: 'Invoice',
+          entity_id: id,
+          metadata: {
+            invoice_number: existing.invoice_number,
+            changes: beforeAfter,
+          },
+        });
+      } catch (err) {
+        // Don't fail the user's edit just because audit-log write failed —
+        // log it server-side and continue.
+        this.logger.error(`Failed to write audit log for post-issue invoice edit ${id}`, err);
+      }
+    }
+
+    return updated;
   }
 
   async addPayment(clinicId: string, dto: CreatePaymentDto): Promise<Payment> {

@@ -69,8 +69,8 @@ let InvoiceController = class InvoiceController {
     async findOne(clinicId, id) {
         return this.invoiceService.findOne(clinicId, id);
     }
-    async updateInvoice(clinicId, id, dto) {
-        return this.invoiceService.update(clinicId, id, dto);
+    async updateInvoice(clinicId, user, id, dto) {
+        return this.invoiceService.update(clinicId, id, dto, user.sub);
     }
     async issueInvoice(clinicId, user, id) {
         return this.invoiceService.issueInvoice(clinicId, id, user.sub);
@@ -137,16 +137,17 @@ __decorate([
 ], InvoiceController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)('invoices/:id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Update a DRAFT invoice (e.g. assign treating dentist, GST number). Issued invoices cannot be edited.' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Update an invoice — DRAFT invoices are freely editable; ISSUED invoices only allow non-financial metadata fixes (treating dentist, GST number) with an audit-log entry. Cancelled invoices are frozen.' }),
     (0, swagger_1.ApiOkResponse)({ description: 'Invoice updated' }),
     (0, swagger_1.ApiNotFoundResponse)({ description: 'Invoice not found' }),
-    (0, swagger_1.ApiBadRequestResponse)({ description: 'Invoice is not in draft state' }),
+    (0, swagger_1.ApiBadRequestResponse)({ description: 'Invoice is cancelled' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
-    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
-    __param(2, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(2, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(3, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, update_invoice_dto_js_1.UpdateInvoiceDto]),
+    __metadata("design:paramtypes", [String, Object, String, update_invoice_dto_js_1.UpdateInvoiceDto]),
     __metadata("design:returntype", Promise)
 ], InvoiceController.prototype, "updateInvoice", null);
 __decorate([

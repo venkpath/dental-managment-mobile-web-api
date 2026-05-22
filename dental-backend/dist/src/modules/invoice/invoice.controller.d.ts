@@ -419,7 +419,7 @@ export declare class InvoiceController {
         insurance_covered_amount: import("@prisma/client-runtime-utils").Decimal | null;
         patient_copay_amount: import("@prisma/client-runtime-utils").Decimal | null;
     }>;
-    updateInvoice(clinicId: string, id: string, dto: UpdateInvoiceDto): Promise<{
+    updateInvoice(clinicId: string, user: JwtPayload, id: string, dto: UpdateInvoiceDto): Promise<{
         id: string;
         status: string;
         created_at: Date;

@@ -102,16 +102,17 @@ export class InvoiceController {
   }
 
   @Patch('invoices/:id')
-  @ApiOperation({ summary: 'Update a DRAFT invoice (e.g. assign treating dentist, GST number). Issued invoices cannot be edited.' })
+  @ApiOperation({ summary: 'Update an invoice — DRAFT invoices are freely editable; ISSUED invoices only allow non-financial metadata fixes (treating dentist, GST number) with an audit-log entry. Cancelled invoices are frozen.' })
   @ApiOkResponse({ description: 'Invoice updated' })
   @ApiNotFoundResponse({ description: 'Invoice not found' })
-  @ApiBadRequestResponse({ description: 'Invoice is not in draft state' })
+  @ApiBadRequestResponse({ description: 'Invoice is cancelled' })
   async updateInvoice(
     @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateInvoiceDto,
   ) {
-    return this.invoiceService.update(clinicId, id, dto);
+    return this.invoiceService.update(clinicId, id, dto, user.sub);
   }
 
   @Post('invoices/:id/issue')

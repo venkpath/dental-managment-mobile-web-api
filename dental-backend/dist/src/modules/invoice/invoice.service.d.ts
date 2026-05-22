@@ -9,6 +9,7 @@ import { InvoicePdfService } from './invoice-pdf.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 import { PatientInsuranceService } from '../insurance/services/patient-insurance.service.js';
+import { AuditLogService } from '../audit-log/audit-log.service.js';
 declare const INVOICE_INCLUDE: {
     readonly items: {
         readonly include: {
@@ -81,12 +82,13 @@ export declare class InvoiceService {
     private readonly s3Service;
     private readonly planLimit;
     private readonly patientInsurance;
+    private readonly auditLog;
     private readonly logger;
-    constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService, invoicePdfService: InvoicePdfService, s3Service: S3Service, planLimit: PlanLimitService, patientInsurance: PatientInsuranceService);
+    constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService, invoicePdfService: InvoicePdfService, s3Service: S3Service, planLimit: PlanLimitService, patientInsurance: PatientInsuranceService, auditLog: AuditLogService);
     create(clinicId: string, dto: CreateInvoiceDto, createdByUserId?: string): Promise<Invoice>;
     findAll(clinicId: string, query: QueryInvoiceDto): Promise<PaginatedResult<Invoice>>;
     findOne(clinicId: string, id: string): Promise<InvoiceWithIncludes>;
-    update(clinicId: string, id: string, dto: UpdateInvoiceDto): Promise<Invoice>;
+    update(clinicId: string, id: string, dto: UpdateInvoiceDto, actingUserId?: string): Promise<Invoice>;
     addPayment(clinicId: string, dto: CreatePaymentDto): Promise<Payment>;
     addRefund(clinicId: string, invoiceId: string, dto: CreateRefundDto, userId?: string): Promise<Refund>;
     issueInvoice(clinicId: string, invoiceId: string, userId?: string): Promise<Invoice>;

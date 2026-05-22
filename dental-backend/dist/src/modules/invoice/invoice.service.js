@@ -23,6 +23,7 @@ const s3_service_js_1 = require("../../common/services/s3.service.js");
 const currency_util_js_1 = require("../../common/utils/currency.util.js");
 const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
 const patient_insurance_service_js_1 = require("../insurance/services/patient-insurance.service.js");
+const audit_log_service_js_1 = require("../audit-log/audit-log.service.js");
 const INVOICE_INCLUDE = {
     items: { include: { treatment: { include: { dentist: true } } } },
     payments: { include: { installment_item: true }, orderBy: { paid_at: 'asc' } },
@@ -52,8 +53,9 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
     s3Service;
     planLimit;
     patientInsurance;
+    auditLog;
     logger = new common_1.Logger(InvoiceService_1.name);
-    constructor(prisma, communicationService, automationService, invoicePdfService, s3Service, planLimit, patientInsurance) {
+    constructor(prisma, communicationService, automationService, invoicePdfService, s3Service, planLimit, patientInsurance, auditLog) {
         this.prisma = prisma;
         this.communicationService = communicationService;
         this.automationService = automationService;
@@ -61,6 +63,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         this.s3Service = s3Service;
         this.planLimit = planLimit;
         this.patientInsurance = patientInsurance;
+        this.auditLog = auditLog;
     }
     async create(clinicId, dto, createdByUserId) {
         await this.planLimit.enforceMonthlyCap(clinicId, 'invoices');
@@ -223,18 +226,20 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         }
         return invoice;
     }
-    async update(clinicId, id, dto) {
+    async update(clinicId, id, dto, actingUserId) {
         const existing = await this.findOne(clinicId, id);
         if (existing.lifecycle_status === 'cancelled') {
             throw new common_1.BadRequestException('Cannot edit a cancelled invoice');
         }
-        if (existing.lifecycle_status === 'issued') {
-            throw new common_1.BadRequestException('Cannot edit an issued invoice. Cancel and recreate, or issue a credit note for adjustments.');
-        }
+        const isIssued = existing.lifecycle_status === 'issued';
         const data = {};
+        const beforeAfter = {};
         if (dto.dentist_id !== undefined) {
+            const fromDentistId = existing.dentist_id ?? null;
+            let toDentistId;
             if (dto.dentist_id === null || dto.dentist_id === '') {
                 data.dentist = { disconnect: true };
+                toDentistId = null;
             }
             else {
                 const dentist = await this.prisma.user.findUnique({ where: { id: dto.dentist_id } });
@@ -242,19 +247,45 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                     throw new common_1.NotFoundException(`Dentist with ID "${dto.dentist_id}" not found in this clinic`);
                 }
                 data.dentist = { connect: { id: dto.dentist_id } };
+                toDentistId = dto.dentist_id;
+            }
+            if (fromDentistId !== toDentistId) {
+                beforeAfter.dentist_id = { from: fromDentistId, to: toDentistId };
             }
         }
         if (dto.gst_number !== undefined) {
             data.gst_number = dto.gst_number;
+            if ((existing.gst_number ?? null) !== (dto.gst_number ?? null)) {
+                beforeAfter.gst_number = { from: existing.gst_number ?? null, to: dto.gst_number ?? null };
+            }
         }
         if (Object.keys(data).length === 0) {
             return this.findOne(clinicId, id);
         }
-        return this.prisma.invoice.update({
+        const updated = await this.prisma.invoice.update({
             where: { id },
             data,
             include: INVOICE_INCLUDE,
         });
+        if (isIssued && Object.keys(beforeAfter).length > 0) {
+            try {
+                await this.auditLog.log({
+                    clinic_id: clinicId,
+                    user_id: actingUserId,
+                    action: 'invoice.metadata_corrected_post_issue',
+                    entity: 'Invoice',
+                    entity_id: id,
+                    metadata: {
+                        invoice_number: existing.invoice_number,
+                        changes: beforeAfter,
+                    },
+                });
+            }
+            catch (err) {
+                this.logger.error(`Failed to write audit log for post-issue invoice edit ${id}`, err);
+            }
+        }
+        return updated;
     }
     async addPayment(clinicId, dto) {
         const invoice = await this.findOne(clinicId, dto.invoice_id);
@@ -799,6 +830,7 @@ exports.InvoiceService = InvoiceService = InvoiceService_1 = __decorate([
         invoice_pdf_service_js_1.InvoicePdfService,
         s3_service_js_1.S3Service,
         plan_limit_service_js_1.PlanLimitService,
-        patient_insurance_service_js_1.PatientInsuranceService])
+        patient_insurance_service_js_1.PatientInsuranceService,
+        audit_log_service_js_1.AuditLogService])
 ], InvoiceService);
 //# sourceMappingURL=invoice.service.js.map

@@ -31,10 +31,10 @@ exports.CURRENCY_SYMBOLS_PDF_SAFE = {
 exports.CURRENCY_LOCALES = {
     INR: 'en-IN',
     USD: 'en-US',
-    EUR: 'de-DE',
+    EUR: 'en-IE',
     GBP: 'en-GB',
-    GEL: 'ka-GE',
-    AED: 'ar-AE',
+    GEL: 'en-US',
+    AED: 'en-AE',
     SGD: 'en-SG',
     AUD: 'en-AU',
     CAD: 'en-CA',
