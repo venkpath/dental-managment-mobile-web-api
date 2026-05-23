@@ -172,6 +172,122 @@ let SuperAdminWhatsAppService = SuperAdminWhatsAppService_1 = class SuperAdminWh
         });
         return { success: result.success, message_id: message.id, error: result.error };
     }
+    async sendMedia(params) {
+        const config = this.getConfig();
+        const variants = this.phoneVariants(params.phone);
+        const destination = this.normalizePhone(params.phone);
+        const lastInbound = await this.prisma.platformMessage.findFirst({
+            where: { channel: 'whatsapp', contact_phone: { in: variants }, direction: 'inbound' },
+            orderBy: { created_at: 'desc' },
+            select: { created_at: true },
+        });
+        const withinWindow = lastInbound
+            ? (Date.now() - lastInbound.created_at.getTime()) < TWENTY_FOUR_HOURS_MS
+            : false;
+        if (!withinWindow) {
+            throw new common_1.BadRequestException('Cannot send attachment — no reply received within the last 24 hours. Use a template message instead.');
+        }
+        const mediaId = await this.uploadMediaToMeta(config, params.file);
+        if (!mediaId) {
+            return { success: false, message_id: '', error: 'Failed to upload media to Meta' };
+        }
+        const mime = params.file.mimetype || 'application/octet-stream';
+        const isImage = mime.startsWith('image/');
+        const isVideo = mime.startsWith('video/');
+        const isAudio = mime.startsWith('audio/');
+        const wamType = isImage ? 'image' : isVideo ? 'video' : isAudio ? 'audio' : 'document';
+        const mediaObj = { id: mediaId };
+        if (params.caption && (isImage || isVideo || wamType === 'document')) {
+            mediaObj['caption'] = params.caption;
+        }
+        if (wamType === 'document') {
+            mediaObj['filename'] = params.file.originalname;
+        }
+        const payload = {
+            messaging_product: 'whatsapp',
+            to: destination,
+            type: wamType,
+            [wamType]: mediaObj,
+        };
+        const result = await this.sendToMeta(config, payload);
+        const body = params.caption || `[${wamType}: ${params.file.originalname}]`;
+        const message = await this.prisma.platformMessage.create({
+            data: {
+                direction: 'outbound',
+                channel: 'whatsapp',
+                from_phone: config.phoneNumberId,
+                to_phone: destination,
+                contact_phone: destination,
+                body,
+                message_type: wamType,
+                status: result.success ? 'sent' : 'failed',
+                wa_message_id: result.messageId ?? null,
+                sent_at: new Date(),
+                metadata: {
+                    type: wamType,
+                    media_id: mediaId,
+                    mime_type: mime,
+                    filename: params.file.originalname,
+                    ...(result.success ? {} : { error: result.error }),
+                },
+            },
+        });
+        return { success: result.success, message_id: message.id, error: result.error };
+    }
+    async getMediaUrl(mediaId) {
+        const config = this.getConfig();
+        try {
+            const metaRes = await fetch(`${META_GRAPH_API}/${mediaId}`, {
+                headers: { Authorization: `Bearer ${config.accessToken}` },
+            });
+            const data = (await metaRes.json());
+            if (!metaRes.ok || !data.url) {
+                const err = data.error;
+                throw new common_1.BadRequestException(err?.['message'] || 'Failed to fetch media URL');
+            }
+            const binRes = await fetch(data.url, {
+                headers: { Authorization: `Bearer ${config.accessToken}` },
+            });
+            if (!binRes.ok)
+                throw new common_1.BadRequestException('Failed to download media bytes');
+            const arrayBuf = await binRes.arrayBuffer();
+            return {
+                buffer: Buffer.from(arrayBuf),
+                mimeType: data.mime_type || 'application/octet-stream',
+                fileName: data.file_name || `media-${mediaId}`,
+            };
+        }
+        catch (error) {
+            const msg = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.error(`getMediaUrl failed for ${mediaId}: ${msg}`);
+            throw new common_1.BadRequestException(msg);
+        }
+    }
+    async uploadMediaToMeta(config, file) {
+        try {
+            const form = new FormData();
+            form.append('messaging_product', 'whatsapp');
+            form.append('type', file.mimetype);
+            const blob = new Blob([new Uint8Array(file.buffer)], { type: file.mimetype });
+            form.append('file', blob, file.originalname);
+            const res = await fetch(`${META_GRAPH_API}/${config.phoneNumberId}/media`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${config.accessToken}` },
+                body: form,
+            });
+            const data = (await res.json());
+            if (!res.ok || !data.id) {
+                const err = data.error;
+                this.logger.warn(`Meta media upload failed: ${err?.['message'] || 'unknown'}`);
+                return null;
+            }
+            return data.id;
+        }
+        catch (error) {
+            this.logger.error(`Meta media upload exception: ${error instanceof Error ? error.message : String(error)}`);
+            return null;
+        }
+    }
     async sendTemplate(params) {
         const config = this.getConfig();
         const destination = this.normalizePhone(params.phone);

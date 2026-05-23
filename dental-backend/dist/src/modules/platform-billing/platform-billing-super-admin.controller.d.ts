@@ -39,7 +39,9 @@ export declare class PlatformBillingSuperAdminController {
             tax_amount: import("@prisma/client-runtime-utils").Decimal;
             issued_at: Date;
             paid_at: Date | null;
+            invoice_type: string;
             period_end: Date;
+            line_items: import("@prisma/client/runtime/client").JsonValue | null;
             subtotal: import("@prisma/client-runtime-utils").Decimal;
             tax_rate: import("@prisma/client-runtime-utils").Decimal;
             cgst_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -97,7 +99,9 @@ export declare class PlatformBillingSuperAdminController {
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         issued_at: Date;
         paid_at: Date | null;
+        invoice_type: string;
         period_end: Date;
+        line_items: import("@prisma/client/runtime/client").JsonValue | null;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
         tax_rate: import("@prisma/client-runtime-utils").Decimal;
         cgst_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -154,7 +158,9 @@ export declare class PlatformBillingSuperAdminController {
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         issued_at: Date;
         paid_at: Date | null;
+        invoice_type: string;
         period_end: Date;
+        line_items: import("@prisma/client/runtime/client").JsonValue | null;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
         tax_rate: import("@prisma/client-runtime-utils").Decimal;
         cgst_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -204,7 +210,9 @@ export declare class PlatformBillingSuperAdminController {
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         issued_at: Date;
         paid_at: Date | null;
+        invoice_type: string;
         period_end: Date;
+        line_items: import("@prisma/client/runtime/client").JsonValue | null;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
         tax_rate: import("@prisma/client-runtime-utils").Decimal;
         cgst_amount: import("@prisma/client-runtime-utils").Decimal;

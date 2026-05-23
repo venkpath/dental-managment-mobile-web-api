@@ -16,6 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SuperAdminController = void 0;
 const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
+const platform_express_1 = require("@nestjs/platform-express");
 const swagger_1 = require("@nestjs/swagger");
 const throttler_1 = require("@nestjs/throttler");
 const public_decorator_js_1 = require("../../common/decorators/public.decorator.js");
@@ -223,6 +224,22 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     }
     sendReply(phone, body) {
         return this.whatsAppService.sendReply(phone, body.message);
+    }
+    sendMedia(phone, file, caption) {
+        if (!file)
+            throw new common_1.BadRequestException('No file uploaded');
+        return this.whatsAppService.sendMedia({
+            phone,
+            file: { buffer: file.buffer, mimetype: file.mimetype, originalname: file.originalname },
+            caption: caption?.trim() || undefined,
+        });
+    }
+    async getMedia(mediaId, res) {
+        const { buffer, mimeType, fileName } = await this.whatsAppService.getMediaUrl(mediaId);
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+        res.setHeader('Cache-Control', 'private, max-age=3600');
+        res.send(buffer);
     }
     sendTemplate(body) {
         return this.whatsAppService.sendTemplate({
@@ -741,6 +758,31 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], SuperAdminController.prototype, "sendReply", null);
+__decorate([
+    (0, common_1.Post)('super-admins/whatsapp/inbox/:phone/send-media'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Send a document/image attachment within the 24hr session window' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', { limits: { fileSize: 25 * 1024 * 1024 } })),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Param)('phone')),
+    __param(1, (0, common_1.UploadedFile)()),
+    __param(2, (0, common_1.Body)('caption')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, String]),
+    __metadata("design:returntype", void 0)
+], SuperAdminController.prototype, "sendMedia", null);
+__decorate([
+    (0, common_1.Get)('super-admins/whatsapp/media/:mediaId'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Proxy-download an inbound WhatsApp media item by Meta media ID' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('mediaId')),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getMedia", null);
 __decorate([
     (0, common_1.Post)('super-admins/whatsapp/inbox/send-template'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),

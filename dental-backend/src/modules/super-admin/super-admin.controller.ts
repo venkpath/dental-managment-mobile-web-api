@@ -1,5 +1,7 @@
-import { Body, Controller, Get, Post, Put, Patch, Delete, Param, Query, HttpCode, HttpStatus, ParseUUIDPipe, Logger, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiConflictResponse, ApiResponse } from '@nestjs/swagger';
+import { Body, Controller, Get, Post, Put, Patch, Delete, Param, Query, HttpCode, HttpStatus, ParseUUIDPipe, Logger, ParseIntPipe, DefaultValuePipe, UseInterceptors, UploadedFile, BadRequestException, Res } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
+import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse, ApiConflictResponse, ApiResponse, ApiConsumes } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { SuperAdmin } from '../../common/decorators/super-admin.decorator.js';
@@ -512,6 +514,35 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Send a free-form reply within 24hr session window' })
   sendReply(@Param('phone') phone: string, @Body() body: { message: string }) {
     return this.whatsAppService.sendReply(phone, body.message);
+  }
+
+  @Post('super-admins/whatsapp/inbox/:phone/send-media')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Send a document/image attachment within the 24hr session window' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024 } }))
+  sendMedia(
+    @Param('phone') phone: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('caption') caption?: string,
+  ) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    return this.whatsAppService.sendMedia({
+      phone,
+      file: { buffer: file.buffer, mimetype: file.mimetype, originalname: file.originalname },
+      caption: caption?.trim() || undefined,
+    });
+  }
+
+  @Get('super-admins/whatsapp/media/:mediaId')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Proxy-download an inbound WhatsApp media item by Meta media ID' })
+  async getMedia(@Param('mediaId') mediaId: string, @Res() res: Response) {
+    const { buffer, mimeType, fileName } = await this.whatsAppService.getMediaUrl(mediaId);
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.send(buffer);
   }
 
   @Post('super-admins/whatsapp/inbox/send-template')

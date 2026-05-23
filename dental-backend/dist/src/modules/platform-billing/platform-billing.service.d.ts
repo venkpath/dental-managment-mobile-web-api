@@ -88,7 +88,9 @@ export declare class PlatformBillingService implements OnModuleInit {
         tax_amount: Prisma.Decimal;
         issued_at: Date;
         paid_at: Date | null;
+        invoice_type: string;
         period_end: Date;
+        line_items: Prisma.JsonValue | null;
         subtotal: Prisma.Decimal;
         tax_rate: Prisma.Decimal;
         cgst_amount: Prisma.Decimal;
@@ -135,7 +137,9 @@ export declare class PlatformBillingService implements OnModuleInit {
         tax_amount: Prisma.Decimal;
         issued_at: Date;
         paid_at: Date | null;
+        invoice_type: string;
         period_end: Date;
+        line_items: Prisma.JsonValue | null;
         subtotal: Prisma.Decimal;
         tax_rate: Prisma.Decimal;
         cgst_amount: Prisma.Decimal;
@@ -297,7 +301,9 @@ export declare class PlatformBillingService implements OnModuleInit {
             tax_amount: Prisma.Decimal;
             issued_at: Date;
             paid_at: Date | null;
+            invoice_type: string;
             period_end: Date;
+            line_items: Prisma.JsonValue | null;
             subtotal: Prisma.Decimal;
             tax_rate: Prisma.Decimal;
             cgst_amount: Prisma.Decimal;
@@ -355,7 +361,9 @@ export declare class PlatformBillingService implements OnModuleInit {
         tax_amount: Prisma.Decimal;
         issued_at: Date;
         paid_at: Date | null;
+        invoice_type: string;
         period_end: Date;
+        line_items: Prisma.JsonValue | null;
         subtotal: Prisma.Decimal;
         tax_rate: Prisma.Decimal;
         cgst_amount: Prisma.Decimal;

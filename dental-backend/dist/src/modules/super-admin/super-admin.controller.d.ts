@@ -1,3 +1,4 @@
+import type { Response } from 'express';
 import { SuperAdminService } from './super-admin.service.js';
 import { SuperAdminAuthService } from './super-admin-auth.service.js';
 import { SuperAdminWhatsAppService } from './super-admin-whatsapp.service.js';
@@ -961,6 +962,12 @@ export declare class SuperAdminController {
         message_id: string;
         error: string | undefined;
     }>;
+    sendMedia(phone: string, file: Express.Multer.File, caption?: string): Promise<{
+        success: boolean;
+        message_id: string;
+        error: string | undefined;
+    }>;
+    getMedia(mediaId: string, res: Response): Promise<void>;
     sendTemplate(body: {
         phone: string;
         template_name: string;

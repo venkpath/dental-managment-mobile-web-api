@@ -60,6 +60,25 @@ export declare class SuperAdminWhatsAppService {
         message_id: string;
         error: string | undefined;
     }>;
+    sendMedia(params: {
+        phone: string;
+        file: {
+            buffer: Buffer;
+            mimetype: string;
+            originalname: string;
+        };
+        caption?: string;
+    }): Promise<{
+        success: boolean;
+        message_id: string;
+        error: string | undefined;
+    }>;
+    getMediaUrl(mediaId: string): Promise<{
+        buffer: Buffer<ArrayBuffer>;
+        mimeType: string;
+        fileName: string;
+    }>;
+    private uploadMediaToMeta;
     sendTemplate(params: {
         phone: string;
         templateName: string;

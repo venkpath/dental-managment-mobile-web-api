@@ -74,6 +74,7 @@ export declare class CommunicationController {
         direction: string;
         skip_reason: string | null;
         wa_message_id: string | null;
+        wa_category: string | null;
         sent_at: Date | null;
     }>;
     findAllMessages(clinicId: string, query: QueryMessageDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
@@ -119,6 +120,7 @@ export declare class CommunicationController {
         direction: string;
         skip_reason: string | null;
         wa_message_id: string | null;
+        wa_category: string | null;
         sent_at: Date | null;
     }>>;
     getStats(clinicId: string, startDate?: string, endDate?: string): Promise<{
@@ -230,6 +232,7 @@ export declare class CommunicationController {
         direction: string;
         skip_reason: string | null;
         wa_message_id: string | null;
+        wa_category: string | null;
         sent_at: Date | null;
     }>;
     getCircuitBreakerStatus(clinicId: string): Promise<Record<string, {
@@ -289,6 +292,7 @@ export declare class CommunicationController {
             direction: string;
             skip_reason: string | null;
             wa_message_id: string | null;
+            wa_category: string | null;
             sent_at: Date | null;
         })[];
         meta: import("../../common/interfaces/paginated-result.interface.js").PaginationMeta;
@@ -521,6 +525,7 @@ export declare class CommunicationController {
         direction: string;
         skip_reason: string | null;
         wa_message_id: string | null;
+        wa_category: string | null;
         sent_at: Date | null;
     }>;
 }

@@ -211,6 +211,148 @@ export class SuperAdminWhatsAppService {
     return { success: result.success, message_id: message.id, error: result.error };
   }
 
+  /** Upload a media file to Meta and send it as a document/image message within the 24hr session window. */
+  async sendMedia(params: {
+    phone: string;
+    file: { buffer: Buffer; mimetype: string; originalname: string };
+    caption?: string;
+  }) {
+    const config = this.getConfig();
+    const variants = this.phoneVariants(params.phone);
+    const destination = this.normalizePhone(params.phone);
+
+    const lastInbound = await this.prisma.platformMessage.findFirst({
+      where: { channel: 'whatsapp', contact_phone: { in: variants }, direction: 'inbound' },
+      orderBy: { created_at: 'desc' },
+      select: { created_at: true },
+    });
+
+    const withinWindow = lastInbound
+      ? (Date.now() - lastInbound.created_at.getTime()) < TWENTY_FOUR_HOURS_MS
+      : false;
+
+    if (!withinWindow) {
+      throw new BadRequestException(
+        'Cannot send attachment — no reply received within the last 24 hours. Use a template message instead.',
+      );
+    }
+
+    // 1. Upload media to Meta
+    const mediaId = await this.uploadMediaToMeta(config, params.file);
+    if (!mediaId) {
+      return { success: false, message_id: '', error: 'Failed to upload media to Meta' };
+    }
+
+    // 2. Decide WhatsApp message type based on mime type
+    const mime = params.file.mimetype || 'application/octet-stream';
+    const isImage = mime.startsWith('image/');
+    const isVideo = mime.startsWith('video/');
+    const isAudio = mime.startsWith('audio/');
+    const wamType = isImage ? 'image' : isVideo ? 'video' : isAudio ? 'audio' : 'document';
+
+    const mediaObj: Record<string, unknown> = { id: mediaId };
+    if (params.caption && (isImage || isVideo || wamType === 'document')) {
+      mediaObj['caption'] = params.caption;
+    }
+    if (wamType === 'document') {
+      mediaObj['filename'] = params.file.originalname;
+    }
+
+    const payload = {
+      messaging_product: 'whatsapp',
+      to: destination,
+      type: wamType,
+      [wamType]: mediaObj,
+    };
+
+    const result = await this.sendToMeta(config, payload);
+    const body = params.caption || `[${wamType}: ${params.file.originalname}]`;
+
+    const message = await this.prisma.platformMessage.create({
+      data: {
+        direction: 'outbound',
+        channel: 'whatsapp',
+        from_phone: config.phoneNumberId,
+        to_phone: destination,
+        contact_phone: destination,
+        body,
+        message_type: wamType,
+        status: result.success ? 'sent' : 'failed',
+        wa_message_id: result.messageId ?? null,
+        sent_at: new Date(),
+        metadata: {
+          type: wamType,
+          media_id: mediaId,
+          mime_type: mime,
+          filename: params.file.originalname,
+          ...(result.success ? {} : { error: result.error }),
+        },
+      },
+    });
+
+    return { success: result.success, message_id: message.id, error: result.error };
+  }
+
+  /** Fetch a signed temporary URL for an inbound media item by media ID. */
+  async getMediaUrl(mediaId: string) {
+    const config = this.getConfig();
+    try {
+      const metaRes = await fetch(`${META_GRAPH_API}/${mediaId}`, {
+        headers: { Authorization: `Bearer ${config.accessToken}` },
+      });
+      const data = (await metaRes.json()) as Record<string, unknown>;
+      if (!metaRes.ok || !data.url) {
+        const err = data.error as Record<string, unknown> | undefined;
+        throw new BadRequestException((err?.['message'] as string) || 'Failed to fetch media URL');
+      }
+      // Meta media URLs require the access token to download — proxy the bytes instead.
+      const binRes = await fetch(data.url as string, {
+        headers: { Authorization: `Bearer ${config.accessToken}` },
+      });
+      if (!binRes.ok) throw new BadRequestException('Failed to download media bytes');
+      const arrayBuf = await binRes.arrayBuffer();
+      return {
+        buffer: Buffer.from(arrayBuf),
+        mimeType: (data.mime_type as string) || 'application/octet-stream',
+        fileName: (data.file_name as string) || `media-${mediaId}`,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`getMediaUrl failed for ${mediaId}: ${msg}`);
+      throw new BadRequestException(msg);
+    }
+  }
+
+  /** Upload binary to Meta /PHONE_NUMBER_ID/media; returns media_id. */
+  private async uploadMediaToMeta(
+    config: PlatformWhatsAppConfig,
+    file: { buffer: Buffer; mimetype: string; originalname: string },
+  ): Promise<string | null> {
+    try {
+      const form = new FormData();
+      form.append('messaging_product', 'whatsapp');
+      form.append('type', file.mimetype);
+      const blob = new Blob([new Uint8Array(file.buffer)], { type: file.mimetype });
+      form.append('file', blob, file.originalname);
+
+      const res = await fetch(`${META_GRAPH_API}/${config.phoneNumberId}/media`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${config.accessToken}` },
+        body: form,
+      });
+      const data = (await res.json()) as Record<string, unknown>;
+      if (!res.ok || !data.id) {
+        const err = data.error as Record<string, unknown> | undefined;
+        this.logger.warn(`Meta media upload failed: ${(err?.['message'] as string) || 'unknown'}`);
+        return null;
+      }
+      return data.id as string;
+    } catch (error) {
+      this.logger.error(`Meta media upload exception: ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }
+  }
+
   /** Send a template message to start a new conversation. */
   async sendTemplate(params: {
     phone: string;

@@ -40,6 +40,7 @@ export declare class CommunicationService {
         direction: string;
         skip_reason: string | null;
         wa_message_id: string | null;
+        wa_category: string | null;
         sent_at: Date | null;
     }>;
     findAllMessages(clinicId: string, query: QueryMessageDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
@@ -85,6 +86,7 @@ export declare class CommunicationService {
         direction: string;
         skip_reason: string | null;
         wa_message_id: string | null;
+        wa_category: string | null;
         sent_at: Date | null;
     }>>;
     findOneMessage(clinicId: string, id: string): Promise<{
@@ -144,6 +146,7 @@ export declare class CommunicationService {
         direction: string;
         skip_reason: string | null;
         wa_message_id: string | null;
+        wa_category: string | null;
         sent_at: Date | null;
     }>;
     getPatientTimeline(clinicId: string, patientId: string, page?: number, limit?: number, channel?: string): Promise<{
@@ -184,6 +187,7 @@ export declare class CommunicationService {
             direction: string;
             skip_reason: string | null;
             wa_message_id: string | null;
+            wa_category: string | null;
             sent_at: Date | null;
         })[];
         meta: import("../../common/interfaces/paginated-result.interface.js").PaginationMeta;
@@ -233,6 +237,7 @@ export declare class CommunicationService {
         direction: string;
         skip_reason: string | null;
         wa_message_id: string | null;
+        wa_category: string | null;
         sent_at: Date | null;
     } | undefined>;
     disablePatientWhatsApp(messageId: string): Promise<void>;
