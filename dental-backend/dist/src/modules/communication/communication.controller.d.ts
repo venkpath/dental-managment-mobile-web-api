@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
+import type { RawBodyRequest } from '@nestjs/common';
 import { CommunicationService } from './communication.service.js';
 import { SendMessageDto } from './dto/send-message.dto.js';
 import { QueryMessageDto } from './dto/query-message.dto.js';
@@ -48,7 +49,7 @@ export declare class WebhookController {
         status: string;
     }>;
     verifyWhatsAppWebhook(mode: string, verifyToken: string, challenge: string, res: Response): Response<any, Record<string, any>>;
-    whatsappWebhook(req: Request, body: Record<string, unknown>): Promise<{
+    whatsappWebhook(req: RawBodyRequest<Request>, body: Record<string, unknown>): Promise<{
         processed: number;
     } | {
         error: string;

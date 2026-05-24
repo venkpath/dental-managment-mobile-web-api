@@ -105,8 +105,8 @@ let WebhookController = WebhookController_1 = class WebhookController {
         const appSecret = this.configService.get('app.facebook.appSecret');
         if (appSecret && signature) {
             const { createHmac } = await import('crypto');
-            const rawBody = JSON.stringify(body);
-            const expected = 'sha256=' + createHmac('sha256', appSecret).update(rawBody).digest('hex');
+            const bodyToVerify = req.rawBody ?? Buffer.from(JSON.stringify(body));
+            const expected = 'sha256=' + createHmac('sha256', appSecret).update(bodyToVerify).digest('hex');
             if (signature !== expected) {
                 this.logger.warn('WhatsApp webhook signature mismatch — rejecting payload');
                 return { error: 'Invalid signature' };

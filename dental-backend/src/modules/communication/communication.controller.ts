@@ -17,6 +17,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiOperation, ApiHeader, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
+import type { RawBodyRequest } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 import { Public } from '../../common/decorators/public.decorator.js';
@@ -118,14 +119,15 @@ export class WebhookController {
    */
   @Post('whatsapp')
   @ApiOperation({ summary: 'Meta WhatsApp Cloud API webhook (status updates + incoming messages)' })
-  async whatsappWebhook(@Req() req: Request, @Body() body: Record<string, unknown>) {
+  async whatsappWebhook(@Req() req: RawBodyRequest<Request>, @Body() body: Record<string, unknown>) {
     // Validate X-Hub-Signature-256 from Meta to prevent spoofed webhooks
     const signature = req.headers['x-hub-signature-256'] as string | undefined;
     const appSecret = this.configService.get<string>('app.facebook.appSecret');
     if (appSecret && signature) {
       const { createHmac } = await import('crypto');
-      const rawBody = JSON.stringify(body);
-      const expected = 'sha256=' + createHmac('sha256', appSecret).update(rawBody).digest('hex');
+      // Use raw body bytes (what Meta actually signed); JSON.stringify can differ in key order/whitespace
+      const bodyToVerify = req.rawBody ?? Buffer.from(JSON.stringify(body));
+      const expected = 'sha256=' + createHmac('sha256', appSecret).update(bodyToVerify).digest('hex');
       if (signature !== expected) {
         this.logger.warn('WhatsApp webhook signature mismatch — rejecting payload');
         return { error: 'Invalid signature' };
