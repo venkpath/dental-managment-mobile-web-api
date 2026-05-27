@@ -11,6 +11,7 @@ import {
 import { Type, Transform } from 'class-transformer';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
+import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaService } from '../../database/prisma.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 import { randomBytes } from 'crypto';
@@ -278,6 +279,7 @@ function computeClinicAvailability(
 
 // ─── Controller ─────────────────────────────────────────────────────────────
 
+@SkipThrottle()
 @ApiTags('Public Directory')
 @Controller('public/directory')
 export class PublicDirectoryController {

@@ -20,6 +20,7 @@ const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 const swagger_2 = require("@nestjs/swagger");
 const public_decorator_js_1 = require("../../common/decorators/public.decorator.js");
+const throttler_1 = require("@nestjs/throttler");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
 const crypto_1 = require("crypto");
@@ -708,6 +709,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], PublicDirectoryController.prototype, "submitReview", null);
 exports.PublicDirectoryController = PublicDirectoryController = __decorate([
+    (0, throttler_1.SkipThrottle)(),
     (0, swagger_1.ApiTags)('Public Directory'),
     (0, common_1.Controller)('public/directory'),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
