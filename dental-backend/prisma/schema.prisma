@@ -34,6 +34,41 @@ model Clinic {
   currency_code             String    @default("INR") @db.VarChar(10)
   default_phone_country     String    @default("in") @db.VarChar(10)
   rooms_enabled             Boolean   @default(false)
+
+  // ─── Public Directory Listing ───
+  // Opt-in during registration or from settings. When false, this clinic
+  // does not appear in the /find-dentist public directory.
+  listed_in_directory           Boolean   @default(false)
+  // Approval gate: 'none' = never requested, 'pending' = awaiting super-admin,
+  // 'approved' = listed (listed_in_directory set to true by admin),
+  // 'rejected' = denied (reason stored in directory_rejection_reason).
+  directory_approval_status     String    @default("none") @db.VarChar(20)
+  directory_rejection_reason    String?   @db.VarChar(500)
+  directory_requested_at        DateTime?
+  directory_approved_at         DateTime?
+  // Short description shown on the directory card and detail page
+  clinic_description        String?   @db.Text
+  // Comma-separated list of specialties e.g. "Orthodontics,Implants,Paediatric"
+  specialties               String?   @db.VarChar(500)
+  // Latitude/longitude of the main clinic (copied from primary branch, or set manually)
+  latitude                  Float?
+  longitude                 Float?
+  // Working hours label shown in directory e.g. "Mon–Sat 9am–7pm"
+  working_hours_label       String?   @db.VarChar(200)
+  // Year the clinic was established e.g. 2014
+  established_year          Int?
+  // Clinic-level languages spoken e.g. "English, Hindi, Kannada"
+  languages_spoken          String?   @db.VarChar(300)
+  // Comma-separated treatments offered for the directory e.g. "Dental Implants,Root Canal,Braces"
+  directory_treatments      String?   @db.VarChar(1000)
+  // JSON array of clinic photo URLs for the gallery e.g. ["https://...","https://..."]
+  gallery_images            String?   @db.Text
+  // Social / external links
+  website_url               String?   @db.VarChar(500)
+  google_maps_url           String?   @db.VarChar(1000)
+  // Token for generating secure one-time review links per appointment
+  review_secret             String?   @db.VarChar(64)
+
   ai_usage_count            Int       @default(0)
   ai_quota_override         Int? // per-clinic AI quota override (null = use plan default)
   // Per-clinic structural + monthly limit overrides (set by super admin; null = use plan default).
@@ -128,9 +163,12 @@ model Clinic {
   insurance_claims         InsuranceClaim[]
   insurance_reimbursements InsuranceReimbursement[]
   rooms                    Room[]
+  directory_reviews        ClinicDirectoryReview[]
+  doctor_availability      DoctorAvailability[]
 
   @@index([email])
   @@index([plan_id])
+  @@index([listed_in_directory])
   @@map("clinics")
 }
 
@@ -150,6 +188,8 @@ model Branch {
   longitude Float?
   map_url   String? @db.VarChar(500) // Google Maps directions URL
 
+  // Photo of this branch shown on the public directory detail page
+  photo_url    String? @db.VarChar(500)
   // Online booking URL — custom URL set by clinic, or fallback to smartdentaldesk.com/booking/{clinicId}/{branchId}
   book_now_url String? @db.VarChar(2000)
 
@@ -361,6 +401,23 @@ model User {
   signature_url     String?  @db.VarChar(500)
   // S3 key for the staff member's profile photo (private; served via presigned URL).
   profile_photo_url String?  @db.VarChar(500)
+
+  // ─── Public Doctor Profile (shown in /find-dentist directory) ───
+  // Short bio shown on the doctor's public profile
+  bio               String?  @db.Text
+  // Years of clinical experience
+  years_experience  Int?
+  // JSON array of education entries: [{degree, institution, year}]
+  education         Json?
+  // JSON array of specializations e.g. ["Orthodontics","Implants"]
+  specializations   Json?
+  // Languages spoken e.g. "English,Tamil,Hindi"
+  languages_spoken  String?  @db.VarChar(200)
+  // Consultation fee shown publicly (INR)
+  consultation_fee  Decimal? @db.Decimal(10, 2)
+  // Whether this doctor appears on the public directory listing
+  listed_in_directory Boolean @default(false)
+
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
 
@@ -382,12 +439,37 @@ model User {
   consents_witnessed        PatientConsent[]        @relation("ConsentWitnessStaff")
   consent_templates_created ConsentTemplate[]       @relation("ConsentTemplateCreatedBy")
   refunds_issued            Refund[]                @relation("RefundIssuedBy")
+  directory_reviews         ClinicDirectoryReview[]
+
+  availability              DoctorAvailability[]
 
   @@unique([email, clinic_id])
   @@index([clinic_id])
   @@index([branch_id])
   @@index([email])
   @@map("users")
+}
+
+// Per-doctor weekly availability schedule.
+// Each row = one day of week for one doctor.
+// If a row exists: use doctor's own hours instead of branch hours.
+// If is_day_off = true: doctor is off that day regardless of branch schedule.
+// If no row exists for a day: fall back to branch schedule.
+model DoctorAvailability {
+  id          String  @id @default(uuid()) @db.Uuid
+  user_id     String  @db.Uuid
+  clinic_id   String  @db.Uuid
+  day_of_week Int     // 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat 7=Sun
+  start_time  String  @db.VarChar(5) // HH:mm
+  end_time    String  @db.VarChar(5) // HH:mm
+  is_day_off  Boolean @default(false)
+
+  user   User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, day_of_week])
+  @@index([user_id])
+  @@map("doctor_availability")
 }
 
 model Patient {
@@ -405,6 +487,7 @@ model Patient {
   medical_history   Json?     @default("{}")
   allergies         String?   @db.VarChar(1000)
   notes             String?   @db.Text
+  category          String?   @db.VarChar(100)
   // S3 key for the patient's profile photo (private; served via presigned URL).
   profile_photo_url String?   @db.VarChar(500)
   created_at        DateTime  @default(now())
@@ -2543,4 +2626,41 @@ model Room {
   @@index([branch_id])
   @@index([status])
   @@map("rooms")
+}
+
+// ─── Public Clinic Directory Reviews (Phase 8) ───────────────────────────────
+// Separate from PatientFeedback (which is internal/operational).
+// These are public-facing reviews submitted by patients after appointment
+// completion, via a secure one-time token link sent by WhatsApp/SMS.
+
+model ClinicDirectoryReview {
+  id             String   @id @default(uuid()) @db.Uuid
+  clinic_id      String   @db.Uuid
+  doctor_id      String?  @db.Uuid
+  appointment_id String?  @db.Uuid
+  token          String   @unique @db.VarChar(64)
+  token_used_at  DateTime?
+  reviewer_name  String   @db.VarChar(200)
+  reviewer_phone String?  @db.VarChar(30)
+  overall_rating    Int
+  cleanliness_rating Int?
+  staff_rating      Int?
+  wait_time_rating  Int?
+  value_rating      Int?
+  comment           String? @db.Text
+  is_visible        Boolean  @default(true)
+  is_verified       Boolean  @default(false)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  clinic  Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  doctor  User?  @relation(fields: [doctor_id], references: [id], onDelete: SetNull)
+
+  @@index([clinic_id])
+  @@index([doctor_id])
+  @@index([appointment_id])
+  @@index([token])
+  @@index([clinic_id, is_visible])
+  @@index([overall_rating])
+  @@map("clinic_directory_reviews")
 }

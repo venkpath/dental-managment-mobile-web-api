@@ -85,6 +85,31 @@ export class BranchController {
     return this.branchService.update(clinicId, id, dto);
   }
 
+  @Post(':id/photo')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Upload a branch cover photo (PNG/JPEG/WebP, ≤5 MB)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiCreatedResponse({ description: 'Photo uploaded; returns signed URL' })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  async uploadPhoto(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.branchService.uploadPhoto(clinicId, id, file);
+  }
+
+  @Delete(':id/photo')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Remove the branch cover photo' })
+  @ApiOkResponse({ description: 'Photo removed' })
+  async deletePhoto(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.branchService.deletePhoto(clinicId, id);
+  }
+
   @Get(':id/scheduling')
   @ApiOperation({ summary: 'Get scheduling settings for a branch' })
   @ApiOkResponse({ description: 'Branch scheduling settings with defaults applied' })

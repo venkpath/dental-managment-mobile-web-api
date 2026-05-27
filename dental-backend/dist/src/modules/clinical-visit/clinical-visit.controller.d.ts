@@ -194,6 +194,7 @@ export declare class ClinicalVisitController {
             latitude: number | null;
             longitude: number | null;
             map_url: string | null;
+            photo_url: string | null;
             book_now_url: string | null;
             working_start_time: string | null;
             working_end_time: string | null;
@@ -224,6 +225,8 @@ export declare class ClinicalVisitController {
             created_at: Date;
             updated_at: Date;
             phone: string | null;
+            listed_in_directory: boolean;
+            languages_spoken: string | null;
             clinic_id: string;
             role: string;
             email_verified: boolean;
@@ -232,6 +235,11 @@ export declare class ClinicalVisitController {
             license_number: string | null;
             signature_url: string | null;
             profile_photo_url: string | null;
+            bio: string | null;
+            years_experience: number | null;
+            education: import("@prisma/client/runtime/client").JsonValue | null;
+            specializations: import("@prisma/client/runtime/client").JsonValue | null;
+            consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
             branch_id: string | null;
         };
         patient: {
@@ -243,6 +251,7 @@ export declare class ClinicalVisitController {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            category: string | null;
             notes: string | null;
             age: number | null;
             gender: string;
@@ -264,9 +273,9 @@ export declare class ClinicalVisitController {
             appointment_date: Date;
             notes: string | null;
             patient_id: string;
-            dentist_id: string;
             start_time: string;
             end_time: string;
+            dentist_id: string;
             recurrence_group_id: string | null;
             room_id: string | null;
         } | null;
@@ -380,6 +389,8 @@ export declare class ClinicalVisitController {
             created_at: Date;
             updated_at: Date;
             phone: string | null;
+            listed_in_directory: boolean;
+            languages_spoken: string | null;
             clinic_id: string;
             role: string;
             email_verified: boolean;
@@ -388,6 +399,11 @@ export declare class ClinicalVisitController {
             license_number: string | null;
             signature_url: string | null;
             profile_photo_url: string | null;
+            bio: string | null;
+            years_experience: number | null;
+            education: import("@prisma/client/runtime/client").JsonValue | null;
+            specializations: import("@prisma/client/runtime/client").JsonValue | null;
+            consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
             branch_id: string | null;
         };
         items: {
@@ -452,6 +468,7 @@ export declare class ClinicalVisitController {
             latitude: number | null;
             longitude: number | null;
             map_url: string | null;
+            photo_url: string | null;
             book_now_url: string | null;
             working_start_time: string | null;
             working_end_time: string | null;
@@ -482,6 +499,8 @@ export declare class ClinicalVisitController {
             created_at: Date;
             updated_at: Date;
             phone: string | null;
+            listed_in_directory: boolean;
+            languages_spoken: string | null;
             clinic_id: string;
             role: string;
             email_verified: boolean;
@@ -490,6 +509,11 @@ export declare class ClinicalVisitController {
             license_number: string | null;
             signature_url: string | null;
             profile_photo_url: string | null;
+            bio: string | null;
+            years_experience: number | null;
+            education: import("@prisma/client/runtime/client").JsonValue | null;
+            specializations: import("@prisma/client/runtime/client").JsonValue | null;
+            consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
             branch_id: string | null;
         };
         patient: {
@@ -501,6 +525,7 @@ export declare class ClinicalVisitController {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            category: string | null;
             notes: string | null;
             age: number | null;
             gender: string;

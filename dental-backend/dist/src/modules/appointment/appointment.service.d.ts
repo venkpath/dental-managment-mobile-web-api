@@ -5,6 +5,7 @@ import { PaginatedResult } from '../../common/interfaces/paginated-result.interf
 import { AppointmentNotificationService } from './appointment-notification.service.js';
 import { AppointmentReminderProducer } from './appointment-reminder.producer.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
+import { ReviewTriggerService } from '../public-directory/review-trigger.service.js';
 export interface AvailableSlot {
     start_time: string;
     end_time: string;
@@ -15,8 +16,9 @@ export declare class AppointmentService {
     private readonly notificationService;
     private readonly reminderProducer;
     private readonly planLimit;
+    private readonly reviewTrigger;
     private readonly logger;
-    constructor(prisma: PrismaService, notificationService: AppointmentNotificationService, reminderProducer: AppointmentReminderProducer, planLimit: PlanLimitService);
+    constructor(prisma: PrismaService, notificationService: AppointmentNotificationService, reminderProducer: AppointmentReminderProducer, planLimit: PlanLimitService, reviewTrigger: ReviewTriggerService);
     create(clinicId: string, dto: CreateAppointmentDto): Promise<Appointment>;
     getAvailableSlots(clinicId: string, query: QueryAvailableSlotsDto): Promise<AvailableSlot[]>;
     findAll(clinicId: string, query: QueryAppointmentDto): Promise<PaginatedResult<Appointment>>;

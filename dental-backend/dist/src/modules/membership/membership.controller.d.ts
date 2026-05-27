@@ -113,6 +113,7 @@ export declare class MembershipController {
             latitude: number | null;
             longitude: number | null;
             map_url: string | null;
+            photo_url: string | null;
             book_now_url: string | null;
             working_start_time: string | null;
             working_end_time: string | null;
@@ -179,6 +180,7 @@ export declare class MembershipController {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            category: string | null;
             notes: string | null;
             age: number | null;
             gender: string;
@@ -200,6 +202,7 @@ export declare class MembershipController {
                 clinic_id: string;
                 profile_photo_url: string | null;
                 branch_id: string;
+                category: string | null;
                 notes: string | null;
                 age: number | null;
                 gender: string;
@@ -229,6 +232,7 @@ export declare class MembershipController {
                 clinic_id: string;
                 profile_photo_url: string | null;
                 branch_id: string;
+                category: string | null;
                 notes: string | null;
                 age: number | null;
                 gender: string;
@@ -347,6 +351,7 @@ export declare class MembershipController {
             latitude: number | null;
             longitude: number | null;
             map_url: string | null;
+            photo_url: string | null;
             book_now_url: string | null;
             working_start_time: string | null;
             working_end_time: string | null;
@@ -413,6 +418,7 @@ export declare class MembershipController {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            category: string | null;
             notes: string | null;
             age: number | null;
             gender: string;
@@ -434,6 +440,7 @@ export declare class MembershipController {
                 clinic_id: string;
                 profile_photo_url: string | null;
                 branch_id: string;
+                category: string | null;
                 notes: string | null;
                 age: number | null;
                 gender: string;
@@ -463,6 +470,7 @@ export declare class MembershipController {
                 clinic_id: string;
                 profile_photo_url: string | null;
                 branch_id: string;
+                category: string | null;
                 notes: string | null;
                 age: number | null;
                 gender: string;
@@ -581,6 +589,7 @@ export declare class MembershipController {
             latitude: number | null;
             longitude: number | null;
             map_url: string | null;
+            photo_url: string | null;
             book_now_url: string | null;
             working_start_time: string | null;
             working_end_time: string | null;
@@ -647,6 +656,7 @@ export declare class MembershipController {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            category: string | null;
             notes: string | null;
             age: number | null;
             gender: string;
@@ -668,6 +678,7 @@ export declare class MembershipController {
                 clinic_id: string;
                 profile_photo_url: string | null;
                 branch_id: string;
+                category: string | null;
                 notes: string | null;
                 age: number | null;
                 gender: string;
@@ -697,6 +708,7 @@ export declare class MembershipController {
                 clinic_id: string;
                 profile_photo_url: string | null;
                 branch_id: string;
+                category: string | null;
                 notes: string | null;
                 age: number | null;
                 gender: string;
@@ -810,6 +822,7 @@ export declare class MembershipController {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            category: string | null;
             notes: string | null;
             age: number | null;
             gender: string;
@@ -908,6 +921,7 @@ export declare class MembershipController {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            category: string | null;
             notes: string | null;
             age: number | null;
             gender: string;
@@ -943,6 +957,7 @@ export declare class MembershipController {
                 latitude: number | null;
                 longitude: number | null;
                 map_url: string | null;
+                photo_url: string | null;
                 book_now_url: string | null;
                 working_start_time: string | null;
                 working_end_time: string | null;
@@ -986,6 +1001,7 @@ export declare class MembershipController {
                     clinic_id: string;
                     profile_photo_url: string | null;
                     branch_id: string;
+                    category: string | null;
                     notes: string | null;
                     age: number | null;
                     gender: string;
@@ -1023,6 +1039,7 @@ export declare class MembershipController {
                     clinic_id: string;
                     profile_photo_url: string | null;
                     branch_id: string;
+                    category: string | null;
                     notes: string | null;
                     age: number | null;
                     gender: string;
@@ -1136,6 +1153,7 @@ export declare class MembershipController {
                 latitude: number | null;
                 longitude: number | null;
                 map_url: string | null;
+                photo_url: string | null;
                 book_now_url: string | null;
                 working_start_time: string | null;
                 working_end_time: string | null;
@@ -1179,6 +1197,7 @@ export declare class MembershipController {
                     clinic_id: string;
                     profile_photo_url: string | null;
                     branch_id: string;
+                    category: string | null;
                     notes: string | null;
                     age: number | null;
                     gender: string;
@@ -1216,6 +1235,7 @@ export declare class MembershipController {
                     clinic_id: string;
                     profile_photo_url: string | null;
                     branch_id: string;
+                    category: string | null;
                     notes: string | null;
                     age: number | null;
                     gender: string;

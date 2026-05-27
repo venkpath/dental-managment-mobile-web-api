@@ -19,10 +19,14 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const swagger_2 = require("@nestjs/swagger");
+const config_1 = require("@nestjs/config");
 const public_decorator_js_1 = require("../../common/decorators/public.decorator.js");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
+const s3_service_js_1 = require("../../common/services/s3.service.js");
+const otp_service_js_1 = require("./otp.service.js");
 const booking_url_util_js_1 = require("../../common/utils/booking-url.util.js");
 const appointment_reminder_producer_js_1 = require("../appointment/appointment-reminder.producer.js");
+const META_GRAPH_API = 'https://graph.facebook.com/v21.0';
 class BookAppointmentDto {
     first_name;
     last_name;
@@ -34,6 +38,7 @@ class BookAppointmentDto {
     start_time;
     end_time;
     notes;
+    otp_token;
 }
 __decorate([
     (0, swagger_2.ApiProperty)({ example: 'Ravi' }),
@@ -93,6 +98,36 @@ __decorate([
     (0, class_validator_1.MaxLength)(1000),
     __metadata("design:type", String)
 ], BookAppointmentDto.prototype, "notes", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ description: 'OTP verification token obtained from /verify-otp' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], BookAppointmentDto.prototype, "otp_token", void 0);
+class SendOtpDto {
+    phone;
+}
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: '+919876543210', description: 'Patient phone in E.164 format' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^\+[1-9]\d{6,14}$/, { message: 'phone must be E.164 format, e.g. +919876543210' }),
+    __metadata("design:type", String)
+], SendOtpDto.prototype, "phone", void 0);
+class VerifyOtpDto {
+    phone;
+    otp;
+}
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: '+919876543210' }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], VerifyOtpDto.prototype, "phone", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: '123456' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^\d{6}$/, { message: 'OTP must be exactly 6 digits' }),
+    __metadata("design:type", String)
+], VerifyOtpDto.prototype, "otp", void 0);
 function timeToMinutes(t) {
     const [h, m] = t.split(':').map(Number);
     return h * 60 + m;
@@ -113,10 +148,16 @@ function getNowMinutesIST() {
 let PublicBookingController = PublicBookingController_1 = class PublicBookingController {
     prisma;
     reminderProducer;
+    s3;
+    config;
+    otpService;
     logger = new common_1.Logger(PublicBookingController_1.name);
-    constructor(prisma, reminderProducer) {
+    constructor(prisma, reminderProducer, s3, config, otpService) {
         this.prisma = prisma;
         this.reminderProducer = reminderProducer;
+        this.s3 = s3;
+        this.config = config;
+        this.otpService = otpService;
     }
     async getBranchBookingInfo(clinicId, branchId) {
         const branch = await this.prisma.branch.findUnique({
@@ -166,10 +207,36 @@ let PublicBookingController = PublicBookingController_1 = class PublicBookingCon
                     { OR: [{ branch_id: branchId }, { branch_id: null }] },
                 ],
             },
-            select: { id: true, name: true },
+            select: {
+                id: true, name: true, role: true,
+                years_experience: true, specializations: true,
+                profile_photo_url: true,
+                directory_reviews: {
+                    where: { is_visible: true },
+                    select: { overall_rating: true },
+                },
+            },
             orderBy: { name: 'asc' },
         });
-        return dentists;
+        return Promise.all(dentists.map(async (d) => {
+            const signedPhoto = d.profile_photo_url
+                ? await this.s3.getSignedUrl(d.profile_photo_url).catch(() => null)
+                : null;
+            const reviews = d.directory_reviews;
+            const avg = reviews.length
+                ? Math.round((reviews.reduce((s, r) => s + r.overall_rating, 0) / reviews.length) * 10) / 10
+                : null;
+            return {
+                id: d.id,
+                name: d.name,
+                role: d.role ?? 'Dentist',
+                years_experience: d.years_experience ?? null,
+                specializations: Array.isArray(d.specializations) ? d.specializations : [],
+                profile_photo_url: signedPhoto,
+                avg_rating: avg,
+                review_count: reviews.length,
+            };
+        }));
     }
     async getAvailableSlots(clinicId, branchId, dentistId, date) {
         if (!dentistId || !date)
@@ -177,17 +244,26 @@ let PublicBookingController = PublicBookingController_1 = class PublicBookingCon
         const branch = await this.prisma.branch.findUnique({ where: { id: branchId } });
         if (!branch || branch.clinic_id !== clinicId)
             throw new common_1.NotFoundException('Branch not found');
-        if (branch.working_days) {
-            const dayOfWeek = new Date(date + 'T00:00:00').getDay();
-            const isoDay = dayOfWeek === 0 ? 7 : dayOfWeek;
-            const workingDays = branch.working_days.split(',').map(Number);
-            if (!workingDays.includes(isoDay))
+        const jsDay = new Date(date + 'T00:00:00').getDay();
+        const isoDay = jsDay === 0 ? 7 : jsDay;
+        const doctorSched = await this.prisma.doctorAvailability.findUnique({
+            where: { user_id_day_of_week: { user_id: dentistId, day_of_week: isoDay } },
+        });
+        if (doctorSched) {
+            if (doctorSched.is_day_off)
                 return [];
         }
-        const workStart = branch.working_start_time ?? '09:00';
-        const workEnd = branch.working_end_time ?? '18:00';
-        const lunchStart = branch.lunch_start_time ?? null;
-        const lunchEnd = branch.lunch_end_time ?? null;
+        else {
+            if (branch.working_days) {
+                const workingDays = branch.working_days.split(',').map(Number);
+                if (!workingDays.includes(isoDay))
+                    return [];
+            }
+        }
+        const workStart = doctorSched && !doctorSched.is_day_off ? doctorSched.start_time : (branch.working_start_time ?? '09:00');
+        const workEnd = doctorSched && !doctorSched.is_day_off ? doctorSched.end_time : (branch.working_end_time ?? '18:00');
+        const lunchStart = doctorSched ? null : (branch.lunch_start_time ?? null);
+        const lunchEnd = doctorSched ? null : (branch.lunch_end_time ?? null);
         const slotDuration = branch.slot_duration ?? 15;
         const apptDuration = branch.default_appt_duration ?? 30;
         const bufferMinutes = branch.buffer_minutes ?? 0;
@@ -222,10 +298,36 @@ let PublicBookingController = PublicBookingController_1 = class PublicBookingCon
         }
         return slots;
     }
+    async sendOtp(clinicId, dto) {
+        const clinic = await this.prisma.clinic.findUnique({ where: { id: clinicId }, select: { id: true, name: true } });
+        if (!clinic)
+            throw new common_1.NotFoundException('Clinic not found');
+        const otp = await this.otpService.generateAndStore(clinicId, dto.phone);
+        const isDev = this.config.get('NODE_ENV') !== 'production';
+        const waSent = await this.trySendOtpViaWhatsApp(dto.phone, otp, clinic.name);
+        if (waSent) {
+            return { sent: true, channel: 'whatsapp' };
+        }
+        if (isDev) {
+            this.logger.warn(`[OTP DEV] ${dto.phone} → ${otp}`);
+            return { sent: true, channel: 'dev', dev_otp: otp };
+        }
+        return { sent: false, channel: 'unavailable' };
+    }
+    async verifyOtp(clinicId, dto) {
+        const token = await this.otpService.verify(clinicId, dto.phone, dto.otp);
+        return { verified: true, token };
+    }
     async bookAppointment(clinicId, branchId, dto) {
         const branch = await this.prisma.branch.findUnique({ where: { id: branchId }, select: { clinic_id: true } });
         if (!branch || branch.clinic_id !== clinicId)
             throw new common_1.NotFoundException('Branch not found');
+        if (dto.otp_token) {
+            const valid = await this.otpService.consumeToken(dto.otp_token, clinicId, dto.phone);
+            if (!valid) {
+                throw new common_1.BadRequestException('Phone verification failed. Please complete OTP verification.');
+            }
+        }
         const dentist = await this.prisma.user.findUnique({ where: { id: dto.dentist_id } });
         if (!dentist || dentist.clinic_id !== clinicId)
             throw new common_1.NotFoundException('Dentist not found');
@@ -295,6 +397,51 @@ let PublicBookingController = PublicBookingController_1 = class PublicBookingCon
             },
         };
     }
+    async trySendOtpViaWhatsApp(phone, otp, clinicName) {
+        const accessToken = this.config.get('WHATSAPP_ACCESS_TOKEN');
+        const phoneNumberId = this.config.get('WHATSAPP_PHONE_NUMBER_ID');
+        const templateName = this.config.get('OTP_WHATSAPP_TEMPLATE') || 'smart_dental_otp';
+        if (!accessToken || !phoneNumberId)
+            return false;
+        try {
+            const res = await fetch(`${META_GRAPH_API}/${phoneNumberId}/messages`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    messaging_product: 'whatsapp',
+                    to: phone,
+                    type: 'template',
+                    template: {
+                        name: templateName,
+                        language: { code: 'en' },
+                        components: [
+                            {
+                                type: 'body',
+                                parameters: [
+                                    { type: 'text', text: clinicName },
+                                    { type: 'text', text: otp },
+                                ],
+                            },
+                        ],
+                    },
+                }),
+            });
+            const data = await res.json();
+            if (data.messages?.length) {
+                this.logger.log(`OTP WhatsApp sent to ${phone}`);
+                return true;
+            }
+            this.logger.warn(`OTP WhatsApp failed for ${phone}: ${data.error?.message ?? JSON.stringify(data)}`);
+            return false;
+        }
+        catch (err) {
+            this.logger.error(`OTP WhatsApp error for ${phone}: ${err.message}`);
+            return false;
+        }
+    }
 };
 exports.PublicBookingController = PublicBookingController;
 __decorate([
@@ -333,6 +480,28 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], PublicBookingController.prototype, "getAvailableSlots", null);
 __decorate([
+    (0, common_1.Post)(':clinicId/send-otp'),
+    (0, public_decorator_js_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Send OTP to patient phone (no auth required)' }),
+    openapi.ApiResponse({ status: 201, type: Object }),
+    __param(0, (0, common_1.Param)('clinicId', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, SendOtpDto]),
+    __metadata("design:returntype", Promise)
+], PublicBookingController.prototype, "sendOtp", null);
+__decorate([
+    (0, common_1.Post)(':clinicId/verify-otp'),
+    (0, public_decorator_js_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Verify OTP and get booking token (no auth required)' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Param)('clinicId', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, VerifyOtpDto]),
+    __metadata("design:returntype", Promise)
+], PublicBookingController.prototype, "verifyOtp", null);
+__decorate([
     (0, common_1.Post)(':clinicId/:branchId/book'),
     (0, public_decorator_js_1.Public)(),
     (0, swagger_1.ApiOperation)({ summary: 'Book an appointment (no auth required)' }),
@@ -349,6 +518,9 @@ exports.PublicBookingController = PublicBookingController = PublicBookingControl
     (0, swagger_1.ApiTags)('Public Booking'),
     (0, common_1.Controller)('public/booking'),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
-        appointment_reminder_producer_js_1.AppointmentReminderProducer])
+        appointment_reminder_producer_js_1.AppointmentReminderProducer,
+        s3_service_js_1.S3Service,
+        config_1.ConfigService,
+        otp_service_js_1.OtpService])
 ], PublicBookingController);
 //# sourceMappingURL=public-booking.controller.js.map

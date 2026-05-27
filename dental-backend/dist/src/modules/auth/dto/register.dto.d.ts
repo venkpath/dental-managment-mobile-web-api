@@ -15,4 +15,6 @@ export declare class RegisterClinicDto {
     plan_key?: string;
     billing_cycle?: 'monthly' | 'yearly';
     phone_verification_token: string;
+    listed_in_directory?: boolean;
+    specialties?: string;
 }

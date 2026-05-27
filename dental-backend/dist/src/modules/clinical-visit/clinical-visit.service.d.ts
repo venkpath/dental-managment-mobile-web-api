@@ -137,6 +137,7 @@ export declare class ClinicalVisitService {
             latitude: number | null;
             longitude: number | null;
             map_url: string | null;
+            photo_url: string | null;
             book_now_url: string | null;
             working_start_time: string | null;
             working_end_time: string | null;
@@ -167,6 +168,8 @@ export declare class ClinicalVisitService {
             created_at: Date;
             updated_at: Date;
             phone: string | null;
+            listed_in_directory: boolean;
+            languages_spoken: string | null;
             clinic_id: string;
             role: string;
             email_verified: boolean;
@@ -175,6 +178,11 @@ export declare class ClinicalVisitService {
             license_number: string | null;
             signature_url: string | null;
             profile_photo_url: string | null;
+            bio: string | null;
+            years_experience: number | null;
+            education: Prisma.JsonValue | null;
+            specializations: Prisma.JsonValue | null;
+            consultation_fee: Prisma.Decimal | null;
             branch_id: string | null;
         };
         patient: {
@@ -186,6 +194,7 @@ export declare class ClinicalVisitService {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            category: string | null;
             notes: string | null;
             age: number | null;
             gender: string;
@@ -207,9 +216,9 @@ export declare class ClinicalVisitService {
             appointment_date: Date;
             notes: string | null;
             patient_id: string;
-            dentist_id: string;
             start_time: string;
             end_time: string;
+            dentist_id: string;
             recurrence_group_id: string | null;
             room_id: string | null;
         } | null;
@@ -271,6 +280,7 @@ export declare class ClinicalVisitService {
             latitude: number | null;
             longitude: number | null;
             map_url: string | null;
+            photo_url: string | null;
             book_now_url: string | null;
             working_start_time: string | null;
             working_end_time: string | null;
@@ -301,6 +311,8 @@ export declare class ClinicalVisitService {
             created_at: Date;
             updated_at: Date;
             phone: string | null;
+            listed_in_directory: boolean;
+            languages_spoken: string | null;
             clinic_id: string;
             role: string;
             email_verified: boolean;
@@ -309,6 +321,11 @@ export declare class ClinicalVisitService {
             license_number: string | null;
             signature_url: string | null;
             profile_photo_url: string | null;
+            bio: string | null;
+            years_experience: number | null;
+            education: Prisma.JsonValue | null;
+            specializations: Prisma.JsonValue | null;
+            consultation_fee: Prisma.Decimal | null;
             branch_id: string | null;
         };
         patient: {
@@ -320,6 +337,7 @@ export declare class ClinicalVisitService {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            category: string | null;
             notes: string | null;
             age: number | null;
             gender: string;
@@ -392,6 +410,8 @@ export declare class ClinicalVisitService {
             created_at: Date;
             updated_at: Date;
             phone: string | null;
+            listed_in_directory: boolean;
+            languages_spoken: string | null;
             clinic_id: string;
             role: string;
             email_verified: boolean;
@@ -400,6 +420,11 @@ export declare class ClinicalVisitService {
             license_number: string | null;
             signature_url: string | null;
             profile_photo_url: string | null;
+            bio: string | null;
+            years_experience: number | null;
+            education: Prisma.JsonValue | null;
+            specializations: Prisma.JsonValue | null;
+            consultation_fee: Prisma.Decimal | null;
             branch_id: string | null;
         };
         items: {

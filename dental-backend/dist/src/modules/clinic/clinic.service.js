@@ -82,10 +82,23 @@ let ClinicService = class ClinicService {
         await this.findOne(id);
         if (dto.name)
             dto.name = (0, name_util_js_1.decodeHtmlEntities)(dto.name);
-        return this.prisma.clinic.update({
-            where: { id },
-            data: dto,
-        });
+        const payload = { ...dto };
+        if ('listed_in_directory' in dto) {
+            if (dto.listed_in_directory === true) {
+                payload.listed_in_directory = false;
+                payload.directory_approval_status = 'pending';
+                payload.directory_requested_at = new Date();
+                payload.directory_rejection_reason = null;
+            }
+            else if (dto.listed_in_directory === false) {
+                payload.listed_in_directory = false;
+                payload.directory_approval_status = 'none';
+                payload.directory_requested_at = null;
+                payload.directory_approved_at = null;
+                payload.directory_rejection_reason = null;
+            }
+        }
+        return this.prisma.clinic.update({ where: { id }, data: payload });
     }
     async updateSubscription(id, dto) {
         await this.findOne(id);

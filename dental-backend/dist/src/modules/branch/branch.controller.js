@@ -49,6 +49,12 @@ let BranchController = class BranchController {
     async update(clinicId, id, dto) {
         return this.branchService.update(clinicId, id, dto);
     }
+    async uploadPhoto(clinicId, id, file) {
+        return this.branchService.uploadPhoto(clinicId, id, file);
+    }
+    async deletePhoto(clinicId, id) {
+        return this.branchService.deletePhoto(clinicId, id);
+    }
     async getSchedulingSettings(clinicId, id) {
         return this.branchService.getSchedulingSettings(clinicId, id);
     }
@@ -150,6 +156,33 @@ __decorate([
     __metadata("design:paramtypes", [String, String, index_js_1.UpdateBranchDto]),
     __metadata("design:returntype", Promise)
 ], BranchController.prototype, "update", null);
+__decorate([
+    (0, common_1.Post)(':id/photo'),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN, create_user_dto_js_1.UserRole.ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Upload a branch cover photo (PNG/JPEG/WebP, ≤5 MB)' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiCreatedResponse)({ description: 'Photo uploaded; returns signed URL' }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', { limits: { fileSize: 5 * 1024 * 1024 } })),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], BranchController.prototype, "uploadPhoto", null);
+__decorate([
+    (0, common_1.Delete)(':id/photo'),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN, create_user_dto_js_1.UserRole.ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Remove the branch cover photo' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Photo removed' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], BranchController.prototype, "deletePhoto", null);
 __decorate([
     (0, common_1.Get)(':id/scheduling'),
     (0, swagger_1.ApiOperation)({ summary: 'Get scheduling settings for a branch' }),

@@ -29,6 +29,7 @@ export declare class ReferralController {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            category: string | null;
             notes: string | null;
             age: number | null;
             gender: string;
@@ -49,6 +50,7 @@ export declare class ReferralController {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            category: string | null;
             notes: string | null;
             age: number | null;
             gender: string;

@@ -6,6 +6,7 @@ import { PaginatedResult, paginate } from '../../common/interfaces/paginated-res
 import { AppointmentNotificationService } from './appointment-notification.service.js';
 import { AppointmentReminderProducer } from './appointment-reminder.producer.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
+import { ReviewTriggerService } from '../public-directory/review-trigger.service.js';
 
 export interface AvailableSlot {
   start_time: string;
@@ -43,6 +44,7 @@ export class AppointmentService {
     private readonly notificationService: AppointmentNotificationService,
     private readonly reminderProducer: AppointmentReminderProducer,
     private readonly planLimit: PlanLimitService,
+    private readonly reviewTrigger: ReviewTriggerService,
   ) {}
 
   async create(clinicId: string, dto: CreateAppointmentDto): Promise<Appointment> {
@@ -344,6 +346,13 @@ export class AppointmentService {
         where: { id: existing.room_id! },
         data: { status: 'cleaning', cleaning_started_at: new Date() },
       }).catch((e: Error) => this.logger.warn(`Room auto-release failed for room ${existing.room_id}: ${e.message}`));
+    }
+
+    // Send post-appointment review request (fire-and-forget)
+    if (dto.status === 'completed' && existing.status !== 'completed') {
+      this.reviewTrigger
+        .triggerPostAppointmentReview(clinicId, id, existing.patient_id, existing.dentist_id)
+        .catch((e) => this.logger.warn(`Review trigger failed for appointment ${id}: ${(e as Error).message}`));
     }
 
     // Send WhatsApp notifications (fire-and-forget)

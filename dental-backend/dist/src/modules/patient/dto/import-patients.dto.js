@@ -25,8 +25,9 @@ class ImportPatientRow {
     blood_group;
     allergies;
     notes;
+    category;
     static _OPENAPI_METADATA_FACTORY() {
-        return { first_name: { required: true, type: () => String }, last_name: { required: true, type: () => String }, phone: { required: true, type: () => String }, email: { required: false, type: () => String }, gender: { required: false, type: () => String }, age: { required: false, type: () => Object }, date_of_birth: { required: false, type: () => String }, blood_group: { required: false, type: () => String }, allergies: { required: false, type: () => String }, notes: { required: false, type: () => String } };
+        return { first_name: { required: true, type: () => String }, last_name: { required: true, type: () => String }, phone: { required: true, type: () => String }, email: { required: false, type: () => String }, gender: { required: false, type: () => String }, age: { required: false, type: () => Object }, date_of_birth: { required: false, type: () => String }, blood_group: { required: false, type: () => String }, allergies: { required: false, type: () => String }, notes: { required: false, type: () => String }, category: { required: false, type: () => String } };
     }
 }
 exports.ImportPatientRow = ImportPatientRow;
@@ -86,6 +87,12 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], ImportPatientRow.prototype, "notes", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Cosmetic' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ImportPatientRow.prototype, "category", void 0);
 class BulkImportDto {
     branch_id;
     patients;

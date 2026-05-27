@@ -129,6 +129,32 @@ export class SuperAdminController {
     return this.superAdminService.onboardClinic(dto);
   }
 
+  // ─── Directory Listing Approvals ───
+
+  @Get('super-admins/clinics/directory-approvals')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'List clinics with pending or rejected directory approval requests' })
+  async getDirectoryApprovals(@Query('status') status?: 'pending' | 'all') {
+    return this.superAdminService.getDirectoryApprovals(status ?? 'pending');
+  }
+
+  @Patch('super-admins/clinics/:id/directory-approve')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Approve a clinic directory listing request' })
+  async approveDirectoryListing(@Param('id', ParseUUIDPipe) id: string) {
+    return this.superAdminService.approveDirectoryListing(id);
+  }
+
+  @Patch('super-admins/clinics/:id/directory-reject')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Reject a clinic directory listing request' })
+  async rejectDirectoryListing(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { reason: string },
+  ) {
+    return this.superAdminService.rejectDirectoryListing(id, body.reason);
+  }
+
   @Patch('super-admins/clinics/:id/suspend')
   @SuperAdmin()
   @ApiOperation({ summary: 'Suspend a clinic account (blocks all logins)' })
@@ -540,7 +566,8 @@ export class SuperAdminController {
   async getMedia(@Param('mediaId') mediaId: string, @Res() res: Response) {
     const { buffer, mimeType, fileName } = await this.whatsAppService.getMediaUrl(mediaId);
     res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    // RFC 5987 encoding prevents header injection via special chars in fileName
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
     res.setHeader('Cache-Control', 'private, max-age=3600');
     res.send(buffer);
   }

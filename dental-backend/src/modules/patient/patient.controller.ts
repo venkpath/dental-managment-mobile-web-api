@@ -142,7 +142,7 @@ export class PatientController {
 
     const rows = this.patientService.parseFile(file.buffer, file.mimetype);
     if (rows.length === 0) throw new BadRequestException('File contains no patient rows');
-    if (rows.length > 500) throw new BadRequestException('Maximum 500 patients per import');
+    if (rows.length > 1000) throw new BadRequestException('Maximum 1000 patients per import');
 
     return this.patientService.bulkImport(clinicId, branchId, rows);
   }
@@ -157,7 +157,7 @@ export class PatientController {
     @Body() dto: BulkImportDto,
   ) {
     if (dto.patients.length === 0) throw new BadRequestException('No patients to import');
-    if (dto.patients.length > 500) throw new BadRequestException('Maximum 500 patients per import');
+    if (dto.patients.length > 1000) throw new BadRequestException('Maximum 1000 patients per import');
 
     return this.patientService.bulkImport(clinicId, dto.branch_id, dto.patients);
   }

@@ -32,8 +32,9 @@ class CreatePatientDto {
     medical_history;
     allergies;
     notes;
+    category;
     static _OPENAPI_METADATA_FACTORY() {
-        return { branch_id: { required: true, type: () => String, format: "uuid" }, first_name: { required: true, type: () => String, maxLength: 100 }, last_name: { required: true, type: () => String, maxLength: 100 }, phone: { required: true, type: () => String, maxLength: 50 }, email: { required: false, type: () => String, maxLength: 255, format: "email" }, gender: { required: true, enum: require("./create-patient.dto").Gender }, date_of_birth: { required: false, type: () => String }, age: { required: false, type: () => Number, minimum: 0, maximum: 150 }, blood_group: { required: false, type: () => String, maxLength: 10 }, medical_history: { required: false, type: () => Object }, allergies: { required: false, type: () => String, maxLength: 1000 }, notes: { required: false, type: () => String } };
+        return { branch_id: { required: true, type: () => String, format: "uuid" }, first_name: { required: true, type: () => String, maxLength: 100 }, last_name: { required: true, type: () => String, maxLength: 100 }, phone: { required: true, type: () => String, maxLength: 50 }, email: { required: false, type: () => String, maxLength: 255, format: "email" }, gender: { required: true, enum: require("./create-patient.dto").Gender }, date_of_birth: { required: false, type: () => String }, age: { required: false, type: () => Number, minimum: 0, maximum: 150 }, blood_group: { required: false, type: () => String, maxLength: 10 }, medical_history: { required: false, type: () => Object }, allergies: { required: false, type: () => String, maxLength: 1000 }, notes: { required: false, type: () => String }, category: { required: false, type: () => String, maxLength: 100 } };
     }
 }
 exports.CreatePatientDto = CreatePatientDto;
@@ -115,4 +116,11 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreatePatientDto.prototype, "notes", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Cosmetic', description: 'Patient category (e.g. General Dentistry, Cosmetic)' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(100),
+    __metadata("design:type", String)
+], CreatePatientDto.prototype, "category", void 0);
 //# sourceMappingURL=create-patient.dto.js.map

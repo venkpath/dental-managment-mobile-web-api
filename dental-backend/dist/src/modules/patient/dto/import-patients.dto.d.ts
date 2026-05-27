@@ -9,6 +9,7 @@ export declare class ImportPatientRow {
     blood_group?: string;
     allergies?: string;
     notes?: string;
+    category?: string;
 }
 export declare class BulkImportDto {
     branch_id: string;

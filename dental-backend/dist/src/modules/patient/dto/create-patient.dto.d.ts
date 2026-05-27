@@ -16,4 +16,5 @@ export declare class CreatePatientDto {
     medical_history?: Record<string, unknown>;
     allergies?: string;
     notes?: string;
+    category?: string;
 }

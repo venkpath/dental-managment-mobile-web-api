@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseUUIDPipe, UseGuards, UseInterceptors, UploadedFile, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Param, Body, Query, ParseUUIDPipe, UseGuards, UseInterceptors, UploadedFile, ForbiddenException, BadRequestException } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -11,6 +11,9 @@ import {
   ApiNoContentResponse,
   ApiConsumes,
 } from '@nestjs/swagger';
+import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Matches, Max, Min, ValidateNested, ValidateIf, registerDecorator, ValidationOptions } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UserService } from './user.service.js';
 import { CreateUserDto, UpdateUserDto, UserRole } from './dto/index.js';
@@ -18,6 +21,61 @@ import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
+
+function IsAfter(siblingProp: string, options?: ValidationOptions) {
+  return function (object: object, propertyName: string) {
+    registerDecorator({
+      name: 'isAfter',
+      target: object.constructor,
+      propertyName,
+      options: { message: `${propertyName} must be after ${siblingProp}`, ...options },
+      constraints: [siblingProp],
+      validator: {
+        validate(value: unknown, args) {
+          if (!args) return true;
+          const sibling = (args.object as Record<string, unknown>)[args.constraints[0]];
+          if (typeof value !== 'string' || typeof sibling !== 'string') return true;
+          return value > sibling;
+        },
+      },
+    });
+  };
+}
+
+class AvailabilityDayDto {
+  @ApiProperty({ example: 1, description: '1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat 7=Sun' })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(7)
+  day_of_week!: number;
+
+  @ApiProperty({ example: '09:00' })
+  @ValidateIf((o: AvailabilityDayDto) => !o.is_day_off)
+  @IsString()
+  @Matches(/^\d{2}:\d{2}$/, { message: 'start_time must be HH:mm' })
+  start_time!: string;
+
+  @ApiProperty({ example: '18:00' })
+  @ValidateIf((o: AvailabilityDayDto) => !o.is_day_off)
+  @IsString()
+  @Matches(/^\d{2}:\d{2}$/, { message: 'end_time must be HH:mm' })
+  @IsAfter('start_time')
+  end_time!: string;
+
+  @ApiPropertyOptional({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  is_day_off?: boolean;
+}
+
+class UpsertAvailabilityDto {
+  @ApiProperty({ type: [AvailabilityDayDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AvailabilityDayDto)
+  schedule!: AvailabilityDayDto[];
+}
 
 @ApiTags('Users')
 @ApiHeader({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' })
@@ -124,5 +182,27 @@ export class UserController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.userService.deleteProfilePhoto(clinicId, id);
+  }
+
+  @Get(':id/availability')
+  @ApiOperation({ summary: 'Get weekly availability schedule for a doctor' })
+  @ApiOkResponse({ description: '7-day schedule (days without a row use branch fallback)' })
+  async getAvailability(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.userService.getAvailability(clinicId, id);
+  }
+
+  @Put(':id/availability')
+  @ApiOperation({ summary: 'Upsert weekly availability schedule for a doctor' })
+  @ApiOkResponse({ description: 'Schedule saved' })
+  async upsertAvailability(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpsertAvailabilityDto,
+  ) {
+    if (!dto.schedule?.length) throw new BadRequestException('schedule must be a non-empty array');
+    return this.userService.upsertAvailability(clinicId, id, dto.schedule);
   }
 }

@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional, MaxLength, Matches } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsBoolean, MaxLength, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateClinicDto {
@@ -63,4 +63,9 @@ export class CreateClinicDto {
   @IsOptional()
   @Matches(/^[a-z]{2}$/, { message: 'Must be a lowercase ISO 3166-1 alpha-2 code (e.g. in, us, gb)' })
   default_phone_country?: string;
+
+  @ApiPropertyOptional({ description: 'Opt in to appear in the public "Find a Dentist" directory', default: false })
+  @IsOptional()
+  @IsBoolean()
+  listed_in_directory?: boolean;
 }

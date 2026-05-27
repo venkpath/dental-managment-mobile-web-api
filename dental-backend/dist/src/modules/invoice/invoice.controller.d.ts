@@ -94,6 +94,23 @@ export declare class InvoiceController {
             currency_code: string;
             default_phone_country: string;
             rooms_enabled: boolean;
+            listed_in_directory: boolean;
+            directory_approval_status: string;
+            directory_rejection_reason: string | null;
+            directory_requested_at: Date | null;
+            directory_approved_at: Date | null;
+            clinic_description: string | null;
+            specialties: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            working_hours_label: string | null;
+            established_year: number | null;
+            languages_spoken: string | null;
+            directory_treatments: string | null;
+            gallery_images: string | null;
+            website_url: string | null;
+            google_maps_url: string | null;
+            review_secret: string | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -161,6 +178,7 @@ export declare class InvoiceController {
             latitude: number | null;
             longitude: number | null;
             map_url: string | null;
+            photo_url: string | null;
             book_now_url: string | null;
             working_start_time: string | null;
             working_end_time: string | null;
@@ -191,6 +209,8 @@ export declare class InvoiceController {
             created_at: Date;
             updated_at: Date;
             phone: string | null;
+            listed_in_directory: boolean;
+            languages_spoken: string | null;
             clinic_id: string;
             role: string;
             email_verified: boolean;
@@ -199,6 +219,11 @@ export declare class InvoiceController {
             license_number: string | null;
             signature_url: string | null;
             profile_photo_url: string | null;
+            bio: string | null;
+            years_experience: number | null;
+            education: import("@prisma/client/runtime/client").JsonValue | null;
+            specializations: import("@prisma/client/runtime/client").JsonValue | null;
+            consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
             branch_id: string | null;
         } | null;
         patient: {
@@ -210,6 +235,7 @@ export declare class InvoiceController {
             clinic_id: string;
             profile_photo_url: string | null;
             branch_id: string;
+            category: string | null;
             notes: string | null;
             age: number | null;
             gender: string;
@@ -232,6 +258,8 @@ export declare class InvoiceController {
                     created_at: Date;
                     updated_at: Date;
                     phone: string | null;
+                    listed_in_directory: boolean;
+                    languages_spoken: string | null;
                     clinic_id: string;
                     role: string;
                     email_verified: boolean;
@@ -240,6 +268,11 @@ export declare class InvoiceController {
                     license_number: string | null;
                     signature_url: string | null;
                     profile_photo_url: string | null;
+                    bio: string | null;
+                    years_experience: number | null;
+                    education: import("@prisma/client/runtime/client").JsonValue | null;
+                    specializations: import("@prisma/client/runtime/client").JsonValue | null;
+                    consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
                     branch_id: string | null;
                 };
             } & {
@@ -278,6 +311,8 @@ export declare class InvoiceController {
             created_at: Date;
             updated_at: Date;
             phone: string | null;
+            listed_in_directory: boolean;
+            languages_spoken: string | null;
             clinic_id: string;
             role: string;
             email_verified: boolean;
@@ -286,6 +321,11 @@ export declare class InvoiceController {
             license_number: string | null;
             signature_url: string | null;
             profile_photo_url: string | null;
+            bio: string | null;
+            years_experience: number | null;
+            education: import("@prisma/client/runtime/client").JsonValue | null;
+            specializations: import("@prisma/client/runtime/client").JsonValue | null;
+            consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
             branch_id: string | null;
         } | null;
         patient_insurance: ({

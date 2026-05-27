@@ -1,11 +1,18 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
+import { S3Service } from '../../common/services/s3.service.js';
 import { CreateBranchDto, UpdateBranchDto, UpdateBranchSchedulingDto } from './dto/index.js';
 import { Branch } from '@prisma/client';
 
+const PHOTO_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+const PHOTO_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+
 @Injectable()
 export class BranchService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly s3: S3Service,
+  ) {}
 
   async create(clinicId: string, dto: CreateBranchDto): Promise<Branch> {
     const clinic = await this.prisma.clinic.findUnique({
@@ -95,5 +102,38 @@ export class BranchService {
       advance_booking_days: branch.advance_booking_days ?? 30,
       working_days: branch.working_days ?? '1,2,3,4,5,6',
     };
+  }
+
+  async uploadPhoto(
+    clinicId: string,
+    branchId: string,
+    file: { buffer: Buffer; mimetype: string; size: number },
+  ): Promise<{ photo_url: string }> {
+    const branch = await this.findOne(clinicId, branchId);
+    if (!file?.buffer || file.size === 0) throw new BadRequestException('No file uploaded');
+    if (file.size > PHOTO_MAX_BYTES) throw new BadRequestException('Photo must be 5 MB or smaller');
+    if (!PHOTO_ALLOWED_MIME.includes(file.mimetype)) throw new BadRequestException('Photo must be PNG, JPEG, or WebP');
+
+    // Delete the previous photo from S3 before uploading the new one.
+    if (branch.photo_url) {
+      await this.s3.delete(branch.photo_url).catch(() => null);
+    }
+
+    const ext = file.mimetype === 'image/png' ? 'png' : file.mimetype === 'image/webp' ? 'webp' : 'jpg';
+    const key = `clinics/${branch.clinic_id}/branch-photos/${branchId}.${ext}`;
+    await this.s3.upload(key, file.buffer, file.mimetype);
+    await this.prisma.branch.update({ where: { id: branchId }, data: { photo_url: key } });
+
+    const signed = await this.s3.getSignedUrl(key).catch(() => null);
+    return { photo_url: signed ?? key };
+  }
+
+  async deletePhoto(clinicId: string, branchId: string): Promise<{ message: string }> {
+    const branch = await this.findOne(clinicId, branchId);
+    if (branch.photo_url) {
+      await this.s3.delete(branch.photo_url).catch(() => null);
+    }
+    await this.prisma.branch.update({ where: { id: branchId }, data: { photo_url: null } });
+    return { message: 'Photo removed' };
   }
 }

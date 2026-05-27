@@ -14,9 +14,9 @@ export declare class AppointmentController {
         appointment_date: Date;
         notes: string | null;
         patient_id: string;
-        dentist_id: string;
         start_time: string;
         end_time: string;
+        dentist_id: string;
         recurrence_group_id: string | null;
         room_id: string | null;
     }>;
@@ -30,9 +30,9 @@ export declare class AppointmentController {
         appointment_date: Date;
         notes: string | null;
         patient_id: string;
-        dentist_id: string;
         start_time: string;
         end_time: string;
+        dentist_id: string;
         recurrence_group_id: string | null;
         room_id: string | null;
     }[]>;
@@ -46,9 +46,9 @@ export declare class AppointmentController {
         appointment_date: Date;
         notes: string | null;
         patient_id: string;
-        dentist_id: string;
         start_time: string;
         end_time: string;
+        dentist_id: string;
         recurrence_group_id: string | null;
         room_id: string | null;
     }>>;
@@ -63,9 +63,9 @@ export declare class AppointmentController {
         appointment_date: Date;
         notes: string | null;
         patient_id: string;
-        dentist_id: string;
         start_time: string;
         end_time: string;
+        dentist_id: string;
         recurrence_group_id: string | null;
         room_id: string | null;
     }>;
@@ -79,9 +79,9 @@ export declare class AppointmentController {
         appointment_date: Date;
         notes: string | null;
         patient_id: string;
-        dentist_id: string;
         start_time: string;
         end_time: string;
+        dentist_id: string;
         recurrence_group_id: string | null;
         room_id: string | null;
     }>;
@@ -95,9 +95,9 @@ export declare class AppointmentController {
         appointment_date: Date;
         notes: string | null;
         patient_id: string;
-        dentist_id: string;
         start_time: string;
         end_time: string;
+        dentist_id: string;
         recurrence_group_id: string | null;
         room_id: string | null;
     }>;

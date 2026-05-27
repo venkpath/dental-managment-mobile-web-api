@@ -10,4 +10,5 @@ export declare class CreateClinicDto {
     logo_url?: string;
     currency_code?: string;
     default_phone_country?: string;
+    listed_in_directory?: boolean;
 }

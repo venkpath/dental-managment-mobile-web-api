@@ -30,6 +30,13 @@ const userSelect = {
     license_number: true,
     signature_url: true,
     profile_photo_url: true,
+    listed_in_directory: true,
+    bio: true,
+    years_experience: true,
+    education: true,
+    specializations: true,
+    languages_spoken: true,
+    consultation_fee: true,
     created_at: true,
     updated_at: true,
 };
@@ -207,6 +214,23 @@ let UserService = class UserService {
         await this.findOne(clinicId, id);
         await this.prisma.user.delete({ where: { id } });
         return { message: 'User deleted successfully' };
+    }
+    async getAvailability(clinicId, userId) {
+        await this.findOne(clinicId, userId);
+        const rows = await this.prisma.doctorAvailability.findMany({
+            where: { user_id: userId, clinic_id: clinicId },
+            orderBy: { day_of_week: 'asc' },
+        });
+        return rows;
+    }
+    async upsertAvailability(clinicId, userId, schedule) {
+        await this.findOne(clinicId, userId);
+        await this.prisma.$transaction(schedule.map((day) => this.prisma.doctorAvailability.upsert({
+            where: { user_id_day_of_week: { user_id: userId, day_of_week: day.day_of_week } },
+            create: { user_id: userId, clinic_id: clinicId, day_of_week: day.day_of_week, start_time: day.start_time, end_time: day.end_time, is_day_off: day.is_day_off ?? false },
+            update: { start_time: day.start_time, end_time: day.end_time, is_day_off: day.is_day_off ?? false },
+        })));
+        return this.getAvailability(clinicId, userId);
     }
     async update(clinicId, id, dto) {
         const user = await this.findOne(clinicId, id);

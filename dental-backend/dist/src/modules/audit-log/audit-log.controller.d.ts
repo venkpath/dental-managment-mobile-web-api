@@ -8,19 +8,19 @@ export declare class AuditLogController {
         created_at: Date;
         clinic_id: string;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
+        user_id: string | null;
         entity: string;
         entity_id: string;
         action: string;
-        user_id: string | null;
     }>>;
     findOne(clinicId: string, id: string): Promise<{
         id: string;
         created_at: Date;
         clinic_id: string;
         metadata: import("@prisma/client/runtime/client").JsonValue | null;
+        user_id: string | null;
         entity: string;
         entity_id: string;
         action: string;
-        user_id: string | null;
     }>;
 }

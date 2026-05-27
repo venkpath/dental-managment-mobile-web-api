@@ -1,9 +1,11 @@
 import { PrismaService } from '../../database/prisma.service.js';
+import { S3Service } from '../../common/services/s3.service.js';
 import { CreateBranchDto, UpdateBranchDto, UpdateBranchSchedulingDto } from './dto/index.js';
 import { Branch } from '@prisma/client';
 export declare class BranchService {
     private readonly prisma;
-    constructor(prisma: PrismaService);
+    private readonly s3;
+    constructor(prisma: PrismaService, s3: S3Service);
     create(clinicId: string, dto: CreateBranchDto): Promise<Branch>;
     findAll(clinicId: string): Promise<Branch[]>;
     findOne(clinicId: string, id: string): Promise<Branch>;
@@ -19,5 +21,15 @@ export declare class BranchService {
         buffer_minutes: number;
         advance_booking_days: number;
         working_days: string;
+    }>;
+    uploadPhoto(clinicId: string, branchId: string, file: {
+        buffer: Buffer;
+        mimetype: string;
+        size: number;
+    }): Promise<{
+        photo_url: string;
+    }>;
+    deletePhoto(clinicId: string, branchId: string): Promise<{
+        message: string;
     }>;
 }

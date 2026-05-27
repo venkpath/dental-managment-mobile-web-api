@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service.js';
 import { PasswordService } from '../../common/services/password.service.js';
@@ -420,6 +420,62 @@ export class SuperAdminService {
   }
 
   // ─── Suspend / Reactivate Clinic ───
+
+  // ─── Directory Listing Approvals ───
+
+  async getDirectoryApprovals(status: 'pending' | 'all' = 'pending') {
+    return this.prisma.clinic.findMany({
+      where: status === 'pending'
+        ? { directory_approval_status: 'pending' }
+        : { directory_approval_status: { in: ['pending', 'rejected'] } },
+      select: {
+        id: true, name: true, email: true, phone: true,
+        city: true, state: true, country: true,
+        directory_approval_status: true,
+        directory_rejection_reason: true,
+        directory_requested_at: true,
+        clinic_description: true,
+        specialties: true,
+        created_at: true,
+      },
+      orderBy: { directory_requested_at: 'asc' },
+    });
+  }
+
+  async approveDirectoryListing(id: string) {
+    const clinic = await this.prisma.clinic.findUnique({ where: { id } });
+    if (!clinic) throw new NotFoundException('Clinic not found');
+    if (clinic.directory_approval_status !== 'pending') {
+      throw new BadRequestException('No pending directory approval request for this clinic');
+    }
+    await this.prisma.clinic.update({
+      where: { id },
+      data: {
+        listed_in_directory: true,
+        directory_approval_status: 'approved',
+        directory_approved_at: new Date(),
+        directory_rejection_reason: null,
+      },
+    });
+    return { approved: true, clinic_name: clinic.name };
+  }
+
+  async rejectDirectoryListing(id: string, reason: string) {
+    const clinic = await this.prisma.clinic.findUnique({ where: { id } });
+    if (!clinic) throw new NotFoundException('Clinic not found');
+    if (clinic.directory_approval_status !== 'pending') {
+      throw new BadRequestException('No pending directory approval request for this clinic');
+    }
+    await this.prisma.clinic.update({
+      where: { id },
+      data: {
+        listed_in_directory: false,
+        directory_approval_status: 'rejected',
+        directory_rejection_reason: reason.trim(),
+      },
+    });
+    return { rejected: true, clinic_name: clinic.name };
+  }
 
   async suspendClinic(id: string, reason?: string) {
     const clinic = await this.prisma.clinic.findUnique({ where: { id } });

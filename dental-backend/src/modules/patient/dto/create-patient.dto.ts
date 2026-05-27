@@ -85,4 +85,10 @@ export class CreatePatientDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ example: 'Cosmetic', description: 'Patient category (e.g. General Dentistry, Cosmetic)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  category?: string;
 }

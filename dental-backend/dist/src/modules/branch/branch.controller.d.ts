@@ -24,6 +24,7 @@ export declare class BranchController {
         latitude: number | null;
         longitude: number | null;
         map_url: string | null;
+        photo_url: string | null;
         book_now_url: string | null;
         working_start_time: string | null;
         working_end_time: string | null;
@@ -59,6 +60,7 @@ export declare class BranchController {
         latitude: number | null;
         longitude: number | null;
         map_url: string | null;
+        photo_url: string | null;
         book_now_url: string | null;
         working_start_time: string | null;
         working_end_time: string | null;
@@ -94,6 +96,7 @@ export declare class BranchController {
         latitude: number | null;
         longitude: number | null;
         map_url: string | null;
+        photo_url: string | null;
         book_now_url: string | null;
         working_start_time: string | null;
         working_end_time: string | null;
@@ -129,6 +132,7 @@ export declare class BranchController {
         latitude: number | null;
         longitude: number | null;
         map_url: string | null;
+        photo_url: string | null;
         book_now_url: string | null;
         working_start_time: string | null;
         working_end_time: string | null;
@@ -149,6 +153,12 @@ export declare class BranchController {
         display_token: string | null;
         display_token_enabled: boolean;
         clinic_id: string;
+    }>;
+    uploadPhoto(clinicId: string, id: string, file: Express.Multer.File): Promise<{
+        photo_url: string;
+    }>;
+    deletePhoto(clinicId: string, id: string): Promise<{
+        message: string;
     }>;
     getSchedulingSettings(clinicId: string, id: string): Promise<{
         working_start_time: string;
@@ -175,6 +185,7 @@ export declare class BranchController {
         latitude: number | null;
         longitude: number | null;
         map_url: string | null;
+        photo_url: string | null;
         book_now_url: string | null;
         working_start_time: string | null;
         working_end_time: string | null;

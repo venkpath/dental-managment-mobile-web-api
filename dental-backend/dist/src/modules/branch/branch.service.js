@@ -12,10 +12,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BranchService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
+const s3_service_js_1 = require("../../common/services/s3.service.js");
+const PHOTO_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 let BranchService = class BranchService {
     prisma;
-    constructor(prisma) {
+    s3;
+    constructor(prisma, s3) {
         this.prisma = prisma;
+        this.s3 = s3;
     }
     async create(clinicId, dto) {
         const clinic = await this.prisma.clinic.findUnique({
@@ -93,10 +98,37 @@ let BranchService = class BranchService {
             working_days: branch.working_days ?? '1,2,3,4,5,6',
         };
     }
+    async uploadPhoto(clinicId, branchId, file) {
+        const branch = await this.findOne(clinicId, branchId);
+        if (!file?.buffer || file.size === 0)
+            throw new common_1.BadRequestException('No file uploaded');
+        if (file.size > PHOTO_MAX_BYTES)
+            throw new common_1.BadRequestException('Photo must be 5 MB or smaller');
+        if (!PHOTO_ALLOWED_MIME.includes(file.mimetype))
+            throw new common_1.BadRequestException('Photo must be PNG, JPEG, or WebP');
+        if (branch.photo_url) {
+            await this.s3.delete(branch.photo_url).catch(() => null);
+        }
+        const ext = file.mimetype === 'image/png' ? 'png' : file.mimetype === 'image/webp' ? 'webp' : 'jpg';
+        const key = `clinics/${branch.clinic_id}/branch-photos/${branchId}.${ext}`;
+        await this.s3.upload(key, file.buffer, file.mimetype);
+        await this.prisma.branch.update({ where: { id: branchId }, data: { photo_url: key } });
+        const signed = await this.s3.getSignedUrl(key).catch(() => null);
+        return { photo_url: signed ?? key };
+    }
+    async deletePhoto(clinicId, branchId) {
+        const branch = await this.findOne(clinicId, branchId);
+        if (branch.photo_url) {
+            await this.s3.delete(branch.photo_url).catch(() => null);
+        }
+        await this.prisma.branch.update({ where: { id: branchId }, data: { photo_url: null } });
+        return { message: 'Photo removed' };
+    }
 };
 exports.BranchService = BranchService;
 exports.BranchService = BranchService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
+        s3_service_js_1.S3Service])
 ], BranchService);
 //# sourceMappingURL=branch.service.js.map

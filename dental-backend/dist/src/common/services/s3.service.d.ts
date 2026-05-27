@@ -7,5 +7,6 @@ export declare class S3Service {
     upload(key: string, body: Buffer, contentType: string): Promise<string>;
     getSignedUrl(key: string): Promise<string>;
     objectExists(key: string): Promise<boolean>;
+    delete(key: string): Promise<void>;
     getObject(key: string): Promise<Buffer | null>;
 }

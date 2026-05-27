@@ -64,6 +64,15 @@ let S3Service = S3Service_1 = class S3Service {
             return false;
         }
     }
+    async delete(key) {
+        try {
+            await this.client.send(new client_s3_1.DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+            this.logger.log(`Deleted from S3: ${key}`);
+        }
+        catch (err) {
+            this.logger.warn(`S3 delete failed for "${key}": ${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
     async getObject(key) {
         try {
             const res = await this.client.send(new client_s3_1.GetObjectCommand({ Bucket: this.bucket, Key: key }));

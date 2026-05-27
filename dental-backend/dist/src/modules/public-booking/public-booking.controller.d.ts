@@ -1,4 +1,7 @@
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service.js';
+import { S3Service } from '../../common/services/s3.service.js';
+import { OtpService } from './otp.service.js';
 import { AppointmentReminderProducer } from '../appointment/appointment-reminder.producer.js';
 declare class BookAppointmentDto {
     first_name: string;
@@ -11,12 +14,23 @@ declare class BookAppointmentDto {
     start_time: string;
     end_time: string;
     notes?: string;
+    otp_token?: string;
+}
+declare class SendOtpDto {
+    phone: string;
+}
+declare class VerifyOtpDto {
+    phone: string;
+    otp: string;
 }
 export declare class PublicBookingController {
     private readonly prisma;
     private readonly reminderProducer;
+    private readonly s3;
+    private readonly config;
+    private readonly otpService;
     private readonly logger;
-    constructor(prisma: PrismaService, reminderProducer: AppointmentReminderProducer);
+    constructor(prisma: PrismaService, reminderProducer: AppointmentReminderProducer, s3: S3Service, config: ConfigService, otpService: OtpService);
     getBranchBookingInfo(clinicId: string, branchId: string): Promise<{
         clinic: {
             id: string;
@@ -54,12 +68,31 @@ export declare class PublicBookingController {
     getDentists(clinicId: string, branchId: string): Promise<{
         id: string;
         name: string;
+        role: string;
+        years_experience: number | null;
+        specializations: import("@prisma/client/runtime/client").JsonArray;
+        profile_photo_url: string | null;
+        avg_rating: number | null;
+        review_count: number;
     }[]>;
     getAvailableSlots(clinicId: string, branchId: string, dentistId: string, date: string): Promise<{
         start_time: string;
         end_time: string;
         available: boolean;
     }[]>;
+    sendOtp(clinicId: string, dto: SendOtpDto): Promise<{
+        sent: boolean;
+        channel: string;
+        dev_otp?: undefined;
+    } | {
+        sent: boolean;
+        channel: string;
+        dev_otp: string;
+    }>;
+    verifyOtp(clinicId: string, dto: VerifyOtpDto): Promise<{
+        verified: boolean;
+        token: string;
+    }>;
     bookAppointment(clinicId: string, branchId: string, dto: BookAppointmentDto): Promise<{
         success: boolean;
         message: string;
@@ -72,5 +105,6 @@ export declare class PublicBookingController {
             patient: string;
         };
     }>;
+    private trySendOtpViaWhatsApp;
 }
 export {};

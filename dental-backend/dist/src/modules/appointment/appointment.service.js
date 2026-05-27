@@ -17,6 +17,7 @@ const paginated_result_interface_js_1 = require("../../common/interfaces/paginat
 const appointment_notification_service_js_1 = require("./appointment-notification.service.js");
 const appointment_reminder_producer_js_1 = require("./appointment-reminder.producer.js");
 const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
+const review_trigger_service_js_1 = require("../public-directory/review-trigger.service.js");
 const CLINIC_TIMEZONE = process.env.CLINIC_TIMEZONE || 'Asia/Kolkata';
 function getTodayDate(tz = CLINIC_TIMEZONE) {
     return new Date().toLocaleDateString('en-CA', { timeZone: tz });
@@ -35,12 +36,14 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
     notificationService;
     reminderProducer;
     planLimit;
+    reviewTrigger;
     logger = new common_1.Logger(AppointmentService_1.name);
-    constructor(prisma, notificationService, reminderProducer, planLimit) {
+    constructor(prisma, notificationService, reminderProducer, planLimit, reviewTrigger) {
         this.prisma = prisma;
         this.notificationService = notificationService;
         this.reminderProducer = reminderProducer;
         this.planLimit = planLimit;
+        this.reviewTrigger = reviewTrigger;
     }
     async create(clinicId, dto) {
         if (dto.start_time >= dto.end_time) {
@@ -281,6 +284,11 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
                 data: { status: 'cleaning', cleaning_started_at: new Date() },
             }).catch((e) => this.logger.warn(`Room auto-release failed for room ${existing.room_id}: ${e.message}`));
         }
+        if (dto.status === 'completed' && existing.status !== 'completed') {
+            this.reviewTrigger
+                .triggerPostAppointmentReview(clinicId, id, existing.patient_id, existing.dentist_id)
+                .catch((e) => this.logger.warn(`Review trigger failed for appointment ${id}: ${e.message}`));
+        }
         if (isCancelled) {
             this.notificationService.sendCancellation(clinicId, id).catch((e) => {
                 this.logger.warn(`Cancellation notification failed: ${e.message}`);
@@ -438,6 +446,7 @@ exports.AppointmentService = AppointmentService = AppointmentService_1 = __decor
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         appointment_notification_service_js_1.AppointmentNotificationService,
         appointment_reminder_producer_js_1.AppointmentReminderProducer,
-        plan_limit_service_js_1.PlanLimitService])
+        plan_limit_service_js_1.PlanLimitService,
+        review_trigger_service_js_1.ReviewTriggerService])
 ], AppointmentService);
 //# sourceMappingURL=appointment.service.js.map

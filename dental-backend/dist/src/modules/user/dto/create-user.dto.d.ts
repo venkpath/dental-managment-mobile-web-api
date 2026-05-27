@@ -14,6 +14,12 @@ export declare class CreateUserDto {
     phone?: string;
     role: UserRole;
     is_doctor?: boolean;
+    listed_in_directory?: boolean;
     license_number?: string;
     signature_url?: string;
+    bio?: string;
+    years_experience?: number;
+    specializations?: string[];
+    languages_spoken?: string;
+    consultation_fee?: number;
 }

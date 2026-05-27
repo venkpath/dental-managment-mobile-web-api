@@ -95,6 +95,15 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     async onboardClinic(dto) {
         return this.superAdminService.onboardClinic(dto);
     }
+    async getDirectoryApprovals(status) {
+        return this.superAdminService.getDirectoryApprovals(status ?? 'pending');
+    }
+    async approveDirectoryListing(id) {
+        return this.superAdminService.approveDirectoryListing(id);
+    }
+    async rejectDirectoryListing(id, body) {
+        return this.superAdminService.rejectDirectoryListing(id, body.reason);
+    }
     async suspendClinic(id, body) {
         return this.superAdminService.suspendClinic(id, body.reason);
     }
@@ -237,7 +246,7 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     async getMedia(mediaId, res) {
         const { buffer, mimeType, fileName } = await this.whatsAppService.getMediaUrl(mediaId);
         res.setHeader('Content-Type', mimeType);
-        res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+        res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
         res.setHeader('Cache-Control', 'private, max-age=3600');
         res.send(buffer);
     }
@@ -373,6 +382,37 @@ __decorate([
     __metadata("design:paramtypes", [index_js_1.OnboardClinicDto]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "onboardClinic", null);
+__decorate([
+    (0, common_1.Get)('super-admins/clinics/directory-approvals'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List clinics with pending or rejected directory approval requests' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Query)('status')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getDirectoryApprovals", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/clinics/:id/directory-approve'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Approve a clinic directory listing request' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "approveDirectoryListing", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/clinics/:id/directory-reject'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Reject a clinic directory listing request' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "rejectDirectoryListing", null);
 __decorate([
     (0, common_1.Patch)('super-admins/clinics/:id/suspend'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),

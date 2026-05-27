@@ -53,6 +53,7 @@ import { DataExportModule } from './modules/data-export/data-export.module.js';
 import { PaymentModule } from './modules/payment/payment.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
 import { PublicBookingModule } from './modules/public-booking/public-booking.module.js';
+import { PublicDirectoryModule } from './modules/public-directory/public-directory.module.js';
 import { ExpenseModule } from './modules/expense/expense.module.js';
 import { MembershipModule } from './modules/membership/membership.module.js';
 import { DemoRequestModule } from './modules/demo-request/demo-request.module.js';
@@ -136,6 +137,7 @@ import razorpayConfig from './config/razorpay.config.js';
     PaymentModule,
     AiModule,
     PublicBookingModule,
+    PublicDirectoryModule,
     ExpenseModule,
     MembershipModule,
     DemoRequestModule,

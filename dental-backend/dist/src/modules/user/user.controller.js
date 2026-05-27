@@ -16,12 +16,81 @@ exports.UserController = void 0;
 const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
+const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
+const swagger_2 = require("@nestjs/swagger");
 const platform_express_1 = require("@nestjs/platform-express");
 const user_service_js_1 = require("./user.service.js");
 const index_js_1 = require("./dto/index.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
 const current_user_decorator_js_1 = require("../../common/decorators/current-user.decorator.js");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
+function IsAfter(siblingProp, options) {
+    return function (object, propertyName) {
+        (0, class_validator_1.registerDecorator)({
+            name: 'isAfter',
+            target: object.constructor,
+            propertyName,
+            options: { message: `${propertyName} must be after ${siblingProp}`, ...options },
+            constraints: [siblingProp],
+            validator: {
+                validate(value, args) {
+                    if (!args)
+                        return true;
+                    const sibling = args.object[args.constraints[0]];
+                    if (typeof value !== 'string' || typeof sibling !== 'string')
+                        return true;
+                    return value > sibling;
+                },
+            },
+        });
+    };
+}
+class AvailabilityDayDto {
+    day_of_week;
+    start_time;
+    end_time;
+    is_day_off;
+}
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: 1, description: '1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat 7=Sun' }),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(7),
+    __metadata("design:type", Number)
+], AvailabilityDayDto.prototype, "day_of_week", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: '09:00' }),
+    (0, class_validator_1.ValidateIf)((o) => !o.is_day_off),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^\d{2}:\d{2}$/, { message: 'start_time must be HH:mm' }),
+    __metadata("design:type", String)
+], AvailabilityDayDto.prototype, "start_time", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: '18:00' }),
+    (0, class_validator_1.ValidateIf)((o) => !o.is_day_off),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^\d{2}:\d{2}$/, { message: 'end_time must be HH:mm' }),
+    IsAfter('start_time'),
+    __metadata("design:type", String)
+], AvailabilityDayDto.prototype, "end_time", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ example: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], AvailabilityDayDto.prototype, "is_day_off", void 0);
+class UpsertAvailabilityDto {
+    schedule;
+}
+__decorate([
+    (0, swagger_2.ApiProperty)({ type: [AvailabilityDayDto] }),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => AvailabilityDayDto),
+    __metadata("design:type", Array)
+], UpsertAvailabilityDto.prototype, "schedule", void 0);
 let UserController = class UserController {
     userService;
     constructor(userService) {
@@ -53,6 +122,14 @@ let UserController = class UserController {
     }
     async deleteProfilePhoto(clinicId, id) {
         return this.userService.deleteProfilePhoto(clinicId, id);
+    }
+    async getAvailability(clinicId, id) {
+        return this.userService.getAvailability(clinicId, id);
+    }
+    async upsertAvailability(clinicId, id, dto) {
+        if (!dto.schedule?.length)
+            throw new common_1.BadRequestException('schedule must be a non-empty array');
+        return this.userService.upsertAvailability(clinicId, id, dto.schedule);
     }
 };
 exports.UserController = UserController;
@@ -159,6 +236,29 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "deleteProfilePhoto", null);
+__decorate([
+    (0, common_1.Get)(':id/availability'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get weekly availability schedule for a doctor' }),
+    (0, swagger_1.ApiOkResponse)({ description: '7-day schedule (days without a row use branch fallback)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "getAvailability", null);
+__decorate([
+    (0, common_1.Put)(':id/availability'),
+    (0, swagger_1.ApiOperation)({ summary: 'Upsert weekly availability schedule for a doctor' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Schedule saved' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, UpsertAvailabilityDto]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "upsertAvailability", null);
 exports.UserController = UserController = __decorate([
     (0, swagger_1.ApiTags)('Users'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' }),

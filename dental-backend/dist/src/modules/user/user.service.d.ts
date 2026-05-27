@@ -35,5 +35,28 @@ export declare class UserService {
     remove(clinicId: string, id: string): Promise<{
         message: string;
     }>;
+    getAvailability(clinicId: string, userId: string): Promise<{
+        id: string;
+        clinic_id: string;
+        user_id: string;
+        day_of_week: number;
+        start_time: string;
+        end_time: string;
+        is_day_off: boolean;
+    }[]>;
+    upsertAvailability(clinicId: string, userId: string, schedule: {
+        day_of_week: number;
+        start_time: string;
+        end_time: string;
+        is_day_off?: boolean;
+    }[]): Promise<{
+        id: string;
+        clinic_id: string;
+        user_id: string;
+        day_of_week: number;
+        start_time: string;
+        end_time: string;
+        is_day_off: boolean;
+    }[]>;
     update(clinicId: string, id: string, dto: UpdateUserDto): Promise<Omit<User, 'password_hash'>>;
 }

@@ -30,8 +30,10 @@ class RegisterClinicDto {
     plan_key;
     billing_cycle;
     phone_verification_token;
+    listed_in_directory;
+    specialties;
     static _OPENAPI_METADATA_FACTORY() {
-        return { clinic_name: { required: true, type: () => String, maxLength: 255 }, clinic_email: { required: true, type: () => String, maxLength: 255, format: "email" }, clinic_phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, admin_name: { required: true, type: () => String, maxLength: 255 }, admin_email: { required: true, type: () => String, maxLength: 255, format: "email" }, admin_phone: { required: true, type: () => String, pattern: "/^\\+[1-9]\\d{6,14}$/" }, admin_password: { required: true, type: () => String, minLength: 8 }, is_doctor: { required: false, type: () => Boolean }, license_number: { required: false, type: () => String, maxLength: 100 }, plan_key: { required: false, type: () => String, maxLength: 50 }, billing_cycle: { required: false, type: () => Object, enum: ['monthly', 'yearly'] }, phone_verification_token: { required: true, type: () => String } };
+        return { clinic_name: { required: true, type: () => String, maxLength: 255 }, clinic_email: { required: true, type: () => String, maxLength: 255, format: "email" }, clinic_phone: { required: false, type: () => String, maxLength: 50 }, address: { required: false, type: () => String, maxLength: 500 }, city: { required: false, type: () => String, maxLength: 100 }, state: { required: false, type: () => String, maxLength: 100 }, country: { required: false, type: () => String, maxLength: 100 }, admin_name: { required: true, type: () => String, maxLength: 255 }, admin_email: { required: true, type: () => String, maxLength: 255, format: "email" }, admin_phone: { required: true, type: () => String, pattern: "/^\\+[1-9]\\d{6,14}$/" }, admin_password: { required: true, type: () => String, minLength: 8 }, is_doctor: { required: false, type: () => Boolean }, license_number: { required: false, type: () => String, maxLength: 100 }, plan_key: { required: false, type: () => String, maxLength: 50 }, billing_cycle: { required: false, type: () => Object, enum: ['monthly', 'yearly'] }, phone_verification_token: { required: true, type: () => String }, listed_in_directory: { required: false, type: () => Boolean }, specialties: { required: false, type: () => String, maxLength: 500 } };
     }
 }
 exports.RegisterClinicDto = RegisterClinicDto;
@@ -137,4 +139,17 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], RegisterClinicDto.prototype, "phone_verification_token", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Opt in to appear in the public "Find a Dentist" directory', default: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], RegisterClinicDto.prototype, "listed_in_directory", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Comma-separated list of specialties (e.g. "General Dentistry,Orthodontics")', maxLength: 500 }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(500),
+    __metadata("design:type", String)
+], RegisterClinicDto.prototype, "specialties", void 0);
 //# sourceMappingURL=register.dto.js.map

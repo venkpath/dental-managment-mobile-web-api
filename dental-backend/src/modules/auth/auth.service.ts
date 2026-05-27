@@ -255,6 +255,12 @@ export class AuthService {
           city: dto.city,
           state: dto.state,
           country: dto.country,
+          // Listing goes through approval; set pending if requested, never live immediately
+          listed_in_directory: false,
+          ...(dto.listed_in_directory
+            ? { directory_approval_status: 'pending', directory_requested_at: new Date() }
+            : {}),
+          ...(dto.specialties ? { specialties: dto.specialties } : {}),
           trial_ends_at: trialEndsAt,
           subscription_status: subscriptionStatus,
           billing_cycle: billingCycle,

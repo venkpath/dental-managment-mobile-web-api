@@ -4,6 +4,7 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -72,6 +73,16 @@ export class S3Service {
       }
       this.logger.warn(`S3 headObject failed for "${key}": ${err instanceof Error ? err.message : String(err)}`);
       return false;
+    }
+  }
+
+  /** Delete an object from S3. Silently succeeds if the key does not exist. */
+  async delete(key: string): Promise<void> {
+    try {
+      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+      this.logger.log(`Deleted from S3: ${key}`);
+    } catch (err) {
+      this.logger.warn(`S3 delete failed for "${key}": ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

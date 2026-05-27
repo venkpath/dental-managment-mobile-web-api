@@ -56,15 +56,15 @@ let PatientController = class PatientController {
         const rows = this.patientService.parseFile(file.buffer, file.mimetype);
         if (rows.length === 0)
             throw new common_1.BadRequestException('File contains no patient rows');
-        if (rows.length > 500)
-            throw new common_1.BadRequestException('Maximum 500 patients per import');
+        if (rows.length > 1000)
+            throw new common_1.BadRequestException('Maximum 1000 patients per import');
         return this.patientService.bulkImport(clinicId, branchId, rows);
     }
     async importBulk(clinicId, dto) {
         if (dto.patients.length === 0)
             throw new common_1.BadRequestException('No patients to import');
-        if (dto.patients.length > 500)
-            throw new common_1.BadRequestException('Maximum 500 patients per import');
+        if (dto.patients.length > 1000)
+            throw new common_1.BadRequestException('Maximum 1000 patients per import');
         return this.patientService.bulkImport(clinicId, dto.branch_id, dto.patients);
     }
     async importFromImage(clinicId, file, branchId) {

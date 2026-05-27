@@ -48,6 +48,11 @@ export class ImportPatientRow {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ example: 'Cosmetic' })
+  @IsOptional()
+  @IsString()
+  category?: string;
 }
 
 export class BulkImportDto {

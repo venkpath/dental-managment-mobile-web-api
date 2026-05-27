@@ -87,4 +87,15 @@ export class RegisterClinicDto {
   @ApiProperty({ description: 'Short-lived JWT issued after successful WhatsApp OTP verification. Must match admin_phone.' })
   @IsString()
   phone_verification_token!: string;
+
+  @ApiPropertyOptional({ description: 'Opt in to appear in the public "Find a Dentist" directory', default: false })
+  @IsOptional()
+  @IsBoolean()
+  listed_in_directory?: boolean;
+
+  @ApiPropertyOptional({ description: 'Comma-separated list of specialties (e.g. "General Dentistry,Orthodontics")', maxLength: 500 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  specialties?: string;
 }

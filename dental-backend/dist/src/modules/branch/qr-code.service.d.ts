@@ -67,6 +67,7 @@ export declare class QrCodeService {
         latitude: number | null;
         longitude: number | null;
         map_url: string | null;
+        photo_url: string | null;
         book_now_url: string | null;
         working_start_time: string | null;
         working_end_time: string | null;

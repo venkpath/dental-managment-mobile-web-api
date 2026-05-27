@@ -297,7 +297,10 @@ let PatientService = PatientService_1 = class PatientService {
         const dob = get(['date_of_birth', 'dob', 'birth_date', 'birthdate', 'date of birth']);
         const bloodGroup = get(['blood_group', 'blood group', 'bloodgroup']);
         const allergies = get(['allergies', 'allergy']);
-        const notes = get(['notes', 'remarks', 'comment', 'comments']);
+        const category = get(['category', 'dept', 'department', 'service', 'type', 'service type', 'patient type']);
+        const doctorName = get(['doctor', 'doctor_name', 'doctor name', 'dentist', 'dentist_name', 'dentist name', 'assigned doctor', 'physician']);
+        const rawNotes = get(['notes', 'remarks', 'comment', 'comments']);
+        const notes = [rawNotes, doctorName ? `Doctor: ${doctorName}` : undefined].filter(Boolean).join(' | ') || undefined;
         return {
             first_name: fName,
             last_name: lName || '-',
@@ -309,6 +312,7 @@ let PatientService = PatientService_1 = class PatientService {
             blood_group: bloodGroup || undefined,
             allergies: allergies || undefined,
             notes: notes || undefined,
+            category: category || undefined,
         };
     }
     normalizeGender(g) {
@@ -368,6 +372,7 @@ let PatientService = PatientService_1 = class PatientService {
                         blood_group: row.blood_group || undefined,
                         allergies: row.allergies || undefined,
                         notes: row.notes || undefined,
+                        category: row.category || undefined,
                     },
                 });
                 results.created++;
