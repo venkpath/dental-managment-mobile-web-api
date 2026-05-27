@@ -36,6 +36,7 @@ async function bootstrap() {
             },
         },
         crossOriginEmbedderPolicy: false,
+        crossOriginResourcePolicy: { policy: 'cross-origin' },
     }));
     app.use((0, cookie_parser_1.default)());
     app.enableCors({

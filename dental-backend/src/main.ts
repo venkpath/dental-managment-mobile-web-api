@@ -38,7 +38,8 @@ async function bootstrap() {
           frameAncestors: ["'none'"],
         },
       },
-      crossOriginEmbedderPolicy: false, // Allow cross-origin resources (e.g. images)
+      crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
 
