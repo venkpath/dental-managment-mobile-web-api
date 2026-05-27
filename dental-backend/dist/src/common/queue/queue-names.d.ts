@@ -5,4 +5,5 @@ export declare const QUEUE_NAMES: {
     readonly COMMUNICATION_SMS: "communication_sms";
     readonly COMMUNICATION_WHATSAPP: "communication_whatsapp";
     readonly APPOINTMENT_REMINDER: "appointment_reminder";
+    readonly PATIENT_IMPORT: "patient_import";
 };

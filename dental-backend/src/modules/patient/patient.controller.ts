@@ -12,6 +12,8 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -26,6 +28,8 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { PatientService } from './patient.service.js';
+import { S3Service } from '../../common/services/s3.service.js';
+import { PatientImportProducer } from './patient-import.producer.js';
 import { CreatePatientDto, UpdatePatientDto, QueryPatientDto, BulkImportDto } from './dto/index.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
@@ -37,7 +41,11 @@ import { RequireFeature } from '../../common/decorators/require-feature.decorato
 @UseGuards(RequireClinicGuard)
 @Controller('patients')
 export class PatientController {
-  constructor(private readonly patientService: PatientService) {}
+  constructor(
+    private readonly patientService: PatientService,
+    private readonly s3Service: S3Service,
+    private readonly importProducer: PatientImportProducer,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new patient' })
@@ -116,11 +124,12 @@ export class PatientController {
     return this.patientService.deleteProfilePhoto(clinicId, id);
   }
 
-  // ─── Bulk Import (CSV / Excel file) ────────────────────────────
+  // ─── Bulk Import (CSV / Excel file — async via job queue) ──────
 
   @Post('import/file')
+  @HttpCode(HttpStatus.ACCEPTED)
   @RequireFeature('PATIENT_IMPORT')
-  @ApiOperation({ summary: 'Import patients from CSV or Excel file' })
+  @ApiOperation({ summary: 'Upload CSV/Excel and queue async import job. Returns jobId immediately.' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -131,7 +140,7 @@ export class PatientController {
       },
     },
   })
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
   async importFromFile(
     @CurrentClinic() clinicId: string,
     @UploadedFile() file: Express.Multer.File,
@@ -140,11 +149,25 @@ export class PatientController {
     if (!file) throw new BadRequestException('No file uploaded');
     if (!branchId) throw new BadRequestException('branch_id is required');
 
-    const rows = this.patientService.parseFile(file.buffer, file.mimetype);
-    if (rows.length === 0) throw new BadRequestException('File contains no patient rows');
-    if (rows.length > 1000) throw new BadRequestException('Maximum 1000 patients per import');
+    const fileKey = `patient-imports/${clinicId}/${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`;
+    await this.s3Service.upload(fileKey, file.buffer, file.mimetype);
 
-    return this.patientService.bulkImport(clinicId, branchId, rows);
+    const job = await this.patientService.createImportJob(clinicId, branchId, fileKey, file.mimetype);
+    await this.importProducer.enqueue({ jobId: job.id, clinicId, branchId, fileKey, fileMime: file.mimetype });
+
+    return { jobId: job.id };
+  }
+
+  // ─── Import Job status ──────────────────────────────────────────
+
+  @Get('import/jobs/:jobId')
+  @RequireFeature('PATIENT_IMPORT')
+  @ApiOperation({ summary: 'Poll the status of a patient import job' })
+  async getImportJob(
+    @CurrentClinic() clinicId: string,
+    @Param('jobId', ParseUUIDPipe) jobId: string,
+  ) {
+    return this.patientService.getImportJob(clinicId, jobId);
   }
 
   // ─── Bulk Import (JSON array — used after AI extraction preview) ──

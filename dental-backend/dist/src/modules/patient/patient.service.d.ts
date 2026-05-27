@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 import { CreatePatientDto, UpdatePatientDto, QueryPatientDto, ImportPatientRow } from './dto/index.js';
-import { Patient } from '@prisma/client';
+import { Patient, Prisma } from '@prisma/client';
 import { PaginatedResult } from '../../common/interfaces/paginated-result.interface.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 export declare class PatientService {
@@ -54,5 +54,56 @@ export declare class PatientService {
             notes: string | undefined;
         }[];
         total: number;
+    }>;
+    createImportJob(clinicId: string, branchId: string, fileKey: string, fileMime: string): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        branch_id: string;
+        total: number;
+        skipped: number;
+        errors: Prisma.JsonValue;
+        created: number;
+        file_key: string;
+        file_mime: string;
+    }>;
+    updateImportJob(jobId: string, data: {
+        status?: string;
+        total?: number;
+        created?: number;
+        skipped?: number;
+        errors?: Array<{
+            row: number;
+            reason: string;
+        }>;
+    }): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        branch_id: string;
+        total: number;
+        skipped: number;
+        errors: Prisma.JsonValue;
+        created: number;
+        file_key: string;
+        file_mime: string;
+    }>;
+    getImportJob(clinicId: string, jobId: string): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        branch_id: string;
+        total: number;
+        skipped: number;
+        errors: Prisma.JsonValue;
+        created: number;
+        file_key: string;
+        file_mime: string;
     }>;
 }

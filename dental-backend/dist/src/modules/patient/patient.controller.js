@@ -18,14 +18,20 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const platform_express_1 = require("@nestjs/platform-express");
 const patient_service_js_1 = require("./patient.service.js");
+const s3_service_js_1 = require("../../common/services/s3.service.js");
+const patient_import_producer_js_1 = require("./patient-import.producer.js");
 const index_js_1 = require("./dto/index.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
 const require_feature_decorator_js_1 = require("../../common/decorators/require-feature.decorator.js");
 let PatientController = class PatientController {
     patientService;
-    constructor(patientService) {
+    s3Service;
+    importProducer;
+    constructor(patientService, s3Service, importProducer) {
         this.patientService = patientService;
+        this.s3Service = s3Service;
+        this.importProducer = importProducer;
     }
     async create(clinicId, dto) {
         return this.patientService.create(clinicId, dto);
@@ -53,12 +59,14 @@ let PatientController = class PatientController {
             throw new common_1.BadRequestException('No file uploaded');
         if (!branchId)
             throw new common_1.BadRequestException('branch_id is required');
-        const rows = this.patientService.parseFile(file.buffer, file.mimetype);
-        if (rows.length === 0)
-            throw new common_1.BadRequestException('File contains no patient rows');
-        if (rows.length > 1000)
-            throw new common_1.BadRequestException('Maximum 1000 patients per import');
-        return this.patientService.bulkImport(clinicId, branchId, rows);
+        const fileKey = `patient-imports/${clinicId}/${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`;
+        await this.s3Service.upload(fileKey, file.buffer, file.mimetype);
+        const job = await this.patientService.createImportJob(clinicId, branchId, fileKey, file.mimetype);
+        await this.importProducer.enqueue({ jobId: job.id, clinicId, branchId, fileKey, fileMime: file.mimetype });
+        return { jobId: job.id };
+    }
+    async getImportJob(clinicId, jobId) {
+        return this.patientService.getImportJob(clinicId, jobId);
     }
     async importBulk(clinicId, dto) {
         if (dto.patients.length === 0)
@@ -166,8 +174,9 @@ __decorate([
 ], PatientController.prototype, "deleteProfilePhoto", null);
 __decorate([
     (0, common_1.Post)('import/file'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.ACCEPTED),
     (0, require_feature_decorator_js_1.RequireFeature)('PATIENT_IMPORT'),
-    (0, swagger_1.ApiOperation)({ summary: 'Import patients from CSV or Excel file' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Upload CSV/Excel and queue async import job. Returns jobId immediately.' }),
     (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiBody)({
         schema: {
@@ -178,8 +187,8 @@ __decorate([
             },
         },
     }),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', { limits: { fileSize: 5 * 1024 * 1024 } })),
-    openapi.ApiResponse({ status: 201 }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', { limits: { fileSize: 10 * 1024 * 1024 } })),
+    openapi.ApiResponse({ status: common_1.HttpStatus.ACCEPTED }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
     __param(1, (0, common_1.UploadedFile)()),
     __param(2, (0, common_1.Body)('branch_id')),
@@ -187,6 +196,17 @@ __decorate([
     __metadata("design:paramtypes", [String, Object, String]),
     __metadata("design:returntype", Promise)
 ], PatientController.prototype, "importFromFile", null);
+__decorate([
+    (0, common_1.Get)('import/jobs/:jobId'),
+    (0, require_feature_decorator_js_1.RequireFeature)('PATIENT_IMPORT'),
+    (0, swagger_1.ApiOperation)({ summary: 'Poll the status of a patient import job' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('jobId', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], PatientController.prototype, "getImportJob", null);
 __decorate([
     (0, common_1.Post)('import/bulk'),
     (0, require_feature_decorator_js_1.RequireFeature)('PATIENT_IMPORT'),
@@ -227,6 +247,8 @@ exports.PatientController = PatientController = __decorate([
     (0, swagger_1.ApiBadRequestResponse)({ description: 'Missing or invalid x-clinic-id header' }),
     (0, common_1.UseGuards)(require_clinic_guard_js_1.RequireClinicGuard),
     (0, common_1.Controller)('patients'),
-    __metadata("design:paramtypes", [patient_service_js_1.PatientService])
+    __metadata("design:paramtypes", [patient_service_js_1.PatientService,
+        s3_service_js_1.S3Service,
+        patient_import_producer_js_1.PatientImportProducer])
 ], PatientController);
 //# sourceMappingURL=patient.controller.js.map

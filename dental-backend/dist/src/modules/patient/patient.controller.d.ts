@@ -1,8 +1,12 @@
 import { PatientService } from './patient.service.js';
+import { S3Service } from '../../common/services/s3.service.js';
+import { PatientImportProducer } from './patient-import.producer.js';
 import { CreatePatientDto, UpdatePatientDto, QueryPatientDto, BulkImportDto } from './dto/index.js';
 export declare class PatientController {
     private readonly patientService;
-    constructor(patientService: PatientService);
+    private readonly s3Service;
+    private readonly importProducer;
+    constructor(patientService: PatientService, s3Service: S3Service, importProducer: PatientImportProducer);
     create(clinicId: string, dto: CreatePatientDto): Promise<{
         id: string;
         email: string | null;
@@ -115,12 +119,21 @@ export declare class PatientController {
         message: string;
     }>;
     importFromFile(clinicId: string, file: Express.Multer.File, branchId: string): Promise<{
-        created: number;
+        jobId: string;
+    }>;
+    getImportJob(clinicId: string, jobId: string): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        branch_id: string;
+        total: number;
         skipped: number;
-        errors: {
-            row: number;
-            reason: string;
-        }[];
+        errors: import("@prisma/client/runtime/client").JsonValue;
+        created: number;
+        file_key: string;
+        file_mime: string;
     }>;
     importBulk(clinicId: string, dto: BulkImportDto): Promise<{
         created: number;

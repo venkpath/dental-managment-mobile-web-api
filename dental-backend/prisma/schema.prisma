@@ -1565,6 +1565,26 @@ model PatientInsightScore {
   @@map("patient_insight_scores")
 }
 
+// ─── Patient Import Jobs ───
+
+model PatientImportJob {
+  id         String   @id @default(uuid()) @db.Uuid
+  clinic_id  String   @db.Uuid
+  branch_id  String   @db.Uuid
+  status     String   @default("pending") @db.VarChar(20)
+  total      Int      @default(0)
+  created    Int      @default(0)
+  skipped    Int      @default(0)
+  errors     Json     @default("[]")
+  file_key   String   @db.VarChar(500)
+  file_mime  String   @db.VarChar(100)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([clinic_id])
+  @@map("patient_import_jobs")
+}
+
 // ─── Expense Tracking ───
 
 model ExpenseCategory {

@@ -334,8 +334,12 @@ let PatientService = PatientService_1 = class PatientService {
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
             try {
+                if (!row.first_name && row.last_name) {
+                    row.first_name = row.last_name;
+                    row.last_name = '-';
+                }
                 if (!row.first_name || !row.phone) {
-                    results.errors.push({ row: i + 1, reason: 'Missing first_name or phone' });
+                    results.errors.push({ row: i + 1, reason: 'Missing name or phone' });
                     results.skipped++;
                     continue;
                 }
@@ -463,6 +467,23 @@ Important:
             this.logger.error('AI image extraction failed', error.stack);
             throw new common_1.BadRequestException('Failed to extract patients from image. Please try a clearer image.');
         }
+    }
+    async createImportJob(clinicId, branchId, fileKey, fileMime) {
+        return this.prisma.patientImportJob.create({
+            data: { clinic_id: clinicId, branch_id: branchId, file_key: fileKey, file_mime: fileMime },
+        });
+    }
+    async updateImportJob(jobId, data) {
+        return this.prisma.patientImportJob.update({
+            where: { id: jobId },
+            data: data.errors !== undefined ? { ...data, errors: data.errors } : data,
+        });
+    }
+    async getImportJob(clinicId, jobId) {
+        const job = await this.prisma.patientImportJob.findUnique({ where: { id: jobId } });
+        if (!job || job.clinic_id !== clinicId)
+            throw new common_1.NotFoundException('Import job not found');
+        return job;
     }
 };
 exports.PatientService = PatientService;

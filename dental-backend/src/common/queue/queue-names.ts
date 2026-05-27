@@ -5,4 +5,5 @@ export const QUEUE_NAMES = {
   COMMUNICATION_SMS: 'communication_sms',
   COMMUNICATION_WHATSAPP: 'communication_whatsapp',
   APPOINTMENT_REMINDER: 'appointment_reminder',
+  PATIENT_IMPORT: 'patient_import',
 } as const;

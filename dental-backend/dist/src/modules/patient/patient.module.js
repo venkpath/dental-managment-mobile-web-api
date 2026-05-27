@@ -9,19 +9,26 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PatientModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
+const bullmq_1 = require("@nestjs/bullmq");
 const patient_controller_js_1 = require("./patient.controller.js");
 const patient_self_register_controller_js_1 = require("./patient-self-register.controller.js");
 const patient_service_js_1 = require("./patient.service.js");
+const patient_import_producer_js_1 = require("./patient-import.producer.js");
+const patient_import_processor_js_1 = require("./patient-import.processor.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
 const qr_code_service_js_1 = require("../branch/qr-code.service.js");
+const queue_names_js_1 = require("../../common/queue/queue-names.js");
 let PatientModule = class PatientModule {
 };
 exports.PatientModule = PatientModule;
 exports.PatientModule = PatientModule = __decorate([
     (0, common_1.Module)({
-        imports: [config_1.ConfigModule],
+        imports: [
+            config_1.ConfigModule,
+            bullmq_1.BullModule.registerQueue({ name: queue_names_js_1.QUEUE_NAMES.PATIENT_IMPORT }),
+        ],
         controllers: [patient_controller_js_1.PatientController, patient_self_register_controller_js_1.PatientSelfRegisterController],
-        providers: [patient_service_js_1.PatientService, s3_service_js_1.S3Service, qr_code_service_js_1.QrCodeService],
+        providers: [patient_service_js_1.PatientService, patient_import_producer_js_1.PatientImportProducer, patient_import_processor_js_1.PatientImportProcessor, s3_service_js_1.S3Service, qr_code_service_js_1.QrCodeService],
         exports: [patient_service_js_1.PatientService],
     })
 ], PatientModule);
