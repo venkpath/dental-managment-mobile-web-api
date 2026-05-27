@@ -160,6 +160,13 @@ export class PatientController {
 
   // ─── Import Job status ──────────────────────────────────────────
 
+  @Get('import/jobs')
+  @RequireFeature('PATIENT_IMPORT')
+  @ApiOperation({ summary: 'Get last 10 import jobs for this clinic' })
+  async getRecentImportJobs(@CurrentClinic() clinicId: string) {
+    return this.patientService.getRecentImportJobs(clinicId);
+  }
+
   @Get('import/jobs/:jobId')
   @RequireFeature('PATIENT_IMPORT')
   @ApiOperation({ summary: 'Poll the status of a patient import job' })

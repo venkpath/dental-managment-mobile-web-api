@@ -517,4 +517,13 @@ Important:
     if (!job || job.clinic_id !== clinicId) throw new NotFoundException('Import job not found');
     return job;
   }
+
+  async getRecentImportJobs(clinicId: string) {
+    return this.prisma.patientImportJob.findMany({
+      where: { clinic_id: clinicId },
+      orderBy: { created_at: 'desc' },
+      take: 10,
+      select: { id: true, status: true, total: true, created: true, skipped: true, errors: true, created_at: true },
+    });
+  }
 }

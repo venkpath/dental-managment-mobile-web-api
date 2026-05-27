@@ -106,4 +106,13 @@ export declare class PatientService {
         file_key: string;
         file_mime: string;
     }>;
+    getRecentImportJobs(clinicId: string): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        total: number;
+        skipped: number;
+        errors: Prisma.JsonValue;
+        created: number;
+    }[]>;
 }

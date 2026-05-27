@@ -65,6 +65,9 @@ let PatientController = class PatientController {
         await this.importProducer.enqueue({ jobId: job.id, clinicId, branchId, fileKey, fileMime: file.mimetype });
         return { jobId: job.id };
     }
+    async getRecentImportJobs(clinicId) {
+        return this.patientService.getRecentImportJobs(clinicId);
+    }
     async getImportJob(clinicId, jobId) {
         return this.patientService.getImportJob(clinicId, jobId);
     }
@@ -196,6 +199,16 @@ __decorate([
     __metadata("design:paramtypes", [String, Object, String]),
     __metadata("design:returntype", Promise)
 ], PatientController.prototype, "importFromFile", null);
+__decorate([
+    (0, common_1.Get)('import/jobs'),
+    (0, require_feature_decorator_js_1.RequireFeature)('PATIENT_IMPORT'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get last 10 import jobs for this clinic' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], PatientController.prototype, "getRecentImportJobs", null);
 __decorate([
     (0, common_1.Get)('import/jobs/:jobId'),
     (0, require_feature_decorator_js_1.RequireFeature)('PATIENT_IMPORT'),

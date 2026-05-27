@@ -121,6 +121,15 @@ export declare class PatientController {
     importFromFile(clinicId: string, file: Express.Multer.File, branchId: string): Promise<{
         jobId: string;
     }>;
+    getRecentImportJobs(clinicId: string): Promise<{
+        id: string;
+        status: string;
+        created_at: Date;
+        total: number;
+        skipped: number;
+        errors: import("@prisma/client/runtime/client").JsonValue;
+        created: number;
+    }[]>;
     getImportJob(clinicId: string, jobId: string): Promise<{
         id: string;
         status: string;

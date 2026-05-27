@@ -485,6 +485,14 @@ Important:
             throw new common_1.NotFoundException('Import job not found');
         return job;
     }
+    async getRecentImportJobs(clinicId) {
+        return this.prisma.patientImportJob.findMany({
+            where: { clinic_id: clinicId },
+            orderBy: { created_at: 'desc' },
+            take: 10,
+            select: { id: true, status: true, total: true, created: true, skipped: true, errors: true, created_at: true },
+        });
+    }
 };
 exports.PatientService = PatientService;
 exports.PatientService = PatientService = PatientService_1 = __decorate([
