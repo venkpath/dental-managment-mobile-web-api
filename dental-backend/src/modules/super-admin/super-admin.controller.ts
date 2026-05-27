@@ -102,23 +102,6 @@ export class SuperAdminController {
     });
   }
 
-  @Get('super-admins/clinics/:id')
-  @SuperAdmin()
-  @ApiOperation({ summary: 'Get detailed clinic info (users, branches, stats)' })
-  async getClinicDetail(@Param('id', ParseUUIDPipe) id: string) {
-    return this.superAdminService.getClinicDetail(id);
-  }
-
-  @Patch('super-admins/clinics/:id/subscription')
-  @SuperAdmin()
-  @ApiOperation({ summary: 'Update clinic subscription (plan, status, trial)' })
-  async updateSubscription(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateSubscriptionDto,
-  ) {
-    return this.clinicService.updateSubscription(id, dto);
-  }
-
   // ─── Onboard Clinic ───
 
   @Post('super-admins/clinics/onboard')
@@ -136,6 +119,23 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'List clinics with pending or rejected directory approval requests' })
   async getDirectoryApprovals(@Query('status') status?: 'pending' | 'all') {
     return this.superAdminService.getDirectoryApprovals(status ?? 'pending');
+  }
+
+  @Get('super-admins/clinics/:id')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Get detailed clinic info (users, branches, stats)' })
+  async getClinicDetail(@Param('id', ParseUUIDPipe) id: string) {
+    return this.superAdminService.getClinicDetail(id);
+  }
+
+  @Patch('super-admins/clinics/:id/subscription')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Update clinic subscription (plan, status, trial)' })
+  async updateSubscription(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateSubscriptionDto,
+  ) {
+    return this.clinicService.updateSubscription(id, dto);
   }
 
   @Patch('super-admins/clinics/:id/directory-approve')

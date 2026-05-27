@@ -86,17 +86,17 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
             limit: limit ? parseInt(limit, 10) : 20,
         });
     }
-    async getClinicDetail(id) {
-        return this.superAdminService.getClinicDetail(id);
-    }
-    async updateSubscription(id, dto) {
-        return this.clinicService.updateSubscription(id, dto);
-    }
     async onboardClinic(dto) {
         return this.superAdminService.onboardClinic(dto);
     }
     async getDirectoryApprovals(status) {
         return this.superAdminService.getDirectoryApprovals(status ?? 'pending');
+    }
+    async getClinicDetail(id) {
+        return this.superAdminService.getClinicDetail(id);
+    }
+    async updateSubscription(id, dto) {
+        return this.clinicService.updateSubscription(id, dto);
     }
     async approveDirectoryListing(id) {
         return this.superAdminService.approveDirectoryListing(id);
@@ -351,27 +351,6 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "listClinics", null);
 __decorate([
-    (0, common_1.Get)('super-admins/clinics/:id'),
-    (0, super_admin_decorator_js_1.SuperAdmin)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Get detailed clinic info (users, branches, stats)' }),
-    openapi.ApiResponse({ status: 200, type: Object }),
-    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], SuperAdminController.prototype, "getClinicDetail", null);
-__decorate([
-    (0, common_1.Patch)('super-admins/clinics/:id/subscription'),
-    (0, super_admin_decorator_js_1.SuperAdmin)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Update clinic subscription (plan, status, trial)' }),
-    openapi.ApiResponse({ status: 200 }),
-    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
-    __param(1, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, index_js_2.UpdateSubscriptionDto]),
-    __metadata("design:returntype", Promise)
-], SuperAdminController.prototype, "updateSubscription", null);
-__decorate([
     (0, common_1.Post)('super-admins/clinics/onboard'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),
     (0, swagger_1.ApiOperation)({ summary: 'Manually onboard a new clinic with admin user' }),
@@ -392,6 +371,27 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "getDirectoryApprovals", null);
+__decorate([
+    (0, common_1.Get)('super-admins/clinics/:id'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get detailed clinic info (users, branches, stats)' }),
+    openapi.ApiResponse({ status: 200, type: Object }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getClinicDetail", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/clinics/:id/subscription'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Update clinic subscription (plan, status, trial)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, index_js_2.UpdateSubscriptionDto]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "updateSubscription", null);
 __decorate([
     (0, common_1.Patch)('super-admins/clinics/:id/directory-approve'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),
