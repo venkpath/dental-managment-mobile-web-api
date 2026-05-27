@@ -354,10 +354,12 @@ export class PublicDirectoryController {
         },
         branches: {
           select: {
+            id: true, photo_url: true,
             working_days: true, working_start_time: true, working_end_time: true,
             lunch_start_time: true, lunch_end_time: true,
             slot_duration: true, buffer_minutes: true,
           },
+          orderBy: { created_at: 'asc' },
         },
       },
       orderBy: { created_at: 'desc' },
@@ -395,6 +397,8 @@ export class PublicDirectoryController {
       const bookedToday = apptCountMap.get(c.id) ?? 0;
       const avail = computeClinicAvailability(c.branches, schemaDay, istMinutes, bookedToday);
 
+      const coverBranch = c.branches.find((b) => b.photo_url) ?? null;
+
       return {
         id: c.id, name: c.name, address: c.address, city: c.city, state: c.state,
         country: c.country, phone: c.phone, logo_url: c.logo_url,
@@ -402,6 +406,7 @@ export class PublicDirectoryController {
         working_hours_label: c.working_hours_label,
         google_maps_url: c.google_maps_url, website_url: c.website_url,
         users: c.users,
+        branch_cover_id: coverBranch?.id ?? null,
         review_count: reviews.length,
         avg_rating: avg ? Math.round(avg * 10) / 10 : null,
         distance_km: distKm ? Math.round(distKm * 10) / 10 : null,

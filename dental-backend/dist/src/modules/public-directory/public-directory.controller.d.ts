@@ -54,6 +54,7 @@ export declare class PublicDirectoryController {
                 years_experience: number | null;
                 specializations: import("@prisma/client/runtime/client").JsonValue;
             }[];
+            branch_cover_id: string | null;
             review_count: number;
             avg_rating: number | null;
             distance_km: number | null;

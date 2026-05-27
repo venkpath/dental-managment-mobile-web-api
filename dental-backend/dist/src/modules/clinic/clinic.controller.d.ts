@@ -8,11 +8,13 @@ interface RequestUser {
 }
 import { ClinicService } from './clinic.service.js';
 import { CreateClinicDto, UpdateClinicDto, UpdateSubscriptionDto } from './dto/index.js';
+import { PrismaService } from '../../database/prisma.service.js';
 export declare class ClinicController {
     private readonly clinicService;
     private readonly s3Service;
+    private readonly prisma;
     private readonly logger;
-    constructor(clinicService: ClinicService, s3Service: S3Service);
+    constructor(clinicService: ClinicService, s3Service: S3Service, prisma: PrismaService);
     create(dto: CreateClinicDto): Promise<{
         id: string;
         email: string;
@@ -548,5 +550,6 @@ export declare class ClinicController {
         inactivity_reminder_40_sent: boolean;
     }>;
     serveLogo(clinicId: string, filename: string, res: Response): Promise<void>;
+    serveBranchPhoto(clinicId: string, branchId: string, res: Response): Promise<void>;
 }
 export {};

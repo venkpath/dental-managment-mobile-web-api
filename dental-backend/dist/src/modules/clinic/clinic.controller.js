@@ -29,13 +29,16 @@ const current_user_decorator_js_1 = require("../../common/decorators/current-use
 const s3_service_js_1 = require("../../common/services/s3.service.js");
 const clinic_service_js_1 = require("./clinic.service.js");
 const index_js_1 = require("./dto/index.js");
+const prisma_service_js_1 = require("../../database/prisma.service.js");
 let ClinicController = ClinicController_1 = class ClinicController {
     clinicService;
     s3Service;
+    prisma;
     logger = new common_1.Logger(ClinicController_1.name);
-    constructor(clinicService, s3Service) {
+    constructor(clinicService, s3Service, prisma) {
         this.clinicService = clinicService;
         this.s3Service = s3Service;
+        this.prisma = prisma;
     }
     async create(dto) {
         return this.clinicService.create(dto);
@@ -109,6 +112,25 @@ let ClinicController = ClinicController_1 = class ClinicController {
             ext === '.webp' ? 'image/webp' :
                 ext === '.svg' ? 'image/svg+xml' :
                     'image/jpeg';
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        res.send(buffer);
+    }
+    async serveBranchPhoto(clinicId, branchId, res) {
+        const branch = await this.prisma.branch.findFirst({
+            where: { id: branchId, clinic_id: clinicId },
+            select: { photo_url: true },
+        });
+        if (!branch?.photo_url)
+            throw new common_1.BadRequestException('Branch photo not found');
+        const buffer = await this.s3Service.getObject(branch.photo_url);
+        if (!buffer)
+            throw new common_1.BadRequestException('Branch photo not found');
+        const ext = (0, path_1.extname)(branch.photo_url).toLowerCase();
+        const contentType = ext === '.png' ? 'image/png' :
+            ext === '.webp' ? 'image/webp' :
+                'image/jpeg';
         res.setHeader('Content-Type', contentType);
         res.setHeader('Cache-Control', 'public, max-age=86400');
         res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
@@ -237,10 +259,23 @@ __decorate([
     __metadata("design:paramtypes", [String, String, Object]),
     __metadata("design:returntype", Promise)
 ], ClinicController.prototype, "serveLogo", null);
+__decorate([
+    (0, common_1.Get)(':clinicId/branch-photo/:branchId'),
+    (0, public_decorator_js_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Serve branch cover photo (public)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('clinicId', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Param)('branchId', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], ClinicController.prototype, "serveBranchPhoto", null);
 exports.ClinicController = ClinicController = ClinicController_1 = __decorate([
     (0, swagger_1.ApiTags)('Clinics'),
     (0, common_1.Controller)('clinics'),
     __metadata("design:paramtypes", [clinic_service_js_1.ClinicService,
-        s3_service_js_1.S3Service])
+        s3_service_js_1.S3Service,
+        prisma_service_js_1.PrismaService])
 ], ClinicController);
 //# sourceMappingURL=clinic.controller.js.map

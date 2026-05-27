@@ -31,6 +31,7 @@ interface RequestUser {
 }
 import { ClinicService } from './clinic.service.js';
 import { CreateClinicDto, UpdateClinicDto, UpdateSubscriptionDto } from './dto/index.js';
+import { PrismaService } from '../../database/prisma.service.js';
 
 @ApiTags('Clinics')
 @Controller('clinics')
@@ -40,6 +41,7 @@ export class ClinicController {
   constructor(
     private readonly clinicService: ClinicService,
     private readonly s3Service: S3Service,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Post()
@@ -189,6 +191,34 @@ export class ClinicController {
       ext === '.png'  ? 'image/png'  :
       ext === '.webp' ? 'image/webp' :
       ext === '.svg'  ? 'image/svg+xml' :
+                        'image/jpeg';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.send(buffer);
+  }
+
+  @Get(':clinicId/branch-photo/:branchId')
+  @Public()
+  @ApiOperation({ summary: 'Serve branch cover photo (public)' })
+  async serveBranchPhoto(
+    @Param('clinicId', ParseUUIDPipe) clinicId: string,
+    @Param('branchId', ParseUUIDPipe) branchId: string,
+    @Res() res: Response,
+  ) {
+    const branch = await this.prisma.branch.findFirst({
+      where: { id: branchId, clinic_id: clinicId },
+      select: { photo_url: true },
+    });
+    if (!branch?.photo_url) throw new BadRequestException('Branch photo not found');
+
+    const buffer = await this.s3Service.getObject(branch.photo_url);
+    if (!buffer) throw new BadRequestException('Branch photo not found');
+
+    const ext = extname(branch.photo_url).toLowerCase();
+    const contentType =
+      ext === '.png'  ? 'image/png'  :
+      ext === '.webp' ? 'image/webp' :
                         'image/jpeg';
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=86400');
