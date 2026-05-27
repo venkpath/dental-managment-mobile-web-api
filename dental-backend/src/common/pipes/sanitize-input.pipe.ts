@@ -22,7 +22,14 @@ export class SanitizeInputPipe implements PipeTransform {
 
   private sanitizeValue(value: unknown): unknown {
     if (typeof value === 'string') {
-      return sanitizeHtml(value, this.sanitizeOptions);
+      // sanitize-html strips tags but entity-encodes bare & < > characters.
+      // Decode them back to plain text — React/ORM will re-encode on output.
+      return sanitizeHtml(value, this.sanitizeOptions)
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#x27;/g, "'");
     }
 
     if (Array.isArray(value)) {

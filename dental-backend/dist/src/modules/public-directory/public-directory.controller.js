@@ -303,29 +303,41 @@ let PublicDirectoryController = class PublicDirectoryController {
         if (isSimpleList) {
             res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
         }
+        const andConditions = [];
+        if (city) {
+            andConditions.push({ city: { contains: city, mode: 'insensitive' } });
+        }
+        if (specialty) {
+            andConditions.push({
+                OR: [
+                    { specialties: { contains: specialty, mode: 'insensitive' } },
+                    { directory_treatments: { contains: specialty, mode: 'insensitive' } },
+                ],
+            });
+        }
+        if (country) {
+            andConditions.push({
+                OR: [
+                    { country: { equals: country, mode: 'insensitive' } },
+                    { country: null },
+                ],
+            });
+        }
+        if (q) {
+            andConditions.push({
+                OR: [
+                    { name: { contains: q, mode: 'insensitive' } },
+                    { city: { contains: q, mode: 'insensitive' } },
+                    { specialties: { contains: q, mode: 'insensitive' } },
+                    { directory_treatments: { contains: q, mode: 'insensitive' } },
+                ],
+            });
+        }
         const where = {
             listed_in_directory: true,
             is_suspended: false,
+            ...(andConditions.length ? { AND: andConditions } : {}),
         };
-        if (city)
-            where['city'] = { contains: city, mode: 'insensitive' };
-        if (specialty)
-            where['specialties'] = { contains: specialty, mode: 'insensitive' };
-        if (country) {
-            where['AND'] = [{
-                    OR: [
-                        { country: { equals: country, mode: 'insensitive' } },
-                        { country: null },
-                    ],
-                }];
-        }
-        if (q) {
-            where['OR'] = [
-                { name: { contains: q, mode: 'insensitive' } },
-                { city: { contains: q, mode: 'insensitive' } },
-                { specialties: { contains: q, mode: 'insensitive' } },
-            ];
-        }
         const clinics = await this.prisma.clinic.findMany({
             where: where,
             take: 500,

@@ -303,29 +303,51 @@ export class PublicDirectoryController {
     }
 
     // ── Build where clause ──────────────────────────────────────────────────
-    const where: Record<string, unknown> = {
-      listed_in_directory: true,
-      is_suspended: false,
-    };
-    if (city)      where['city']        = { contains: city,     mode: 'insensitive' };
-    if (specialty) where['specialties'] = { contains: specialty, mode: 'insensitive' };
-    // Country filter: show clinics matching the country OR clinics with no country set
-    // (clinics that haven't filled in their country still appear for all audiences)
+    // Each filter is pushed as an AND condition so they compose safely without
+    // overwriting each other's OR arrays.
+    const andConditions: object[] = [];
+
+    if (city) {
+      andConditions.push({ city: { contains: city, mode: 'insensitive' } });
+    }
+
+    if (specialty) {
+      // Match against both the high-level specialties field AND the directory_treatments
+      // list (e.g. "Teeth Whitening" lives in treatments, not specialties)
+      andConditions.push({
+        OR: [
+          { specialties:          { contains: specialty, mode: 'insensitive' } },
+          { directory_treatments: { contains: specialty, mode: 'insensitive' } },
+        ],
+      });
+    }
+
     if (country) {
-      where['AND'] = [{
+      // Show clinics that match OR have no country set (not yet filled in)
+      andConditions.push({
         OR: [
           { country: { equals: country, mode: 'insensitive' } },
           { country: null },
         ],
-      }];
+      });
     }
+
     if (q) {
-      where['OR'] = [
-        { name:       { contains: q, mode: 'insensitive' } },
-        { city:       { contains: q, mode: 'insensitive' } },
-        { specialties:{ contains: q, mode: 'insensitive' } },
-      ];
+      andConditions.push({
+        OR: [
+          { name:               { contains: q, mode: 'insensitive' } },
+          { city:               { contains: q, mode: 'insensitive' } },
+          { specialties:        { contains: q, mode: 'insensitive' } },
+          { directory_treatments:{ contains: q, mode: 'insensitive' } },
+        ],
+      });
     }
+
+    const where: Record<string, unknown> = {
+      listed_in_directory: true,
+      is_suspended: false,
+      ...(andConditions.length ? { AND: andConditions } : {}),
+    };
 
     // ── Fetch clinics with branches + reviews + doctors ─────────────────────
     const clinics = await this.prisma.clinic.findMany({

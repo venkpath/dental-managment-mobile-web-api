@@ -27,7 +27,12 @@ let SanitizeInputPipe = class SanitizeInputPipe {
     }
     sanitizeValue(value) {
         if (typeof value === 'string') {
-            return (0, sanitize_html_1.default)(value, this.sanitizeOptions);
+            return (0, sanitize_html_1.default)(value, this.sanitizeOptions)
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"')
+                .replace(/&#x27;/g, "'");
         }
         if (Array.isArray(value)) {
             return value.map((item) => this.sanitizeValue(item));
