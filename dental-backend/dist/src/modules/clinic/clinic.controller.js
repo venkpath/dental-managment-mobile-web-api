@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var ClinicController_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ClinicController = void 0;
 const openapi = require("@nestjs/swagger");
@@ -19,6 +20,7 @@ const swagger_1 = require("@nestjs/swagger");
 const platform_express_1 = require("@nestjs/platform-express");
 const crypto_1 = require("crypto");
 const path_1 = require("path");
+const promises_1 = require("fs/promises");
 const public_decorator_js_1 = require("../../common/decorators/public.decorator.js");
 const super_admin_decorator_js_1 = require("../../common/decorators/super-admin.decorator.js");
 const roles_decorator_js_1 = require("../../common/decorators/roles.decorator.js");
@@ -27,9 +29,10 @@ const current_user_decorator_js_1 = require("../../common/decorators/current-use
 const s3_service_js_1 = require("../../common/services/s3.service.js");
 const clinic_service_js_1 = require("./clinic.service.js");
 const index_js_1 = require("./dto/index.js");
-let ClinicController = class ClinicController {
+let ClinicController = ClinicController_1 = class ClinicController {
     clinicService;
     s3Service;
+    logger = new common_1.Logger(ClinicController_1.name);
     constructor(clinicService, s3Service) {
         this.clinicService = clinicService;
         this.s3Service = s3Service;
@@ -83,9 +86,24 @@ let ClinicController = class ClinicController {
             throw new common_1.BadRequestException('Invalid path');
         }
         const key = `clinics/${clinicId}/logos/${filename}`;
-        const buffer = await this.s3Service.getObject(key);
-        if (!buffer)
-            throw new common_1.BadRequestException('Logo not found');
+        let buffer = await this.s3Service.getObject(key);
+        if (!buffer) {
+            const diskPath = (0, path_1.join)(process.cwd(), 'uploads', 'logos', clinicId, filename);
+            try {
+                buffer = await (0, promises_1.readFile)(diskPath);
+                const ext2 = (0, path_1.extname)(filename).toLowerCase();
+                const mime = ext2 === '.png' ? 'image/png' :
+                    ext2 === '.webp' ? 'image/webp' :
+                        ext2 === '.svg' ? 'image/svg+xml' :
+                            'image/jpeg';
+                this.s3Service.upload(key, buffer, mime).catch((err) => {
+                    this.logger.warn(`Lazy S3 migration failed for ${key}: ${String(err)}`);
+                });
+            }
+            catch {
+                throw new common_1.BadRequestException('Logo not found');
+            }
+        }
         const ext = (0, path_1.extname)(filename).toLowerCase();
         const contentType = ext === '.png' ? 'image/png' :
             ext === '.webp' ? 'image/webp' :
@@ -219,7 +237,7 @@ __decorate([
     __metadata("design:paramtypes", [String, String, Object]),
     __metadata("design:returntype", Promise)
 ], ClinicController.prototype, "serveLogo", null);
-exports.ClinicController = ClinicController = __decorate([
+exports.ClinicController = ClinicController = ClinicController_1 = __decorate([
     (0, swagger_1.ApiTags)('Clinics'),
     (0, common_1.Controller)('clinics'),
     __metadata("design:paramtypes", [clinic_service_js_1.ClinicService,

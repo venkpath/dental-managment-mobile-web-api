@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Param, Body, ParseUUIDPipe,
-  UseInterceptors, UploadedFile, BadRequestException, Res,
+  UseInterceptors, UploadedFile, BadRequestException, Res, Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -14,7 +14,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { randomUUID } from 'crypto';
-import { extname } from 'path';
+import { extname, join } from 'path';
+import { readFile } from 'fs/promises';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { SuperAdmin } from '../../common/decorators/super-admin.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -34,6 +35,8 @@ import { CreateClinicDto, UpdateClinicDto, UpdateSubscriptionDto } from './dto/i
 @ApiTags('Clinics')
 @Controller('clinics')
 export class ClinicController {
+  private readonly logger = new Logger(ClinicController.name);
+
   constructor(
     private readonly clinicService: ClinicService,
     private readonly s3Service: S3Service,
@@ -159,8 +162,28 @@ export class ClinicController {
       throw new BadRequestException('Invalid path');
     }
     const key = `clinics/${clinicId}/logos/${filename}`;
-    const buffer = await this.s3Service.getObject(key);
-    if (!buffer) throw new BadRequestException('Logo not found');
+    let buffer = await this.s3Service.getObject(key);
+
+    if (!buffer) {
+      // Pre-S3 migration: files may still live on local disk
+      const diskPath = join(process.cwd(), 'uploads', 'logos', clinicId, filename);
+      try {
+        buffer = await readFile(diskPath);
+        // Lazily migrate to S3 so the next request hits S3 directly
+        const ext2 = extname(filename).toLowerCase();
+        const mime =
+          ext2 === '.png'  ? 'image/png'  :
+          ext2 === '.webp' ? 'image/webp' :
+          ext2 === '.svg'  ? 'image/svg+xml' :
+                             'image/jpeg';
+        this.s3Service.upload(key, buffer, mime).catch((err: unknown) => {
+          this.logger.warn(`Lazy S3 migration failed for ${key}: ${String(err)}`);
+        });
+      } catch {
+        throw new BadRequestException('Logo not found');
+      }
+    }
+
     const ext = extname(filename).toLowerCase();
     const contentType =
       ext === '.png'  ? 'image/png'  :

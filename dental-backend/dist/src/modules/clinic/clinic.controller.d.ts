@@ -11,20 +11,19 @@ import { CreateClinicDto, UpdateClinicDto, UpdateSubscriptionDto } from './dto/i
 export declare class ClinicController {
     private readonly clinicService;
     private readonly s3Service;
+    private readonly logger;
     constructor(clinicService: ClinicService, s3Service: S3Service);
     create(dto: CreateClinicDto): Promise<{
+        name: string;
         id: string;
         email: string;
-        name: string;
-        created_at: Date;
-        updated_at: Date;
-        plan_id: string | null;
         phone: string | null;
         address: string | null;
         city: string | null;
         state: string | null;
         country: string | null;
         pincode: string | null;
+        plan_id: string | null;
         subscription_status: string;
         subscription_id: string | null;
         billing_cycle: string;
@@ -75,23 +74,23 @@ export declare class ClinicController {
         suspension_reason: string | null;
         inactivity_reminder_30_sent: boolean;
         inactivity_reminder_40_sent: boolean;
+        created_at: Date;
+        updated_at: Date;
     }>;
     getMyClinic(user: RequestUser): Promise<{
         days_inactive: number;
         inactivity_warning: boolean;
         days_until_suspension: number;
+        name: string;
         id: string;
         email: string;
-        name: string;
-        created_at: Date;
-        updated_at: Date;
-        plan_id: string | null;
         phone: string | null;
         address: string | null;
         city: string | null;
         state: string | null;
         country: string | null;
         pincode: string | null;
+        plan_id: string | null;
         subscription_status: string;
         subscription_id: string | null;
         billing_cycle: string;
@@ -142,6 +141,8 @@ export declare class ClinicController {
         suspension_reason: string | null;
         inactivity_reminder_30_sent: boolean;
         inactivity_reminder_40_sent: boolean;
+        created_at: Date;
+        updated_at: Date;
     }>;
     getMyFeatures(user: RequestUser): Promise<{
         plan: {
@@ -157,24 +158,22 @@ export declare class ClinicController {
             name: string;
             price_monthly: number;
             effective_price: number | null;
-            price_source: "plan" | "none" | "custom";
+            price_source: "plan" | "custom" | "none";
             custom_price_expires_at: Date | null;
         } | null;
         features: string[];
     }>;
     updateMyClinic(user: RequestUser, dto: UpdateClinicDto): Promise<{
+        name: string;
         id: string;
         email: string;
-        name: string;
-        created_at: Date;
-        updated_at: Date;
-        plan_id: string | null;
         phone: string | null;
         address: string | null;
         city: string | null;
         state: string | null;
         country: string | null;
         pincode: string | null;
+        plan_id: string | null;
         subscription_status: string;
         subscription_id: string | null;
         billing_cycle: string;
@@ -225,20 +224,20 @@ export declare class ClinicController {
         suspension_reason: string | null;
         inactivity_reminder_30_sent: boolean;
         inactivity_reminder_40_sent: boolean;
+        created_at: Date;
+        updated_at: Date;
     }>;
     findAll(): Promise<{
+        name: string;
         id: string;
         email: string;
-        name: string;
-        created_at: Date;
-        updated_at: Date;
-        plan_id: string | null;
         phone: string | null;
         address: string | null;
         city: string | null;
         state: string | null;
         country: string | null;
         pincode: string | null;
+        plan_id: string | null;
         subscription_status: string;
         subscription_id: string | null;
         billing_cycle: string;
@@ -289,20 +288,20 @@ export declare class ClinicController {
         suspension_reason: string | null;
         inactivity_reminder_30_sent: boolean;
         inactivity_reminder_40_sent: boolean;
+        created_at: Date;
+        updated_at: Date;
     }[]>;
     findOne(id: string): Promise<{
+        name: string;
         id: string;
         email: string;
-        name: string;
-        created_at: Date;
-        updated_at: Date;
-        plan_id: string | null;
         phone: string | null;
         address: string | null;
         city: string | null;
         state: string | null;
         country: string | null;
         pincode: string | null;
+        plan_id: string | null;
         subscription_status: string;
         subscription_id: string | null;
         billing_cycle: string;
@@ -353,20 +352,20 @@ export declare class ClinicController {
         suspension_reason: string | null;
         inactivity_reminder_30_sent: boolean;
         inactivity_reminder_40_sent: boolean;
+        created_at: Date;
+        updated_at: Date;
     }>;
     update(id: string, dto: UpdateClinicDto): Promise<{
+        name: string;
         id: string;
         email: string;
-        name: string;
-        created_at: Date;
-        updated_at: Date;
-        plan_id: string | null;
         phone: string | null;
         address: string | null;
         city: string | null;
         state: string | null;
         country: string | null;
         pincode: string | null;
+        plan_id: string | null;
         subscription_status: string;
         subscription_id: string | null;
         billing_cycle: string;
@@ -417,20 +416,20 @@ export declare class ClinicController {
         suspension_reason: string | null;
         inactivity_reminder_30_sent: boolean;
         inactivity_reminder_40_sent: boolean;
+        created_at: Date;
+        updated_at: Date;
     }>;
     updateSubscription(id: string, dto: UpdateSubscriptionDto): Promise<{
+        name: string;
         id: string;
         email: string;
-        name: string;
-        created_at: Date;
-        updated_at: Date;
-        plan_id: string | null;
         phone: string | null;
         address: string | null;
         city: string | null;
         state: string | null;
         country: string | null;
         pincode: string | null;
+        plan_id: string | null;
         subscription_status: string;
         subscription_id: string | null;
         billing_cycle: string;
@@ -481,20 +480,20 @@ export declare class ClinicController {
         suspension_reason: string | null;
         inactivity_reminder_30_sent: boolean;
         inactivity_reminder_40_sent: boolean;
+        created_at: Date;
+        updated_at: Date;
     }>;
     uploadLogo(user: RequestUser, file: Express.Multer.File): Promise<{
+        name: string;
         id: string;
         email: string;
-        name: string;
-        created_at: Date;
-        updated_at: Date;
-        plan_id: string | null;
         phone: string | null;
         address: string | null;
         city: string | null;
         state: string | null;
         country: string | null;
         pincode: string | null;
+        plan_id: string | null;
         subscription_status: string;
         subscription_id: string | null;
         billing_cycle: string;
@@ -545,6 +544,8 @@ export declare class ClinicController {
         suspension_reason: string | null;
         inactivity_reminder_30_sent: boolean;
         inactivity_reminder_40_sent: boolean;
+        created_at: Date;
+        updated_at: Date;
     }>;
     serveLogo(clinicId: string, filename: string, res: Response): Promise<void>;
 }
