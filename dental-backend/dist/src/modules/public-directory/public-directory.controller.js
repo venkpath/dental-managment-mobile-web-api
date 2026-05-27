@@ -296,8 +296,12 @@ let PublicDirectoryController = class PublicDirectoryController {
         this.prisma = prisma;
         this.s3 = s3;
     }
-    async searchClinics(query) {
+    async searchClinics(query, res) {
         const { lat, lng, city, specialty, q, country, page = 1, limit = 12, availableToday, radius, sort = 'relevance' } = query;
+        const isSimpleList = !q && !availableToday && !lat && !lng && !specialty && !city && !country;
+        if (isSimpleList) {
+            res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+        }
         const where = {
             listed_in_directory: true,
             is_suspended: false,
@@ -323,13 +327,12 @@ let PublicDirectoryController = class PublicDirectoryController {
         }
         const clinics = await this.prisma.clinic.findMany({
             where: where,
+            take: 500,
             select: {
                 id: true, name: true, address: true, city: true, state: true,
                 country: true, phone: true, logo_url: true, clinic_description: true,
                 specialties: true, latitude: true, longitude: true,
                 working_hours_label: true, google_maps_url: true, website_url: true,
-                established_year: true, languages_spoken: true,
-                directory_treatments: true, gallery_images: true,
                 directory_reviews: {
                     where: { is_visible: true },
                     select: { overall_rating: true },
@@ -663,8 +666,9 @@ __decorate([
     (0, swagger_1.ApiOperation)({ summary: 'Search publicly listed dental clinics' }),
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Res)({ passthrough: true })),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [DirectorySearchQuery]),
+    __metadata("design:paramtypes", [DirectorySearchQuery, Object]),
     __metadata("design:returntype", Promise)
 ], PublicDirectoryController.prototype, "searchClinics", null);
 __decorate([

@@ -1,3 +1,4 @@
+import type { Response } from 'express';
 import { PrismaService } from '../../database/prisma.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 declare class DirectorySearchQuery {
@@ -31,7 +32,7 @@ export declare class PublicDirectoryController {
     private readonly prisma;
     private readonly s3;
     constructor(prisma: PrismaService, s3: S3Service);
-    searchClinics(query: DirectorySearchQuery): Promise<{
+    searchClinics(query: DirectorySearchQuery, res: Response): Promise<{
         data: {
             id: string;
             name: string;

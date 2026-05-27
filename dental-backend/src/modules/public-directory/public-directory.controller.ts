@@ -1,7 +1,8 @@
 import {
-  Controller, Get, Post, Param, Body, Query,
+  Controller, Get, Post, Param, Body, Query, Res,
   ParseUUIDPipe, NotFoundException, BadRequestException,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import {
   IsString, IsOptional, IsInt, IsNumber, IsBoolean, Min, Max, MinLength,
@@ -289,8 +290,15 @@ export class PublicDirectoryController {
   @Get()
   @Public()
   @ApiOperation({ summary: 'Search publicly listed dental clinics' })
-  async searchClinics(@Query() query: DirectorySearchQuery) {
+  async searchClinics(@Query() query: DirectorySearchQuery, @Res({ passthrough: true }) res: Response) {
     const { lat, lng, city, specialty, q, country, page = 1, limit = 12, availableToday, radius, sort = 'relevance' } = query;
+
+    // Cache unfiltered listing pages for 60 s (CDN/browser) — availability
+    // data is coarse enough that a 1-minute stale window is acceptable.
+    const isSimpleList = !q && !availableToday && !lat && !lng && !specialty && !city && !country;
+    if (isSimpleList) {
+      res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+    }
 
     // ── Build where clause ──────────────────────────────────────────────────
     const where: Record<string, unknown> = {
@@ -321,13 +329,12 @@ export class PublicDirectoryController {
     const clinics = await this.prisma.clinic.findMany({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       where: where as any,
+      take: 500, // safety cap — paginate in-memory after enrichment
       select: {
         id: true, name: true, address: true, city: true, state: true,
         country: true, phone: true, logo_url: true, clinic_description: true,
         specialties: true, latitude: true, longitude: true,
         working_hours_label: true, google_maps_url: true, website_url: true,
-        established_year: true, languages_spoken: true,
-        directory_treatments: true, gallery_images: true,
         directory_reviews: {
           where: { is_visible: true },
           select: { overall_rating: true },

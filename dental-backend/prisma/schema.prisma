@@ -169,6 +169,7 @@ model Clinic {
   @@index([email])
   @@index([plan_id])
   @@index([listed_in_directory])
+  @@index([listed_in_directory, is_suspended])
   @@map("clinics")
 }
 
