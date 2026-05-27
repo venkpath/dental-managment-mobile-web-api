@@ -1,3 +1,6 @@
+-- Add listed_in_directory if it was not yet in this environment (safe no-op if already present)
+ALTER TABLE "clinics" ADD COLUMN IF NOT EXISTS "listed_in_directory" BOOLEAN NOT NULL DEFAULT false;
+
 -- Add directory listing approval workflow fields to clinics
 ALTER TABLE "clinics" ADD COLUMN "directory_approval_status" VARCHAR(20) NOT NULL DEFAULT 'none';
 ALTER TABLE "clinics" ADD COLUMN "directory_rejection_reason" VARCHAR(500);
