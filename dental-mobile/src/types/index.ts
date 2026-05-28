@@ -124,6 +124,43 @@ export interface DashboardSummary {
   pending_invoices: number;
   outstanding_amount: number;
   low_inventory_count: number;
+  this_month_revenue: number;
+  this_month_expenses: number;
+  this_month_refunds: number;
+  net_profit: number;
+  new_patients_this_month: number;
+}
+
+export interface PaymentBreakdown {
+  cash: number;
+  card: number;
+  upi: number;
+  other: number;
+  total: number;
+}
+
+export interface SparklineDay {
+  date: string;
+  revenue: number;
+  appointments: number;
+  expenses: number;
+}
+
+export interface DashboardBootstrap {
+  summary: DashboardSummary;
+  sparklines: {
+    daily: SparklineDay[];
+    trends: {
+      today_revenue_vs_yesterday: number | null;
+      today_appointments_vs_yesterday: number | null;
+      outstanding_vs_last_month: number | null;
+      month_revenue_vs_last_month: number | null;
+    };
+  };
+  today_appointments: {
+    data: Appointment[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  };
 }
 
 export interface PaginatedResponse<T> {

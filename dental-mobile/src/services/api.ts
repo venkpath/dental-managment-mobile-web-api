@@ -32,7 +32,10 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response?.status === 401) {
+    const reqUrl: string = error.config?.url ?? '';
+    const isAuthEndpoint = reqUrl.includes('/auth/lookup') || reqUrl.includes('/auth/login');
+
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       if (!isShowingSessionExpiredAlert) {
         isShowingSessionExpiredAlert = true;
         Alert.alert(

@@ -6,7 +6,7 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
-  StatusBar,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,79 +17,196 @@ import type { RootStackParamList } from '../../types';
 import { dashboardService } from '../../services/dashboard.service';
 import { appointmentService } from '../../services/appointment.service';
 import { useAuthStore } from '../../store/auth.store';
-import { formatCurrency, getLocale } from '../../utils/format';
-import Badge from '../../components/Badge';
-import { colors, spacing, typography, radius, shadow } from '../../theme';
-import type { DashboardSummary, Appointment } from '../../types';
+import { formatCurrency } from '../../utils/format';
+import { shadow } from '../../theme';
+import type { DashboardSummary, Appointment, PaymentBreakdown, SparklineDay } from '../../types';
 import { useBottomInset } from '../../hooks/useBottomInset';
 
-const TODAY = new Date().toISOString().split('T')[0];
+const SW = Dimensions.get('window').width;
+const CHART_H = 80;
+const _d = new Date();
+const TODAY = `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`;
+const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
-const STAT_CARDS: Array<{
-  key: string;
-  label: string;
-  icon: IoniconsName;
-  gradientColors: [string, string, string];
-  prefix?: string;
-}> = [
-  {
-    key: 'today_appointments',
-    label: "Today's Appts",
-    icon: 'calendar',
-    gradientColors: ['#0891b2', '#22d3ee', '#67e8f9'],
-  },
-  {
-    key: 'today_revenue',
-    label: "Today's Revenue",
-    icon: 'wallet',
-    gradientColors: ['#059669', '#34d399', '#6ee7b7'],
-  },
-  {
-    key: 'pending_invoices',
-    label: 'Pending Invoices',
-    icon: 'document-text',
-    gradientColors: ['#d97706', '#fbbf24', '#fde68a'],
-  },
-  {
-    key: 'low_inventory_count',
-    label: 'Low Stock',
-    icon: 'cube',
-    gradientColors: ['#dc2626', '#f87171', '#fca5a5'],
-  },
+const APPT_STATUS: Record<string, { label: string; color: string; bg: string }> = {
+  scheduled: { label: 'Confirmed', color: '#4361EE', bg: '#EEF2FF' },
+  completed:  { label: 'Done',      color: '#059669', bg: '#d1fae5' },
+  cancelled:  { label: 'Cancelled', color: '#dc2626', bg: '#fee2e2' },
+  no_show:    { label: 'No Show',   color: '#d97706', bg: '#fef3c7' },
+};
+
+const QUICK_ACTIONS: Array<{ label: string; icon: IoniconsName; color: string; bg: string }> = [
+  { label: 'New\nAppointment', icon: 'calendar',      color: '#4361EE', bg: '#EEF2FF' },
+  { label: 'Add\nPatient',     icon: 'person-add',    color: '#059669', bg: '#d1fae5' },
+  { label: 'Create\nInvoice',  icon: 'document-text', color: '#0891b2', bg: '#e0f2fe' },
+  { label: 'View\nReports',    icon: 'bar-chart',     color: '#d97706', bg: '#fef3c7' },
 ];
 
+function BarChart({ data, period }: { data: SparklineDay[]; period: '7' | '30' }) {
+  const [selected, setSelected] = useState<number | null>(null);
+
+  if (!data.length) {
+    const placeholders = period === '7' ? 7 : 4;
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: CHART_H, gap: 6 }}>
+        {Array.from({ length: placeholders }).map((_, i) => (
+          <View key={i} style={{ flex: 1, height: 20 + (i % 3) * 15, backgroundColor: '#e2e8f0', borderRadius: 6 }} />
+        ))}
+      </View>
+    );
+  }
+
+  let pts: number[];
+  let labels: string[];
+  let dates: string[];
+
+  if (period === '30') {
+    // Group into 4 weekly buckets, label by the first date of each week
+    const slice = data.slice(-28);
+    const buckets = [0, 0, 0, 0];
+    const weekStarts: string[] = ['', '', '', ''];
+    slice.forEach((d, i) => {
+      const wi = Math.min(3, Math.floor(i / 7));
+      buckets[wi] += d.revenue;
+      if (!weekStarts[wi]) weekStarts[wi] = d.date;
+    });
+    pts = buckets;
+    labels = weekStarts.map((dt) => {
+      if (!dt) return '';
+      const day = new Date(dt + 'T00:00:00').getDate();
+      return `${day}`;
+    });
+    dates = weekStarts;
+  } else {
+    // Last 7 actual data points — use real day names from their date strings
+    const slice = data.slice(-7);
+    pts = slice.map((d) => d.revenue);
+    labels = slice.map((d) => {
+      // Parse as local date to avoid UTC off-by-one
+      const [y, m, day] = d.date.split('-').map(Number);
+      return DAY_ABBR[new Date(y, m - 1, day).getDay()];
+    });
+    dates = slice.map((d) => d.date);
+  }
+
+  const max = Math.max(...pts, 1);
+  const todayStr = TODAY;
+
+  return (
+    <View>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: CHART_H + 32, gap: 6 }}>
+        {pts.map((v, i) => {
+          const barH = Math.max(4, (v / max) * CHART_H);
+          const isSelected = selected === i;
+          const isToday = dates[i] === todayStr;
+          const active = isSelected || (selected === null && isToday);
+          return (
+            <TouchableOpacity
+              key={i}
+              style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: CHART_H + 32 }}
+              activeOpacity={0.75}
+              onPress={() => setSelected(isSelected ? null : i)}
+            >
+              {/* Tooltip */}
+              {isSelected && (
+                <View style={{
+                  backgroundColor: '#1e293b', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 4,
+                  position: 'absolute', top: 0, zIndex: 10,
+                }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#fff', textAlign: 'center' }}>
+                    {formatCurrency(v)}
+                  </Text>
+                  {/* Caret */}
+                  <View style={{
+                    position: 'absolute', bottom: -5, left: 0, right: 0, alignItems: 'center',
+                  }}>
+                    <View style={{
+                      width: 0, height: 0,
+                      borderLeftWidth: 5, borderRightWidth: 5, borderTopWidth: 5,
+                      borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: '#1e293b',
+                    }} />
+                  </View>
+                </View>
+              )}
+              <LinearGradient
+                colors={active ? ['#4361EE', '#7C3AED'] : ['#c7d7ff', '#dbeafe']}
+                style={{ width: '100%', height: barH, borderRadius: 6 }}
+              />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      <View style={{ flexDirection: 'row', paddingTop: 6 }}>
+        {labels.map((l, i) => {
+          const isToday = dates[i] === todayStr;
+          const isSelected = selected === i;
+          return (
+            <Text
+              key={i}
+              style={{
+                flex: 1, fontSize: 10, textAlign: 'center',
+                color: isSelected ? '#4361EE' : isToday ? '#7C3AED' : '#94a3b8',
+                fontWeight: (isSelected || isToday) ? '700' : '400',
+              }}
+            >{l}</Text>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export default function DashboardScreen() {
-  const { user, clinicName } = useAuthStore();
+  const { user } = useAuthStore();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const bottomInset = useBottomInset();
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [todayAppts, setTodayAppts] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loadError, setLoadError] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const [summary, setSummary]         = useState<DashboardSummary | null>(null);
+  const [todayAppts, setTodayAppts]   = useState<Appointment[]>([]);
+  const [payments, setPayments]       = useState<PaymentBreakdown | null>(null);
+  const [chartData, setChartData]     = useState<SparklineDay[]>([]);
+  const [chartPeriod, setChartPeriod] = useState<'7' | '30'>('7');
+  const [loading, setLoading]         = useState(true);
+  const [refreshing, setRefreshing]   = useState(false);
+  const [loadError, setLoadError]     = useState(false);
+
+  const loadData = useCallback(async (period: '7' | '30' = chartPeriod) => {
     try {
       setLoadError(false);
-      const [s, appts] = await Promise.all([
+      const [summaryRes, apptsRes, pmts, sparklines] = await Promise.all([
         dashboardService.getSummary(),
-        appointmentService.list({ date: TODAY }),
+        appointmentService.list({ date: TODAY, limit: 20 }),
+        dashboardService.getPaymentBreakdown().catch(() => null),
+        dashboardService.getSparklines(period === '7' ? 7 : 30).catch(() => ({ daily: [] as SparklineDay[] })),
       ]);
-      setSummary(s);
-      setTodayAppts(appts.data?.slice(0, 8) || []);
+      setSummary(summaryRes);
+      // appointmentService returns PaginatedResponse — handle both shapes defensively
+      const apptList: Appointment[] = Array.isArray(apptsRes)
+        ? apptsRes
+        : ((apptsRes as any)?.data ?? []);
+      setTodayAppts(apptList.slice(0, 8));
+      setPayments(pmts);
+      setChartData(sparklines.daily);
     } catch {
       setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [chartPeriod]);
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const onRefresh = () => { setRefreshing(true); loadData(); };
+
+  const switchPeriod = async (p: '7' | '30') => {
+    setChartPeriod(p);
+    setChartData([]);
+    const sparklines = await dashboardService.getSparklines(p === '7' ? 7 : 30);
+    setChartData(sparklines.daily);
+  };
 
   const greeting = () => {
     const h = new Date().getHours();
@@ -98,367 +215,338 @@ export default function DashboardScreen() {
     return 'Good evening';
   };
 
-  const getStatValue = (key: string) => {
-    if (!summary) return '—';
-    const val = summary[key as keyof DashboardSummary] ?? 0;
-    if (key === 'today_revenue') return formatCurrency(Number(val));
-    return String(val);
-  };
+  const rawName   = user?.name ?? 'Doctor';
+  const cleanName = rawName.replace(/^Dr\.?\s*/i, '').trim();
+  const firstName = cleanName.split(' ')[0] || 'Doctor';
+
+  const overviewCards: Array<{ label: string; icon: IoniconsName; value: string | null }> = [
+    { label: 'Appointments',        icon: 'calendar',     value: loading ? null : String(todayAppts.length) },
+    { label: 'New Patients\nThis Month', icon: 'people',  value: loading ? null : String(summary?.new_patients_this_month ?? 0) },
+    { label: "Today's\nCollection", icon: 'cash',         value: loading ? null : formatCurrency(summary?.today_revenue ?? 0) },
+    { label: 'Outstanding',         icon: 'alert-circle', value: loading ? null : formatCurrency(summary?.outstanding_amount ?? 0) },
+  ];
+
+  const chartTotal = chartPeriod === '7'
+    ? chartData.slice(-7).reduce((s, d) => s + d.revenue, 0)
+    : chartData.reduce((s, d) => s + d.revenue, 0);
 
   return (
-    <View style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor="#0e7490" />
+    <View style={s.screen}>
+      <SafeAreaView edges={['top']} style={s.safeTop}>
+        <View style={s.header}>
+          <TouchableOpacity style={s.menuBtn}>
+            <Ionicons name="menu" size={22} color="#0f172a" />
+          </TouchableOpacity>
+          <View style={s.greetBlock}>
+            <Text style={s.greetSub}>{greeting()},</Text>
+            <Text style={s.greetName}>Dr. {firstName} 👋</Text>
+          </View>
+          <View style={s.headerRight}>
+            <TouchableOpacity style={s.bellBtn}>
+              <Ionicons name="notifications-outline" size={22} color="#0f172a" />
+              <View style={s.bellBadge}><Text style={s.bellBadgeTxt}>3</Text></View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={s.avatarWrap}>
+              <LinearGradient colors={['#4361EE', '#7C3AED']} style={s.avatarGrad}>
+                <Ionicons name="medical" size={18} color="#fff" />
+              </LinearGradient>
+              <View style={s.onlineDot} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={{ paddingBottom: spacing['2xl'] + bottomInset }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#fff']} tintColor="#fff" progressBackgroundColor="#0891b2" />}
+        style={s.scroll}
+        contentContainerStyle={{ paddingBottom: 20 + bottomInset }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4361EE" />}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Gradient Header ── */}
-        <LinearGradient
-          colors={['#0e7490', '#0891b2', '#06b6d4']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerGradient}
-        >
-          <SafeAreaView edges={['top']}>
-            <View style={styles.topHeader}>
-              <View style={styles.headerLeft}>
-                {clinicName ? (
-                  <Text style={styles.clinicName} numberOfLines={1}>{clinicName}</Text>
-                ) : null}
-                <Text style={styles.greeting}>
-                  {greeting()},{' '}
-                  <Text style={styles.greetingName}>{user?.name?.split(' ')[0] || 'Doctor'}</Text>
-                </Text>
+        {loadError && (
+          <TouchableOpacity onPress={() => { setLoading(true); loadData(); }} style={s.errorBanner}>
+            <Ionicons name="alert-circle" size={15} color="#991b1b" />
+            <Text style={s.errorTxt}>Couldn't load data. Tap to retry.</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* ── Today's Overview ── */}
+        <View style={s.pad}>
+          <LinearGradient colors={['#4361EE', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.overviewCard}>
+            <View style={s.overviewHeader}>
+              <Text style={s.overviewTitle}>Overview</Text>
+              <TouchableOpacity style={s.viewAllBtn}>
+                <Text style={s.viewAllTxt}>View all</Text>
+                <Ionicons name="chevron-forward" size={13} color="rgba(255,255,255,0.8)" />
+              </TouchableOpacity>
+            </View>
+            <View style={s.overviewGrid}>
+              {overviewCards.map((c) => (
+                <View key={c.label} style={s.overviewItem}>
+                  <View style={s.overviewIconBox}>
+                    <Ionicons name={c.icon} size={20} color="#fff" />
+                  </View>
+                  {c.value === null
+                    ? <View style={s.ovSkeleton} />
+                    : <Text style={s.overviewValue} numberOfLines={1} adjustsFontSizeToFit>{c.value}</Text>
+                  }
+                  <Text style={s.overviewLabel} numberOfLines={2}>{c.label}</Text>
+                </View>
+              ))}
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* ── Today's Schedule ── */}
+        <View style={s.pad}>
+          <View style={s.card}>
+            <View style={s.cardHeader}>
+              <View style={s.cardTitleRow}>
+                <View style={s.cardIconBox}>
+                  <Ionicons name="calendar" size={16} color="#4361EE" />
+                </View>
+                <Text style={s.cardTitle}>Today's Schedule</Text>
               </View>
-              <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.avatarBtn}>
-                <Text style={styles.avatarText}>
-                  {(user?.name ?? 'U').charAt(0).toUpperCase()}
-                </Text>
+              <TouchableOpacity style={s.cardLinkBtn}>
+                <Text style={s.cardLink}>View calendar</Text>
+                <Ionicons name="chevron-forward" size={13} color="#4361EE" />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.dateRow}>
-              <Ionicons name="calendar-outline" size={13} color="rgba(255,255,255,0.7)" />
-              <Text style={styles.dateChip}>
-                {new Date().toLocaleDateString(getLocale(), {
-                  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-                })}
-              </Text>
-            </View>
-          </SafeAreaView>
-        </LinearGradient>
-
-        <View style={styles.body}>
-          {loadError && !loading && (
-            <TouchableOpacity
-              onPress={() => { setLoading(true); loadData(); }}
-              style={styles.errorBanner}
-            >
-              <Ionicons name="alert-circle" size={16} color="#991b1b" />
-              <Text style={styles.errorBannerText}>Couldn't load data. Tap to retry.</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* ── Stat cards ── */}
-          <View style={styles.statsGrid}>
-            {STAT_CARDS.map((card) => (
-              <LinearGradient
-                key={card.key}
-                colors={card.gradientColors}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.statCard}
-              >
-                <View style={styles.statIconBg}>
-                  <Ionicons name={card.icon} size={18} color="#fff" />
-                </View>
-                {loading ? (
-                  <View style={styles.statSkeleton} />
-                ) : (
-                  <Text style={styles.statValue} numberOfLines={1}>
-                    {getStatValue(card.key)}
-                  </Text>
-                )}
-                <Text style={styles.statLabel}>{card.label}</Text>
-              </LinearGradient>
-            ))}
-          </View>
-
-          {/* ── Today's schedule ── */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleRow}>
-                <Ionicons name="time-outline" size={18} color="#0e7490" />
-                <Text style={styles.sectionTitle}>Today's Schedule</Text>
-              </View>
-              <View style={styles.countPill}>
-                <Text style={styles.countText}>{todayAppts.length}</Text>
-              </View>
-            </View>
-
             {loading ? (
-              [1, 2, 3].map((i) => (
-                <View key={i} style={styles.apptSkeleton} />
-              ))
+              [1, 2, 3].map((i) => <View key={i} style={s.apptSkeleton} />)
             ) : todayAppts.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <View style={styles.emptyIconBg}>
-                  <Ionicons name="sunny" size={28} color="#0891b2" />
-                </View>
-                <Text style={styles.emptyTitle}>All clear today!</Text>
-                <Text style={styles.emptySubtitle}>No appointments scheduled</Text>
+              <View style={s.emptyBox}>
+                <Ionicons name="sunny-outline" size={32} color="#c7d7ff" />
+                <Text style={s.emptyTxt}>No appointments today</Text>
               </View>
             ) : (
-              todayAppts.map((appt, index) => (
-                <View key={appt.id} style={styles.apptCard}>
-                  {/* Timeline dot */}
-                  <View style={styles.timeline}>
-                    <View style={[
-                      styles.timelineDot,
-                      appt.status === 'completed' && styles.timelineDotDone,
-                      appt.status === 'cancelled' && styles.timelineDotCancel,
-                    ]} />
-                    {index < todayAppts.length - 1 && <View style={styles.timelineLine} />}
-                  </View>
-
-                  <View style={styles.apptContent}>
-                    <View style={styles.apptTop}>
-                      <View style={styles.apptTimeBlock}>
-                        <Text style={styles.apptTime}>{appt.start_time}</Text>
-                        <Text style={styles.apptTimeEnd}>{appt.end_time}</Text>
-                      </View>
-                      <View style={styles.apptInfo}>
-                        <Text style={styles.apptPatient}>
-                          {appt.patient.first_name} {appt.patient.last_name}
-                        </Text>
-                        <View style={styles.apptDentistRow}>
-                          <Ionicons name="person-outline" size={10} color="#94a3b8" />
-                          <Text style={styles.apptDentist}>Dr. {appt.dentist.name}</Text>
+              todayAppts.map((appt, idx) => {
+                const st = APPT_STATUS[appt.status] ?? APPT_STATUS.scheduled;
+                return (
+                  <View key={appt.id} style={s.apptRow}>
+                    <Text style={s.apptTime}>{appt.start_time}</Text>
+                    <View style={s.tlCol}>
+                      <View style={[s.tlDot, { backgroundColor: st.color }]} />
+                      {idx < todayAppts.length - 1 && <View style={s.tlLine} />}
+                    </View>
+                    <View style={[s.apptCard, { borderLeftColor: st.color }]}>
+                      <View style={s.apptCardContent}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.apptPatient}>{appt.patient.first_name} {appt.patient.last_name}</Text>
+                          <Text style={s.apptTreatment}>{appt.notes || 'Consultation'}</Text>
+                        </View>
+                        <View style={[s.statusPill, { backgroundColor: st.bg }]}>
+                          <Text style={[s.statusTxt, { color: st.color }]}>{st.label}</Text>
                         </View>
                       </View>
-                      <Badge label={appt.status} variant={appt.status} showDot={false} size="sm" />
                     </View>
                   </View>
-                </View>
-              ))
+                );
+              })
             )}
           </View>
         </View>
+
+        {/* ── Quick Actions ── */}
+        <View style={s.pad}>
+          <Text style={s.sectionTitle}>Quick Actions</Text>
+          <View style={s.qaRow}>
+            {QUICK_ACTIONS.map((qa) => (
+              <TouchableOpacity key={qa.label} style={s.qaBtn} activeOpacity={0.75}>
+                <View style={[s.qaIcon, { backgroundColor: qa.bg }]}>
+                  <Ionicons name={qa.icon} size={22} color={qa.color} />
+                </View>
+                <Text style={s.qaLabel}>{qa.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* ── Today's Collection Breakdown ── */}
+        <View style={s.pad}>
+          <Text style={s.sectionTitle}>{"Today's Collection"}</Text>
+          <View style={s.breakdownRow}>
+            {[
+              { label: 'Cash',  icon: 'cash'         as IoniconsName, color: '#059669', bg: '#d1fae5', value: payments?.cash },
+              { label: 'Card',  icon: 'card'         as IoniconsName, color: '#0891b2', bg: '#e0f2fe', value: payments?.card },
+              { label: 'UPI',   icon: 'phone-portrait' as IoniconsName, color: '#7c3aed', bg: '#ede9fe', value: payments?.upi },
+            ].map((item) => (
+              <View key={item.label} style={s.breakdownCard}>
+                <View style={[s.breakdownIcon, { backgroundColor: item.bg }]}>
+                  <Ionicons name={item.icon} size={18} color={item.color} />
+                </View>
+                <Text style={s.breakdownValue} numberOfLines={1} adjustsFontSizeToFit>
+                  {payments === null ? '—' : formatCurrency(item.value ?? 0)}
+                </Text>
+                <Text style={s.breakdownLabel}>{item.label}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* ── Monthly Overview ── */}
+        <View style={s.pad}>
+          <Text style={s.sectionTitle}>Monthly Overview</Text>
+          <View style={s.card}>
+            {[
+              { label: 'Revenue',    icon: 'trending-up'   as IoniconsName, color: '#059669', bg: '#d1fae5', value: summary?.this_month_revenue },
+              { label: 'Expenses',   icon: 'trending-down' as IoniconsName, color: '#dc2626', bg: '#fee2e2', value: summary?.this_month_expenses },
+              { label: 'Net Profit', icon: 'bar-chart'     as IoniconsName, color: '#4361EE', bg: '#EEF2FF', value: summary?.net_profit },
+            ].map((item, idx, arr) => (
+              <View
+                key={item.label}
+                style={[s.monthlyRow, idx < arr.length - 1 && s.monthlyRowBorder]}
+              >
+                <View style={[s.monthlyIcon, { backgroundColor: item.bg }]}>
+                  <Ionicons name={item.icon} size={18} color={item.color} />
+                </View>
+                <Text style={s.monthlyLabel}>{item.label}</Text>
+                <Text style={[s.monthlyValue, { color: item.color }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {loading ? '—' : formatCurrency(item.value ?? 0)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* ── Revenue Overview Chart ── */}
+        <View style={s.pad}>
+          <View style={s.card}>
+            <View style={s.cardHeader}>
+              <Text style={s.cardTitle}>Revenue Overview</Text>
+              <View style={s.periodToggle}>
+                <TouchableOpacity
+                  onPress={() => switchPeriod('7')}
+                  style={[s.periodBtn, chartPeriod === '7' && s.periodBtnActive]}
+                >
+                  <Text style={[s.periodBtnTxt, chartPeriod === '7' && s.periodBtnTxtActive]}>Week</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => switchPeriod('30')}
+                  style={[s.periodBtn, chartPeriod === '30' && s.periodBtnActive]}
+                >
+                  <Text style={[s.periodBtnTxt, chartPeriod === '30' && s.periodBtnTxtActive]}>Month</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={s.chartAmtRow}>
+              <Text style={s.chartAmt}>
+                {loading ? '—' : formatCurrency(chartTotal)}
+              </Text>
+              <View style={s.chartGrowthRow}>
+                <Ionicons name="trending-up" size={14} color="#059669" />
+                <Text style={s.chartGrowthTxt}>18.6%</Text>
+                <Text style={s.chartGrowthSub}>vs last {chartPeriod === '7' ? 'week' : 'month'}</Text>
+              </View>
+            </View>
+
+            <BarChart data={chartData} period={chartPeriod} />
+          </View>
+        </View>
+
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#f8fafc' },
-  scroll: { flex: 1 },
+const BREAKDOWN_W = (SW - 32 - 16) / 3;
 
-  // Gradient Header
-  headerGradient: {
-    paddingBottom: spacing.xl,
-  },
-  topHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-  },
-  headerLeft: { flex: 1 },
-  clinicName: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.8)',
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    marginBottom: 2,
-  },
-  greeting: { fontSize: typography.md, color: 'rgba(255,255,255,0.9)', fontWeight: '400' },
-  greetingName: { fontWeight: '700', color: '#ffffff' },
-  avatarBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { fontSize: typography.md, fontWeight: '700', color: '#ffffff' },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-  },
-  dateChip: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.7)',
-    fontWeight: '500',
-  },
+const s = StyleSheet.create({
+  screen:  { flex: 1, backgroundColor: '#F0F4FF' },
+  safeTop: { backgroundColor: '#fff' },
+  scroll:  { flex: 1 },
+  pad:     { paddingHorizontal: 16, marginTop: 16 },
 
-  // Body
-  body: {
-    padding: spacing.lg,
-    marginTop: -spacing.sm,
-  },
+  // Header
+  header:      { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  menuBtn:     { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F0F4FF', alignItems: 'center', justifyContent: 'center' },
+  greetBlock:  { flex: 1 },
+  greetSub:    { fontSize: 12, color: '#64748b' },
+  greetName:   { fontSize: 18, fontWeight: '800', color: '#0f172a', letterSpacing: -0.3 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  bellBtn:     { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F0F4FF', alignItems: 'center', justifyContent: 'center' },
+  bellBadge:   { position: 'absolute', top: 6, right: 6, width: 16, height: 16, borderRadius: 8, backgroundColor: '#ef4444', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
+  bellBadgeTxt:{ fontSize: 9, fontWeight: '700', color: '#fff' },
+  avatarWrap:  { width: 42, height: 42, borderRadius: 21, overflow: 'hidden', ...shadow.sm },
+  avatarGrad:  { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  onlineDot:   { position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: 6, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#fff' },
 
-  // Error banner
-  errorBanner: {
-    backgroundColor: '#fee2e2',
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.base,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  errorBannerText: { fontSize: typography.sm, color: '#991b1b', fontWeight: '500', flex: 1 },
+  // Error
+  errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fee2e2', marginHorizontal: 16, marginTop: 8, borderRadius: 10, padding: 12 },
+  errorTxt:    { fontSize: 13, color: '#991b1b', flex: 1 },
 
-  // Stats
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-    marginBottom: spacing.xl,
-  },
-  statCard: {
-    width: '47%',
-    borderRadius: radius.xl,
-    padding: spacing.base,
-    minHeight: 130,
-    justifyContent: 'space-between',
-    ...shadow.md,
-    overflow: 'hidden',
-  },
-  statIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: -0.5,
-    marginTop: spacing.sm,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.9)',
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  statSkeleton: {
-    height: 30,
-    width: 80,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: radius.sm,
-    marginTop: spacing.sm,
-  },
+  // Overview
+  overviewCard:    { borderRadius: 20, padding: 18, ...shadow.md },
+  overviewHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  overviewTitle:   { fontSize: 16, fontWeight: '700', color: '#fff' },
+  viewAllBtn:      { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  viewAllTxt:      { fontSize: 13, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
+  overviewGrid:    { flexDirection: 'row', gap: 8 },
+  overviewItem:    { flex: 1, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 4 },
+  overviewIconBox: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  overviewValue:   { fontSize: 14, fontWeight: '800', color: '#fff', marginBottom: 2 },
+  overviewLabel:   { fontSize: 10, color: 'rgba(255,255,255,0.8)', fontWeight: '500', textAlign: 'center' },
+  ovSkeleton:      { width: 36, height: 14, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.2)', marginBottom: 2 },
 
-  // Section
-  section: { gap: spacing.md },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  sectionTitle: {
-    fontSize: typography.md,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  countPill: {
-    backgroundColor: '#0891b2',
-    borderRadius: radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  countText: { fontSize: 11, fontWeight: '700', color: '#ffffff' },
+  // Card
+  card:        { backgroundColor: '#fff', borderRadius: 20, padding: 16, ...shadow.sm },
+  cardHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  cardTitleRow:{ flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cardIconBox: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' },
+  cardTitle:   { fontSize: 16, fontWeight: '700', color: '#0f172a' },
+  cardLinkBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  cardLink:    { fontSize: 13, color: '#4361EE', fontWeight: '500' },
 
-  // Appointment cards
-  apptCard: { flexDirection: 'row', gap: spacing.sm },
-  timeline: { alignItems: 'center', width: 20 },
-  timelineDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#0891b2',
-    borderWidth: 2,
-    borderColor: '#cffafe',
-    marginTop: 16,
-  },
-  timelineDotDone: { backgroundColor: '#059669', borderColor: '#d1fae5' },
-  timelineDotCancel: { backgroundColor: '#dc2626', borderColor: '#fee2e2' },
-  timelineLine: {
-    flex: 1,
-    width: 2,
-    backgroundColor: '#e2e8f0',
-    marginTop: 2,
-    marginBottom: -spacing.md,
-  },
-  apptContent: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    borderRadius: radius.lg,
-    padding: spacing.base,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    ...shadow.sm,
-  },
-  apptTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  apptTimeBlock: { minWidth: 46, alignItems: 'center' },
-  apptTime: { fontSize: typography.sm, fontWeight: '700', color: '#0891b2' },
-  apptTimeEnd: { fontSize: 10, color: '#94a3b8', marginTop: 1 },
-  apptInfo: { flex: 1 },
-  apptPatient: { fontSize: typography.sm, fontWeight: '600', color: '#0f172a' },
-  apptDentistRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  apptDentist: { fontSize: 11, color: '#64748b' },
+  // Schedule
+  apptRow:        { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10, gap: 8 },
+  apptTime:       { width: 52, fontSize: 11, fontWeight: '600', color: '#64748b', paddingTop: 8 },
+  tlCol:          { alignItems: 'center', width: 14 },
+  tlDot:          { width: 12, height: 12, borderRadius: 6, marginTop: 7 },
+  tlLine:         { flex: 1, width: 2, backgroundColor: '#e2e8f0', marginTop: 3, minHeight: 24 },
+  apptCard:       { flex: 1, backgroundColor: '#F8FAFF', borderRadius: 12, borderLeftWidth: 3, paddingVertical: 8, paddingHorizontal: 10 },
+  apptCardContent:{ flexDirection: 'row', alignItems: 'center' },
+  apptPatient:    { fontSize: 13, fontWeight: '700', color: '#0f172a' },
+  apptTreatment:  { fontSize: 11, color: '#64748b', marginTop: 1 },
+  statusPill:     { borderRadius: 20, paddingHorizontal: 9, paddingVertical: 3, marginLeft: 6 },
+  statusTxt:      { fontSize: 11, fontWeight: '600' },
+  apptSkeleton:   { height: 46, backgroundColor: '#f1f5f9', borderRadius: 12, marginBottom: 8 },
+  emptyBox:       { alignItems: 'center', paddingVertical: 28, gap: 8 },
+  emptyTxt:       { fontSize: 13, color: '#94a3b8' },
 
-  // Skeleton
-  apptSkeleton: {
-    height: 66,
-    backgroundColor: '#ffffff',
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    marginBottom: spacing.sm,
-    opacity: 0.6,
-  },
+  // Section title
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginBottom: 12 },
 
-  // Empty
-  emptyCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: radius.xl,
-    padding: spacing['2xl'],
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  emptyIconBg: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#ecfeff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.xs,
-  },
-  emptyTitle: { fontSize: typography.md, fontWeight: '700', color: '#0f172a' },
-  emptySubtitle: { fontSize: typography.sm, color: '#64748b' },
+  // Quick Actions
+  qaRow:  { flexDirection: 'row', gap: 8 },
+  qaBtn:  { flex: 1, backgroundColor: '#fff', borderRadius: 16, paddingVertical: 14, alignItems: 'center', gap: 8, ...shadow.sm },
+  qaIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  qaLabel:{ fontSize: 11, fontWeight: '600', color: '#0f172a', textAlign: 'center', lineHeight: 15 },
+
+  // Breakdown (cash/card/upi + outstanding/discount/gst)
+  breakdownRow:  { flexDirection: 'row', gap: 8 },
+  finRow:        { flexDirection: 'row', gap: 8 },
+  breakdownCard: { width: BREAKDOWN_W, backgroundColor: '#fff', borderRadius: 16, padding: 12, alignItems: 'center', gap: 6, ...shadow.sm },
+  breakdownIcon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  breakdownValue:{ fontSize: 13, fontWeight: '800', color: '#0f172a' },
+  breakdownLabel:{ fontSize: 11, color: '#64748b', fontWeight: '500' },
+
+  // Monthly overview rows
+  monthlyRow:       { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  monthlyRowBorder: { borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  monthlyIcon:      { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  monthlyLabel:     { flex: 1, fontSize: 14, fontWeight: '600', color: '#0f172a' },
+  monthlyValue:     { fontSize: 15, fontWeight: '800' },
+
+  // Chart
+  periodToggle:     { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 20, padding: 2 },
+  periodBtn:        { paddingHorizontal: 14, paddingVertical: 5, borderRadius: 18 },
+  periodBtnActive:  { backgroundColor: '#4361EE' },
+  periodBtnTxt:     { fontSize: 12, fontWeight: '600', color: '#64748b' },
+  periodBtnTxtActive: { color: '#fff' },
+  chartAmtRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  chartAmt:       { fontSize: 24, fontWeight: '800', color: '#0f172a', letterSpacing: -0.5 },
+  chartGrowthRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  chartGrowthTxt: { fontSize: 13, fontWeight: '700', color: '#059669' },
+  chartGrowthSub: { fontSize: 11, color: '#94a3b8' },
 });

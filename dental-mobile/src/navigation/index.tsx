@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -121,16 +121,10 @@ function AppTabs() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: true,
-        tabBarActiveTintColor: '#0891b2',
+        tabBarActiveTintColor: '#4361EE',
         tabBarInactiveTintColor: '#94a3b8',
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-          marginTop: -2,
-        },
-        tabBarIconStyle: {
-          marginBottom: -2,
-        },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: -2 },
+        tabBarIconStyle: { marginBottom: -2 },
         tabBarStyle: {
           backgroundColor: '#ffffff',
           borderTopWidth: 1,
@@ -146,9 +140,9 @@ function AppTabs() {
         name="Dashboard"
         component={DashboardScreen}
         options={{
-          tabBarLabel: 'Home',
+          tabBarLabel: 'Dashboard',
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon icon="home" iconOutline="home-outline" focused={focused} />
+            <Ionicons name={focused ? 'grid' : 'grid-outline'} size={22} color={focused ? '#4361EE' : '#94a3b8'} />
           ),
         }}
       />
@@ -158,7 +152,7 @@ function AppTabs() {
         options={{
           tabBarLabel: 'Patients',
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon icon="people" iconOutline="people-outline" focused={focused} />
+            <Ionicons name={focused ? 'people' : 'people-outline'} size={22} color={focused ? '#4361EE' : '#94a3b8'} />
           ),
         }}
       />
@@ -166,9 +160,18 @@ function AppTabs() {
         name="Appointments"
         component={AppointmentsNavigator}
         options={{
-          tabBarLabel: 'Schedule',
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon icon="calendar" iconOutline="calendar-outline" focused={focused} />
+          tabBarLabel: '',
+          tabBarIcon: () => (
+            <View style={{
+              width: 52, height: 52, borderRadius: 26,
+              backgroundColor: '#4361EE',
+              alignItems: 'center', justifyContent: 'center',
+              marginBottom: 20,
+              shadowColor: '#4361EE', shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.4, shadowRadius: 8, elevation: 8,
+            }}>
+              <Ionicons name="add" size={28} color="#fff" />
+            </View>
           ),
         }}
       />
@@ -176,9 +179,9 @@ function AppTabs() {
         name="WhatsApp"
         component={WhatsAppNavigator}
         options={{
-          tabBarLabel: 'Chat',
+          tabBarLabel: 'Appointments',
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon icon="chatbubbles" iconOutline="chatbubbles-outline" focused={focused} />
+            <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={22} color={focused ? '#4361EE' : '#94a3b8'} />
           ),
         }}
       />
@@ -186,9 +189,9 @@ function AppTabs() {
         name="Billing"
         component={BillingNavigator}
         options={{
-          tabBarLabel: 'Billing',
+          tabBarLabel: 'More',
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon icon="card" iconOutline="card-outline" focused={focused} />
+            <Ionicons name={focused ? 'apps' : 'apps-outline'} size={22} color={focused ? '#4361EE' : '#94a3b8'} />
           ),
         }}
       />

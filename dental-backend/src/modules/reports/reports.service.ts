@@ -19,6 +19,7 @@ export interface DashboardSummary {
   this_month_revenue: number;
   this_month_refunds: number;
   net_profit: number;
+  new_patients_this_month: number;
 }
 
 export interface AppointmentAnalytics {
@@ -111,7 +112,7 @@ export class ReportsService {
     // are clinic-wide and remain unfiltered by dentist.
     const invoiceDentistFilter = dentistFilter ? { dentist_id: dentistFilter } : {};
 
-    const [todayAppointments, todayRevenue, pendingInvoices, pendingInvoicesAgg, partiallyPaidAgg, partiallyPaidPaymentsAgg, lowInventoryItems, monthExpenses, monthRevenue, monthRefunds] =
+    const [todayAppointments, todayRevenue, pendingInvoices, pendingInvoicesAgg, partiallyPaidAgg, partiallyPaidPaymentsAgg, lowInventoryItems, monthExpenses, monthRevenue, monthRefunds, newPatientsThisMonth] =
       await Promise.all([
         this.prisma.appointment.count({
           where: {
@@ -221,6 +222,14 @@ export class ReportsService {
             refunded_at: { gte: monthStart, lte: monthEnd },
           },
         }),
+
+        this.prisma.patient.count({
+          where: {
+            clinic_id: clinicId,
+            created_at: { gte: monthStart, lte: monthEnd },
+            ...(branchFilter && { branch_id: branchFilter }),
+          },
+        }),
       ]);
 
     const thisMonthExpenses = Number(monthExpenses._sum.amount ?? 0);
@@ -241,6 +250,7 @@ export class ReportsService {
       this_month_expenses: thisMonthExpenses,
       this_month_revenue: thisMonthRevenue,
       this_month_refunds: thisMonthRefunds,
+      new_patients_this_month: newPatientsThisMonth,
       // Net profit subtracts both expenses AND refunds — refunds are real
       // cash leaving the business, so the bottom line should reflect them.
       net_profit: thisMonthRevenue - thisMonthExpenses - thisMonthRefunds,

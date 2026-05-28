@@ -36,7 +36,7 @@ let ReportsService = class ReportsService {
         const branchFilter = branchId || null;
         const dentistFilter = dentistId || null;
         const invoiceDentistFilter = dentistFilter ? { dentist_id: dentistFilter } : {};
-        const [todayAppointments, todayRevenue, pendingInvoices, pendingInvoicesAgg, partiallyPaidAgg, partiallyPaidPaymentsAgg, lowInventoryItems, monthExpenses, monthRevenue, monthRefunds] = await Promise.all([
+        const [todayAppointments, todayRevenue, pendingInvoices, pendingInvoicesAgg, partiallyPaidAgg, partiallyPaidPaymentsAgg, lowInventoryItems, monthExpenses, monthRevenue, monthRefunds, newPatientsThisMonth] = await Promise.all([
             this.prisma.appointment.count({
                 where: {
                     clinic_id: clinicId,
@@ -131,6 +131,13 @@ let ReportsService = class ReportsService {
                     refunded_at: { gte: monthStart, lte: monthEnd },
                 },
             }),
+            this.prisma.patient.count({
+                where: {
+                    clinic_id: clinicId,
+                    created_at: { gte: monthStart, lte: monthEnd },
+                    ...(branchFilter && { branch_id: branchFilter }),
+                },
+            }),
         ]);
         const thisMonthExpenses = Number(monthExpenses._sum.amount ?? 0);
         const thisMonthRevenue = Number(monthRevenue._sum.amount ?? 0);
@@ -148,6 +155,7 @@ let ReportsService = class ReportsService {
             this_month_expenses: thisMonthExpenses,
             this_month_revenue: thisMonthRevenue,
             this_month_refunds: thisMonthRefunds,
+            new_patients_this_month: newPatientsThisMonth,
             net_profit: thisMonthRevenue - thisMonthExpenses - thisMonthRefunds,
         };
         this._summaryCache.set(cacheKey, { data: result, expiresAt: Date.now() + 30_000 });

@@ -11,6 +11,7 @@ export interface DashboardSummary {
     this_month_revenue: number;
     this_month_refunds: number;
     net_profit: number;
+    new_patients_this_month: number;
 }
 export interface AppointmentAnalytics {
     total_appointments: number;
