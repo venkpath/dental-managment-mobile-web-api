@@ -13,6 +13,7 @@ exports.UpdateUserDto = exports.UserStatus = void 0;
 const openapi = require("@nestjs/swagger");
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
 const swagger_2 = require("@nestjs/swagger");
 const create_user_dto_js_1 = require("./create-user.dto.js");
 var UserStatus;
@@ -20,13 +21,22 @@ var UserStatus;
     UserStatus["ACTIVE"] = "active";
     UserStatus["INACTIVE"] = "inactive";
 })(UserStatus || (exports.UserStatus = UserStatus = {}));
-class UpdateUserDto extends (0, swagger_1.PartialType)((0, swagger_1.OmitType)(create_user_dto_js_1.CreateUserDto, ['password'])) {
+class UpdateUserDto extends (0, swagger_1.PartialType)((0, swagger_1.OmitType)(create_user_dto_js_1.CreateUserDto, ['password', 'branch_id'])) {
+    branch_id;
     status;
     static _OPENAPI_METADATA_FACTORY() {
-        return { status: { required: false, enum: require("./update-user.dto").UserStatus } };
+        return { branch_id: { required: false, type: () => String, nullable: true, format: "uuid" }, status: { required: false, enum: require("./update-user.dto").UserStatus } };
     }
 }
 exports.UpdateUserDto = UpdateUserDto;
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ example: null, description: 'Branch UUID, or null to assign to all branches' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => (value === '' ? null : value)),
+    (0, class_validator_1.ValidateIf)((o) => o.branch_id !== null),
+    (0, class_validator_1.IsUUID)('4'),
+    __metadata("design:type", Object)
+], UpdateUserDto.prototype, "branch_id", void 0);
 __decorate([
     (0, swagger_2.ApiPropertyOptional)({ enum: UserStatus, example: UserStatus.ACTIVE }),
     (0, class_validator_1.IsOptional)(),

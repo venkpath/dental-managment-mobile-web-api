@@ -76,6 +76,7 @@ const patient_insights_module_js_1 = require("./modules/patient-insights/patient
 const insurance_module_js_1 = require("./modules/insurance/insurance.module.js");
 const room_module_js_1 = require("./modules/room/room.module.js");
 const public_display_module_js_1 = require("./modules/public-display/public-display.module.js");
+const treatment_media_module_js_1 = require("./modules/treatment-media/treatment-media.module.js");
 const branch_scope_interceptor_js_1 = require("./common/interceptors/branch-scope.interceptor.js");
 const activity_tracker_interceptor_js_1 = require("./common/interceptors/activity-tracker.interceptor.js");
 const suspension_guard_js_1 = require("./common/guards/suspension.guard.js");
@@ -163,6 +164,7 @@ exports.AppModule = AppModule = __decorate([
             insurance_module_js_1.InsuranceModule,
             room_module_js_1.RoomModule,
             public_display_module_js_1.PublicDisplayModule,
+            treatment_media_module_js_1.TreatmentMediaModule,
         ],
         providers: [
             { provide: core_1.APP_GUARD, useClass: throttler_1.ThrottlerGuard },

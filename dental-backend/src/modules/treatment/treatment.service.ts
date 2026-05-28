@@ -129,14 +129,34 @@ export class TreatmentService {
     return this.prisma.treatment.findMany({
       where: { clinic_id: clinicId, patient_id: patientId },
       orderBy: { created_at: 'desc' },
-      include: { dentist: true, branch: true },
+      include: {
+        dentist: true,
+        branch: true,
+        media: {
+          take: 4,
+          orderBy: [{ visit_date: 'desc' }, { created_at: 'desc' }],
+          select: {
+            id: true, mime_type: true, media_type: true,
+            visit_date: true, original_name: true,
+          },
+        },
+        _count: { select: { media: true } },
+      },
     });
   }
 
   async findOne(clinicId: string, id: string): Promise<Treatment> {
     const treatment = await this.prisma.treatment.findUnique({
       where: { id },
-      include: { patient: true, dentist: true, branch: true },
+      include: {
+        patient: true,
+        dentist: true,
+        branch: true,
+        media: {
+          orderBy: [{ visit_date: 'desc' }, { created_at: 'desc' }],
+          include: { uploader: { select: { id: true, name: true, role: true } } },
+        },
+      },
     });
     if (!treatment || treatment.clinic_id !== clinicId) {
       throw new NotFoundException(`Treatment with ID "${id}" not found`);

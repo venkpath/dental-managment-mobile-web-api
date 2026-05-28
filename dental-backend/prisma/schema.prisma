@@ -117,6 +117,7 @@ model Clinic {
   invoices                   Invoice[]
   inventory_items            InventoryItem[]
   attachments                Attachment[]
+  treatment_media            TreatmentMedia[]
   tooth_conditions           PatientToothCondition[]
   notifications              Notification[]
   communication_messages     CommunicationMessage[]
@@ -235,6 +236,7 @@ model Branch {
   invoices               Invoice[]
   inventory_items        InventoryItem[]
   attachments            Attachment[]
+  treatment_media        TreatmentMedia[]
   tooth_conditions       PatientToothCondition[]
   expenses               Expense[]
   clinical_visits        ClinicalVisit[]
@@ -428,6 +430,7 @@ model User {
   treatments                Treatment[]
   prescriptions             Prescription[]
   attachments               Attachment[]
+  treatment_media           TreatmentMedia[]
   tooth_conditions          PatientToothCondition[] @relation("ToothConditionDentist")
   ai_insights               AiInsight[]
   ai_usage_records          AiUsageRecord[]
@@ -520,6 +523,7 @@ model Patient {
   prescriptions            Prescription[]
   invoices                 Invoice[]
   attachments              Attachment[]
+  treatment_media          TreatmentMedia[]
   tooth_conditions         PatientToothCondition[]
   communication_messages   CommunicationMessage[]
   communication_preference PatientCommunicationPreference?
@@ -614,6 +618,39 @@ model Treatment {
   @@index([treatment_plan_id])
   @@index([patient_id, tooth_number])
   @@map("treatments")
+  media TreatmentMedia[]
+}
+
+model TreatmentMedia {
+  id            String   @id @default(uuid()) @db.Uuid
+  clinic_id     String   @db.Uuid
+  branch_id     String   @db.Uuid
+  patient_id    String   @db.Uuid
+  treatment_id  String   @db.Uuid
+  file_url      String   @db.VarChar(1000)
+  file_name     String   @db.VarChar(255)
+  original_name String   @db.VarChar(255)
+  mime_type     String   @db.VarChar(100)
+  media_type    String   @db.VarChar(20)
+  original_size Int
+  stored_size   Int
+  visit_date    DateTime @db.Date
+  caption       String?  @db.VarChar(500)
+  uploaded_by   String   @db.Uuid
+
+  created_at    DateTime @default(now())
+
+  clinic    Clinic    @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  branch    Branch    @relation(fields: [branch_id], references: [id], onDelete: Cascade)
+  patient   Patient   @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  treatment Treatment @relation(fields: [treatment_id], references: [id], onDelete: Cascade)
+  uploader  User      @relation(fields: [uploaded_by], references: [id], onDelete: Cascade)
+
+  @@index([treatment_id])
+  @@index([patient_id])
+  @@index([clinic_id])
+  @@index([visit_date])
+  @@map("treatment_media")
 }
 
 model Prescription {

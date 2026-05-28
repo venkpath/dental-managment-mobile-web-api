@@ -32,8 +32,8 @@ export declare class AttachmentController {
         file_name: string;
         file_url: string;
         original_name: string;
-        ai_analysis: import("@prisma/client/runtime/client").JsonValue | null;
         uploaded_by: string;
+        ai_analysis: import("@prisma/client/runtime/client").JsonValue | null;
     }>;
     findByPatient(clinicId: string, patientId: string): Promise<({
         branch: {
@@ -62,8 +62,8 @@ export declare class AttachmentController {
         file_name: string;
         file_url: string;
         original_name: string;
-        ai_analysis: import("@prisma/client/runtime/client").JsonValue | null;
         uploaded_by: string;
+        ai_analysis: import("@prisma/client/runtime/client").JsonValue | null;
     })[]>;
     serveFile(id: string, token: string, clinicId: string, res: Response): Promise<void>;
     remove(clinicId: string, id: string): Promise<{
