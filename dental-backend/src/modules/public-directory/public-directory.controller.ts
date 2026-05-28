@@ -431,6 +431,8 @@ export class PublicDirectoryController {
         google_maps_url: c.google_maps_url, website_url: c.website_url,
         users: c.users,
         branch_cover_id: coverBranch?.id ?? null,
+        lat: c.latitude ?? null,
+        lng: c.longitude ?? null,
         review_count: reviews.length,
         avg_rating: avg ? Math.round(avg * 10) / 10 : null,
         distance_km: distKm ? Math.round(distKm * 10) / 10 : null,
