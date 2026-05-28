@@ -63,6 +63,75 @@ export declare class PatientInsuranceService {
         card_back_url: string | null;
         referral_letter_url: string | null;
     })[]>;
+    listAll(clinicId: string, filters?: {
+        search?: string;
+        provider_id?: string;
+        is_active?: boolean;
+        skip?: number;
+        take?: number;
+    }): Promise<{
+        total: number;
+        items: ({
+            plan: {
+                _count: {
+                    procedure_codes: number;
+                };
+                provider: {
+                    id: string;
+                    name: string;
+                    country: string;
+                    short_code: string;
+                    type: string;
+                };
+            } & {
+                id: string;
+                created_at: Date;
+                updated_at: Date;
+                is_active: boolean;
+                currency: string;
+                coverage_rules: import("@prisma/client/runtime/client").JsonValue;
+                ortho_coverage: number;
+                requires_referral: boolean;
+                provider_id: string;
+                plan_name: string;
+                plan_code: string | null;
+                preventive_coverage: number;
+                basic_coverage: number;
+                major_coverage: number;
+                annual_max_amount: import("@prisma/client-runtime-utils").Decimal | null;
+                deductible_amount: import("@prisma/client-runtime-utils").Decimal;
+                requires_preauth: boolean;
+            };
+            patient: {
+                id: string;
+                phone: string;
+                first_name: string;
+                last_name: string;
+            };
+        } & {
+            id: string;
+            created_at: Date;
+            updated_at: Date;
+            plan_id: string;
+            clinic_id: string;
+            is_active: boolean;
+            notes: string | null;
+            patient_id: string;
+            priority: number;
+            member_id: string;
+            group_number: string | null;
+            employee_id: string | null;
+            beneficiary_id: string | null;
+            company_name: string | null;
+            subscriber_name: string | null;
+            relationship: string | null;
+            coverage_start: Date | null;
+            coverage_end: Date | null;
+            card_front_url: string | null;
+            card_back_url: string | null;
+            referral_letter_url: string | null;
+        })[];
+    }>;
     get(clinicId: string, id: string): Promise<{
         plan: {
             _count: {

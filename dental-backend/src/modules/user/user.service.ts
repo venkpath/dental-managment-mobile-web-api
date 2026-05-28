@@ -285,6 +285,49 @@ export class UserService {
     return this.getAvailability(clinicId, userId);
   }
 
+  // ─── Feature grants ────────────────────────────────────────────────────
+
+  async getFeatureGrants(clinicId: string, userId: string): Promise<string[]> {
+    await this.findOne(clinicId, userId);
+    try {
+      const rows = await this.prisma.userFeatureAccess.findMany({
+        where: { user_id: userId },
+        select: { feature_key: true },
+      });
+      return rows.map((r) => r.feature_key);
+    } catch {
+      // Table may not exist yet — return empty grants gracefully
+      return [];
+    }
+  }
+
+  async setFeatureGrants(clinicId: string, userId: string, featureKeys: string[]): Promise<string[]> {
+    await this.findOne(clinicId, userId);
+    try {
+      const existing = await this.prisma.userFeatureAccess.findMany({
+        where: { user_id: userId },
+        select: { feature_key: true },
+      });
+      const existingKeys = new Set(existing.map((r) => r.feature_key));
+      const newKeys = new Set(featureKeys);
+
+      const toAdd    = featureKeys.filter((k) => !existingKeys.has(k));
+      const toRemove = [...existingKeys].filter((k) => !newKeys.has(k));
+
+      if (toAdd.length > 0 || toRemove.length > 0) {
+        await this.prisma.$transaction([
+          ...(toRemove.length > 0
+            ? [this.prisma.userFeatureAccess.deleteMany({ where: { user_id: userId, feature_key: { in: toRemove } } })]
+            : []),
+          ...toAdd.map((key) => this.prisma.userFeatureAccess.create({ data: { user_id: userId, feature_key: key } })),
+        ]);
+      }
+    } catch {
+      // Table may not exist yet — migration pending
+    }
+    return featureKeys;
+  }
+
   async update(clinicId: string, id: string, dto: UpdateUserDto): Promise<Omit<User, 'password_hash'>> {
     const user = await this.findOne(clinicId, id);
     if (dto.branch_id) {

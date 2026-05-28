@@ -11,7 +11,7 @@ import {
   ApiNoContentResponse,
   ApiConsumes,
 } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Matches, Max, Min, ValidateNested, ValidateIf, registerDecorator, ValidationOptions } from 'class-validator';
+import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Matches, Max, Min, ValidateNested, ValidateIf, registerDecorator, ValidationOptions, ArrayMaxSize } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -75,6 +75,14 @@ class UpsertAvailabilityDto {
   @ValidateNested({ each: true })
   @Type(() => AvailabilityDayDto)
   schedule!: AvailabilityDayDto[];
+}
+
+class SetFeatureGrantsDto {
+  @ApiProperty({ type: [String], description: 'List of feature keys to grant this user' })
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(20)
+  feature_keys!: string[];
 }
 
 @ApiTags('Users')
@@ -192,6 +200,29 @@ export class UserController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.userService.getAvailability(clinicId, id);
+  }
+
+  @Get(':id/feature-grants')
+  @ApiOperation({ summary: 'Get optional feature grants for a user' })
+  @ApiOkResponse({ description: 'List of granted feature keys' })
+  async getFeatureGrants(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const keys = await this.userService.getFeatureGrants(clinicId, id);
+    return { feature_keys: keys };
+  }
+
+  @Put(':id/feature-grants')
+  @ApiOperation({ summary: 'Set optional feature grants for a user' })
+  @ApiOkResponse({ description: 'Updated feature grants' })
+  async setFeatureGrants(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetFeatureGrantsDto,
+  ) {
+    const keys = await this.userService.setFeatureGrants(clinicId, id, dto.feature_keys);
+    return { feature_keys: keys };
   }
 
   @Put(':id/availability')

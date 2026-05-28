@@ -444,11 +444,28 @@ model User {
 
   availability              DoctorAvailability[]
 
+  feature_grants            UserFeatureAccess[]
+
   @@unique([email, clinic_id])
   @@index([clinic_id])
   @@index([branch_id])
   @@index([email])
   @@map("users")
+}
+
+// Per-user optional feature grants (additive on top of role defaults).
+// Clinic must still have the feature enabled — this is a second gate.
+model UserFeatureAccess {
+  id          String   @id @default(uuid()) @db.Uuid
+  user_id     String   @db.Uuid
+  feature_key String   @db.VarChar(100)
+  created_at  DateTime @default(now())
+
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, feature_key])
+  @@index([user_id])
+  @@map("user_feature_access")
 }
 
 // Per-doctor weekly availability schedule.
@@ -2208,6 +2225,7 @@ model InsurancePreAuth {
 
   clinic            Clinic           @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   patient_insurance PatientInsurance @relation(fields: [patient_insurance_id], references: [id], onDelete: Cascade)
+  claims            InsuranceClaim[]
 
   @@index([clinic_id])
   @@index([patient_insurance_id])
@@ -2258,6 +2276,7 @@ model InsuranceClaim {
   clinic            Clinic                             @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   invoice           Invoice                            @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
   patient_insurance PatientInsurance                   @relation(fields: [patient_insurance_id], references: [id])
+  pre_auth          InsurancePreAuth?                  @relation(fields: [pre_auth_id], references: [id])
   status_history    InsuranceClaimStatusHistory[]
   attachments       InsuranceClaimAttachment[]
   allocations       InsuranceReimbursementAllocation[]

@@ -6,10 +6,18 @@ import { InsuranceProvidersController } from './controllers/insurance-providers.
 import { ClinicEmpanelmentController } from './controllers/clinic-empanelment.controller.js';
 import { PatientInsuranceController } from './controllers/patient-insurance.controller.js';
 import { InsuranceModuleController } from './controllers/insurance-module.controller.js';
+import { InsuranceClaimsController } from './controllers/insurance-claims.controller.js';
+import { InsuranceReimbursementController } from './controllers/insurance-reimbursement.controller.js';
+import { InsuranceClaimAttachmentController, InsuranceClaimAttachmentServeController } from './controllers/insurance-claim-attachment.controller.js';
+import { InsurancePreAuthController, InsurancePreAuthServeController } from './controllers/insurance-pre-auth.controller.js';
 import { InsuranceProvidersService } from './services/insurance-providers.service.js';
 import { ClinicEmpanelmentService } from './services/clinic-empanelment.service.js';
 import { PatientInsuranceService } from './services/patient-insurance.service.js';
 import { InsuranceFileService } from './services/insurance-file.service.js';
+import { InsuranceClaimsService } from './services/insurance-claims.service.js';
+import { InsuranceReimbursementService } from './services/insurance-reimbursement.service.js';
+import { InsuranceClaimAttachmentService } from './services/insurance-claim-attachment.service.js';
+import { InsurancePreAuthService } from './services/insurance-pre-auth.service.js';
 import { IndiaInsuranceStrategy } from './strategies/india.strategy.js';
 import { InsuranceStrategyFactory } from './strategies/strategy.factory.js';
 
@@ -34,12 +42,22 @@ import { InsuranceStrategyFactory } from './strategies/strategy.factory.js';
     ClinicEmpanelmentController,
     PatientInsuranceController,
     InsuranceModuleController,
+    InsuranceClaimsController,
+    InsuranceReimbursementController,
+    InsuranceClaimAttachmentController,
+    InsuranceClaimAttachmentServeController,
+    InsurancePreAuthController,
+    InsurancePreAuthServeController,
   ],
   providers: [
     InsuranceProvidersService,
     ClinicEmpanelmentService,
     PatientInsuranceService,
     InsuranceFileService,
+    InsuranceClaimsService,
+    InsuranceReimbursementService,
+    InsuranceClaimAttachmentService,
+    InsurancePreAuthService,
     IndiaInsuranceStrategy,
     InsuranceStrategyFactory,
   ],
@@ -48,6 +66,8 @@ import { InsuranceStrategyFactory } from './strategies/strategy.factory.js';
     ClinicEmpanelmentService,
     PatientInsuranceService,
     InsuranceFileService,
+    InsuranceClaimsService,
+    InsuranceReimbursementService,
     InsuranceStrategyFactory,
   ],
 })

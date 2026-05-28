@@ -10,6 +10,9 @@ declare class AvailabilityDayDto {
 declare class UpsertAvailabilityDto {
     schedule: AvailabilityDayDto[];
 }
+declare class SetFeatureGrantsDto {
+    feature_keys: string[];
+}
 export declare class UserController {
     private readonly userService;
     constructor(userService: UserService);
@@ -138,6 +141,12 @@ export declare class UserController {
         end_time: string;
         is_day_off: boolean;
     }[]>;
+    getFeatureGrants(clinicId: string, id: string): Promise<{
+        feature_keys: string[];
+    }>;
+    setFeatureGrants(clinicId: string, id: string, dto: SetFeatureGrantsDto): Promise<{
+        feature_keys: string[];
+    }>;
     upsertAvailability(clinicId: string, id: string, dto: UpsertAvailabilityDto): Promise<{
         id: string;
         clinic_id: string;

@@ -39,6 +39,51 @@ export class PatientInsuranceService {
     });
   }
 
+  /** Clinic-wide listing of all patient enrollments — used by the Insurance portal Enrollments page. */
+  async listAll(clinicId: string, filters: {
+    search?: string;
+    provider_id?: string;
+    is_active?: boolean;
+    skip?: number;
+    take?: number;
+  } = {}) {
+    const { search, provider_id, is_active, skip = 0, take = 100 } = filters;
+
+    const where: Record<string, unknown> = { clinic_id: clinicId };
+    if (typeof is_active === 'boolean') where['is_active'] = is_active;
+    if (provider_id) where['plan'] = { provider_id };
+    if (search) {
+      where['patient'] = {
+        OR: [
+          { first_name: { contains: search, mode: 'insensitive' } },
+          { last_name: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search } },
+        ],
+      };
+    }
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.patientInsurance.count({ where }),
+      this.prisma.patientInsurance.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { created_at: 'desc' },
+        include: {
+          patient: { select: { id: true, first_name: true, last_name: true, phone: true } },
+          plan: {
+            include: {
+              provider: { select: { id: true, name: true, short_code: true, type: true, country: true } },
+              _count: { select: { procedure_codes: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    return { total, items };
+  }
+
   async get(clinicId: string, id: string) {
     const row = await this.prisma.patientInsurance.findUnique({
       where: { id },

@@ -18,4 +18,5 @@ __exportStar(require("./create-empanelment.dto.js"), exports);
 __exportStar(require("./update-empanelment.dto.js"), exports);
 __exportStar(require("./create-patient-insurance.dto.js"), exports);
 __exportStar(require("./update-patient-insurance.dto.js"), exports);
+__exportStar(require("./create-claim.dto.js"), exports);
 //# sourceMappingURL=index.js.map

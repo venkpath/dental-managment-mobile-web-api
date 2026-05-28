@@ -37,6 +37,25 @@ export class PatientInsuranceController {
     private readonly files: InsuranceFileService,
   ) {}
 
+  @Get('insurance/enrollments')
+  @ApiOperation({ summary: 'Clinic-wide list of all patient insurance enrollments (Insurance Portal)' })
+  async listAll(
+    @CurrentClinic() clinicId: string,
+    @Query('search') search?: string,
+    @Query('provider_id') provider_id?: string,
+    @Query('is_active') is_active?: string,
+    @Query('skip') skip?: string,
+    @Query('take') take?: string,
+  ) {
+    return this.enrollments.listAll(clinicId, {
+      search: search || undefined,
+      provider_id: provider_id || undefined,
+      is_active: is_active === 'true' ? true : is_active === 'false' ? false : undefined,
+      skip: skip ? parseInt(skip, 10) : undefined,
+      take: take ? parseInt(take, 10) : undefined,
+    });
+  }
+
   @Get('patients/:patientId/insurances')
   @ApiOperation({ summary: 'List a patient\'s insurance / EHS enrollments' })
   async list(

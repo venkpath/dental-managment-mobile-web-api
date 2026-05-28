@@ -58,5 +58,7 @@ export declare class UserService {
         end_time: string;
         is_day_off: boolean;
     }[]>;
+    getFeatureGrants(clinicId: string, userId: string): Promise<string[]>;
+    setFeatureGrants(clinicId: string, userId: string, featureKeys: string[]): Promise<string[]>;
     update(clinicId: string, id: string, dto: UpdateUserDto): Promise<Omit<User, 'password_hash'>>;
 }

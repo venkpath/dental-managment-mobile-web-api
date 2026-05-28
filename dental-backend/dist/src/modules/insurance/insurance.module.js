@@ -15,10 +15,18 @@ const insurance_providers_controller_js_1 = require("./controllers/insurance-pro
 const clinic_empanelment_controller_js_1 = require("./controllers/clinic-empanelment.controller.js");
 const patient_insurance_controller_js_1 = require("./controllers/patient-insurance.controller.js");
 const insurance_module_controller_js_1 = require("./controllers/insurance-module.controller.js");
+const insurance_claims_controller_js_1 = require("./controllers/insurance-claims.controller.js");
+const insurance_reimbursement_controller_js_1 = require("./controllers/insurance-reimbursement.controller.js");
+const insurance_claim_attachment_controller_js_1 = require("./controllers/insurance-claim-attachment.controller.js");
+const insurance_pre_auth_controller_js_1 = require("./controllers/insurance-pre-auth.controller.js");
 const insurance_providers_service_js_1 = require("./services/insurance-providers.service.js");
 const clinic_empanelment_service_js_1 = require("./services/clinic-empanelment.service.js");
 const patient_insurance_service_js_1 = require("./services/patient-insurance.service.js");
 const insurance_file_service_js_1 = require("./services/insurance-file.service.js");
+const insurance_claims_service_js_1 = require("./services/insurance-claims.service.js");
+const insurance_reimbursement_service_js_1 = require("./services/insurance-reimbursement.service.js");
+const insurance_claim_attachment_service_js_1 = require("./services/insurance-claim-attachment.service.js");
+const insurance_pre_auth_service_js_1 = require("./services/insurance-pre-auth.service.js");
 const india_strategy_js_1 = require("./strategies/india.strategy.js");
 const strategy_factory_js_1 = require("./strategies/strategy.factory.js");
 let InsuranceModule = class InsuranceModule {
@@ -32,12 +40,22 @@ exports.InsuranceModule = InsuranceModule = __decorate([
             clinic_empanelment_controller_js_1.ClinicEmpanelmentController,
             patient_insurance_controller_js_1.PatientInsuranceController,
             insurance_module_controller_js_1.InsuranceModuleController,
+            insurance_claims_controller_js_1.InsuranceClaimsController,
+            insurance_reimbursement_controller_js_1.InsuranceReimbursementController,
+            insurance_claim_attachment_controller_js_1.InsuranceClaimAttachmentController,
+            insurance_claim_attachment_controller_js_1.InsuranceClaimAttachmentServeController,
+            insurance_pre_auth_controller_js_1.InsurancePreAuthController,
+            insurance_pre_auth_controller_js_1.InsurancePreAuthServeController,
         ],
         providers: [
             insurance_providers_service_js_1.InsuranceProvidersService,
             clinic_empanelment_service_js_1.ClinicEmpanelmentService,
             patient_insurance_service_js_1.PatientInsuranceService,
             insurance_file_service_js_1.InsuranceFileService,
+            insurance_claims_service_js_1.InsuranceClaimsService,
+            insurance_reimbursement_service_js_1.InsuranceReimbursementService,
+            insurance_claim_attachment_service_js_1.InsuranceClaimAttachmentService,
+            insurance_pre_auth_service_js_1.InsurancePreAuthService,
             india_strategy_js_1.IndiaInsuranceStrategy,
             strategy_factory_js_1.InsuranceStrategyFactory,
         ],
@@ -46,6 +64,8 @@ exports.InsuranceModule = InsuranceModule = __decorate([
             clinic_empanelment_service_js_1.ClinicEmpanelmentService,
             patient_insurance_service_js_1.PatientInsuranceService,
             insurance_file_service_js_1.InsuranceFileService,
+            insurance_claims_service_js_1.InsuranceClaimsService,
+            insurance_reimbursement_service_js_1.InsuranceReimbursementService,
             strategy_factory_js_1.InsuranceStrategyFactory,
         ],
     })

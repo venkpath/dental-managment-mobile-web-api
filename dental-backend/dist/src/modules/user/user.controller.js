@@ -91,6 +91,16 @@ __decorate([
     (0, class_transformer_1.Type)(() => AvailabilityDayDto),
     __metadata("design:type", Array)
 ], UpsertAvailabilityDto.prototype, "schedule", void 0);
+class SetFeatureGrantsDto {
+    feature_keys;
+}
+__decorate([
+    (0, swagger_2.ApiProperty)({ type: [String], description: 'List of feature keys to grant this user' }),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    (0, class_validator_1.ArrayMaxSize)(20),
+    __metadata("design:type", Array)
+], SetFeatureGrantsDto.prototype, "feature_keys", void 0);
 let UserController = class UserController {
     userService;
     constructor(userService) {
@@ -125,6 +135,14 @@ let UserController = class UserController {
     }
     async getAvailability(clinicId, id) {
         return this.userService.getAvailability(clinicId, id);
+    }
+    async getFeatureGrants(clinicId, id) {
+        const keys = await this.userService.getFeatureGrants(clinicId, id);
+        return { feature_keys: keys };
+    }
+    async setFeatureGrants(clinicId, id, dto) {
+        const keys = await this.userService.setFeatureGrants(clinicId, id, dto.feature_keys);
+        return { feature_keys: keys };
     }
     async upsertAvailability(clinicId, id, dto) {
         if (!dto.schedule?.length)
@@ -247,6 +265,29 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], UserController.prototype, "getAvailability", null);
+__decorate([
+    (0, common_1.Get)(':id/feature-grants'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get optional feature grants for a user' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'List of granted feature keys' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "getFeatureGrants", null);
+__decorate([
+    (0, common_1.Put)(':id/feature-grants'),
+    (0, swagger_1.ApiOperation)({ summary: 'Set optional feature grants for a user' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Updated feature grants' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, SetFeatureGrantsDto]),
+    __metadata("design:returntype", Promise)
+], UserController.prototype, "setFeatureGrants", null);
 __decorate([
     (0, common_1.Put)(':id/availability'),
     (0, swagger_1.ApiOperation)({ summary: 'Upsert weekly availability schedule for a doctor' }),

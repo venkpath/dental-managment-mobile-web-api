@@ -32,6 +32,15 @@ let PatientInsuranceController = class PatientInsuranceController {
         this.enrollments = enrollments;
         this.files = files;
     }
+    async listAll(clinicId, search, provider_id, is_active, skip, take) {
+        return this.enrollments.listAll(clinicId, {
+            search: search || undefined,
+            provider_id: provider_id || undefined,
+            is_active: is_active === 'true' ? true : is_active === 'false' ? false : undefined,
+            skip: skip ? parseInt(skip, 10) : undefined,
+            take: take ? parseInt(take, 10) : undefined,
+        });
+    }
     async list(clinicId, patientId) {
         return this.enrollments.list(clinicId, patientId);
     }
@@ -80,6 +89,20 @@ let PatientInsuranceController = class PatientInsuranceController {
     }
 };
 exports.PatientInsuranceController = PatientInsuranceController;
+__decorate([
+    (0, common_1.Get)('insurance/enrollments'),
+    (0, swagger_1.ApiOperation)({ summary: 'Clinic-wide list of all patient insurance enrollments (Insurance Portal)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Query)('search')),
+    __param(2, (0, common_1.Query)('provider_id')),
+    __param(3, (0, common_1.Query)('is_active')),
+    __param(4, (0, common_1.Query)('skip')),
+    __param(5, (0, common_1.Query)('take')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, String, String, String]),
+    __metadata("design:returntype", Promise)
+], PatientInsuranceController.prototype, "listAll", null);
 __decorate([
     (0, common_1.Get)('patients/:patientId/insurances'),
     (0, swagger_1.ApiOperation)({ summary: 'List a patient\'s insurance / EHS enrollments' }),
