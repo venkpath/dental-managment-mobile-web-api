@@ -166,6 +166,32 @@ class ReviewSortQuery {
   limit?: number;
 }
 
+// ─── City alias normalization ────────────────────────────────────────────────
+// Strips trailing ", State/Country" geocoder suffixes and expands known
+// dual-name cities so a search for "Bengaluru" also matches "Bangalore".
+const CITY_ALIASES: Record<string, string[]> = {
+  bengaluru:  ['bengaluru', 'bangalore'],
+  bangalore:  ['bengaluru', 'bangalore'],
+  mumbai:     ['mumbai', 'bombay'],
+  bombay:     ['mumbai', 'bombay'],
+  chennai:    ['chennai', 'madras'],
+  madras:     ['chennai', 'madras'],
+  kolkata:    ['kolkata', 'calcutta'],
+  calcutta:   ['kolkata', 'calcutta'],
+  pune:       ['pune', 'poona'],
+  poona:      ['pune', 'poona'],
+  kochi:      ['kochi', 'cochin', 'ernakulam'],
+  cochin:     ['kochi', 'cochin', 'ernakulam'],
+  ernakulam:  ['kochi', 'cochin', 'ernakulam'],
+  varanasi:   ['varanasi', 'banaras', 'benares'],
+};
+
+function expandCitySearch(raw: string): string[] {
+  // Strip geocoder suffix like ", Karnataka" or ", India"
+  const city = raw.split(',')[0].trim().toLowerCase();
+  return CITY_ALIASES[city] ?? [city];
+}
+
 // ─── Haversine distance in km ────────────────────────────────────────────────
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -308,7 +334,10 @@ export class PublicDirectoryController {
     const andConditions: object[] = [];
 
     if (city) {
-      andConditions.push({ city: { contains: city, mode: 'insensitive' } });
+      const variants = expandCitySearch(city);
+      andConditions.push({
+        OR: variants.map((v) => ({ city: { contains: v, mode: 'insensitive' } })),
+      });
     }
 
     if (specialty) {

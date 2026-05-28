@@ -214,6 +214,26 @@ __decorate([
     (0, class_validator_1.Max)(50),
     __metadata("design:type", Number)
 ], ReviewSortQuery.prototype, "limit", void 0);
+const CITY_ALIASES = {
+    bengaluru: ['bengaluru', 'bangalore'],
+    bangalore: ['bengaluru', 'bangalore'],
+    mumbai: ['mumbai', 'bombay'],
+    bombay: ['mumbai', 'bombay'],
+    chennai: ['chennai', 'madras'],
+    madras: ['chennai', 'madras'],
+    kolkata: ['kolkata', 'calcutta'],
+    calcutta: ['kolkata', 'calcutta'],
+    pune: ['pune', 'poona'],
+    poona: ['pune', 'poona'],
+    kochi: ['kochi', 'cochin', 'ernakulam'],
+    cochin: ['kochi', 'cochin', 'ernakulam'],
+    ernakulam: ['kochi', 'cochin', 'ernakulam'],
+    varanasi: ['varanasi', 'banaras', 'benares'],
+};
+function expandCitySearch(raw) {
+    const city = raw.split(',')[0].trim().toLowerCase();
+    return CITY_ALIASES[city] ?? [city];
+}
 function haversineKm(lat1, lon1, lat2, lon2) {
     const R = 6371;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -305,7 +325,10 @@ let PublicDirectoryController = class PublicDirectoryController {
         }
         const andConditions = [];
         if (city) {
-            andConditions.push({ city: { contains: city, mode: 'insensitive' } });
+            const variants = expandCitySearch(city);
+            andConditions.push({
+                OR: variants.map((v) => ({ city: { contains: v, mode: 'insensitive' } })),
+            });
         }
         if (specialty) {
             andConditions.push({
