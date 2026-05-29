@@ -6,8 +6,8 @@ type Variant =
   | 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW'
   | 'scheduled' | 'completed' | 'cancelled' | 'no_show'
   | 'PLANNED' | 'IN_PROGRESS'
-  | 'PENDING' | 'PAID' | 'PARTIALLY_PAID'
-  | 'pending' | 'paid' | 'partially_paid'
+  | 'PENDING' | 'PAID' | 'PARTIALLY_PAID' | 'PARTIALLY_REFUNDED' | 'REFUNDED'
+  | 'pending' | 'paid' | 'partially_paid' | 'partially_refunded' | 'refunded'
   | 'default';
 
 const variantMap: Record<string, { bg: string; text: string; dot: string }> = {
@@ -24,10 +24,14 @@ const variantMap: Record<string, { bg: string; text: string; dot: string }> = {
   PENDING:        { bg: colors.warningLight,   text: '#92400e',          dot: colors.warning },
   PAID:           { bg: colors.successLight,   text: '#065f46',          dot: colors.success },
   PARTIALLY_PAID: { bg: colors.primaryLight,   text: colors.primaryDark, dot: colors.primary },
-  pending:        { bg: colors.warningLight,   text: '#92400e',          dot: colors.warning },
-  paid:           { bg: colors.successLight,   text: '#065f46',          dot: colors.success },
-  partially_paid: { bg: colors.primaryLight,   text: colors.primaryDark, dot: colors.primary },
-  default:        { bg: colors.secondaryLight,  text: colors.textSecondary, dot: colors.textMuted },
+  pending:             { bg: colors.warningLight,  text: '#92400e',          dot: colors.warning },
+  paid:                { bg: colors.successLight,  text: '#065f46',          dot: colors.success },
+  partially_paid:      { bg: colors.primaryLight,  text: colors.primaryDark, dot: colors.primary },
+  PARTIALLY_REFUNDED:  { bg: colors.dangerLight,   text: '#991b1b',          dot: colors.danger },
+  REFUNDED:            { bg: colors.secondaryLight, text: colors.textSecondary, dot: colors.textMuted },
+  partially_refunded:  { bg: colors.dangerLight,   text: '#991b1b',          dot: colors.danger },
+  refunded:            { bg: colors.secondaryLight, text: colors.textSecondary, dot: colors.textMuted },
+  default:             { bg: colors.secondaryLight, text: colors.textSecondary, dot: colors.textMuted },
 };
 
 const labelMap: Record<string, string> = {
@@ -37,9 +41,11 @@ const labelMap: Record<string, string> = {
   NO_SHOW: 'No Show',     no_show: 'No Show',
   PLANNED: 'Planned',
   IN_PROGRESS: 'In Progress',
-  PENDING: 'Pending',       pending: 'Pending',
-  PAID: 'Paid',             paid: 'Paid',
-  PARTIALLY_PAID: 'Partial', partially_paid: 'Partially Paid',
+  PENDING: 'Pending',                   pending: 'Pending',
+  PAID: 'Paid',                         paid: 'Paid',
+  PARTIALLY_PAID: 'Partially Paid',     partially_paid: 'Partially Paid',
+  PARTIALLY_REFUNDED: 'Partially Refunded', partially_refunded: 'Partially Refunded',
+  REFUNDED: 'Refunded',                 refunded: 'Refunded',
 };
 
 interface Props {

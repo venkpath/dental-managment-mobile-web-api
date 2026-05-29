@@ -103,7 +103,7 @@ export interface Invoice {
   net_amount: number;
   tax_amount: number;
   discount_amount: number;
-  status: 'pending' | 'partially_paid' | 'paid';
+  status: 'pending' | 'partially_paid' | 'paid' | 'partially_refunded' | 'refunded';
   patient: { id: string; first_name: string; last_name: string; phone: string };
   branch?: { name: string };
   items?: InvoiceItem[];

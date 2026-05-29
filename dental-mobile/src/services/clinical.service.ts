@@ -66,7 +66,7 @@ export interface CreatePlanItem {
   procedure: string;
   tooth_number?: string;
   estimated_cost?: number;
-  tooth_diagnosis?: string;
+  diagnosis?: string;
   urgency?: string;
   phase?: number;
   notes?: string;
@@ -76,7 +76,7 @@ export interface CreateTreatmentPlanPayload {
   patient_id: string;
   branch_id: string;
   dentist_id: string;
-  visit_id?: string;
+  clinical_visit_id?: string;
   title: string;
   notes?: string;
   items: CreatePlanItem[];
