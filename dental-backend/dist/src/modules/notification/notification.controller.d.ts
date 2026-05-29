@@ -1,11 +1,19 @@
 import { NotificationService } from './notification.service.js';
 import { NotificationCronService } from './notification.cron.js';
-import { QueryNotificationDto } from './dto/index.js';
+import { QueryNotificationDto, RegisterPushTokenDto, UnregisterPushTokenDto } from './dto/index.js';
+import { PushDeviceService } from './push-device.service.js';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 export declare class NotificationController {
     private readonly notificationService;
     private readonly cronService;
-    constructor(notificationService: NotificationService, cronService: NotificationCronService);
+    private readonly pushDeviceService;
+    constructor(notificationService: NotificationService, cronService: NotificationCronService, pushDeviceService: PushDeviceService);
+    registerPushToken(user: JwtPayload, dto: RegisterPushTokenDto): Promise<{
+        ok: boolean;
+    }>;
+    unregisterPushToken(user: JwtPayload, dto: UnregisterPushTokenDto): Promise<{
+        ok: boolean;
+    }>;
     triggerCrons(): Promise<{
         message: string;
         results: Record<string, string>;

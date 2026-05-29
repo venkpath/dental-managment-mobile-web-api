@@ -2,7 +2,8 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ConfigService } from '@nestjs/config';
 import { HealthModule } from './modules/health/health.module.js';
 import { ClinicModule } from './modules/clinic/clinic.module.js';
 import { BranchModule } from './modules/branch/branch.module.js';
@@ -73,6 +74,8 @@ import { SuspensionGuard } from './common/guards/suspension.guard.js';
 // import { GoogleReviewsModule } from './modules/google-reviews/google-reviews.module.js';
 import { LoggerModule } from 'nestjs-pino';
 import razorpayConfig from './config/razorpay.config.js';
+import throttleConfig from './config/throttle.config.js';
+import { AppThrottlerGuard } from './common/guards/app-throttler.guard.js';
 
 @Module({
   imports: [
@@ -89,15 +92,29 @@ import razorpayConfig from './config/razorpay.config.js';
     }),
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, redisConfig, razorpayConfig],
+      load: [appConfig, databaseConfig, redisConfig, razorpayConfig, throttleConfig],
       envFilePath: '.env',
     }),
-    ThrottlerModule.forRoot({
-      throttlers: [
-        { name: 'default', ttl: 60000, limit: 100 },
-        { name: 'strict', ttl: 60000, limit: 10 },
-      ],
-      errorMessage: 'Too many requests. Please try again later.',
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          {
+            name: 'default',
+            ttl: config.get<number>('throttle.defaultTtl', 60_000),
+            limit: config.get<number>('throttle.defaultLimit', 10),
+          },
+          {
+            name: 'strict',
+            ttl: config.get<number>('throttle.strictTtl', 60_000),
+            limit: config.get<number>('throttle.strictLimit', 15),
+          },
+        ],
+        errorMessage: config.get<string>(
+          'throttle.errorMessage',
+          'Too many requests. Please wait a moment and try again.',
+        ),
+      }),
     }),
     PrismaModule,
     ScheduleModule.forRoot(),
@@ -153,7 +170,7 @@ import razorpayConfig from './config/razorpay.config.js';
     // GoogleReviewsModule, // DISABLED — pending Google Business Profile API approval
   ],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: AppThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: SuspensionGuard },

@@ -12,8 +12,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../../types';
+import type { RootStackParamList, TabParamList } from '../../types';
 import { dashboardService } from '../../services/dashboard.service';
 import { appointmentService } from '../../services/appointment.service';
 import { insightsService, type InsightSummary as AISummary } from '../../services/insights.service';
@@ -23,6 +25,7 @@ import { shadow } from '../../theme';
 import type { DashboardSummary, Appointment, PaymentBreakdown, SparklineDay } from '../../types';
 import { useBottomInset } from '../../hooks/useBottomInset';
 import { useDrawer } from '../../components/DrawerMenu';
+import { useNotificationStore } from '../../store/notification.store';
 
 const SW = Dimensions.get('window').width;
 const CHART_H = 80;
@@ -162,9 +165,29 @@ function BarChart({ data, period }: { data: SparklineDay[]; period: '7' | '30' }
 
 export default function DashboardScreen() {
   const { user } = useAuthStore();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<
+    CompositeNavigationProp<
+      BottomTabNavigationProp<TabParamList, 'Dashboard'>,
+      NativeStackNavigationProp<RootStackParamList>
+    >
+  >();
+
+  const onQuickAction = (label: string) => {
+    const nav = navigation as { navigate: (name: string, params?: object) => void };
+    if (label.includes('Appointment')) {
+      nav.navigate('Appointments', { screen: 'BookAppointment' });
+    } else if (label.includes('Patient')) {
+      nav.navigate('Patients', { screen: 'AddPatient' });
+    } else if (label.includes('Invoice')) {
+      nav.navigate('Billing', { screen: 'QuickInvoice', params: {} });
+    } else if (label.includes('Reports')) {
+      nav.navigate('Billing', { screen: 'Reports' });
+    }
+  };
   const bottomInset = useBottomInset();
   const { open: openDrawer } = useDrawer();
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const refreshUnreadCount = useNotificationStore((s) => s.refreshUnreadCount);
 
   const [summary, setSummary]         = useState<DashboardSummary | null>(null);
   const [todayAppts, setTodayAppts]   = useState<Appointment[]>([]);
@@ -202,7 +225,10 @@ export default function DashboardScreen() {
     }
   }, [chartPeriod]);
 
-  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
+  useFocusEffect(useCallback(() => {
+    loadData();
+    refreshUnreadCount();
+  }, [loadData, refreshUnreadCount]));
 
   const onRefresh = () => { setRefreshing(true); loadData(); };
 
@@ -247,9 +273,17 @@ export default function DashboardScreen() {
             <Text style={s.greetName}>Dr. {firstName} 👋</Text>
           </View>
           <View style={s.headerRight}>
-            <TouchableOpacity style={s.bellBtn}>
+            <TouchableOpacity
+              style={s.bellBtn}
+              onPress={() => navigation.navigate('Notifications')}
+              activeOpacity={0.7}
+            >
               <Ionicons name="notifications-outline" size={22} color="#0f172a" />
-              <View style={s.bellBadge}><Text style={s.bellBadgeTxt}>3</Text></View>
+              {unreadCount > 0 && (
+                <View style={s.bellBadge}>
+                  <Text style={s.bellBadgeTxt}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={s.avatarWrap}>
               <LinearGradient colors={['#4361EE', '#7C3AED']} style={s.avatarGrad}>
@@ -311,7 +345,10 @@ export default function DashboardScreen() {
                 <Text style={s.aiTitle}>AI Clinic Insights</Text>
                 <View style={s.aiBetaBadge}><Text style={s.aiBetaTxt}>BETA</Text></View>
               </View>
-              <TouchableOpacity style={s.aiViewAllBtn}>
+              <TouchableOpacity
+                style={s.aiViewAllBtn}
+                onPress={() => navigation.navigate('Billing', { screen: 'AIInsights' } as never)}
+              >
                 <Text style={s.aiViewAllTxt}>View all insights</Text>
                 <Ionicons name="arrow-forward" size={13} color="#4361EE" />
               </TouchableOpacity>
@@ -432,7 +469,7 @@ export default function DashboardScreen() {
           <Text style={s.sectionTitle}>Quick Actions</Text>
           <View style={s.qaRow}>
             {QUICK_ACTIONS.map((qa) => (
-              <TouchableOpacity key={qa.label} style={s.qaBtn} activeOpacity={0.75}>
+              <TouchableOpacity key={qa.label} style={s.qaBtn} activeOpacity={0.75} onPress={() => onQuickAction(qa.label)}>
                 <View style={[s.qaIcon, { backgroundColor: qa.bg }]}>
                   <Ionicons name={qa.icon} size={22} color={qa.color} />
                 </View>

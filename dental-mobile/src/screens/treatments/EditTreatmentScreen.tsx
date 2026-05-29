@@ -21,12 +21,12 @@ type Route = RouteProp<PatientStackParamList, 'EditTreatment'>;
 type Nav = NativeStackNavigationProp<PatientStackParamList>;
 
 const STATUSES = [
-  { value: 'PLANNED', label: '📋 Planned', color: colors.purple },
-  { value: 'IN_PROGRESS', label: '⚙️ In Progress', color: colors.warning },
-  { value: 'COMPLETED', label: '✅ Completed', color: colors.success },
+  { value: 'planned', label: '📋 Planned', color: colors.purple },
+  { value: 'in_progress', label: '⚙️ In Progress', color: colors.warning },
+  { value: 'completed', label: '✅ Completed', color: colors.success },
 ] as const;
 
-type Status = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED';
+type Status = 'planned' | 'in_progress' | 'completed';
 
 export default function EditTreatmentScreen() {
   const route = useRoute<Route>();
@@ -39,7 +39,7 @@ export default function EditTreatmentScreen() {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     tooth_number: '', diagnosis: '', procedure: '',
-    status: 'PLANNED' as Status, cost: '', notes: '',
+    status: 'planned' as Status, cost: '', notes: '',
   });
 
   useFocusEffect(useCallback(() => {
@@ -49,7 +49,8 @@ export default function EditTreatmentScreen() {
         tooth_number: t.tooth_number ?? '',
         diagnosis: t.diagnosis,
         procedure: t.procedure,
-        status: t.status as Status,
+        status: (t.status?.toLowerCase() === 'in_progress' ? 'in_progress'
+          : t.status?.toLowerCase() === 'completed' ? 'completed' : 'planned') as Status,
         cost: String(t.cost),
         notes: t.notes ?? '',
       });

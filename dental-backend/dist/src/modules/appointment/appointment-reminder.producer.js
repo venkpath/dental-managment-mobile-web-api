@@ -84,6 +84,34 @@ let AppointmentReminderProducer = AppointmentReminderProducer_1 = class Appointm
             }
         }
         await this.scheduleDentistReminder(appointmentId, clinicId, apptStartUtc);
+        await this.scheduleStaffAppReminder(appointmentId, clinicId, apptStartUtc);
+    }
+    async scheduleStaffAppReminder(appointmentId, clinicId, apptStartUtc) {
+        const sendAt = new Date(apptStartUtc.getTime() - appointment_reminder_config_js_1.STAFF_APP_REMINDER_MINUTES * 60 * 1000);
+        const delay = sendAt.getTime() - Date.now();
+        if (delay <= 0) {
+            this.logger.warn(`Skipping staff app reminder for appointment ${appointmentId} — fire time ${sendAt.toISOString()} already passed.`);
+            return;
+        }
+        const jobId = `appointment-${appointmentId}-reminder-staff-app`;
+        const jobData = {
+            kind: 'staff_app',
+            appointmentId,
+            clinicId,
+        };
+        try {
+            await this.reminderQueue.add(exports.APPOINTMENT_REMINDER_JOB, jobData, {
+                jobId,
+                delay,
+                removeOnComplete: true,
+                removeOnFail: 100,
+            });
+            this.logger.log(`Scheduled staff app reminder (${appointment_reminder_config_js_1.STAFF_APP_REMINDER_MINUTES}min before) for appointment ${appointmentId} at ${sendAt.toISOString()} [jobId=${jobId}]`);
+        }
+        catch (e) {
+            this.logger.error(`FAILED to enqueue staff app reminder for appointment ${appointmentId}: ${e.message}`, e.stack);
+            throw e;
+        }
     }
     async scheduleDentistReminder(appointmentId, clinicId, apptStartUtc) {
         const dentistRule = await this.prisma.automationRule.findUnique({
@@ -227,6 +255,7 @@ let AppointmentReminderProducer = AppointmentReminderProducer_1 = class Appointm
             `appointment-${appointmentId}-reminder-1`,
             `appointment-${appointmentId}-reminder-2`,
             `appointment-${appointmentId}-reminder-dentist`,
+            `appointment-${appointmentId}-reminder-staff-app`,
         ];
         for (const jobId of slotIds) {
             const job = await this.reminderQueue.getJob(jobId);

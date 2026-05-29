@@ -102,15 +102,24 @@ export default function PatientPrescriptionsScreen() {
         <Text style={styles.notes}>📝 {item.instructions}</Text>
       )}
 
-      <TouchableOpacity
-        style={[styles.whatsappBtn, sendingId === item.id && styles.whatsappBtnDisabled]}
-        onPress={() => handleSendWhatsApp(item.id)}
-        disabled={sendingId === item.id}
-      >
-        <Text style={styles.whatsappBtnText}>
-          {sendingId === item.id ? 'Sending...' : '📤 Send WhatsApp'}
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.actionRow}>
+        <TouchableOpacity
+          style={styles.editBtn}
+          onPress={() => navigation.navigate('EditPrescription', { prescriptionId: item.id })}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.editBtnText}>Edit</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.whatsappBtn, sendingId === item.id && styles.whatsappBtnDisabled]}
+          onPress={() => handleSendWhatsApp(item.id)}
+          disabled={sendingId === item.id}
+        >
+          <Text style={styles.whatsappBtnText}>
+            {sendingId === item.id ? 'Sending...' : '📤 Send WhatsApp'}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -190,8 +199,18 @@ const styles = StyleSheet.create({
   medicineDetails: { fontSize: typography.xs, color: colors.primary, marginTop: 1 },
   medicineInstructions: { fontSize: typography.xs, color: colors.textMuted, marginTop: 1 },
   notes: { fontSize: typography.xs, color: colors.textMuted, marginTop: spacing.sm },
+  actionRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  editBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.sm,
+    paddingVertical: 6,
+    alignItems: 'center',
+  },
+  editBtnText: { fontSize: typography.xs, fontWeight: '700', color: colors.primary },
   whatsappBtn: {
-    marginTop: spacing.sm,
+    flex: 2,
     borderWidth: 1,
     borderColor: '#25D366',
     borderRadius: radius.sm,

@@ -59,7 +59,25 @@ api.interceptors.response.use(
         );
       }
     }
+    const status = error.response?.status as number | undefined;
     const apiError = error.response?.data;
+    const headers = error.response?.headers ?? {};
+
+    if (status === 429) {
+      const retryHeader =
+        headers['retry-after'] ??
+        headers['retry-after-strict'] ??
+        headers['x-ratelimit-reset'];
+      const retrySec = retryHeader != null ? parseInt(String(retryHeader), 10) : NaN;
+      let msg =
+        apiError?.error?.message ||
+        'Too many requests. Please wait a moment and try again.';
+      if (!Number.isNaN(retrySec) && retrySec > 0) {
+        msg = `Too many requests. Try again in ${retrySec} second${retrySec === 1 ? '' : 's'}.`;
+      }
+      return Promise.reject(new Error(msg));
+    }
+
     if (apiError?.error) {
       const msg = apiError.error.message || 'Something went wrong';
       return Promise.reject(new Error(msg));

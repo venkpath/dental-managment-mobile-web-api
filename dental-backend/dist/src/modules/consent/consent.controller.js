@@ -287,6 +287,7 @@ __decorate([
 ], ConsentController.prototype, "sendLink", null);
 __decorate([
     (0, public_decorator_js_1.Public)(),
+    (0, throttler_1.SkipThrottle)({ default: true }),
     (0, throttler_1.Throttle)({ strict: { ttl: 60000, limit: 30 } }),
     (0, common_1.Get)('public/consents/:token'),
     (0, swagger_1.ApiOperation)({ summary: 'Public — fetch consent metadata by signing token' }),
@@ -298,6 +299,7 @@ __decorate([
 ], ConsentController.prototype, "publicGet", null);
 __decorate([
     (0, public_decorator_js_1.Public)(),
+    (0, throttler_1.SkipThrottle)({ default: true }),
     (0, throttler_1.Throttle)({ strict: { ttl: 60000, limit: 20 } }),
     (0, common_1.Get)('public/consents/:token/pdf'),
     (0, swagger_1.ApiOperation)({ summary: 'Public — get a presigned URL to view the unsigned PDF' }),
@@ -309,6 +311,7 @@ __decorate([
 ], ConsentController.prototype, "publicPdf", null);
 __decorate([
     (0, public_decorator_js_1.Public)(),
+    (0, throttler_1.SkipThrottle)({ default: true }),
     (0, throttler_1.Throttle)({ strict: { ttl: 60000, limit: 3 } }),
     (0, common_1.Post)('public/consents/:token/request-otp'),
     (0, swagger_1.ApiOperation)({ summary: 'Public — send a one-time code to the patient phone' }),
@@ -320,6 +323,7 @@ __decorate([
 ], ConsentController.prototype, "publicRequestOtp", null);
 __decorate([
     (0, public_decorator_js_1.Public)(),
+    (0, throttler_1.SkipThrottle)({ default: true }),
     (0, throttler_1.Throttle)({ strict: { ttl: 60000, limit: 10 } }),
     (0, common_1.Post)('public/consents/:token/verify-otp'),
     (0, swagger_1.ApiOperation)({ summary: 'Public — verify the OTP entered on the sign page' }),
@@ -332,6 +336,7 @@ __decorate([
 ], ConsentController.prototype, "publicVerifyOtp", null);
 __decorate([
     (0, public_decorator_js_1.Public)(),
+    (0, throttler_1.SkipThrottle)({ default: true }),
     (0, throttler_1.Throttle)({ strict: { ttl: 60000, limit: 5 } }),
     (0, common_1.Post)('public/consents/:token/sign'),
     (0, swagger_1.ApiOperation)({ summary: 'Public — submit signature, finalise consent' }),

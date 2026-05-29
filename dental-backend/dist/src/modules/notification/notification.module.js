@@ -14,6 +14,9 @@ const notification_service_js_1 = require("./notification.service.js");
 const notification_producer_js_1 = require("./notification.producer.js");
 const notification_processor_js_1 = require("./notification.processor.js");
 const notification_cron_js_1 = require("./notification.cron.js");
+const push_device_service_js_1 = require("./push-device.service.js");
+const push_notification_service_js_1 = require("./push-notification.service.js");
+const appointment_staff_notification_service_js_1 = require("./appointment-staff-notification.service.js");
 const queue_names_js_1 = require("../../common/queue/queue-names.js");
 let NotificationModule = class NotificationModule {
 };
@@ -28,8 +31,15 @@ exports.NotificationModule = NotificationModule = __decorate([
             notification_producer_js_1.NotificationProducer,
             notification_processor_js_1.NotificationProcessor,
             notification_cron_js_1.NotificationCronService,
+            push_device_service_js_1.PushDeviceService,
+            push_notification_service_js_1.PushNotificationService,
+            appointment_staff_notification_service_js_1.AppointmentStaffNotificationService,
         ],
-        exports: [notification_service_js_1.NotificationService, notification_producer_js_1.NotificationProducer],
+        exports: [
+            notification_service_js_1.NotificationService,
+            notification_producer_js_1.NotificationProducer,
+            appointment_staff_notification_service_js_1.AppointmentStaffNotificationService,
+        ],
     })
 ], NotificationModule);
 //# sourceMappingURL=notification.module.js.map

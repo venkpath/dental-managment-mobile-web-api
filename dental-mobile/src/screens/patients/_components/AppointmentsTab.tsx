@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SkeletonList } from '../../../components/Skeleton';
+import { EmptyStateLarge } from '../../../components/EmptyStateLarge';
+import { formatSlotRange } from '../../../utils/appointmentSlots';
 import type { Appointment } from '../../../types';
 
 const STATUS_FILTERS: Array<{ id: string; label: string }> = [
@@ -19,16 +22,8 @@ function formatDate(iso?: string) {
 }
 
 function formatTimeSlot(start?: string, end?: string) {
-  const fmt = (t?: string) => {
-    if (!t) return '';
-    const [hh, mm] = t.split(':');
-    const h = Number(hh);
-    if (isNaN(h)) return t;
-    const ap = h >= 12 ? 'PM' : 'AM';
-    const h12 = h % 12 || 12;
-    return `${String(h12).padStart(2, '0')}:${mm ?? '00'} ${ap}`;
-  };
-  return end ? `${fmt(start)} – ${fmt(end)}` : fmt(start);
+  if (!start) return '';
+  return formatSlotRange(start, end);
 }
 
 function appointmentStatusStyle(status: string) {
@@ -110,11 +105,7 @@ export function AppointmentsTab({ loading, appointments, onBook, onOpen }: Appoi
   const groups = useMemo(() => groupAppointments(filtered), [filtered]);
 
   if (loading) {
-    return (
-      <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-        <ActivityIndicator size="small" color="#4361EE" />
-      </View>
-    );
+    return <SkeletonList count={3} />;
   }
 
   return (
@@ -149,23 +140,16 @@ export function AppointmentsTab({ loading, appointments, onBook, onOpen }: Appoi
       </ScrollView>
 
       {filtered.length === 0 ? (
-        <View style={styles.empty}>
-          <View style={styles.emptyIcon}>
-            <Ionicons name="calendar-clear" size={28} color="#94a3b8" />
-          </View>
-          <Text style={styles.emptyTitle}>No appointments</Text>
-          <Text style={styles.emptySub}>
-            {statusFilter === 'all'
-              ? 'Book the first appointment for this patient.'
-              : `No ${STATUS_FILTERS.find((s) => s.id === statusFilter)?.label.toLowerCase()} appointments.`}
-          </Text>
-          {statusFilter === 'all' && (
-            <TouchableOpacity style={styles.emptyBtn} onPress={onBook}>
-              <Ionicons name="add" size={14} color="#fff" />
-              <Text style={styles.emptyBtnTxt}>Book Appointment</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        <EmptyStateLarge
+          emoji="📅"
+          iconBg="#EEF2FF"
+          title="No appointments"
+          subtitle={statusFilter === 'all'
+            ? 'Book the first appointment for this patient.'
+            : `No ${STATUS_FILTERS.find((s) => s.id === statusFilter)?.label.toLowerCase()} appointments yet.`}
+          actionLabel={statusFilter === 'all' ? 'Book Appointment' : undefined}
+          onAction={statusFilter === 'all' ? onBook : undefined}
+        />
       ) : (
         <>
           <Group title="Today"     items={groups.today}    onOpen={onOpen} />

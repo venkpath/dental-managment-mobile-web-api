@@ -1,34 +1,42 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, ActivityIndicator, Alert,
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { treatmentService } from '../../services/treatment.service';
 import { formatCurrency } from '../../utils/format';
-import Badge from '../../components/Badge';
 import EmptyState from '../../components/EmptyState';
-import ScreenHeader from '../../components/ScreenHeader';
-import Button from '../../components/Button';
-import { colors, spacing, typography, radius, shadow } from '../../theme';
 import { useBottomInset } from '../../hooks/useBottomInset';
+import { treatmentStatusMeta } from '../../utils/treatmentStatus';
 import type { Treatment, PatientStackParamList } from '../../types';
 
 type Route = RouteProp<PatientStackParamList, 'PatientTreatments'>;
 type Nav = NativeStackNavigationProp<PatientStackParamList>;
 
-const PROCEDURE_ICON: Record<string, string> = {
-  'Root Canal Treatment': '🦷', 'Extraction': '🪥', 'Filling': '🔵',
-  'Crown': '👑', 'Bridge': '🔗', 'Scaling': '✨', 'Implant': '⚙️',
-  'Orthodontics': '📐', 'Denture': '😁', 'Teeth Whitening': '⭐',
+const C = {
+  indigo: '#4361EE', indigoLight: '#EEF2FF',
+  green: '#059669', greenLight: '#d1fae5',
+  amber: '#d97706', amberLight: '#fef3c7',
+  violet: '#7c3aed', violetLight: '#f5f3ff',
+  bg: '#F8FAFC', surface: '#ffffff',
+  text: '#0f172a', textSub: '#475569', textMuted: '#94a3b8',
+  border: '#E2E8F0',
 };
 
 export default function TreatmentListScreen() {
   const route = useRoute<Route>();
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const { patientId, patientName } = route.params;
   const bottomInset = useBottomInset();
 
@@ -42,7 +50,7 @@ export default function TreatmentListScreen() {
       const data = await treatmentService.listByPatient(patientId);
       setTreatments(data);
     } catch {
-      Alert.alert('Error', 'Failed to load treatments. Pull down to retry.');
+      /* keep list */
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -51,96 +59,93 @@ export default function TreatmentListScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const renderItem = ({ item }: { item: Treatment }) => (
-    <TouchableOpacity
-      activeOpacity={0.75}
-      onPress={() => navigation.navigate('EditTreatment', { treatmentId: item.id })}
-    >
-      <View style={styles.card}>
-        <View style={styles.cardLeft}>
-          <View style={[
-            styles.statusStrip,
-            item.status === 'COMPLETED' && styles.stripDone,
-            item.status === 'IN_PROGRESS' && styles.stripProgress,
-          ]} />
-        </View>
-        <View style={styles.cardBody}>
-          <View style={styles.cardTop}>
-            <Text style={styles.procedure}>
-              {PROCEDURE_ICON[item.procedure] ?? '🦷'} {item.procedure}
-            </Text>
-            <Badge label={item.status} variant={item.status as any} showDot={false} />
+  const renderItem = ({ item }: { item: Treatment }) => {
+    const sm = treatmentStatusMeta(item.status);
+    return (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => navigation.navigate('TreatmentDetail', { treatmentId: item.id })}
+        style={s.card}
+      >
+        <View style={s.cardRow}>
+          <View style={[s.iconBox, { backgroundColor: sm.bg }]}>
+            <Ionicons name="medkit" size={20} color={sm.fg} />
           </View>
-          {item.tooth_number && (
-            <Text style={styles.toothNum}>Tooth #{item.tooth_number}</Text>
-          )}
-          <Text style={styles.diagnosis} numberOfLines={1}>{item.diagnosis}</Text>
-          <View style={styles.cardBottom}>
-            <Text style={styles.cost}>{formatCurrency(Number(item.cost))}</Text>
-            <Text style={styles.dentist}>Dr. {item.dentist.name}</Text>
+          <View style={s.cardInfo}>
+            <Text style={s.procedure} numberOfLines={1}>{item.procedure}</Text>
+            {item.tooth_number ? <Text style={s.tooth}>Tooth {item.tooth_number}</Text> : null}
+            <Text style={s.diagnosis} numberOfLines={1}>{item.diagnosis}</Text>
+            <Text style={s.dentist}>Dr. {item.dentist.name}</Text>
+          </View>
+          <View style={s.cardRight}>
+            <Text style={s.cost}>{formatCurrency(Number(item.cost))}</Text>
+            <View style={[s.statusPill, { backgroundColor: sm.bg }]}>
+              <Text style={[s.statusPillTxt, { color: sm.fg }]}>{sm.label}</Text>
+            </View>
           </View>
         </View>
-        <Text style={styles.chevron}>›</Text>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScreenHeader
-        title="Treatments"
-        subtitle={patientName}
-        onBack={() => navigation.goBack()}
-        rightElement={
-          <Button
-            title="+ Add"
-            onPress={() => navigation.navigate('AddTreatment', { patientId, patientName })}
-            size="sm"
-          />
-        }
-      />
+    <View style={[s.screen, { paddingTop: insets.top }]}>
+      <View style={s.topbar}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={s.iconBtn} activeOpacity={0.7}>
+          <Ionicons name="chevron-back" size={22} color={C.text} />
+        </TouchableOpacity>
+        <View style={s.titleBlock}>
+          <Text style={s.title}>Treatments</Text>
+          <Text style={s.subtitle} numberOfLines={1}>{patientName}</Text>
+        </View>
+        <TouchableOpacity
+          style={s.addBtn}
+          onPress={() => navigation.navigate('AddTreatment', { patientId, patientName })}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="add" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
       {loading ? (
-        <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>
+        <View style={s.center}><ActivityIndicator size="large" color={C.indigo} /></View>
       ) : (
         <FlatList
           data={treatments}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={[styles.list, { paddingBottom: spacing['2xl'] + bottomInset }]}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} colors={[colors.primary]} />}
+          contentContainerStyle={[s.list, { paddingBottom: 16 + bottomInset }]}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} colors={[C.indigo]} />}
           ListEmptyComponent={
-            <EmptyState title="No treatments yet" subtitle="Tap + Add to record the first treatment" icon="🦷" />
+            <EmptyState title="No treatments yet" subtitle="Tap + to record the first treatment" icon="medkit-outline" />
           }
           showsVerticalScrollIndicator={false}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  list: { padding: spacing.base, gap: spacing.sm },
+const s = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.bg },
+  topbar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, gap: 10, backgroundColor: C.bg, borderBottomWidth: 1, borderBottomColor: C.border },
+  iconBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
+  titleBlock: { flex: 1 },
+  title: { fontSize: 18, fontWeight: '800', color: C.text },
+  subtitle: { fontSize: 11, color: C.textSub, marginTop: 1 },
+  addBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.indigo, alignItems: 'center', justifyContent: 'center' },
+  list: { padding: 16, gap: 8 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  card: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    marginBottom: spacing.sm,
-    ...shadow.sm,
-  },
-  cardLeft: { width: 5 },
-  statusStrip: { flex: 1, backgroundColor: colors.purple },
-  stripDone: { backgroundColor: colors.success },
-  stripProgress: { backgroundColor: colors.warning },
-  cardBody: { flex: 1, padding: spacing.md },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.xs },
-  procedure: { fontSize: typography.base, fontWeight: '700', color: colors.text, flex: 1, marginRight: spacing.sm },
-  toothNum: { fontSize: typography.xs, color: colors.primary, fontWeight: '600', marginBottom: 2 },
-  diagnosis: { fontSize: typography.sm, color: colors.textSecondary, marginBottom: spacing.sm },
-  cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cost: { fontSize: typography.base, fontWeight: '700', color: colors.text },
-  dentist: { fontSize: typography.xs, color: colors.textMuted },
-  chevron: { fontSize: 22, color: colors.textMuted, alignSelf: 'center', paddingHorizontal: spacing.sm },
+  card: { backgroundColor: C.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: C.border, shadowColor: '#0f172a', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  iconBox: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  cardInfo: { flex: 1, gap: 3 },
+  procedure: { fontSize: 15, fontWeight: '800', color: C.text },
+  tooth: { fontSize: 11, fontWeight: '700', color: C.violet },
+  diagnosis: { fontSize: 12, color: C.textSub },
+  dentist: { fontSize: 11, color: C.indigo, fontWeight: '600' },
+  cardRight: { alignItems: 'flex-end', gap: 6, flexShrink: 0 },
+  cost: { fontSize: 16, fontWeight: '800', color: C.text },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  statusPillTxt: { fontSize: 10, fontWeight: '700' },
 });

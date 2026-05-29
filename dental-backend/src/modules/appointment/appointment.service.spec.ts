@@ -5,6 +5,8 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { AppointmentNotificationService } from './appointment-notification.service.js';
 import { AppointmentReminderProducer } from './appointment-reminder.producer.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
+import { ReviewTriggerService } from '../public-directory/review-trigger.service.js';
+import { AppointmentStaffNotificationService } from '../notification/appointment-staff-notification.service.js';
 import { AppointmentStatus } from './dto/index.js';
 
 const clinicId = '123e4567-e89b-12d3-a456-426614174000';
@@ -64,6 +66,11 @@ const mockReminderProducer = {
   rescheduleReminders: jest.fn().mockResolvedValue(undefined),
 };
 const mockPlanLimit = { enforceMonthlyCap: jest.fn().mockResolvedValue(undefined) };
+const mockReviewTrigger = { triggerPostAppointmentReview: jest.fn().mockResolvedValue(undefined) };
+const mockStaffNotification = {
+  notifyAppointmentConfirmed: jest.fn().mockResolvedValue(undefined),
+  notifyAppointmentReminder30Min: jest.fn().mockResolvedValue(undefined),
+};
 
 describe('AppointmentService', () => {
   let service: AppointmentService;
@@ -76,6 +83,8 @@ describe('AppointmentService', () => {
         { provide: AppointmentNotificationService, useValue: mockNotificationService },
         { provide: AppointmentReminderProducer, useValue: mockReminderProducer },
         { provide: PlanLimitService, useValue: mockPlanLimit },
+        { provide: ReviewTriggerService, useValue: mockReviewTrigger },
+        { provide: AppointmentStaffNotificationService, useValue: mockStaffNotification },
       ],
     }).compile();
 

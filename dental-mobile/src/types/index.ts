@@ -36,28 +36,77 @@ export interface Patient {
   branch?: { name: string };
 }
 
+export type AppointmentStatus =
+  | 'scheduled'
+  | 'checked_in'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled'
+  | 'no_show';
+
 export interface Appointment {
   id: string;
   appointment_date: string;
   start_time: string;
   end_time: string;
-  status: 'scheduled' | 'completed' | 'cancelled' | 'no_show';
+  status: AppointmentStatus;
   notes?: string;
+  patient_id?: string;
+  dentist_id?: string;
+  branch_id?: string;
   patient: { id: string; first_name: string; last_name: string; phone: string };
   dentist: { id: string; name: string };
-  branch?: { name: string };
+  branch?: { id?: string; name: string };
 }
+
+export interface PrescriptionMedicine {
+  id?: string;
+  medicine_name: string;
+  dosage?: string;
+  frequency?: string;
+  duration?: string;
+  morning?: number;
+  afternoon?: number;
+  evening?: number;
+  night?: number;
+  route?: string;
+  purpose?: string;
+  warnings?: string;
+  notes?: string;
+}
+
+export interface Prescription {
+  id: string;
+  diagnosis?: string;
+  chief_complaint?: string;
+  past_dental_history?: string;
+  allergies_medical_history?: string;
+  instructions?: string;
+  interactions?: string;
+  dietary_advice?: string;
+  post_procedure_instructions?: string;
+  follow_up?: string;
+  created_at: string;
+  patient?: { id: string; first_name: string; last_name: string; phone: string };
+  dentist?: { id: string; name: string } | null;
+  branch?: { name: string } | null;
+  items?: PrescriptionMedicine[];
+}
+
+/** Matches backend enum values stored in DB (planned | in_progress | completed). */
+export type TreatmentStatus = 'planned' | 'in_progress' | 'completed';
 
 export interface Treatment {
   id: string;
   tooth_number?: string;
   diagnosis: string;
   procedure: string;
-  status: 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED';
+  status: TreatmentStatus;
   cost: number;
   notes?: string;
-  patient: { id: string; first_name: string; last_name: string };
+  patient: { id: string; first_name: string; last_name: string; phone?: string };
   dentist: { id: string; name: string };
+  branch?: { name: string } | null;
   created_at: string;
 }
 
@@ -96,6 +145,48 @@ export interface InstallmentPlan {
   items: InstallmentItem[];
 }
 
+export interface InvoiceRefund {
+  id: string;
+  amount: number;
+  method: 'cash' | 'card' | 'upi' | 'bank_transfer';
+  reason?: string;
+  payment_id?: string;
+  refunded_at: string;
+}
+
+export type ExpensePaymentMode = 'cash' | 'bank_transfer' | 'upi' | 'card' | 'cheque';
+
+export interface ExpenseCategory {
+  id: string;
+  name: string;
+  icon?: string | null;
+  is_default: boolean;
+  is_active: boolean;
+}
+
+export interface Expense {
+  id: string;
+  title: string;
+  amount: number | string;
+  date: string;
+  payment_mode?: ExpensePaymentMode | string | null;
+  vendor?: string | null;
+  receipt_url?: string | null;
+  notes?: string | null;
+  is_recurring: boolean;
+  recurring_frequency?: string | null;
+  category_id: string;
+  branch_id?: string | null;
+  created_at: string;
+  updated_at?: string;
+  category?: ExpenseCategory;
+  branch?: { id: string; name: string } | null;
+  user?: { id: string; name: string };
+}
+
+export type InvoiceLifecycleStatus = 'draft' | 'issued' | 'cancelled';
+export type CoverageCategory = 'preventive' | 'basic' | 'major' | 'ortho' | 'emergency';
+
 export interface Invoice {
   id: string;
   invoice_number: string;
@@ -104,10 +195,24 @@ export interface Invoice {
   tax_amount: number;
   discount_amount: number;
   status: 'pending' | 'partially_paid' | 'paid' | 'partially_refunded' | 'refunded';
+  lifecycle_status?: InvoiceLifecycleStatus;
+  treatment_date?: string | null;
+  tax_percentage?: number | null;
+  insurance_covered_amount?: number | null;
+  patient_copay_amount?: number | null;
   patient: { id: string; first_name: string; last_name: string; phone: string };
-  branch?: { name: string };
+  branch?: { id?: string; name: string };
+  dentist?: { id: string; name: string } | null;
+  gst_number?: string | null;
+  patient_insurance?: {
+    id: string;
+    provider?: { name: string; short_code?: string };
+    plan?: { plan_name: string };
+    member_id?: string;
+  } | null;
   items?: InvoiceItem[];
   payments?: InvoicePayment[];
+  refunds?: InvoiceRefund[];
   installment_plan?: InstallmentPlan;
   created_at: string;
 }
@@ -173,10 +278,29 @@ export interface PaginatedResponse<T> {
   };
 }
 
-export type RootStackParamList = {
+export interface AppNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  is_read: boolean;
+  metadata?: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export type AuthStackParamList = {
+  Welcome: undefined;
   Login: undefined;
+  Register: undefined;
+};
+
+export type RootStackParamList = {
+  Auth: undefined;
   App: undefined;
   Profile: undefined;
+  Notifications: undefined;
+  Prescriptions: undefined;
+  Treatments: undefined;
 };
 
 export type TabParamList = {
@@ -193,12 +317,54 @@ export type PatientStackParamList = {
   AddPatient: undefined;
   EditPatient: { patientId: string };
   PatientTreatments: { patientId: string; patientName: string };
+  TreatmentDetail: { treatmentId: string };
   AddTreatment: { patientId: string; patientName: string };
   EditTreatment: { treatmentId: string };
   PatientPrescriptions: { patientId: string; patientName: string };
-  NewPrescription: { patientId: string; patientName: string; visitId?: string; prefillDiagnosis?: string };
+  NewPrescription: {
+    patientId: string;
+    patientName: string;
+    visitId?: string;
+    prefillDiagnosis?: string;
+    prefillMedications?: Array<{
+      drug_name: string;
+      dosage?: string;
+      frequency?: string;
+      duration?: string;
+      route?: string;
+      purpose?: string;
+      instructions?: string;
+    }>;
+  };
   ConsultationDetail: { visitId: string; patientName?: string };
-  StartConsultation: { patientId: string; patientName: string; visitId?: string };
+  StartConsultation: {
+    patientId: string;
+    patientName: string;
+    visitId?: string;
+    prefill?: {
+      chiefComplaint?: string;
+      diagnosis?: string;
+      examination?: string;
+      treatmentPlan?: string;
+    };
+    thenWritePrescription?: {
+      diagnosis: string;
+      medications: Array<{
+        drug_name: string;
+        dosage?: string;
+        frequency?: string;
+        duration?: string;
+        route?: string;
+        purpose?: string;
+        instructions?: string;
+      }>;
+    };
+  };
+  PatientDentalChart: { patientId: string; patientName: string };
+  SignConsent: { consentId: string; consentTitle?: string; defaultName?: string };
+  NewConsent: { patientId: string };
+  EnrollMembership: { patientId?: string; patientName?: string };
+  EditPrescription: { prescriptionId: string };
 };
 
 export type AppointmentStackParamList = {
@@ -207,10 +373,111 @@ export type AppointmentStackParamList = {
   BookAppointment: { patientId?: string };
 };
 
+export interface ClinicUser {
+  id: string;
+  clinic_id: string;
+  branch_id?: string | null;
+  branch?: { id: string; name: string } | null;
+  name: string;
+  email: string;
+  phone?: string | null;
+  role: string;
+  status: string;
+  email_verified?: boolean;
+  phone_verified?: boolean;
+  is_doctor?: boolean;
+  license_number?: string | null;
+  profile_photo_url?: string | null;
+  listed_in_directory?: boolean;
+  bio?: string | null;
+  years_experience?: number | null;
+  consultation_fee?: number | string | null;
+  languages_spoken?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Branch {
+  id: string;
+  clinic_id: string;
+  name: string;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  pincode?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  map_url?: string | null;
+  photo_url?: string | null;
+  book_now_url?: string | null;
+  working_start_time?: string | null;
+  working_end_time?: string | null;
+  lunch_start_time?: string | null;
+  lunch_end_time?: string | null;
+  slot_duration?: number | null;
+  default_appt_duration?: number | null;
+  working_days?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface BranchScheduling {
+  working_start_time: string;
+  working_end_time: string;
+  lunch_start_time: string | null;
+  lunch_end_time: string | null;
+  slot_duration: number;
+  default_appt_duration: number;
+  buffer_minutes?: number;
+  advance_booking_days?: number;
+  working_days: string;
+  room_cleaning_duration_minutes?: number;
+}
+
 export type BillingStackParamList = {
+  MoreMenu: undefined;
   InvoiceList: undefined;
   InvoiceDetail: { invoiceId: string };
+  EditInvoice: { invoiceId: string };
   QuickInvoice: { patientId?: string };
+  PrescriptionList: undefined;
+  PrescriptionDetail: { prescriptionId: string };
+  EditPrescription: { prescriptionId: string };
+  TreatmentList: undefined;
+  TreatmentDetail: { treatmentId: string };
+  EditTreatment: { treatmentId: string };
+  ExpenseList: undefined;
+  AddExpense: undefined;
+  EditExpense: { expenseId: string };
+  ExpenseDetail: { expenseId: string };
+  ExpenseAdvisor: undefined;
+  ExpenseCategories: undefined;
+  BranchScheduling: { branchId: string };
+  StaffList: undefined;
+  AddStaff: undefined;
+  EditStaff: { userId: string };
+  StaffDetail: { userId: string };
+  BranchList: undefined;
+  AddBranch: undefined;
+  EditBranch: { branchId: string };
+  BranchDetail: { branchId: string };
+  Reports: undefined;
+  MembershipList: undefined;
+  MembershipPlanDetail: { planId: string };
+  AddMembershipPlan: undefined;
+  EditMembershipPlan: { planId: string };
+  MembershipEnrollmentDetail: { enrollmentId: string };
+  EditMembershipEnrollment: { enrollmentId: string };
+  EnrollMembership: { patientId?: string; patientName?: string };
+  Communications: undefined;
+  CampaignList: undefined;
+  CampaignDetail: { campaignId: string };
+  CreateCampaign: undefined;
+  AIInsights: undefined;
+  BillingGuide: undefined;
+  SettingsGuide: undefined;
 };
 
 export type WhatsAppStackParamList = {

@@ -27,12 +27,12 @@ const PROCEDURES = [
 ];
 
 const STATUSES = [
-  { value: 'PLANNED', label: '📋 Planned' },
-  { value: 'IN_PROGRESS', label: '⚙️ In Progress' },
-  { value: 'COMPLETED', label: '✅ Completed' },
+  { value: 'planned', label: '📋 Planned' },
+  { value: 'in_progress', label: '⚙️ In Progress' },
+  { value: 'completed', label: '✅ Completed' },
 ] as const;
 
-type Status = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED';
+type Status = 'planned' | 'in_progress' | 'completed';
 
 export default function AddTreatmentScreen() {
   const route = useRoute<Route>();
@@ -47,7 +47,7 @@ export default function AddTreatmentScreen() {
     tooth_number: '',
     diagnosis: '',
     procedure: '',
-    status: 'PLANNED' as Status,
+    status: 'planned' as Status,
     cost: '',
     notes: '',
   });

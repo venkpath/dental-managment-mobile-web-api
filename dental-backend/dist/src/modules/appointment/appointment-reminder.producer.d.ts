@@ -17,6 +17,7 @@ export declare class AppointmentReminderProducer {
     private readonly logger;
     constructor(reminderQueue: Queue, prisma: PrismaService);
     scheduleReminders(appointmentId: string, clinicId: string, appointmentDate: Date, startTime: string): Promise<void>;
+    private scheduleStaffAppReminder;
     private scheduleDentistReminder;
     scheduleRemindersWithResult(appointmentId: string, clinicId: string, appointmentDate: Date, startTime: string): Promise<{
         overallStatus: 'ok' | 'no_rule' | 'rule_disabled';

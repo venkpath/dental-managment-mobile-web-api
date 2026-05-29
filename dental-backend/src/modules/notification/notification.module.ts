@@ -5,6 +5,9 @@ import { NotificationService } from './notification.service.js';
 import { NotificationProducer } from './notification.producer.js';
 import { NotificationProcessor } from './notification.processor.js';
 import { NotificationCronService } from './notification.cron.js';
+import { PushDeviceService } from './push-device.service.js';
+import { PushNotificationService } from './push-notification.service.js';
+import { AppointmentStaffNotificationService } from './appointment-staff-notification.service.js';
 import { QUEUE_NAMES } from '../../common/queue/queue-names.js';
 
 @Global()
@@ -16,7 +19,14 @@ import { QUEUE_NAMES } from '../../common/queue/queue-names.js';
     NotificationProducer,
     NotificationProcessor,
     NotificationCronService,
+    PushDeviceService,
+    PushNotificationService,
+    AppointmentStaffNotificationService,
   ],
-  exports: [NotificationService, NotificationProducer],
+  exports: [
+    NotificationService,
+    NotificationProducer,
+    AppointmentStaffNotificationService,
+  ],
 })
 export class NotificationModule {}

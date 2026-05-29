@@ -70,3 +70,6 @@ export function getDentistReminderDefinition(
     hours: parseHours(config['hours'], 2),
   };
 }
+
+/** Fixed staff mobile push reminder — 30 minutes before appointment. */
+export const STAFF_APP_REMINDER_MINUTES = 30;

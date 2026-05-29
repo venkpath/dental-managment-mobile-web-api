@@ -11,34 +11,33 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
+  TextInput,
+  Switch,
+  Pressable,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { invoiceService } from '../../services/invoice.service';
 import { treatmentService } from '../../services/treatment.service';
+import { userService, type StaffUser } from '../../services/user.service';
+import { insuranceService, type PatientInsurance } from '../../services/insurance.service';
+import { patientService } from '../../services/patient.service';
+import SelectSheet from '../../components/SelectSheet';
+import PatientSearchInput from '../../components/PatientSearchInput';
+import DatePickerInput from '../../components/DatePickerInput';
 import { formatCurrency, getCurrencySymbol } from '../../utils/format';
 import { useAuthStore } from '../../store/auth.store';
-import Input from '../../components/Input';
-import Button from '../../components/Button';
-import ScreenHeader from '../../components/ScreenHeader';
-import PatientSearchInput from '../../components/PatientSearchInput';
-import { colors, spacing, typography, radius } from '../../theme';
 import { useBottomInset } from '../../hooks/useBottomInset';
-import type { BillingStackParamList, Treatment } from '../../types';
+import { C, GST_RE, COVERAGE_CATEGORIES, ITEM_TYPE_OPTIONS } from './_invoiceTheme';
+import type { BillingStackParamList, Treatment, CoverageCategory } from '../../types';
 
 type Route = RouteProp<BillingStackParamList, 'QuickInvoice'>;
 type Nav = NativeStackNavigationProp<BillingStackParamList>;
 
-const ITEM_TYPES = ['treatment', 'service', 'pharmacy'] as const;
-type ItemType = typeof ITEM_TYPES[number];
-
-const TYPE_ICONS: Record<ItemType, string> = {
-  treatment: '🦷',
-  service: '🔧',
-  pharmacy: '💊',
-};
+type ItemType = 'treatment' | 'service' | 'pharmacy';
 
 interface LineItem {
   item_type: ItemType;
@@ -46,6 +45,7 @@ interface LineItem {
   quantity: string;
   unit_price: string;
   treatment_id?: string;
+  coverage_category: string;
 }
 
 const emptyItem = (): LineItem => ({
@@ -53,29 +53,71 @@ const emptyItem = (): LineItem => ({
   description: '',
   quantity: '1',
   unit_price: '',
+  coverage_category: '',
 });
 
 export default function QuickInvoiceScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<Route>();
+  const insets = useSafeAreaInsets();
+  const bottomInset = useBottomInset();
   const { branchId } = useAuthStore();
+
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null);
   const [patientError, setPatientError] = useState('');
   const [items, setItems] = useState<LineItem[]>([emptyItem()]);
   const [discount, setDiscount] = useState('');
-  const [gst, setGst] = useState('0');
+  const [gst, setGst] = useState('18');
+  const [gstNumber, setGstNumber] = useState('');
+  const [gstError, setGstError] = useState('');
+  const [treatmentDate, setTreatmentDate] = useState('');
+  const [dentistId, setDentistId] = useState('');
+  const [dentists, setDentists] = useState<StaffUser[]>([]);
+  const [asDraft, setAsDraft] = useState(false);
+  const [patientInsurances, setPatientInsurances] = useState<PatientInsurance[]>([]);
+  const [insuranceId, setInsuranceId] = useState('');
   const [loading, setLoading] = useState(false);
-  const bottomInset = useBottomInset();
 
-  // Treatment picker modal
+  const [dentistSheet, setDentistSheet] = useState(false);
+  const [insuranceSheet, setInsuranceSheet] = useState(false);
+  const [coverageSheetIndex, setCoverageSheetIndex] = useState<number | null>(null);
+
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [loadingTreatments, setLoadingTreatments] = useState(false);
   const [treatmentModalIndex, setTreatmentModalIndex] = useState<number | null>(null);
 
+  useEffect(() => {
+    userService.listStaff().then((staff) => {
+      const only = staff.filter((u) => /dentist|consultant/i.test(u.role));
+      setDentists(only.length > 0 ? only : staff);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const pid = route.params?.patientId;
+    if (!pid) return;
+    patientService.get(pid).then((p) => {
+      setSelectedPatient({ id: p.id, name: `${p.first_name} ${p.last_name}` });
+    }).catch(() => {});
+  }, [route.params?.patientId]);
+
+  useEffect(() => {
+    if (!selectedPatient?.id) {
+      setPatientInsurances([]);
+      setInsuranceId('');
+      return;
+    }
+    insuranceService.listForPatient(selectedPatient.id).then((list) => {
+      const active = list.filter((e) => e.is_active !== false);
+      setPatientInsurances(active);
+      if (active.length === 1) setInsuranceId(active[0].id);
+    }).catch(() => setPatientInsurances([]));
+  }, [selectedPatient?.id]);
+
   const fetchTreatments = useCallback(async (patientId: string) => {
     setLoadingTreatments(true);
     try {
-      const list = await treatmentService.listByPatient(patientId);
-      setTreatments(list);
+      setTreatments(await treatmentService.listByPatient(patientId));
     } catch {
       setTreatments([]);
     } finally {
@@ -84,11 +126,8 @@ export default function QuickInvoiceScreen() {
   }, []);
 
   useEffect(() => {
-    if (selectedPatient?.id) {
-      fetchTreatments(selectedPatient.id);
-    } else {
-      setTreatments([]);
-    }
+    if (selectedPatient?.id) fetchTreatments(selectedPatient.id);
+    else setTreatments([]);
   }, [selectedPatient, fetchTreatments]);
 
   const updateItem = (index: number, field: keyof LineItem, value: string) => {
@@ -97,16 +136,8 @@ export default function QuickInvoiceScreen() {
 
   const setItemType = (index: number, type: ItemType) => {
     setItems((prev) => prev.map((it, i) =>
-      i === index ? { ...it, item_type: type, description: '', unit_price: '', treatment_id: undefined } : it
+      i === index ? { ...it, item_type: type, description: '', unit_price: '', treatment_id: undefined } : it,
     ));
-  };
-
-  const openTreatmentPicker = (index: number) => {
-    if (!selectedPatient) {
-      Alert.alert('Select Patient First', 'Please select a patient to pick a treatment');
-      return;
-    }
-    setTreatmentModalIndex(index);
   };
 
   const selectTreatment = (index: number, treatment: Treatment) => {
@@ -116,7 +147,7 @@ export default function QuickInvoiceScreen() {
         description: treatment.procedure,
         unit_price: String(Number(treatment.cost)),
         treatment_id: treatment.id,
-      } : it
+      } : it,
     ));
     setTreatmentModalIndex(null);
   };
@@ -134,394 +165,525 @@ export default function QuickInvoiceScreen() {
   }, 0);
   const discountAmt = parseFloat(discount) || 0;
   const taxRate = parseFloat(gst) || 0;
-  const taxableBase = subtotal - discountAmt;
+  const taxableBase = Math.max(0, subtotal - discountAmt);
   const taxAmount = Math.round(taxableBase * (taxRate / 100) * 100) / 100;
   const grandTotal = taxableBase + taxAmount;
 
-  const handleSubmit = async () => {
+  const insuranceLabel = () => {
+    if (!insuranceId) return '— No insurance billing —';
+    const e = patientInsurances.find((x) => x.id === insuranceId);
+    if (!e) return 'Select enrollment';
+    const prov = e.provider?.name ?? e.provider?.short_code ?? 'Insurance';
+    const plan = e.plan?.plan_name ? ` · ${e.plan.plan_name}` : '';
+    return `${prov}${plan}`;
+  };
+
+  const validate = () => {
     if (!selectedPatient?.id) {
-      setPatientError('Please select a patient');
-      return;
+      setPatientError('Select a patient');
+      return false;
     }
     setPatientError('');
     if (!branchId) {
-      Alert.alert('Error', 'No branch assigned');
-      return;
+      Alert.alert('Error', 'No branch assigned to your account.');
+      return false;
     }
+    const gstTrim = gstNumber.trim().toUpperCase();
+    if (gstTrim && !GST_RE.test(gstTrim)) {
+      setGstError('Enter a valid 15-character GSTIN');
+      return false;
+    }
+    setGstError('');
     for (const it of items) {
       if (!it.description.trim() || !it.unit_price) {
-        Alert.alert('Error', 'Fill in description and price for all items');
-        return;
+        Alert.alert('Line items', 'Fill description and unit price for every item.');
+        return false;
       }
     }
+    return true;
+  };
 
+  const handleSubmit = async (draft: boolean) => {
+    if (!validate()) return;
     setLoading(true);
     try {
       const invoice = await invoiceService.create({
-        patient_id: selectedPatient.id,
-        branch_id: branchId,
+        patient_id: selectedPatient!.id,
+        branch_id: branchId!,
+        as_draft: draft,
+        ...(dentistId && { dentist_id: dentistId }),
+        ...(gstNumber.trim() && { gst_number: gstNumber.trim().toUpperCase() }),
+        ...(treatmentDate && { treatment_date: treatmentDate }),
         ...(discountAmt > 0 && { discount_amount: discountAmt }),
         ...(taxRate > 0 && { tax_percentage: taxRate }),
+        ...(insuranceId && { patient_insurance_id: insuranceId }),
         items: items.map((it) => ({
           item_type: it.item_type,
           description: it.description.trim(),
           quantity: parseFloat(it.quantity) || 1,
           unit_price: parseFloat(it.unit_price) || 0,
           ...(it.treatment_id && { treatment_id: it.treatment_id }),
+          ...(it.coverage_category && { coverage_category: it.coverage_category as CoverageCategory }),
         })),
       });
-      Alert.alert('Invoice Created', `Invoice ${invoice.invoice_number} created successfully`, [
-        {
-          text: 'View Invoice',
-          onPress: () => navigation.replace('InvoiceDetail', { invoiceId: invoice.id }),
-        },
+      const title = draft ? 'Draft saved' : 'Invoice created';
+      const msg = draft
+        ? `Draft ${invoice.invoice_number} saved. Issue it from detail when ready.`
+        : `Invoice ${invoice.invoice_number} created successfully.`;
+      Alert.alert(title, msg, [
+        { text: 'View', onPress: () => navigation.replace('InvoiceDetail', { invoiceId: invoice.id }) },
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to create invoice';
-      Alert.alert('Error', msg);
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to create invoice');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScreenHeader title="New Invoice" onBack={() => navigation.goBack()} />
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={[styles.content, { paddingBottom: spacing['2xl'] + bottomInset }]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+    <KeyboardAvoidingView style={ui.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={{ paddingTop: insets.top, backgroundColor: C.bg }}>
+        <View style={ui.topbar}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={ui.iconBtn} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={20} color={C.text} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={ui.topTitle}>New invoice</Text>
+            <Text style={ui.topSub}>Create billing for a patient</Text>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ padding: 16, paddingBottom: 120 + bottomInset, gap: 14 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={ui.card}>
+          <Text style={ui.sectionLabel}>Patient</Text>
           <PatientSearchInput
             selectedPatient={selectedPatient}
-            onSelect={(p) => { setSelectedPatient(p); setPatientError(''); }}
+            onSelect={(p) => { setSelectedPatient(p.id ? p : null); setPatientError(''); }}
             error={patientError}
           />
+        </View>
 
-          <Text style={styles.sectionTitle}>Line Items</Text>
+        <View style={ui.card}>
+          <Text style={ui.sectionLabel}>Billing details</Text>
+          <Text style={ui.fieldLabel}>Treating dentist</Text>
+          <TouchableOpacity style={ui.field} onPress={() => setDentistSheet(true)} activeOpacity={0.7}>
+            <Text style={[ui.fieldTxt, !dentistId && ui.placeholder]}>
+              {dentists.find((d) => d.id === dentistId)?.name ?? '— None —'}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={C.textMuted} />
+          </TouchableOpacity>
+
+          <Text style={[ui.fieldLabel, { marginTop: 12 }]}>GST number</Text>
+          <TextInput
+            value={gstNumber}
+            onChangeText={(v) => { setGstNumber(v); setGstError(''); }}
+            placeholder="e.g. 29ABCDE1234F1Z5"
+            placeholderTextColor={C.textMuted}
+            autoCapitalize="characters"
+            style={[ui.inputBox, gstError && ui.inputError]}
+          />
+          {gstError ? <Text style={ui.errorTxt}>{gstError}</Text> : null}
+
+          <View style={{ marginTop: 12 }}>
+            <DatePickerInput label="Treatment date" value={treatmentDate} onChange={setTreatmentDate} />
+          </View>
+          <Text style={ui.hint}>Optional — when treatment was rendered on a different day.</Text>
+
+          {patientInsurances.length > 0 && (
+            <>
+              <Text style={[ui.fieldLabel, { marginTop: 12 }]}>Bill under insurance</Text>
+              <TouchableOpacity style={ui.field} onPress={() => setInsuranceSheet(true)} activeOpacity={0.7}>
+                <Text style={ui.fieldTxt} numberOfLines={2}>{insuranceLabel()}</Text>
+                <Ionicons name="chevron-down" size={16} color={C.textMuted} />
+              </TouchableOpacity>
+            </>
+          )}
+
+          <View style={ui.draftRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={ui.draftTitle}>Save as draft</Text>
+              <Text style={ui.hint}>Drafts are not sent to patients until issued from detail.</Text>
+            </View>
+            <Switch value={asDraft} onValueChange={setAsDraft} trackColor={{ true: C.indigo }} />
+          </View>
+        </View>
+
+        <View style={ui.card}>
+          <View style={ui.lineHead}>
+            <Text style={ui.sectionLabel}>Line items</Text>
+            <TouchableOpacity onPress={addItem} style={ui.addLink} activeOpacity={0.7}>
+              <Ionicons name="add-circle-outline" size={18} color={C.indigo} />
+              <Text style={ui.addLinkTxt}>Add item</Text>
+            </TouchableOpacity>
+          </View>
 
           {items.map((item, index) => (
-            <View key={index} style={styles.lineItem}>
-              <View style={styles.itemHeader}>
-                <Text style={styles.itemNum}>Item {index + 1}</Text>
+            <View key={index} style={[ui.lineCard, index > 0 && { marginTop: 12 }]}>
+              <View style={ui.itemTop}>
+                <Text style={ui.itemNum}>Item {index + 1}</Text>
                 {items.length > 1 && (
-                  <TouchableOpacity onPress={() => removeItem(index)}>
-                    <Text style={styles.removeBtn}>Remove</Text>
+                  <TouchableOpacity onPress={() => removeItem(index)} activeOpacity={0.7}>
+                    <Text style={ui.removeTxt}>Remove</Text>
                   </TouchableOpacity>
                 )}
               </View>
 
-              {/* Type selector */}
-              <View style={styles.typeRow}>
-                {ITEM_TYPES.map((t) => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[styles.typeBtn, item.item_type === t && styles.typeBtnActive]}
-                    onPress={() => setItemType(index, t)}
-                  >
-                    <Text style={[styles.typeText, item.item_type === t && styles.typeTextActive]}>
-                      {TYPE_ICONS[t]} {t.charAt(0).toUpperCase() + t.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={ui.typeRow}>
+                {ITEM_TYPE_OPTIONS.map((t) => {
+                  const active = item.item_type === t.value;
+                  return (
+                    <TouchableOpacity
+                      key={t.value}
+                      style={[ui.typeBtn, active && ui.typeBtnOn]}
+                      onPress={() => setItemType(index, t.value)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name={t.icon} size={14} color={active ? C.indigo : C.textMuted} />
+                      <Text style={[ui.typeTxt, active && ui.typeTxtOn]}>{t.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
-              {/* Treatment picker button */}
               {item.item_type === 'treatment' && (
                 <TouchableOpacity
-                  style={[styles.treatmentPickerBtn, item.treatment_id && styles.treatmentPickerSelected]}
-                  onPress={() => openTreatmentPicker(index)}
+                  style={[ui.pickBtn, item.treatment_id && ui.pickBtnOn]}
+                  onPress={() => {
+                    if (!selectedPatient?.id) {
+                      Alert.alert('Select patient', 'Choose a patient to pick treatments.');
+                      return;
+                    }
+                    setTreatmentModalIndex(index);
+                  }}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.treatmentPickerIcon}>🦷</Text>
-                  <Text style={[styles.treatmentPickerText, item.treatment_id && styles.treatmentPickerTextSelected]}>
-                    {item.treatment_id
-                      ? item.description || 'Treatment selected'
-                      : 'Select from patient treatments'}
+                  <Ionicons name="medical-outline" size={18} color={item.treatment_id ? C.indigo : C.textMuted} />
+                  <Text style={[ui.pickTxt, item.treatment_id && ui.pickTxtOn]} numberOfLines={1}>
+                    {item.treatment_id ? (item.description || 'Treatment selected') : 'Select from patient treatments'}
                   </Text>
-                  <Text style={styles.chevron}>▼</Text>
+                  <Ionicons name="chevron-down" size={14} color={C.textMuted} />
                 </TouchableOpacity>
               )}
 
-              {/* Description - free text for non-treatment, or editable override for treatment */}
-              {item.item_type !== 'treatment' && (
-                <Input
-                  label="Description *"
-                  value={item.description}
-                  onChangeText={(v) => updateItem(index, 'description', v)}
-                  placeholder={item.item_type === 'service' ? 'e.g. Consultation Fee' : 'e.g. Paracetamol 500mg'}
-                  containerStyle={styles.noMargin}
-                />
+              {(item.item_type !== 'treatment' || item.treatment_id) && (
+                <>
+                  <Text style={ui.fieldLabel}>Description *</Text>
+                  <TextInput
+                    value={item.description}
+                    onChangeText={(v) => updateItem(index, 'description', v)}
+                    placeholder={item.item_type === 'pharmacy' ? 'e.g. Paracetamol 500mg' : 'e.g. Consultation fee'}
+                    placeholderTextColor={C.textMuted}
+                    style={ui.inputBox}
+                  />
+                </>
               )}
 
-              {item.item_type === 'treatment' && item.treatment_id && (
-                <Input
-                  label="Description *"
-                  value={item.description}
-                  onChangeText={(v) => updateItem(index, 'description', v)}
-                  placeholder="Treatment description"
-                  containerStyle={styles.noMargin}
-                />
+              {insuranceId && (
+                <>
+                  <Text style={ui.fieldLabel}>Coverage category</Text>
+                  <TouchableOpacity
+                    style={ui.field}
+                    onPress={() => setCoverageSheetIndex(index)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={ui.fieldTxt}>
+                      {COVERAGE_CATEGORIES.find((c) => c.value === item.coverage_category)?.label ?? 'Default (basic)'}
+                    </Text>
+                    <Ionicons name="chevron-down" size={16} color={C.textMuted} />
+                  </TouchableOpacity>
+                </>
               )}
 
-              <View style={styles.row2}>
-                <Input
-                  label="Qty"
-                  value={item.quantity}
-                  onChangeText={(v) => updateItem(index, 'quantity', v)}
-                  keyboardType="decimal-pad"
-                  containerStyle={styles.qtyInput}
-                />
-                <Input
-                 label={`Unit Price (${getCurrencySymbol()}) *`}
-                  value={item.unit_price}
-                  onChangeText={(v) => updateItem(index, 'unit_price', v)}
-                  keyboardType="decimal-pad"
-                  placeholder="0.00"
-                  containerStyle={styles.priceInput}
-                />
+              <View style={ui.qtyRow}>
+                <View style={{ width: 80 }}>
+                  <Text style={ui.fieldLabel}>Qty</Text>
+                  <TextInput
+                    value={item.quantity}
+                    onChangeText={(v) => updateItem(index, 'quantity', v)}
+                    keyboardType="decimal-pad"
+                    style={ui.inputBox}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={ui.fieldLabel}>Unit price ({getCurrencySymbol()}) *</Text>
+                  <TextInput
+                    value={item.unit_price}
+                    onChangeText={(v) => updateItem(index, 'unit_price', v)}
+                    keyboardType="decimal-pad"
+                    placeholder="0.00"
+                    placeholderTextColor={C.textMuted}
+                    style={ui.inputBox}
+                  />
+                </View>
               </View>
-
-              {item.description && item.unit_price && (
-                <Text style={styles.itemTotal}>
-                  Subtotal: {formatCurrency((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0))}
+              {item.description && item.unit_price ? (
+                <Text style={ui.lineSub}>
+                  Line total: {formatCurrency((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0))}
                 </Text>
-              )}
+              ) : null}
             </View>
           ))}
+        </View>
 
-          <Button
-            title="+ Add Item"
-            onPress={addItem}
-            variant="outline"
-            size="sm"
-            style={styles.addItemBtn}
-          />
-
-          <View style={styles.row2}>
-            <Input
-              label={`Discount (${getCurrencySymbol()})`}
-              value={discount}
-              onChangeText={setDiscount}
-              keyboardType="decimal-pad"
-              placeholder="0"
-              containerStyle={styles.flex}
-            />
-            <Input
-              label="GST / Tax (%)"
-              value={gst}
-              onChangeText={setGst}
-              keyboardType="decimal-pad"
-              placeholder="0"
-              containerStyle={styles.flex}
-            />
-          </View>
-
-          {/* Total summary */}
-          <View style={styles.totalBox}>
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Subtotal</Text>
-              <Text style={styles.totalValue}>{formatCurrency(subtotal)}</Text>
+        <View style={ui.card}>
+          <Text style={ui.sectionLabel}>Totals</Text>
+          <View style={ui.qtyRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={ui.fieldLabel}>Discount ({getCurrencySymbol()})</Text>
+              <TextInput
+                value={discount}
+                onChangeText={setDiscount}
+                keyboardType="decimal-pad"
+                placeholder="0"
+                placeholderTextColor={C.textMuted}
+                style={ui.inputBox}
+              />
             </View>
+            <View style={{ flex: 1 }}>
+              <Text style={ui.fieldLabel}>GST / tax (%)</Text>
+              <TextInput
+                value={gst}
+                onChangeText={setGst}
+                keyboardType="decimal-pad"
+                placeholder="0"
+                placeholderTextColor={C.textMuted}
+                style={ui.inputBox}
+              />
+            </View>
+          </View>
+          <View style={ui.totalsBox}>
+            <View style={ui.totalRow}><Text style={ui.totalLbl}>Subtotal</Text><Text style={ui.totalVal}>{formatCurrency(subtotal)}</Text></View>
             {discountAmt > 0 && (
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Discount</Text>
-                <Text style={[styles.totalValue, { color: colors.success }]}>
-                  -{formatCurrency(discountAmt)}
-                </Text>
+              <View style={ui.totalRow}>
+                <Text style={ui.totalLbl}>Discount</Text>
+                <Text style={[ui.totalVal, { color: C.green }]}>-{formatCurrency(discountAmt)}</Text>
               </View>
             )}
             {taxAmount > 0 && (
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>GST ({taxRate}%)</Text>
-                <Text style={styles.totalValue}>+{formatCurrency(taxAmount)}</Text>
+              <View style={ui.totalRow}>
+                <Text style={ui.totalLbl}>GST ({taxRate}%)</Text>
+                <Text style={ui.totalVal}>+{formatCurrency(taxAmount)}</Text>
               </View>
             )}
-            <View style={[styles.totalRow, styles.grandRow]}>
-              <Text style={styles.grandLabel}>Total</Text>
-              <Text style={styles.grandValue}>{formatCurrency(grandTotal)}</Text>
+            <View style={[ui.totalRow, ui.grandRow]}>
+              <Text style={ui.grandLbl}>Total</Text>
+              <Text style={ui.grandVal}>{formatCurrency(grandTotal)}</Text>
             </View>
           </View>
+        </View>
+      </ScrollView>
 
-          <Button
-            title="Create Invoice"
-            onPress={handleSubmit}
-            loading={loading}
-            size="lg"
-            style={styles.submitBtn}
-          />
-        </ScrollView>
-      </KeyboardAvoidingView>
+      <View style={[ui.footer, { paddingBottom: Math.max(12, bottomInset) }]}>
+        {asDraft ? (
+          <TouchableOpacity
+            style={[ui.primaryBtn, loading && ui.btnDisabled]}
+            onPress={() => handleSubmit(true)}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={ui.primaryTxt}>Save draft</Text>}
+          </TouchableOpacity>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={[ui.outlineBtn, loading && ui.btnDisabled]}
+              onPress={() => setAsDraft(true)}
+              disabled={loading}
+              activeOpacity={0.7}
+            >
+              <Text style={ui.outlineTxt}>Save as draft</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[ui.primaryBtn, { flex: 1 }, loading && ui.btnDisabled]}
+              onPress={() => handleSubmit(false)}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={ui.primaryTxt}>Create invoice</Text>}
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
 
-      {/* ── Treatment Picker Modal ── */}
-      <Modal
-        visible={treatmentModalIndex !== null}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setTreatmentModalIndex(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Treatment</Text>
+      <SelectSheet
+        visible={dentistSheet}
+        title="Treating dentist"
+        options={[{ value: '', label: '— None —' }, ...dentists.map((d) => ({ value: d.id, label: d.name }))]}
+        selectedValue={dentistId}
+        onSelect={setDentistId}
+        onClose={() => setDentistSheet(false)}
+      />
+
+      <SelectSheet
+        visible={insuranceSheet}
+        title="Insurance enrollment"
+        options={[
+          { value: '', label: '— Cash / self-pay —' },
+          ...patientInsurances.map((e) => ({
+            value: e.id,
+            label: `${e.provider?.name ?? 'Plan'}${e.plan?.plan_name ? ` · ${e.plan.plan_name}` : ''}`,
+          })),
+        ]}
+        selectedValue={insuranceId}
+        onSelect={setInsuranceId}
+        onClose={() => setInsuranceSheet(false)}
+      />
+
+      <SelectSheet
+        visible={coverageSheetIndex !== null}
+        title="Coverage category"
+        options={COVERAGE_CATEGORIES.map((c) => ({ value: c.value, label: c.label }))}
+        selectedValue={coverageSheetIndex !== null ? items[coverageSheetIndex]?.coverage_category ?? '' : ''}
+        onSelect={(v) => {
+          if (coverageSheetIndex !== null) updateItem(coverageSheetIndex, 'coverage_category', v);
+        }}
+        onClose={() => setCoverageSheetIndex(null)}
+      />
+
+      <Modal visible={treatmentModalIndex !== null} animationType="slide" transparent onRequestClose={() => setTreatmentModalIndex(null)}>
+        <Pressable style={ui.modalBg} onPress={() => setTreatmentModalIndex(null)}>
+          <Pressable style={ui.modalSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={ui.modalHead}>
+              <Text style={ui.modalTitle}>Select treatment</Text>
               <TouchableOpacity onPress={() => setTreatmentModalIndex(null)}>
-                <Text style={styles.modalClose}>✕</Text>
+                <Ionicons name="close" size={22} color={C.textSub} />
               </TouchableOpacity>
             </View>
-
             {loadingTreatments ? (
-              <View style={styles.modalLoading}>
-                <ActivityIndicator color={colors.primary} />
-                <Text style={styles.modalLoadingText}>Loading treatments…</Text>
-              </View>
+              <View style={ui.modalCenter}><ActivityIndicator color={C.indigo} /></View>
             ) : treatments.length === 0 ? (
-              <View style={styles.modalEmpty}>
-                <Text style={styles.modalEmptyText}>No treatments found for this patient</Text>
-                <TouchableOpacity onPress={() => setTreatmentModalIndex(null)} style={styles.modalEmptyBtn}>
-                  <Text style={styles.modalEmptyBtnText}>Enter description manually</Text>
+              <View style={ui.modalCenter}>
+                <Text style={ui.modalEmpty}>No treatments for this patient</Text>
+                <TouchableOpacity onPress={() => setTreatmentModalIndex(null)} style={ui.modalLink}>
+                  <Text style={ui.modalLinkTxt}>Enter manually</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <FlatList
                 data={treatments}
                 keyExtractor={(t) => t.id}
-                contentContainerStyle={styles.modalList}
                 renderItem={({ item: t }) => (
                   <TouchableOpacity
-                    style={styles.treatmentOption}
+                    style={ui.treatRow}
                     onPress={() => treatmentModalIndex !== null && selectTreatment(treatmentModalIndex, t)}
+                    activeOpacity={0.7}
                   >
-                    <View style={styles.treatmentOptionLeft}>
-                      <Text style={styles.treatmentProcedure}>{t.procedure}</Text>
-                      {t.tooth_number && (
-                        <Text style={styles.treatmentMeta}>Tooth {t.tooth_number} · {t.status}</Text>
-                      )}
-                      {!t.tooth_number && (
-                        <Text style={styles.treatmentMeta}>{t.status}</Text>
-                      )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={ui.treatName}>{t.procedure}</Text>
+                      <Text style={ui.treatMeta}>
+                        {t.tooth_number ? `Tooth ${t.tooth_number} · ` : ''}{t.status}
+                      </Text>
                     </View>
-                    <Text style={styles.treatmentCost}>{formatCurrency(Number(t.cost))}</Text>
+                    <Text style={ui.treatCost}>{formatCurrency(Number(t.cost))}</Text>
                   </TouchableOpacity>
                 )}
-                ItemSeparatorComponent={() => <View style={styles.separator} />}
+                ItemSeparatorComponent={() => <View style={ui.sep} />}
               />
             )}
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
-    </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  flex: { flex: 1 },
-  scroll: { flex: 1 },
-  content: { padding: spacing.base, paddingBottom: spacing['2xl'] },
-
-  sectionTitle: {
-    fontSize: typography.xs,
-    fontWeight: '700',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: spacing.md,
-    marginTop: spacing.sm,
+const ui = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.bg },
+  topbar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+  iconBtn: {
+    width: 36, height: 36, borderRadius: 10, backgroundColor: C.surface,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border,
   },
-
-  lineItem: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+  topTitle: { fontSize: 18, fontWeight: '800', color: C.text },
+  topSub: { fontSize: 12, color: C.textSub, marginTop: 1 },
+  card: {
+    backgroundColor: C.surface, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: C.border,
   },
-  itemHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
-  itemNum: { fontSize: typography.sm, fontWeight: '700', color: colors.text },
-  removeBtn: { fontSize: typography.sm, color: colors.danger },
-
-  typeRow: { flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.md },
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10 },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: C.textSub, marginBottom: 6 },
+  field: {
+    flexDirection: 'row', alignItems: 'center', minHeight: 48,
+    borderWidth: 1, borderColor: C.border, borderRadius: 12,
+    paddingHorizontal: 12, backgroundColor: C.bg, gap: 8,
+  },
+  fieldTxt: { flex: 1, fontSize: 15, color: C.text },
+  placeholder: { color: C.textMuted },
+  inputBox: {
+    borderWidth: 1, borderColor: C.border, borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 11, fontSize: 15, color: C.text, backgroundColor: C.bg,
+  },
+  inputError: { borderColor: C.red },
+  errorTxt: { fontSize: 12, color: C.red, marginTop: 4 },
+  hint: { fontSize: 12, color: C.textMuted, marginTop: 4, lineHeight: 17 },
+  draftRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14, gap: 12 },
+  draftTitle: { fontSize: 14, fontWeight: '700', color: C.text },
+  lineHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  addLink: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  addLinkTxt: { fontSize: 13, fontWeight: '700', color: C.indigo },
+  lineCard: { backgroundColor: C.bg, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: C.divider },
+  itemTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  itemNum: { fontSize: 13, fontWeight: '700', color: C.text },
+  removeTxt: { fontSize: 13, fontWeight: '600', color: C.red },
+  typeRow: { flexDirection: 'row', gap: 6, marginBottom: 10 },
   typeBtn: {
-    flex: 1, paddingVertical: spacing.xs + 2,
-    borderRadius: radius.sm, borderWidth: 1,
-    borderColor: colors.border, alignItems: 'center',
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface,
   },
-  typeBtnActive: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
-  typeText: { fontSize: typography.xs, color: colors.textSecondary },
-  typeTextActive: { color: colors.primary, fontWeight: '600' },
-
-  treatmentPickerBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    backgroundColor: colors.background, borderWidth: 1.5, borderColor: colors.border,
-    borderRadius: radius.md, paddingHorizontal: spacing.md,
-    minHeight: 50, marginBottom: spacing.sm,
+  typeBtnOn: { borderColor: C.indigo, backgroundColor: C.indigoLight },
+  typeTxt: { fontSize: 11, fontWeight: '600', color: C.textSub },
+  typeTxtOn: { color: C.indigo },
+  pickBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48,
+    borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingHorizontal: 12, marginBottom: 10, backgroundColor: C.surface,
   },
-  treatmentPickerSelected: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
-  treatmentPickerIcon: { fontSize: 18 },
-  treatmentPickerText: { flex: 1, fontSize: typography.base, color: colors.textMuted },
-  treatmentPickerTextSelected: { color: colors.primary, fontWeight: '600' },
-  chevron: { fontSize: 11, color: colors.textMuted },
-
-  noMargin: { marginBottom: spacing.sm },
-  row2: { flexDirection: 'row', gap: spacing.sm },
-  qtyInput: { width: 72 },
-  priceInput: { flex: 1 },
-  itemTotal: { fontSize: typography.sm, color: colors.primary, fontWeight: '600', textAlign: 'right' },
-  addItemBtn: { marginBottom: spacing.base },
-
-  totalBox: {
-    backgroundColor: colors.surface, borderRadius: radius.md,
-    padding: spacing.base, borderWidth: 1, borderColor: colors.border,
-    marginBottom: spacing.base,
+  pickBtnOn: { borderColor: C.indigo, backgroundColor: C.indigoLight },
+  pickTxt: { flex: 1, fontSize: 14, color: C.textMuted },
+  pickTxtOn: { color: C.indigo, fontWeight: '600' },
+  qtyRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  lineSub: { fontSize: 13, fontWeight: '600', color: C.indigo, textAlign: 'right', marginTop: 6 },
+  totalsBox: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.divider, gap: 6 },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  totalLbl: { fontSize: 14, color: C.textSub },
+  totalVal: { fontSize: 14, fontWeight: '600', color: C.text },
+  grandRow: { marginTop: 6, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.border },
+  grandLbl: { fontSize: 16, fontWeight: '800', color: C.text },
+  grandVal: { fontSize: 16, fontWeight: '800', color: C.indigo },
+  footer: {
+    flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 10,
+    backgroundColor: C.surface, borderTopWidth: 1, borderTopColor: C.border,
   },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.xs },
-  totalLabel: { fontSize: typography.base, color: colors.textSecondary },
-  totalValue: { fontSize: typography.base, fontWeight: '500', color: colors.text },
-  grandRow: {
-    borderTopWidth: 1, borderTopColor: colors.border,
-    marginTop: spacing.xs, paddingTop: spacing.sm,
+  primaryBtn: {
+    backgroundColor: C.indigo, borderRadius: 14, paddingVertical: 14,
+    alignItems: 'center', justifyContent: 'center', minHeight: 48,
   },
-  grandLabel: { fontSize: typography.lg, fontWeight: '700', color: colors.text },
-  grandValue: { fontSize: typography.lg, fontWeight: '700', color: colors.primary },
-  submitBtn: {},
-
-  // Modal
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+  outlineBtn: {
+    borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingVertical: 14,
+    paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center',
   },
-  modalSheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
-    maxHeight: '75%',
-  },
-  modalHeader: {
+  outlineTxt: { fontSize: 14, fontWeight: '700', color: C.textSub },
+  primaryTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  btnDisabled: { opacity: 0.6 },
+  modalBg: { flex: 1, backgroundColor: 'rgba(15,23,42,0.45)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '72%' },
+  modalHead: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: spacing.base,
-    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+    padding: 16, borderBottomWidth: 1, borderBottomColor: C.divider,
   },
-  modalTitle: { fontSize: typography.lg, fontWeight: '700', color: colors.text },
-  modalClose: { fontSize: typography.lg, color: colors.textMuted, padding: spacing.xs },
-  modalLoading: { padding: spacing.xl, alignItems: 'center', gap: spacing.sm },
-  modalLoadingText: { color: colors.textSecondary },
-  modalEmpty: { padding: spacing.xl, alignItems: 'center', gap: spacing.md },
-  modalEmptyText: { color: colors.textSecondary, textAlign: 'center' },
-  modalEmptyBtn: {
-    backgroundColor: colors.primaryLight, borderRadius: radius.md,
-    paddingHorizontal: spacing.base, paddingVertical: spacing.sm,
-  },
-  modalEmptyBtnText: { color: colors.primary, fontWeight: '600' },
-  modalList: { padding: spacing.sm },
-  treatmentOption: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: spacing.base,
-  },
-  treatmentOptionLeft: { flex: 1, marginRight: spacing.sm },
-  treatmentProcedure: { fontSize: typography.base, fontWeight: '600', color: colors.text },
-  treatmentMeta: { fontSize: typography.xs, color: colors.textMuted, marginTop: 2 },
-  treatmentCost: { fontSize: typography.base, fontWeight: '700', color: colors.primary },
-  separator: { height: 1, backgroundColor: colors.borderLight, marginHorizontal: spacing.sm },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: C.text },
+  modalCenter: { padding: 32, alignItems: 'center', gap: 12 },
+  modalEmpty: { color: C.textSub, textAlign: 'center' },
+  modalLink: { paddingVertical: 8, paddingHorizontal: 16, backgroundColor: C.indigoLight, borderRadius: 10 },
+  modalLinkTxt: { color: C.indigo, fontWeight: '700' },
+  treatRow: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
+  treatName: { fontSize: 15, fontWeight: '600', color: C.text },
+  treatMeta: { fontSize: 12, color: C.textMuted, marginTop: 2 },
+  treatCost: { fontSize: 15, fontWeight: '700', color: C.indigo },
+  sep: { height: 1, backgroundColor: C.divider, marginHorizontal: 16 },
 });

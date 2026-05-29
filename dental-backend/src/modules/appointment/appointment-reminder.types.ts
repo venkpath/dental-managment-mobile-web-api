@@ -30,6 +30,14 @@ export type DentistReminderJobData = {
   reminderHours: number;
 };
 
+/** Mobile app in-app + Expo push for clinic staff (dentist + admins). */
+export type StaffAppReminderJobData = {
+  kind: 'staff_app';
+  appointmentId: string;
+  clinicId: string;
+};
+
 export type AppointmentReminderJobData =
   | PatientReminderJobData
-  | DentistReminderJobData;
+  | DentistReminderJobData
+  | StaffAppReminderJobData;

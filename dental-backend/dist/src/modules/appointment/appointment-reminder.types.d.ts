@@ -11,4 +11,9 @@ export type DentistReminderJobData = {
     clinicId: string;
     reminderHours: number;
 };
-export type AppointmentReminderJobData = PatientReminderJobData | DentistReminderJobData;
+export type StaffAppReminderJobData = {
+    kind: 'staff_app';
+    appointmentId: string;
+    clinicId: string;
+};
+export type AppointmentReminderJobData = PatientReminderJobData | DentistReminderJobData | StaffAppReminderJobData;

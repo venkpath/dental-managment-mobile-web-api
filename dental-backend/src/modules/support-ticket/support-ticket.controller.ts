@@ -11,7 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { SuperAdmin } from '../../common/decorators/super-admin.decorator.js';
 import { SupportTicketService } from './support-ticket.service.js';
@@ -31,6 +31,7 @@ export class SupportTicketController {
 
   // Authenticated clinic user — submit a ticket
   @Post('support-tickets')
+  @SkipThrottle({ default: true })
   @Throttle({ strict: { ttl: 60000, limit: 5 } })
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Submit a support ticket' })

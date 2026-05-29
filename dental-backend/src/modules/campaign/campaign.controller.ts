@@ -54,6 +54,61 @@ export class CampaignController {
     return this.campaignService.findAll(clinicId, query);
   }
 
+  @Post('audience-preview')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Preview audience for a segment (shows count + sample patients)' })
+  async audiencePreview(
+    @CurrentClinic() clinicId: string,
+    @Body() body: { segment_type: string; segment_config?: Record<string, unknown> },
+  ) {
+    return this.campaignService.getAudiencePreview(clinicId, body.segment_type, body.segment_config);
+  }
+
+  @Get('treatment-procedures')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'List distinct treatment procedures for campaign segment dropdown' })
+  async listTreatmentProcedures(@CurrentClinic() clinicId: string) {
+    return this.campaignService.listTreatmentProcedures(clinicId);
+  }
+
+  @Post('estimate-cost')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Estimate campaign cost before execution' })
+  async estimateCost(
+    @CurrentClinic() clinicId: string,
+    @Body() body: { segment_type: string; segment_config?: Record<string, unknown>; channel: string },
+  ) {
+    return this.campaignService.estimateCost(clinicId, body);
+  }
+
+  @Post('drip-sequence')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Create a multi-step drip campaign' })
+  async createDripSequence(
+    @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() body: {
+      name: string;
+      channel: string;
+      segment_type: string;
+      segment_config?: Record<string, unknown>;
+      steps: Array<{ template_id: string; delay_days: number }>;
+    },
+  ) {
+    return this.campaignService.createDripSequence(clinicId, user.sub, body);
+  }
+
+  @Post('from-event/:eventId')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Create a campaign from a festival event' })
+  async createFromEvent(
+    @CurrentClinic() clinicId: string,
+    @CurrentUser() user: JwtPayload,
+    @Param('eventId', ParseUUIDPipe) eventId: string,
+  ) {
+    return this.campaignService.createFromFestivalEvent(clinicId, user.sub, eventId);
+  }
+
   @Get(':id')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get campaign details' })
@@ -95,23 +150,6 @@ export class CampaignController {
     return this.campaignService.execute(clinicId, id);
   }
 
-  @Post('audience-preview')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Preview audience for a segment (shows count + sample patients)' })
-  async audiencePreview(
-    @CurrentClinic() clinicId: string,
-    @Body() body: { segment_type: string; segment_config?: Record<string, unknown> },
-  ) {
-    return this.campaignService.getAudiencePreview(clinicId, body.segment_type, body.segment_config);
-  }
-
-  @Get('treatment-procedures')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'List distinct treatment procedures performed at this clinic, with patient counts (for the By Treatment campaign segment dropdown)' })
-  async listTreatmentProcedures(@CurrentClinic() clinicId: string) {
-    return this.campaignService.listTreatmentProcedures(clinicId);
-  }
-
   @Get(':id/analytics')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get campaign analytics (delivery stats + attribution)' })
@@ -145,25 +183,6 @@ export class CampaignController {
     return this.campaignService.getABTestResults(clinicId, id);
   }
 
-  // ─── Drip Sequence (9.7) ───
-
-  @Post('drip-sequence')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Create a multi-step drip campaign (e.g., Day 0 → Day 7 → Day 21)' })
-  async createDripSequence(
-    @CurrentClinic() clinicId: string,
-    @CurrentUser() user: JwtPayload,
-    @Body() body: {
-      name: string;
-      channel: string;
-      segment_type: string;
-      segment_config?: Record<string, unknown>;
-      steps: Array<{ template_id: string; delay_days: number }>;
-    },
-  ) {
-    return this.campaignService.createDripSequence(clinicId, user.sub, body);
-  }
-
   @Post(':id/drip-step/:step')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Manually trigger a specific drip step' })
@@ -175,28 +194,4 @@ export class CampaignController {
     return this.campaignService.executeDripStep(clinicId, id, parseInt(step, 10));
   }
 
-  // ─── Cost Estimation (9.9) ───
-
-  @Post('estimate-cost')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Estimate campaign cost before execution' })
-  async estimateCost(
-    @CurrentClinic() clinicId: string,
-    @Body() body: { segment_type: string; segment_config?: Record<string, unknown>; channel: string },
-  ) {
-    return this.campaignService.estimateCost(clinicId, body);
-  }
-
-  // ─── Festival Event → Campaign (10.4) ───
-
-  @Post('from-event/:eventId')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Create a campaign from a festival event (one-click with offer details)' })
-  async createFromEvent(
-    @CurrentClinic() clinicId: string,
-    @CurrentUser() user: JwtPayload,
-    @Param('eventId', ParseUUIDPipe) eventId: string,
-  ) {
-    return this.campaignService.createFromFestivalEvent(clinicId, user.sub, eventId);
-  }
 }

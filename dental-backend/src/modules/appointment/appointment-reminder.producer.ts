@@ -4,7 +4,11 @@ import { Queue } from 'bullmq';
 import { PrismaService } from '../../database/prisma.service.js';
 import { QUEUE_NAMES } from '../../common/queue/queue-names.js';
 import type { AppointmentReminderJobData } from './appointment-reminder.types.js';
-import { getReminderDefinitions, getDentistReminderDefinition } from './appointment-reminder.config.js';
+import {
+  getReminderDefinitions,
+  getDentistReminderDefinition,
+  STAFF_APP_REMINDER_MINUTES,
+} from './appointment-reminder.config.js';
 
 /** IST offset = UTC+5:30 = 330 minutes */
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
@@ -125,6 +129,9 @@ export class AppointmentReminderProducer {
 
     // ── Dentist slot (independent of patient rule status) ──
     await this.scheduleDentistReminder(appointmentId, clinicId, apptStartUtc);
+
+    // ── Staff mobile app (in-app + Expo push) — fixed 30 min before ──
+    await this.scheduleStaffAppReminder(appointmentId, clinicId, apptStartUtc);
   }
 
   /**
@@ -133,6 +140,47 @@ export class AppointmentReminderProducer {
    * `appt − hours`. Skipped silently if the rule is missing/disabled or
    * the fire time has already passed.
    */
+  private async scheduleStaffAppReminder(
+    appointmentId: string,
+    clinicId: string,
+    apptStartUtc: Date,
+  ): Promise<void> {
+    const sendAt = new Date(apptStartUtc.getTime() - STAFF_APP_REMINDER_MINUTES * 60 * 1000);
+    const delay = sendAt.getTime() - Date.now();
+
+    if (delay <= 0) {
+      this.logger.warn(
+        `Skipping staff app reminder for appointment ${appointmentId} — fire time ${sendAt.toISOString()} already passed.`,
+      );
+      return;
+    }
+
+    const jobId = `appointment-${appointmentId}-reminder-staff-app`;
+    const jobData: AppointmentReminderJobData = {
+      kind: 'staff_app',
+      appointmentId,
+      clinicId,
+    };
+
+    try {
+      await this.reminderQueue.add(APPOINTMENT_REMINDER_JOB, jobData, {
+        jobId,
+        delay,
+        removeOnComplete: true,
+        removeOnFail: 100,
+      });
+      this.logger.log(
+        `Scheduled staff app reminder (${STAFF_APP_REMINDER_MINUTES}min before) for appointment ${appointmentId} at ${sendAt.toISOString()} [jobId=${jobId}]`,
+      );
+    } catch (e) {
+      this.logger.error(
+        `FAILED to enqueue staff app reminder for appointment ${appointmentId}: ${(e as Error).message}`,
+        (e as Error).stack,
+      );
+      throw e;
+    }
+  }
+
   private async scheduleDentistReminder(
     appointmentId: string,
     clinicId: string,
@@ -333,6 +381,7 @@ export class AppointmentReminderProducer {
       `appointment-${appointmentId}-reminder-1`,
       `appointment-${appointmentId}-reminder-2`,
       `appointment-${appointmentId}-reminder-dentist`,
+      `appointment-${appointmentId}-reminder-staff-app`,
     ];
     for (const jobId of slotIds) {
       const job = await this.reminderQueue.getJob(jobId);

@@ -81,16 +81,6 @@ function formatDate(iso?: string) {
   return `${String(d.getDate()).padStart(2, '0')} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-function formatTime(iso?: string) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  let h = d.getHours();
-  const m = String(d.getMinutes()).padStart(2, '0');
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12 || 12;
-  return `${String(h).padStart(2, '0')}:${m} ${ampm}`;
-}
-
 // ─── Action Sheet (View / Edit / Delete) ─────────────────────────────────────
 
 function PatientActionSheet({
@@ -567,50 +557,48 @@ export default function PatientListScreen() {
           </View>
 
           <View style={styles.identity}>
-            <Text style={styles.name} numberOfLines={1}>
-              {item.first_name} {item.last_name}
-            </Text>
+            <View style={styles.topLine}>
+              <Text style={styles.name} numberOfLines={1}>
+                {item.first_name} {item.last_name}
+              </Text>
+              <TouchableOpacity
+                style={styles.kebab}
+                hitSlop={8}
+                onPress={(e) => { e.stopPropagation?.(); setActionTarget(item); }}
+              >
+                <Ionicons name="ellipsis-horizontal" size={16} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity
               style={styles.phoneRow}
               onPress={(e) => { e.stopPropagation?.(); callPhone(item.phone); }}
               activeOpacity={0.5}
               hitSlop={6}
             >
-              <Ionicons name="call" size={12} color="#4361EE" />
+              <Ionicons name="call-outline" size={12} color="#4361EE" />
               <Text style={styles.phone}>{formatPhone(item.phone)}</Text>
             </TouchableOpacity>
-            {(item.gender || highChurn) && (
-              <View style={styles.pillRow}>
-                {item.gender && (
-                  <View style={[styles.genderPill, { backgroundColor: gs.bg }]}>
-                    <Text style={[styles.genderTxt, { color: gs.text }]}>{item.gender}</Text>
-                  </View>
-                )}
-                {highChurn && (
-                  <View style={styles.churnPill}>
-                    <Ionicons name="alert-circle" size={11} color="#dc2626" />
-                    <Text style={styles.churnTxt}>High Churn Risk</Text>
-                  </View>
-                )}
+
+            <View style={styles.metaRow}>
+              {item.gender && (
+                <View style={[styles.genderPill, { backgroundColor: gs.bg }]}>
+                  <Text style={[styles.genderTxt, { color: gs.text }]}>{item.gender}</Text>
+                </View>
+              )}
+              {highChurn && (
+                <View style={styles.churnPill}>
+                  <Ionicons name="alert-circle" size={10} color="#dc2626" />
+                  <Text style={styles.churnTxt}>High Churn</Text>
+                </View>
+              )}
+              <View style={styles.metaSpacer} />
+              <View style={styles.dateRow}>
+                <Ionicons name="calendar-outline" size={11} color="#94a3b8" />
+                <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>
               </View>
-            )}
-          </View>
-
-          <View style={styles.right}>
-            <View style={styles.dateRow}>
-              <Ionicons name="calendar-outline" size={12} color="#94a3b8" />
-              <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>
             </View>
-            <Text style={styles.timeText}>{formatTime(item.created_at)}</Text>
           </View>
-
-          <TouchableOpacity
-            style={styles.kebab}
-            hitSlop={8}
-            onPress={(e) => { e.stopPropagation?.(); setActionTarget(item); }}
-          >
-            <Ionicons name="ellipsis-horizontal" size={16} color="#94a3b8" />
-          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
@@ -874,40 +862,40 @@ const styles = StyleSheet.create({
   // ── List ──
   list: { paddingHorizontal: 16, paddingTop: 4 },
   card: {
-    backgroundColor: '#fff', borderRadius: 14,
-    paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8,
+    backgroundColor: '#fff', borderRadius: 16,
+    paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10,
     borderWidth: 1, borderColor: '#E2E8F0',
+    shadowColor: '#0f172a', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
-  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 46, height: 46, borderRadius: 23,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
+  avatarText: { fontSize: 14, fontWeight: '800', letterSpacing: 0.3 },
 
-  identity: { flex: 1, gap: 3 },
-  name: { fontSize: 14, fontWeight: '700', color: '#0f172a' },
+  identity: { flex: 1, gap: 4 },
+  topLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  name: { fontSize: 15, fontWeight: '800', color: '#0f172a', flex: 1 },
   phoneRow: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start' },
-  phone: { fontSize: 12, color: '#4361EE', fontWeight: '600', textDecorationLine: 'underline' },
+  phone: { fontSize: 12.5, color: '#4361EE', fontWeight: '600' },
 
-  pillRow: {
-    flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 5, marginTop: 1,
-  },
-  genderPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 2 },
+  metaSpacer: { flex: 1, minWidth: 8 },
+  genderPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
   genderTxt: { fontSize: 10, fontWeight: '700' },
   churnPill: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: '#FEE2E2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8,
+    backgroundColor: '#FEE2E2', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999,
   },
   churnTxt: { fontSize: 9, fontWeight: '700', color: '#dc2626' },
 
-  right: { alignItems: 'flex-end', gap: 2, minWidth: 88 },
   dateRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  dateText: { fontSize: 11, color: '#475569', fontWeight: '600' },
-  timeText: { fontSize: 10, color: '#94a3b8', fontWeight: '500' },
+  dateText: { fontSize: 11, color: '#94a3b8', fontWeight: '600' },
 
   kebab: {
-    width: 26, height: 26, borderRadius: 7, borderWidth: 1, borderColor: '#E2E8F0',
+    width: 28, height: 28, borderRadius: 8,
     alignItems: 'center', justifyContent: 'center',
   },
 

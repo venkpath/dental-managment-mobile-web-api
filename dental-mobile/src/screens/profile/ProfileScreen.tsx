@@ -13,6 +13,7 @@ import Button from '../../components/Button';
 import ScreenHeader from '../../components/ScreenHeader';
 import { colors, spacing, typography, radius, shadow } from '../../theme';
 import { useBottomInset } from '../../hooks/useBottomInset';
+import { LegalLinkList } from '../../components/LegalText';
 import type { RootStackParamList } from '../../types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -147,6 +148,9 @@ export default function ProfileScreen() {
               />
             </View>
           )}
+
+          <Text style={styles.sectionLabel}>Legal</Text>
+          <LegalLinkList />
 
           <Text style={styles.sectionLabel}>Account</Text>
           <View style={styles.menuCard}>

@@ -10,8 +10,34 @@ export interface InsightSummary {
   last_computed_at: string | null;
 }
 
+export type InsightListType = 'no_show' | 'recall' | 'churn' | 'conversion';
+
+export interface InsightPatientRow {
+  patient_id: string;
+  patient?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    phone?: string;
+  };
+  no_show_risk?: string;
+  no_show_score?: number;
+  churn_risk?: string;
+  churn_score?: number;
+  recall_due?: boolean;
+  recall_due_days?: number;
+  conversion_score?: number;
+}
+
 interface ChurnRow { patient_id: string; churn_risk: 'high' | 'medium' | 'low' }
 interface ChurnListResponse { data: ChurnRow[]; total: number }
+
+interface InsightListResponse {
+  data: InsightPatientRow[];
+  total: number;
+  limit: number;
+  offset: number;
+}
 
 export const insightsService = {
   getSummary: async (): Promise<InsightSummary> => {
@@ -20,6 +46,25 @@ export const insightsService = {
   },
 
   /** Returns a Set of patient IDs flagged with HIGH churn risk for quick row-level lookup. */
+  getList: async (params: {
+    type: InsightListType;
+    limit?: number;
+    offset?: number;
+    branch_id?: string;
+  }): Promise<InsightListResponse> => {
+    const { data } = await api.get<InsightListResponse>('/patient-insights/list', { params });
+    return data;
+  },
+
+  compute: async (branchId?: string): Promise<{ batch_id: string; patient_count: number }> => {
+    const { data } = await api.post<{ batch_id: string; patient_count: number }>(
+      '/patient-insights/compute',
+      {},
+      { params: branchId ? { branch_id: branchId } : {} },
+    );
+    return data;
+  },
+
   getHighChurnPatientIds: async (): Promise<Set<string>> => {
     try {
       const ids = new Set<string>();

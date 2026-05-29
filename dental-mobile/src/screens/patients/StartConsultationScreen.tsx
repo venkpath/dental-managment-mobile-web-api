@@ -146,7 +146,7 @@ function DateChip({ label, onPress, muted }: { label: string; onPress: () => voi
 export default function StartConsultationScreen() {
   const route = useRoute<Route>();
   const navigation = useNavigation<Nav>();
-  const { patientId, patientName, visitId } = route.params;
+  const { patientId, patientName, visitId, prefill, thenWritePrescription } = route.params;
   const { user, branchId } = useAuthStore();
   const insets = useSafeAreaInsets();
   const bottomInset = useBottomInset();
@@ -156,13 +156,13 @@ export default function StartConsultationScreen() {
   const [dentists, setDentists] = useState<StaffUser[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Visit form state
+  // Visit form state (apply AI prefill if provided)
   const [dentistId, setDentistId] = useState<string>(user?.id ?? '');
-  const [chiefComplaint, setChiefComplaint] = useState('');
+  const [chiefComplaint, setChiefComplaint] = useState(prefill?.chiefComplaint ?? '');
   const [pastHistory, setPastHistory] = useState('');
   const [allergies, setAllergies] = useState('');
-  const [examNotes, setExamNotes] = useState('');
-  const [diagnosis, setDiagnosis] = useState('');
+  const [examNotes, setExamNotes] = useState(prefill?.examination ?? '');
+  const [diagnosis, setDiagnosis] = useState(prefill?.diagnosis ?? '');
   const [reviewAfterDate, setReviewAfterDate] = useState('');
 
   // Treatment plan form state
@@ -292,8 +292,13 @@ export default function StartConsultationScreen() {
       }
 
       // Navigate
-      if (alsoWritePrescription) {
-        navigation.replace('NewPrescription', { patientId, patientName });
+      if (alsoWritePrescription || thenWritePrescription) {
+        navigation.replace('NewPrescription', {
+          patientId,
+          patientName,
+          prefillDiagnosis: thenWritePrescription?.diagnosis,
+          prefillMedications: thenWritePrescription?.medications,
+        });
       } else {
         const message = isEdit
           ? 'Consultation updated.'

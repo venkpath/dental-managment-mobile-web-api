@@ -19,6 +19,13 @@ export interface PatientConsent {
   created_at: string;
 }
 
+export interface ConsentTemplate {
+  id: string;
+  title: string;
+  language?: string;
+  is_active?: boolean;
+}
+
 export const consentsService = {
   listForPatient: async (patientId: string): Promise<PatientConsent[]> => {
     try {
@@ -29,6 +36,36 @@ export const consentsService = {
     } catch {
       return [];
     }
+  },
+
+  listTemplates: async (language?: string): Promise<ConsentTemplate[]> => {
+    try {
+      const { data } = await api.get<ConsentTemplate[] | { data: ConsentTemplate[] }>('/consents/templates', {
+        params: { language, is_active: true },
+      });
+      return Array.isArray(data) ? data : (data?.data ?? []);
+    } catch {
+      return [];
+    }
+  },
+
+  listLanguages: async (): Promise<string[]> => {
+    try {
+      const { data } = await api.get<string[] | { data: string[] }>('/consents/languages');
+      return Array.isArray(data) ? data : (data?.data ?? ['en']);
+    } catch {
+      return ['en'];
+    }
+  },
+
+  create: async (patientId: string, payload: { template_id: string; procedure?: string }): Promise<PatientConsent> => {
+    const { data } = await api.post<PatientConsent>(`/consents/for-patient/${patientId}`, payload);
+    return data;
+  },
+
+  signDigital: async (consentId: string, payload: { signature_data_url: string; signed_by_name: string }): Promise<PatientConsent> => {
+    const { data } = await api.post<PatientConsent>(`/consents/${consentId}/sign-digital`, payload);
+    return data;
   },
 
   sendSignLink: async (consentId: string): Promise<{ channel?: string; link?: string }> => {

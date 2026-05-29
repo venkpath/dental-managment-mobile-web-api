@@ -90,7 +90,6 @@ export default function ConsultationDetailScreen() {
     { icon: 'alert-circle-outline', label: 'Allergies / Medical History', value: visit.medical_history_notes, placeholder: 'No known allergies' },
     { icon: 'eye-outline',        label: 'Examination Notes',        value: visit.examination_notes,       placeholder: 'No exam notes' },
     { icon: 'medkit-outline',     label: 'Clinical Diagnosis',       value: visit.diagnosis_summary,       placeholder: 'No diagnosis recorded' },
-    { icon: 'document-text-outline', label: 'Treatment Plan',        value: visit.treatment_plan,          placeholder: 'No plan written' },
   ];
 
   return (

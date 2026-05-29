@@ -18,7 +18,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useDrawer } from './DrawerContext';
 import { useAuthStore } from '../../store/auth.store';
-import type { RootStackParamList, TabParamList } from '../../types';
+import { useNotificationStore } from '../../store/notification.store';
+import type { RootStackParamList, TabParamList, BillingStackParamList } from '../../types';
 
 const { width: SW } = Dimensions.get('window');
 const DRAWER_W = Math.min(300, SW * 0.84);
@@ -38,6 +39,8 @@ interface MenuItem {
   onPress?: () => void;
   /** Tab name to navigate inside AppTabs (if applicable) */
   tab?: keyof TabParamList;
+  /** Screen inside the More/Billing tab stack (keeps bottom tab bar visible) */
+  billingScreen?: keyof BillingStackParamList;
 }
 
 // Brand mark — small tooth logo
@@ -140,14 +143,21 @@ export function DrawerMenu() {
   const { isOpen, close } = useDrawer();
   const { user, clinicName, logout } = useAuthStore();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const refreshUnreadCount = useNotificationStore((s) => s.refreshUnreadCount);
   const insets = useSafeAreaInsets();
 
   const slide = useRef(new Animated.Value(-DRAWER_W)).current;
   const fade = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(false);
-  const [insuranceExpanded, setInsuranceExpanded] = useState(true);
   const [activeKey, setActiveKey] = useState<string>('Dashboard');
   const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      refreshUnreadCount();
+    }
+  }, [isOpen, refreshUnreadCount]);
 
   useEffect(() => {
     if (isOpen) {
@@ -192,6 +202,29 @@ export function DrawerMenu() {
     });
   };
 
+  const navigateBillingScreen = (screen: keyof BillingStackParamList, key: string) => {
+    setActiveKey(key);
+    close();
+    requestAnimationFrame(() => {
+      // @ts-expect-error nested navigator typing
+      navigation.navigate('App', { screen: 'Billing', params: { screen } });
+    });
+  };
+
+  const handlePress = (item: MenuItem) => {
+    if (item.onPress) {
+      setActiveKey(item.label);
+      item.onPress();
+      return;
+    }
+    if (item.tab) navigateTab(item.tab);
+    else if (item.billingScreen) navigateBillingScreen(item.billingScreen, item.label);
+    else {
+      setActiveKey(item.label);
+      close();
+    }
+  };
+
   // Pull doctor name from user
   const doctorName = user?.name?.startsWith('Dr.')
     ? user.name
@@ -205,38 +238,36 @@ export function DrawerMenu() {
     { label: 'Dashboard', icon: 'home', tab: 'Dashboard' },
     { label: 'Patients', icon: 'people', hasChevron: true, tab: 'Patients' },
     { label: 'Appointments', icon: 'calendar', hasChevron: true, tab: 'Appointments' },
-    { label: 'Rooms', icon: 'cube', hasChevron: true },
-    { label: 'Treatments', icon: 'medkit', hasChevron: true },
-    { label: 'Prescriptions', icon: 'document-text', hasChevron: true },
-    { label: 'Invoices', icon: 'receipt', hasChevron: true, tab: 'Billing' },
-    { label: 'Memberships', icon: 'shield-checkmark', hasChevron: true },
-    { label: 'Expenses', icon: 'card', hasChevron: true },
-    { label: 'Inventory', icon: 'cube-outline', hasChevron: true },
-    { label: 'Notifications', icon: 'notifications', badge: 2 },
+    { label: 'Treatments', icon: 'medkit', hasChevron: true, billingScreen: 'TreatmentList' },
+    { label: 'Prescriptions', icon: 'document-text', hasChevron: true, billingScreen: 'PrescriptionList' },
+    { label: 'Invoices', icon: 'receipt', hasChevron: true, billingScreen: 'InvoiceList' },
+    { label: 'Memberships', icon: 'shield-checkmark', hasChevron: true, billingScreen: 'MembershipList' },
+    { label: 'Expenses', icon: 'card', hasChevron: true, billingScreen: 'ExpenseList' },
+    {
+      label: 'Notifications',
+      icon: 'notifications',
+      badge: unreadCount > 0 ? unreadCount : undefined,
+      onPress: () => {
+        close();
+        requestAnimationFrame(() => navigation.navigate('Notifications'));
+      },
+    },
     { label: 'Tutorials', icon: 'school', hasChevron: true },
   ];
 
+  const communicationItems: MenuItem[] = [
+    { label: 'Communications', icon: 'chatbubbles', hasChevron: true, billingScreen: 'Communications' },
+    { label: 'Campaigns', icon: 'megaphone', hasChevron: true, billingScreen: 'CampaignList' },
+  ];
+
   const adminItems: MenuItem[] = [
-    {
-      label: 'Insurance',
-      icon: 'shield-checkmark',
-      expandable: true,
-      children: [
-        { label: 'Overview', icon: 'stats-chart' },
-        { label: 'Enrollments', icon: 'people-outline' },
-        { label: 'Pre-Auth', icon: 'checkmark-done-circle-outline' },
-        { label: 'Claims', icon: 'document-outline' },
-      ],
-    },
-    { label: 'Reports', icon: 'bar-chart' },
-    { label: 'AI Insights', icon: 'sparkles', badge: 'NEW', badgeColor: 'pill' },
-    { label: 'Staff', icon: 'people-circle' },
-    { label: 'Branches', icon: 'business' },
-    { label: 'Audit Logs', icon: 'reader' },
-    { label: 'Communication', icon: 'chatbox' },
+    { label: 'Reports', icon: 'bar-chart', billingScreen: 'Reports' },
+    { label: 'AI Insights', icon: 'sparkles', badge: 'NEW', badgeColor: 'pill', billingScreen: 'AIInsights' },
+    { label: 'Staff', icon: 'people-circle', hasChevron: true, billingScreen: 'StaffList' },
+    { label: 'Branches', icon: 'business', hasChevron: true, billingScreen: 'BranchList' },
     { label: 'WhatsApp Inbox', icon: 'logo-whatsapp', tab: 'WhatsApp' },
-    { label: 'Billing', icon: 'card' },
-    { label: 'Settings', icon: 'settings' },
+    { label: 'Billing', icon: 'card', billingScreen: 'BillingGuide' },
+    { label: 'Settings', icon: 'settings', billingScreen: 'SettingsGuide' },
   ];
 
   return (
@@ -296,22 +327,30 @@ export function DrawerMenu() {
                   item={item}
                   active={activeKey === item.label}
                   expanded={false}
-                  onPress={() => {
-                    if (item.tab) navigateTab(item.tab);
-                    else {
-                      setActiveKey(item.label);
-                      close();
-                    }
-                  }}
+                  onPress={() => handlePress(item)}
                   onToggleExpand={() => {}}
                 />
               ))}
             </View>
 
-            {/* Section divider */}
+            {/* Communication */}
             <View style={styles.sectionDivider} />
+            <Text style={styles.sectionLabel}>COMMUNICATION</Text>
+            <View style={{ paddingHorizontal: 12 }}>
+              {communicationItems.map((item) => (
+                <MenuRow
+                  key={item.label}
+                  item={item}
+                  active={activeKey === item.label}
+                  expanded={false}
+                  onPress={() => handlePress(item)}
+                  onToggleExpand={() => {}}
+                />
+              ))}
+            </View>
 
             {/* Administration */}
+            <View style={styles.sectionDivider} />
             <Text style={styles.sectionLabel}>ADMINISTRATION</Text>
             <View style={{ paddingHorizontal: 12 }}>
               {adminItems.map((item) => (
@@ -319,15 +358,9 @@ export function DrawerMenu() {
                   key={item.label}
                   item={item}
                   active={activeKey === item.label}
-                  expanded={item.label === 'Insurance' ? insuranceExpanded : false}
-                  onPress={() => {
-                    if (item.tab) navigateTab(item.tab);
-                    else {
-                      setActiveKey(item.label);
-                      close();
-                    }
-                  }}
-                  onToggleExpand={() => setInsuranceExpanded((v) => !v)}
+                  expanded={false}
+                  onPress={() => handlePress(item)}
+                  onToggleExpand={() => {}}
                 />
               ))}
             </View>

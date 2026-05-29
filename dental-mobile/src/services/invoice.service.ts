@@ -1,8 +1,39 @@
 import api from './api';
-import type { Invoice, PaginatedResponse } from '../types';
+import type { CoverageCategory, Invoice, PaginatedResponse } from '../types';
+
+export type CreateInvoiceItem = {
+  item_type: 'treatment' | 'service' | 'pharmacy';
+  description: string;
+  quantity: number;
+  unit_price: number;
+  treatment_id?: string;
+  coverage_category?: CoverageCategory;
+  scheme_max_fee?: number;
+};
+
+export type CreateInvoicePayload = {
+  patient_id: string;
+  branch_id: string;
+  dentist_id?: string;
+  treatment_date?: string;
+  tax_percentage?: number;
+  discount_amount?: number;
+  gst_number?: string;
+  as_draft?: boolean;
+  patient_insurance_id?: string;
+  override_insurance_covered_amount?: number;
+  override_patient_copay_amount?: number;
+  items: CreateInvoiceItem[];
+};
 
 export const invoiceService = {
-  list: async (params?: { page?: number; limit?: number; status?: string; patient_id?: string }): Promise<PaginatedResponse<Invoice>> => {
+  list: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    patient_id?: string;
+    lifecycle_status?: string;
+  }): Promise<PaginatedResponse<Invoice>> => {
     const { data } = await api.get('/invoices', {
       params: { page: 1, limit: 20, ...params },
     });
@@ -14,28 +45,23 @@ export const invoiceService = {
     return data;
   },
 
-  create: async (payload: {
-    patient_id: string;
-    branch_id: string;
-    tax_percentage?: number;
-    discount_amount?: number;
-    items: Array<{
-      item_type: 'treatment' | 'service' | 'pharmacy';
-      description: string;
-      quantity: number;
-      unit_price: number;
-      treatment_id?: string;
-    }>;
-  }): Promise<Invoice> => {
+  create: async (payload: CreateInvoicePayload): Promise<Invoice> => {
     const { data } = await api.post<Invoice>('/invoices', payload);
     return data;
   },
 
   recordPayment: async (
     invoiceId: string,
-    payload: { amount: number; method: 'cash' | 'card' | 'upi'; notes?: string; installment_item_id?: string }
+    payload: { amount: number; method: 'cash' | 'card' | 'upi'; notes?: string; installment_item_id?: string },
   ): Promise<void> => {
-    await api.post(`/payments`, { invoice_id: invoiceId, ...payload });
+    await api.post('/payments', { invoice_id: invoiceId, ...payload });
+  },
+
+  refund: async (
+    invoiceId: string,
+    payload: { amount: number; method: 'cash' | 'card' | 'upi' | 'bank_transfer'; reason?: string; payment_id?: string },
+  ): Promise<void> => {
+    await api.post(`/invoices/${invoiceId}/refunds`, payload);
   },
 
   createInstallmentPlan: async (
@@ -43,7 +69,7 @@ export const invoiceService = {
     payload: {
       notes?: string;
       items: Array<{ installment_number: number; amount: number; due_date: string }>;
-    }
+    },
   ): Promise<void> => {
     await api.post(`/invoices/${invoiceId}/installment-plan`, payload);
   },
@@ -59,5 +85,13 @@ export const invoiceService = {
 
   sendWhatsApp: async (invoiceId: string): Promise<void> => {
     await api.post(`/invoices/${invoiceId}/send-whatsapp`);
+  },
+
+  update: async (
+    invoiceId: string,
+    payload: { dentist_id?: string | null; gst_number?: string },
+  ): Promise<Invoice> => {
+    const { data } = await api.patch<Invoice>(`/invoices/${invoiceId}`, payload);
+    return data;
   },
 };

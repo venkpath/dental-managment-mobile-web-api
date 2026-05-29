@@ -18,7 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { prescriptionService, type CreatePrescriptionItem } from '../../services/prescription.service';
+import { prescriptionService } from '../../services/prescription.service';
+import { toApiPrescriptionItems, medName, type PrescriptionMedFormItem } from '../../utils/prescriptionForm';
 import { userService, type StaffUser } from '../../services/user.service';
 import { patientService } from '../../services/patient.service';
 import { useAuthStore } from '../../store/auth.store';
@@ -44,7 +45,7 @@ const DURATION_OPTIONS = [
 const ROUTE_OPTIONS = ['Oral', 'Topical', 'Sublingual', 'Inhalation', 'IM', 'IV'];
 
 // ─── Form item shape (UI-side) ───────────────────────────────────────────────
-interface MedItem {
+interface MedItem extends PrescriptionMedFormItem {
   drug_name: string;
   dosage: string;
   frequency: string;
@@ -107,7 +108,7 @@ function PickerModal({
 export default function NewPrescriptionScreen() {
   const route = useRoute<Route>();
   const navigation = useNavigation<Nav>();
-  const { patientId, patientName, prefillDiagnosis } = route.params;
+  const { patientId, patientName, prefillDiagnosis, prefillMedications } = route.params;
   const { user, branchId } = useAuthStore();
   const insets = useSafeAreaInsets();
   const bottomInset = useBottomInset();
@@ -115,13 +116,30 @@ export default function NewPrescriptionScreen() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [dentists, setDentists] = useState<StaffUser[]>([]);
   const [dentistId, setDentistId] = useState<string>(user?.id ?? '');
+  const [chiefComplaint, setChiefComplaint] = useState('');
+  const [pastDentalHistory, setPastDentalHistory] = useState('');
+  const [allergiesMedical, setAllergiesMedical] = useState('');
   const [diagnosis, setDiagnosis] = useState(prefillDiagnosis ?? '');
   const [instructions, setInstructions] = useState('');
   const [interactions, setInteractions] = useState('');
   const [dietaryAdvice, setDietaryAdvice] = useState('');
   const [postProcedure, setPostProcedure] = useState('');
   const [followUp, setFollowUp] = useState('');
-  const [items, setItems] = useState<MedItem[]>([blankItem()]);
+  const [items, setItems] = useState<MedItem[]>(() => {
+    if (prefillMedications && prefillMedications.length > 0) {
+      return prefillMedications.map((m) => ({
+        ...blankItem(),
+        drug_name: m.drug_name ?? '',
+        dosage: m.dosage ?? '',
+        frequency: m.frequency ?? '',
+        duration: m.duration ?? '',
+        route: m.route ?? '',
+        purpose: m.purpose ?? '',
+        notes: m.instructions ?? '',
+      }));
+    }
+    return [blankItem()];
+  });
   const [submitting, setSubmitting] = useState(false);
   const [showSafety, setShowSafety] = useState(false);
 
@@ -158,54 +176,36 @@ export default function NewPrescriptionScreen() {
     // Validation
     if (!dentistId) return Alert.alert('Required field', 'Please select a dentist.');
     if (!branchId)  return Alert.alert('Branch missing', 'No branch is set on your session. Re-login and try again.');
-    const cleanItems = items
-      .map((it) => ({ ...it, drug_name: it.drug_name.trim() }))
-      .filter((it) => it.drug_name.length > 0);
-    if (cleanItems.length === 0) return Alert.alert('At least one medicine', 'Add at least one medicine with a name.');
+    const cleanItems = items.filter((it) => medName(it).length > 0);
     for (const it of cleanItems) {
-      if (!it.dosage.trim()) return Alert.alert('Dosage required', `Please fill dosage for ${it.drug_name}.`);
-      if (!it.frequency)     return Alert.alert('Frequency required', `Please pick frequency for ${it.drug_name}.`);
-      if (!it.duration)      return Alert.alert('Duration required', `Please pick duration for ${it.drug_name}.`);
+      const name = medName(it);
+      if (!it.dosage.trim()) return Alert.alert('Dosage required', `Please fill dosage for ${name}.`);
+      if (!it.frequency) return Alert.alert('Frequency required', `Please pick frequency for ${name}.`);
+      if (!it.duration) return Alert.alert('Duration required', `Please pick duration for ${name}.`);
     }
 
     setSubmitting(true);
     try {
-      const payloadItems: CreatePrescriptionItem[] = cleanItems.map((it) => {
-        const dosage_schedule = (it.morning || it.afternoon || it.evening || it.night)
-          ? {
-              morning:   Number(it.morning   || 0),
-              afternoon: Number(it.afternoon || 0),
-              evening:   Number(it.evening   || 0),
-              night:     Number(it.night     || 0),
-            }
-          : undefined;
-        return {
-          drug_name: it.drug_name,
-          dosage: it.dosage,
-          frequency: it.frequency,
-          duration: it.duration,
-          route: it.route || undefined,
-          purpose: it.purpose || undefined,
-          notes: it.notes || undefined,
-          warnings: it.warnings || undefined,
-          ...(dosage_schedule ? { dosage_schedule } : {}),
-        };
-      });
-
       await prescriptionService.create({
         patient_id: patientId,
         dentist_id: dentistId,
         branch_id: branchId,
         diagnosis: diagnosis.trim() || undefined,
-        notes: instructions.trim() || undefined,
+        instructions: instructions.trim() || undefined,
+        chief_complaint: chiefComplaint.trim() || undefined,
+        past_dental_history: pastDentalHistory.trim() || undefined,
+        allergies_medical_history: allergiesMedical.trim() || undefined,
         interactions: interactions.trim() || undefined,
         dietary_advice: dietaryAdvice.trim() || undefined,
         post_procedure_instructions: postProcedure.trim() || undefined,
         follow_up: followUp.trim() || undefined,
-        items: payloadItems,
+        items: cleanItems.length > 0 ? toApiPrescriptionItems(cleanItems) : undefined,
       });
 
-      Alert.alert('Prescription created', `${cleanItems.length} medicine${cleanItems.length === 1 ? '' : 's'} prescribed for ${patientName}.`, [
+      const n = cleanItems.length;
+      Alert.alert('Prescription created', n > 0
+        ? `${n} medicine${n === 1 ? '' : 's'} prescribed for ${patientName}.`
+        : `Prescription saved for ${patientName}.`, [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err) {
@@ -272,6 +272,15 @@ export default function NewPrescriptionScreen() {
             <Ionicons name="chevron-down" size={16} color="#94a3b8" />
           </TouchableOpacity>
 
+          <Text style={[s.label, { marginTop: 12 }]}>Chief Complaint</Text>
+          <TextInput
+            value={chiefComplaint}
+            onChangeText={setChiefComplaint}
+            placeholder="e.g. Pain in lower-right molar for 3 days"
+            placeholderTextColor="#94a3b8"
+            style={s.inputBox}
+          />
+
           <Text style={[s.label, { marginTop: 12 }]}>Diagnosis</Text>
           <TextInput
             value={diagnosis}
@@ -279,6 +288,28 @@ export default function NewPrescriptionScreen() {
             placeholder="e.g. Dental caries with periapical infection"
             placeholderTextColor="#94a3b8"
             style={s.inputBox}
+          />
+
+          <Text style={[s.label, { marginTop: 12 }]}>Past Dental History</Text>
+          <TextInput
+            value={pastDentalHistory}
+            onChangeText={setPastDentalHistory}
+            placeholder="Relevant previous dental history"
+            placeholderTextColor="#94a3b8"
+            multiline
+            numberOfLines={2}
+            style={[s.inputBox, s.textarea]}
+          />
+
+          <Text style={[s.label, { marginTop: 12 }]}>Allergies / Medical History</Text>
+          <TextInput
+            value={allergiesMedical}
+            onChangeText={setAllergiesMedical}
+            placeholder="Allergies and relevant medical history"
+            placeholderTextColor="#94a3b8"
+            multiline
+            numberOfLines={2}
+            style={[s.inputBox, s.textarea]}
           />
 
           <Text style={[s.label, { marginTop: 12 }]}>General Instructions</Text>

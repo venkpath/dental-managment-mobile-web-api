@@ -15,6 +15,7 @@ const core_1 = require("@nestjs/core");
 const config_1 = require("@nestjs/config");
 const schedule_1 = require("@nestjs/schedule");
 const throttler_1 = require("@nestjs/throttler");
+const config_2 = require("@nestjs/config");
 const health_module_js_1 = require("./modules/health/health.module.js");
 const clinic_module_js_1 = require("./modules/clinic/clinic.module.js");
 const branch_module_js_1 = require("./modules/branch/branch.module.js");
@@ -82,6 +83,8 @@ const activity_tracker_interceptor_js_1 = require("./common/interceptors/activit
 const suspension_guard_js_1 = require("./common/guards/suspension.guard.js");
 const nestjs_pino_1 = require("nestjs-pino");
 const razorpay_config_js_1 = __importDefault(require("./config/razorpay.config.js"));
+const throttle_config_js_1 = __importDefault(require("./config/throttle.config.js"));
+const app_throttler_guard_js_1 = require("./common/guards/app-throttler.guard.js");
 let AppModule = class AppModule {
     configure(consumer) {
         consumer.apply(tenant_context_middleware_js_1.TenantContextMiddleware).forRoutes('*path');
@@ -104,15 +107,26 @@ exports.AppModule = AppModule = __decorate([
             }),
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
-                load: [app_config_js_1.default, database_config_js_1.default, redis_config_js_1.default, razorpay_config_js_1.default],
+                load: [app_config_js_1.default, database_config_js_1.default, redis_config_js_1.default, razorpay_config_js_1.default, throttle_config_js_1.default],
                 envFilePath: '.env',
             }),
-            throttler_1.ThrottlerModule.forRoot({
-                throttlers: [
-                    { name: 'default', ttl: 60000, limit: 100 },
-                    { name: 'strict', ttl: 60000, limit: 10 },
-                ],
-                errorMessage: 'Too many requests. Please try again later.',
+            throttler_1.ThrottlerModule.forRootAsync({
+                inject: [config_2.ConfigService],
+                useFactory: (config) => ({
+                    throttlers: [
+                        {
+                            name: 'default',
+                            ttl: config.get('throttle.defaultTtl', 60_000),
+                            limit: config.get('throttle.defaultLimit', 10),
+                        },
+                        {
+                            name: 'strict',
+                            ttl: config.get('throttle.strictTtl', 60_000),
+                            limit: config.get('throttle.strictLimit', 15),
+                        },
+                    ],
+                    errorMessage: config.get('throttle.errorMessage', 'Too many requests. Please wait a moment and try again.'),
+                }),
             }),
             prisma_module_js_1.PrismaModule,
             schedule_1.ScheduleModule.forRoot(),
@@ -167,7 +181,7 @@ exports.AppModule = AppModule = __decorate([
             treatment_media_module_js_1.TreatmentMediaModule,
         ],
         providers: [
-            { provide: core_1.APP_GUARD, useClass: throttler_1.ThrottlerGuard },
+            { provide: core_1.APP_GUARD, useClass: app_throttler_guard_js_1.AppThrottlerGuard },
             { provide: core_1.APP_GUARD, useClass: jwt_auth_guard_js_1.JwtAuthGuard },
             { provide: core_1.APP_GUARD, useClass: roles_guard_js_1.RolesGuard },
             { provide: core_1.APP_GUARD, useClass: suspension_guard_js_1.SuspensionGuard },

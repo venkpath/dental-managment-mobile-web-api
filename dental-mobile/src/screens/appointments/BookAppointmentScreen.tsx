@@ -1,43 +1,55 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Alert,
+  View, Text, TextInput, StyleSheet, ScrollView, Alert,
   KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { appointmentService } from '../../services/appointment.service';
 import { userService, type StaffUser } from '../../services/user.service';
 import { addMinutes } from '../../utils/time';
+import { formatSlotRange } from '../../utils/appointmentSlots';
 import type { AvailableSlot } from '../../types';
 import { useAuthStore } from '../../store/auth.store';
-import Input from '../../components/Input';
-import Button from '../../components/Button';
-import ScreenHeader from '../../components/ScreenHeader';
 import PatientSearchInput from '../../components/PatientSearchInput';
 import DatePickerInput from '../../components/DatePickerInput';
-import { colors, spacing, typography, radius } from '../../theme';
+import SelectSheet from '../../components/SelectSheet';
+import AppointmentSlotPicker from '../../components/AppointmentSlotPicker';
 import { useBottomInset } from '../../hooks/useBottomInset';
 import type { AppointmentStackParamList } from '../../types';
 
 type Route = RouteProp<AppointmentStackParamList, 'BookAppointment'>;
 type Nav = NativeStackNavigationProp<AppointmentStackParamList>;
 
+const C = {
+  indigo: '#4361EE', indigoLight: '#EEF2FF',
+  bg: '#F8FAFC', surface: '#ffffff',
+  text: '#0f172a', textSub: '#475569', textMuted: '#94a3b8',
+  border: '#E2E8F0', divider: '#EEF2F6',
+};
+
+function todayIso() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 export default function BookAppointmentScreen() {
   const route = useRoute<Route>();
   const navigation = useNavigation<Nav>();
-  const { branchId } = useAuthStore();
+  const insets = useSafeAreaInsets();
   const bottomInset = useBottomInset();
+  const { branchId } = useAuthStore();
 
   const [dentists, setDentists] = useState<StaffUser[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(
-    route.params?.patientId ? { id: route.params.patientId, name: '' } : null
+    route.params?.patientId ? { id: route.params.patientId, name: '' } : null,
   );
   const [form, setForm] = useState({
     dentist_id: '',
-    appointment_date: new Date().toISOString().split('T')[0],
+    appointment_date: todayIso(),
     start_time: '',
     end_time: '',
     notes: '',
@@ -45,18 +57,18 @@ export default function BookAppointmentScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [loadingDentists, setLoadingDentists] = useState(true);
-  const [dentistLoadError, setDentistLoadError] = useState(false);
-  const [showDentists, setShowDentists] = useState(false);
-  const [showSlots, setShowSlots] = useState(false);
+  const [dentistSheet, setDentistSheet] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   useFocusEffect(useCallback(() => {
     setLoadingDentists(true);
-    setDentistLoadError(false);
     userService.listStaff()
-      .then(setDentists)
-      .catch(() => setDentistLoadError(true))
+      .then((staff) => {
+        const only = staff.filter((u) => /dentist|consultant/i.test(u.role));
+        setDentists(only.length > 0 ? only : staff);
+      })
+      .catch(() => setDentists([]))
       .finally(() => setLoadingDentists(false));
   }, []));
 
@@ -70,12 +82,11 @@ export default function BookAppointmentScreen() {
     setLoadingSlots(true);
     setAvailableSlots([]);
     try {
-      const slots = await appointmentService.getAvailableSlots({
+      setAvailableSlots(await appointmentService.getAvailableSlots({
         branch_id: branchId,
         dentist_id: dentistId,
         date,
-      });
-      setAvailableSlots(slots);
+      }));
     } catch {
       setAvailableSlots([]);
     } finally {
@@ -83,10 +94,21 @@ export default function BookAppointmentScreen() {
     }
   }, [branchId]);
 
+  const onDentistChange = (dentistId: string) => {
+    set('dentist_id', dentistId);
+    setForm((p) => ({ ...p, start_time: '', end_time: '' }));
+    if (dentistId) fetchSlots(dentistId, form.appointment_date);
+  };
+
+  const onDateChange = (date: string) => {
+    set('appointment_date', date);
+    setForm((p) => ({ ...p, start_time: '', end_time: '' }));
+    if (form.dentist_id) fetchSlots(form.dentist_id, date);
+  };
+
   const pickTimeSlot = (slot: AvailableSlot) => {
     setForm((p) => ({ ...p, start_time: slot.start_time, end_time: slot.end_time }));
     setErrors((p) => ({ ...p, start_time: '' }));
-    setShowSlots(false);
   };
 
   const validate = () => {
@@ -101,7 +123,10 @@ export default function BookAppointmentScreen() {
 
   const handleBook = async () => {
     if (!validate()) return;
-    if (!branchId) { Alert.alert('Error', 'No branch assigned'); return; }
+    if (!branchId) {
+      Alert.alert('Error', 'No branch assigned');
+      return;
+    }
     setLoading(true);
     try {
       await appointmentService.create({
@@ -113,9 +138,11 @@ export default function BookAppointmentScreen() {
         end_time: form.end_time || addMinutes(form.start_time, 30),
         notes: form.notes.trim() || undefined,
       });
-      Alert.alert('Booked!', `Appointment on ${form.appointment_date} at ${form.start_time}`, [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      Alert.alert(
+        'Booked',
+        `Appointment on ${form.appointment_date} at ${formatSlotRange(form.start_time, form.end_time)}`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }],
+      );
     } catch (err: unknown) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Booking failed');
     } finally {
@@ -123,181 +150,180 @@ export default function BookAppointmentScreen() {
     }
   };
 
-  const selectedDentist = dentists.find((d) => d.id === form.dentist_id);
+  const dentistName = dentists.find((d) => d.id === form.dentist_id)?.name;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScreenHeader title="Book Appointment" onBack={() => navigation.goBack()} />
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={[styles.content, { paddingBottom: spacing['2xl'] + bottomInset }]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+    <KeyboardAvoidingView style={ui.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={{ paddingTop: insets.top, backgroundColor: C.bg }}>
+        <View style={ui.topbar}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={ui.iconBtn} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={20} color={C.text} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={ui.topTitle}>Book appointment</Text>
+            <Text style={ui.topSub}>Schedule a new visit</Text>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ padding: 16, paddingBottom: 100 + bottomInset, gap: 14 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={ui.card}>
+          <Text style={ui.sectionLabel}>Patient</Text>
           <PatientSearchInput
             selectedPatient={selectedPatient}
-            onSelect={(p) => { setSelectedPatient(p); setErrors((e) => ({ ...e, patient_id: '' })); }}
+            onSelect={(p) => { setSelectedPatient(p.id ? p : null); setErrors((e) => ({ ...e, patient_id: '' })); }}
             error={errors.patient_id}
           />
+        </View>
 
-          {/* Dentist selector */}
-          <Text style={styles.fieldLabel}>Dentist *</Text>
-          <TouchableOpacity style={[styles.selector, errors.dentist_id && styles.selectorError]}
-            onPress={() => setShowDentists((p) => !p)}>
-            <Text style={[styles.selectorText, !selectedDentist && styles.placeholder]}>
-              {selectedDentist ? `Dr. ${selectedDentist.name}` : 'Select dentist'}
-            </Text>
-            <Text style={styles.chevron}>{showDentists ? '▲' : '▼'}</Text>
-          </TouchableOpacity>
-          {errors.dentist_id && <Text style={styles.errorText}>{errors.dentist_id}</Text>}
-          {showDentists && (
-            <View style={styles.dropdown}>
-              {loadingDentists ? (
-                <View style={styles.dropEmpty}>
-                  <Text style={styles.dropEmptyText}>Loading dentists...</Text>
-                </View>
-              ) : dentistLoadError ? (
-                <View style={styles.dropEmpty}>
-                  <Text style={styles.dropEmptyText}>Failed to load dentists. Close and try again.</Text>
-                </View>
-              ) : dentists.length === 0 ? (
-                <View style={styles.dropEmpty}>
-                  <Text style={styles.dropEmptyText}>No dentists found</Text>
-                </View>
-              ) : dentists.map((d) => (
-                <TouchableOpacity key={d.id}
-                  style={[styles.dropItem, form.dentist_id === d.id && styles.dropItemActive]}
-                  onPress={() => {
-                    set('dentist_id', d.id);
-                    setShowDentists(false);
-                    setForm((p) => ({ ...p, start_time: '', end_time: '' }));
-                    fetchSlots(d.id, form.appointment_date);
-                  }}>
-                  <Text style={[styles.dropText, form.dentist_id === d.id && styles.dropTextActive]}>
-                    Dr. {d.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          <DatePickerInput
-            label="Date *"
-            value={form.appointment_date}
-            onChange={(v) => {
-              set('appointment_date', v);
-              setForm((p) => ({ ...p, start_time: '', end_time: '' }));
-              if (form.dentist_id) fetchSlots(form.dentist_id, v);
-            }}
-            minDate={new Date()}
-            error={errors.appointment_date}
-          />
-
-          {/* Time slot picker */}
-          <Text style={styles.fieldLabel}>Time Slot *</Text>
+        <View style={ui.card}>
+          <Text style={ui.sectionLabel}>Schedule</Text>
+          <Text style={ui.fieldLabel}>Dentist *</Text>
           <TouchableOpacity
-            style={[styles.selector, errors.start_time && styles.selectorError]}
+            style={[ui.field, errors.dentist_id && ui.fieldError]}
             onPress={() => {
-              if (!form.dentist_id) { Alert.alert('Select Dentist', 'Please select a dentist first'); return; }
-              setShowSlots((p) => !p);
+              if (loadingDentists) return;
+              setDentistSheet(true);
             }}
+            activeOpacity={0.7}
           >
-            <Text style={[styles.selectorText, !form.start_time && styles.placeholder]}>
-              {form.start_time ? `${form.start_time} – ${form.end_time}` : 'Select time slot'}
-            </Text>
-            <Text style={styles.chevron}>{showSlots ? '▲' : '▼'}</Text>
+            {loadingDentists ? (
+              <ActivityIndicator color={C.indigo} style={{ flex: 1 }} />
+            ) : (
+              <Text style={[ui.fieldTxt, !dentistName && ui.placeholder]}>
+                {dentistName ? `Dr. ${dentistName}` : 'Select dentist'}
+              </Text>
+            )}
+            <Ionicons name="chevron-down" size={16} color={C.textMuted} />
           </TouchableOpacity>
-          {errors.start_time && <Text style={styles.errorText}>{errors.start_time}</Text>}
+          {errors.dentist_id ? <Text style={ui.errorTxt}>{errors.dentist_id}</Text> : null}
 
-          {showSlots && (
-            <View style={styles.slotsGrid}>
-              {loadingSlots ? (
-                <ActivityIndicator color={colors.primary} style={{ padding: spacing.md, width: '100%' }} />
-              ) : availableSlots.length === 0 ? (
-                <Text style={styles.noSlotsText}>No slots available for this date</Text>
-              ) : availableSlots.map((slot) => (
-                <TouchableOpacity
-                  key={slot.start_time}
-                  style={[
-                    styles.slotBtn,
-                    form.start_time === slot.start_time && styles.slotBtnActive,
-                    !slot.available && styles.slotBtnUnavailable,
-                  ]}
-                  onPress={() => slot.available && pickTimeSlot(slot)}
-                  disabled={!slot.available}
-                >
-                  <Text style={[
-                    styles.slotText,
-                    form.start_time === slot.start_time && styles.slotTextActive,
-                    !slot.available && styles.slotTextUnavailable,
-                  ]}>
-                    {slot.start_time}
+          <View style={{ marginTop: 12 }}>
+            <DatePickerInput
+              label="Date *"
+              value={form.appointment_date}
+              onChange={onDateChange}
+              minDate={new Date()}
+              error={errors.appointment_date}
+            />
+          </View>
+        </View>
+
+        <View style={ui.card}>
+          <Text style={ui.sectionLabel}>Time slot *</Text>
+          {!form.dentist_id ? (
+            <Text style={ui.hint}>Select a dentist and date to see available slots.</Text>
+          ) : (
+            <>
+              {form.start_time ? (
+                <View style={ui.selectedSlot}>
+                  <Ionicons name="checkmark-circle" size={18} color={C.indigo} />
+                  <Text style={ui.selectedSlotTxt}>
+                    {formatSlotRange(form.start_time, form.end_time)}
                   </Text>
-                  {!slot.available && <Text style={styles.slotBooked}>Booked</Text>}
-                </TouchableOpacity>
-              ))}
-            </View>
+                  <TouchableOpacity
+                    onPress={() => setForm((p) => ({ ...p, start_time: '', end_time: '' }))}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={ui.changeTxt}>Change</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+              <AppointmentSlotPicker
+                slots={availableSlots}
+                selectedStartTime={form.start_time}
+                onSelect={pickTimeSlot}
+                loading={loadingSlots}
+              />
+              {errors.start_time ? <Text style={ui.errorTxt}>{errors.start_time}</Text> : null}
+            </>
           )}
+        </View>
 
-          <Input
-            label="Notes"
+        <View style={ui.card}>
+          <Text style={ui.sectionLabel}>Notes</Text>
+          <TextInput
             value={form.notes}
             onChangeText={(v) => set('notes', v)}
-            placeholder="Reason for visit, special instructions..."
-            multiline numberOfLines={2}
-            textAlignVertical="top"
-            style={{ minHeight: 60, paddingTop: spacing.sm }}
+            placeholder="Reason for visit, special instructions…"
+            placeholderTextColor={C.textMuted}
+            multiline
+            style={[ui.inputBox, { minHeight: 72, textAlignVertical: 'top' }]}
           />
+        </View>
+      </ScrollView>
 
-          <Button title="Book Appointment" onPress={handleBook} loading={loading} size="lg" />
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      <View style={[ui.footer, { paddingBottom: Math.max(12, bottomInset) }]}>
+        <TouchableOpacity
+          style={[ui.primaryBtn, loading && ui.btnDisabled]}
+          onPress={handleBook}
+          disabled={loading}
+          activeOpacity={0.85}
+        >
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={ui.primaryTxt}>Book appointment</Text>}
+        </TouchableOpacity>
+      </View>
+
+      <SelectSheet
+        visible={dentistSheet}
+        title="Dentist"
+        options={dentists.map((d) => ({ value: d.id, label: `Dr. ${d.name}` }))}
+        selectedValue={form.dentist_id}
+        onSelect={onDentistChange}
+        onClose={() => setDentistSheet(false)}
+      />
+    </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  flex: { flex: 1 },
-  scroll: { flex: 1 },
-  content: { padding: spacing.base },
-  fieldLabel: { fontSize: typography.sm, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
-  errorText: { fontSize: typography.xs, color: colors.danger, marginTop: spacing.xs, fontWeight: '500' },
-  selector: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: colors.background, borderWidth: 1.5, borderColor: colors.border,
-    borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
-    minHeight: 50, marginBottom: spacing.xs,
+const ui = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.bg },
+  topbar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+  iconBtn: {
+    width: 36, height: 36, borderRadius: 10, backgroundColor: C.surface,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border,
   },
-  selectorError: { borderColor: colors.danger },
-  selectorText: { fontSize: typography.base, color: colors.text },
-  placeholder: { color: colors.textMuted },
-  chevron: { fontSize: 12, color: colors.textMuted },
-  dropdown: {
-    backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1,
-    borderColor: colors.border, marginBottom: spacing.md, overflow: 'hidden',
+  topTitle: { fontSize: 18, fontWeight: '800', color: C.text },
+  topSub: { fontSize: 12, color: C.textSub, marginTop: 1 },
+  card: {
+    backgroundColor: C.surface, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: C.border,
   },
-  dropItem: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 },
-  dropItemActive: { backgroundColor: colors.primaryLight },
-  dropText: { fontSize: typography.base, color: colors.text },
-  dropTextActive: { color: colors.primary, fontWeight: '600' },
-  dropEmpty: { paddingHorizontal: spacing.md, paddingVertical: spacing.md },
-  dropEmptyText: { fontSize: typography.sm, color: colors.textMuted, textAlign: 'center' },
-  slotsGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm,
-    marginBottom: spacing.md, marginTop: spacing.xs,
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10 },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: C.textSub, marginBottom: 6 },
+  field: {
+    flexDirection: 'row', alignItems: 'center', minHeight: 48,
+    borderWidth: 1, borderColor: C.border, borderRadius: 12,
+    paddingHorizontal: 12, backgroundColor: C.bg, gap: 8,
   },
-  slotBtn: {
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border,
-    backgroundColor: colors.surface,
+  fieldError: { borderColor: '#dc2626' },
+  fieldTxt: { flex: 1, fontSize: 15, color: C.text },
+  placeholder: { color: C.textMuted },
+  hint: { fontSize: 13, color: C.textMuted, lineHeight: 18 },
+  errorTxt: { fontSize: 12, color: '#dc2626', marginTop: 6 },
+  selectedSlot: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: C.indigoLight, borderRadius: 12, padding: 12, marginBottom: 12,
+    borderWidth: 1, borderColor: '#c7d2fe',
   },
-  slotBtnActive: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
-  slotBtnUnavailable: { borderColor: colors.borderLight, backgroundColor: colors.background, opacity: 0.5 },
-  slotText: { fontSize: typography.sm, color: colors.textSecondary, fontWeight: '500' },
-  slotTextActive: { color: colors.primary, fontWeight: '700' },
-  slotTextUnavailable: { color: colors.textMuted },
-  slotBooked: { fontSize: 9, color: colors.danger, fontWeight: '600', marginTop: 1 },
-  noSlotsText: { fontSize: typography.sm, color: colors.textMuted, padding: spacing.md, width: '100%', textAlign: 'center' },
+  selectedSlotTxt: { flex: 1, fontSize: 14, fontWeight: '700', color: C.indigo },
+  changeTxt: { fontSize: 13, fontWeight: '700', color: C.indigo },
+  inputBox: {
+    borderWidth: 1, borderColor: C.border, borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 11, fontSize: 15, color: C.text, backgroundColor: C.bg,
+  },
+  footer: {
+    paddingHorizontal: 16, paddingTop: 10,
+    backgroundColor: C.surface, borderTopWidth: 1, borderTopColor: C.border,
+  },
+  primaryBtn: {
+    backgroundColor: C.indigo, borderRadius: 14, paddingVertical: 14,
+    alignItems: 'center', justifyContent: 'center', minHeight: 48,
+  },
+  primaryTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  btnDisabled: { opacity: 0.6 },
 });

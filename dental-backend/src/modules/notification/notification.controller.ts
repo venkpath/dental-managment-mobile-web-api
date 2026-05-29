@@ -1,5 +1,7 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -17,7 +19,8 @@ import {
 } from '@nestjs/swagger';
 import { NotificationService } from './notification.service.js';
 import { NotificationCronService } from './notification.cron.js';
-import { QueryNotificationDto } from './dto/index.js';
+import { QueryNotificationDto, RegisterPushTokenDto, UnregisterPushTokenDto } from './dto/index.js';
+import { PushDeviceService } from './push-device.service.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
@@ -34,7 +37,30 @@ export class NotificationController {
   constructor(
     private readonly notificationService: NotificationService,
     private readonly cronService: NotificationCronService,
+    private readonly pushDeviceService: PushDeviceService,
   ) {}
+
+  @Post('push-token')
+  @ApiOperation({ summary: 'Register Expo push token for the current user (mobile app)' })
+  @ApiOkResponse({ description: 'Token registered' })
+  async registerPushToken(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: RegisterPushTokenDto,
+  ) {
+    await this.pushDeviceService.register(user.sub, dto);
+    return { ok: true };
+  }
+
+  @Delete('push-token')
+  @ApiOperation({ summary: 'Unregister Expo push token (logout / disable notifications)' })
+  @ApiOkResponse({ description: 'Token removed' })
+  async unregisterPushToken(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UnregisterPushTokenDto,
+  ) {
+    await this.pushDeviceService.unregister(user.sub, dto.token);
+    return { ok: true };
+  }
 
   @Post('trigger-crons')
   @Roles(UserRole.ADMIN)

@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatCurrency } from '../../../utils/format';
+import { SkeletonList } from '../../../components/Skeleton';
+import { EmptyStateLarge } from '../../../components/EmptyStateLarge';
 import type { Treatment } from '../../../types';
 import type { ClinicalVisit, TreatmentPlan } from '../../../services/clinical.service';
 import type { Prescription } from '../../../services/prescription.service';
@@ -139,11 +141,7 @@ export interface ClinicalTabProps {
 
 export function ClinicalTab(props: ClinicalTabProps) {
   if (props.loading) {
-    return (
-      <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-        <ActivityIndicator size="small" color="#4361EE" />
-      </View>
-    );
+    return <SkeletonList count={4} />;
   }
 
   return (
@@ -549,10 +547,19 @@ function TreatmentsSection({
 }
 
 function EmptyMini({ label }: { label: string }) {
+  // Pick a friendly emoji based on the label
+  const emoji = /plan/i.test(label) ? '🗂️'
+    : /consultation/i.test(label) ? '📝'
+    : /prescription/i.test(label) ? '💊'
+    : /treatment/i.test(label) ? '🦷'
+    : '✨';
   return (
-    <View style={styles.emptyMini}>
-      <Text style={styles.emptyMiniTxt}>{label}</Text>
-    </View>
+    <EmptyStateLarge
+      compact
+      emoji={emoji}
+      iconBg="#F1F5F9"
+      title={label}
+    />
   );
 }
 

@@ -160,6 +160,7 @@ export default function EditPatientScreen() {
           <DatePickerInput
             label="Date of Birth"
             value={form.date_of_birth}
+            maxDate={new Date()}
             onChange={(v) => { set('date_of_birth', v); set('age', ''); }}
           />
 

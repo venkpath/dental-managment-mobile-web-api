@@ -62,6 +62,89 @@ export declare class CampaignController {
         read_count: number;
         actual_cost: import("@prisma/client-runtime-utils").Decimal | null;
     }>>;
+    audiencePreview(clinicId: string, body: {
+        segment_type: string;
+        segment_config?: Record<string, unknown>;
+    }): Promise<{
+        total_count: number;
+        sample: {
+            id: string;
+            name: string;
+            phone: string;
+            email: string | null;
+        }[];
+    }>;
+    listTreatmentProcedures(clinicId: string): Promise<{
+        procedure: string;
+        patient_count: number;
+    }[]>;
+    estimateCost(clinicId: string, body: {
+        segment_type: string;
+        segment_config?: Record<string, unknown>;
+        channel: string;
+    }): Promise<{
+        total_recipients: number;
+        total_messages: number;
+        channels: {
+            channel: "email" | "sms" | "whatsapp";
+            recipients: number;
+            cost_per_message: number;
+            total_cost: number;
+        }[];
+        total_estimated_cost: number;
+        currency: string;
+    }>;
+    createDripSequence(clinicId: string, user: JwtPayload, body: {
+        name: string;
+        channel: string;
+        segment_type: string;
+        segment_config?: Record<string, unknown>;
+        steps: Array<{
+            template_id: string;
+            delay_days: number;
+        }>;
+    }): Promise<{
+        campaign_id: string;
+        name: string;
+        steps: {
+            step: number;
+            template_id: string;
+            delay_days: number;
+            scheduled_for: string;
+        }[];
+    }>;
+    createFromEvent(clinicId: string, user: JwtPayload, eventId: string): Promise<{
+        campaign: {
+            template: {
+                template_name: string;
+            } | null;
+        } & {
+            id: string;
+            name: string;
+            status: string;
+            created_at: Date;
+            updated_at: Date;
+            clinic_id: string;
+            channel: string;
+            template_id: string | null;
+            scheduled_at: Date | null;
+            created_by: string;
+            estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
+            completed_at: Date | null;
+            segment_type: string;
+            segment_config: import("@prisma/client/runtime/client").JsonValue | null;
+            started_at: Date | null;
+            total_recipients: number;
+            sent_count: number;
+            delivered_count: number;
+            failed_count: number;
+            read_count: number;
+            actual_cost: import("@prisma/client-runtime-utils").Decimal | null;
+        };
+        event_name: string;
+        offer_details: Record<string, unknown> | null;
+        message: string;
+    }>;
     findOne(clinicId: string, id: string): Promise<{
         template: {
             id: string;
@@ -165,22 +248,6 @@ export declare class CampaignController {
         estimated_cost: number;
         actual_cost: number;
     }>;
-    audiencePreview(clinicId: string, body: {
-        segment_type: string;
-        segment_config?: Record<string, unknown>;
-    }): Promise<{
-        total_count: number;
-        sample: {
-            id: string;
-            name: string;
-            phone: string;
-            email: string | null;
-        }[];
-    }>;
-    listTreatmentProcedures(clinicId: string): Promise<{
-        procedure: string;
-        patient_count: number;
-    }[]>;
     analytics(clinicId: string, id: string): Promise<{
         campaign_id: string;
         status: string;
@@ -237,25 +304,6 @@ export declare class CampaignController {
         };
         winner: string;
     }>;
-    createDripSequence(clinicId: string, user: JwtPayload, body: {
-        name: string;
-        channel: string;
-        segment_type: string;
-        segment_config?: Record<string, unknown>;
-        steps: Array<{
-            template_id: string;
-            delay_days: number;
-        }>;
-    }): Promise<{
-        campaign_id: string;
-        name: string;
-        steps: {
-            step: number;
-            template_id: string;
-            delay_days: number;
-            scheduled_for: string;
-        }[];
-    }>;
     executeDripStep(clinicId: string, id: string, step: string): Promise<{
         completed: boolean;
         step?: undefined;
@@ -270,53 +318,5 @@ export declare class CampaignController {
         skipped: number;
         failed: number;
         completed?: undefined;
-    }>;
-    estimateCost(clinicId: string, body: {
-        segment_type: string;
-        segment_config?: Record<string, unknown>;
-        channel: string;
-    }): Promise<{
-        total_recipients: number;
-        total_messages: number;
-        channels: {
-            channel: "email" | "sms" | "whatsapp";
-            recipients: number;
-            cost_per_message: number;
-            total_cost: number;
-        }[];
-        total_estimated_cost: number;
-        currency: string;
-    }>;
-    createFromEvent(clinicId: string, user: JwtPayload, eventId: string): Promise<{
-        campaign: {
-            template: {
-                template_name: string;
-            } | null;
-        } & {
-            id: string;
-            name: string;
-            status: string;
-            created_at: Date;
-            updated_at: Date;
-            clinic_id: string;
-            channel: string;
-            template_id: string | null;
-            scheduled_at: Date | null;
-            created_by: string;
-            estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
-            completed_at: Date | null;
-            segment_type: string;
-            segment_config: import("@prisma/client/runtime/client").JsonValue | null;
-            started_at: Date | null;
-            total_recipients: number;
-            sent_count: number;
-            delivered_count: number;
-            failed_count: number;
-            read_count: number;
-            actual_cost: import("@prisma/client-runtime-utils").Decimal | null;
-        };
-        event_name: string;
-        offer_details: Record<string, unknown> | null;
-        message: string;
     }>;
 }

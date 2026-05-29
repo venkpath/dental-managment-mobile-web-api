@@ -7,6 +7,7 @@ import { AppointmentNotificationService } from './appointment-notification.servi
 import { AppointmentReminderProducer } from './appointment-reminder.producer.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 import { ReviewTriggerService } from '../public-directory/review-trigger.service.js';
+import { AppointmentStaffNotificationService } from '../notification/appointment-staff-notification.service.js';
 
 export interface AvailableSlot {
   start_time: string;
@@ -45,6 +46,7 @@ export class AppointmentService {
     private readonly reminderProducer: AppointmentReminderProducer,
     private readonly planLimit: PlanLimitService,
     private readonly reviewTrigger: ReviewTriggerService,
+    private readonly staffNotificationService: AppointmentStaffNotificationService,
   ) {}
 
   async create(clinicId: string, dto: CreateAppointmentDto): Promise<Appointment> {
@@ -126,6 +128,11 @@ export class AppointmentService {
     // Send WhatsApp confirmation to the dentist/consultant (fire-and-forget)
     this.notificationService.sendDentistConfirmation(clinicId, appointment.id).catch((e) => {
       this.logger.warn(`Dentist confirmation notification failed: ${(e as Error).message}`);
+    });
+
+    // In-app + mobile push for assigned dentist and admins.
+    this.staffNotificationService.notifyAppointmentConfirmed(clinicId, appointment.id).catch((e) => {
+      this.logger.warn(`Staff appointment confirmed notification failed: ${(e as Error).message}`);
     });
 
     // Schedule BullMQ reminder jobs at exact times.

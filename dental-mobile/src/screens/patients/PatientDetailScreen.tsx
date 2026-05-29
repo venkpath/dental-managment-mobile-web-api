@@ -9,6 +9,7 @@ import {
   Linking,
   Alert,
   Share,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +29,8 @@ import { useBottomInset } from '../../hooks/useBottomInset';
 import { ClinicalTab } from './_components/ClinicalTab';
 import { AppointmentsTab } from './_components/AppointmentsTab';
 import { MoreTab } from './_components/MoreTab';
+import { DentalChartTab } from './_components/DentalChartTab';
+import { AINotesTab } from './_components/AINotesTab';
 import type { Patient, Appointment, Treatment, PatientStackParamList } from '../../types';
 
 type Route = RouteProp<PatientStackParamList, 'PatientDetail'>;
@@ -149,49 +152,60 @@ export default function PatientDetailScreen() {
   const [consents, setConsents] = useState<PatientConsent[]>([]);
   const [moreLoading, setMoreLoading] = useState(true);
 
-  // Load patient
-  useFocusEffect(
-    useCallback(() => {
-      setLoading(true);
-      patientService.get(patientId)
-        .then((p) => setPatient(p))
-        .catch(() => setPatient(null))
-        .finally(() => setLoading(false));
-    }, [patientId])
-  );
+  // ── Refresh state for pull-to-refresh ────────────────────────────────────
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Load patient-wide data once (after patient)
-  useEffect(() => {
-    if (!patient) return;
-    setOverviewLoading(true);
-    Promise.all([
-      clinicalService.getVisitsByPatient(patientId),
-      clinicalService.getTreatmentPlansByPatient(patientId),
-      treatmentService.listByPatient(patientId).catch(() => [] as Treatment[]),
-      prescriptionService.listByPatient(patientId),
-      appointmentService.list({ limit: 100 }).then((r) =>
-        (r.data ?? []).filter((a) => a.patient?.id === patientId)
-      ).catch(() => [] as Appointment[]),
-    ]).then(([vs, plans, ts, rxs, appts]) => {
+  // Reusable loader — refreshing=true keeps existing data and uses RefreshControl spinner
+  const loadAll = useCallback(async (opts?: { refreshing?: boolean }) => {
+    const isRefresh = !!opts?.refreshing;
+    if (!isRefresh) setLoading(true);
+    try {
+      const p = await patientService.get(patientId);
+      setPatient(p);
+
+      // Patient-wide data
+      if (!isRefresh) setOverviewLoading(true);
+      const [vs, plans, ts, rxs, appts] = await Promise.all([
+        clinicalService.getVisitsByPatient(patientId),
+        clinicalService.getTreatmentPlansByPatient(patientId),
+        treatmentService.listByPatient(patientId).catch(() => [] as Treatment[]),
+        prescriptionService.listByPatient(patientId),
+        appointmentService.list({ limit: 100 }).then((r) =>
+          (r.data ?? []).filter((a) => a.patient?.id === patientId)
+        ).catch(() => [] as Appointment[]),
+      ]);
       setVisits(vs);
       setTreatmentPlans(plans);
       setTreatments(ts);
       setPrescriptions(rxs);
       setAppointments(appts);
-    }).finally(() => setOverviewLoading(false));
+      setOverviewLoading(false);
 
-    // Load "More" tab data in parallel
-    setMoreLoading(true);
-    Promise.all([
-      membershipsService.getPatientSummary(patientId),
-      insuranceService.listForPatient(patientId),
-      consentsService.listForPatient(patientId),
-    ]).then(([m, i, c]) => {
+      // More tab data
+      if (!isRefresh) setMoreLoading(true);
+      const [m, i, c] = await Promise.all([
+        membershipsService.getPatientSummary(patientId),
+        insuranceService.listForPatient(patientId),
+        consentsService.listForPatient(patientId),
+      ]);
       setMemberships(m);
       setInsurance(i);
       setConsents(c);
-    }).finally(() => setMoreLoading(false));
-  }, [patient, patientId]);
+      setMoreLoading(false);
+    } catch {
+      if (!isRefresh) setPatient(null);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [patientId]);
+
+  useFocusEffect(useCallback(() => { loadAll(); }, [loadAll]));
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadAll({ refreshing: true });
+  }, [loadAll]);
 
   // Quick actions handlers
   const callPatient = useCallback(async () => {
@@ -304,6 +318,14 @@ export default function PatientDetailScreen() {
         contentContainerStyle={{ paddingBottom: 24 + bottomInset }}
         showsVerticalScrollIndicator={false}
         stickyHeaderIndices={[2]} // makes the tab strip sticky
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#4361EE"
+            colors={['#4361EE']}
+          />
+        }
       >
         {/* ── Hero Card ── */}
         <View style={styles.heroWrap}>
@@ -416,7 +438,7 @@ export default function PatientDetailScreen() {
                 params: { screen: 'QuickInvoice', params: { patientId } },
               } as never)
             } />
-            <QAItem icon="shield-checkmark" label="Enroll"    sub="Membership"   iconBg="#EDE9FE" iconColor="#7C3AED" onPress={() => Alert.alert('Coming soon', 'Enroll Membership will arrive in Wave 3.')} />
+            <QAItem icon="shield-checkmark" label="Enroll"    sub="Membership"   iconBg="#EDE9FE" iconColor="#7C3AED" onPress={() => navigation.navigate('EnrollMembership', { patientId, patientName: fullName })} />
           </ScrollView>
         </View>
 
@@ -497,8 +519,67 @@ export default function PatientDetailScreen() {
               }
             />
           )}
-          {(activeTab === 'chart' || activeTab === 'ai' || activeTab === 'more') && (
-            <ComingSoonPanel tab={TABS.find((t) => t.id === activeTab)?.label ?? ''} wave={3} />
+          {activeTab === 'more' && (
+            <MoreTab
+              loading={moreLoading}
+              patientId={patientId}
+              patientName={fullName}
+              memberships={memberships}
+              insurance={insurance}
+              consents={consents}
+            />
+          )}
+          {activeTab === 'chart' && (
+            <DentalChartTab
+              patientId={patientId}
+              patientName={fullName}
+              onOpenFullChart={() => navigation.navigate('PatientDentalChart', { patientId, patientName: fullName })}
+            />
+          )}
+          {activeTab === 'ai' && (
+            <AINotesTab
+              patientId={patientId}
+              patient={patient}
+              patientName={fullName}
+              onApplyConsultation={({ chiefComplaint, soap }) => {
+                // Open StartConsultation with prefilled SOAP fields
+                navigation.navigate('StartConsultation', {
+                  patientId,
+                  patientName: fullName,
+                  prefill: {
+                    chiefComplaint,
+                    diagnosis: soap.assessment,
+                    examination: soap.objective,
+                    treatmentPlan: soap.plan,
+                  },
+                } as never);
+              }}
+              onApplyConsultationWithRx={({ chiefComplaint, soap, rx }) => {
+                // Save consultation first, then open Rx with prefilled meds
+                navigation.navigate('StartConsultation', {
+                  patientId,
+                  patientName: fullName,
+                  prefill: {
+                    chiefComplaint,
+                    diagnosis: soap.assessment,
+                    examination: soap.objective,
+                    treatmentPlan: soap.plan,
+                  },
+                  thenWritePrescription: {
+                    diagnosis: soap.assessment,
+                    medications: rx.medications,
+                  },
+                } as never);
+              }}
+              onApplyPrescription={({ diagnosis, rx }) => {
+                navigation.navigate('NewPrescription', {
+                  patientId,
+                  patientName: fullName,
+                  prefillDiagnosis: diagnosis,
+                  prefillMedications: rx.medications,
+                } as never);
+              }}
+            />
           )}
         </View>
       </ScrollView>
@@ -577,8 +658,8 @@ function OverviewTab({
 
   // Treatment cost summary
   const treatmentSummary = useMemo(() => {
-    const active = treatments.filter((t) => t.status !== 'COMPLETED').length;
-    const completed = treatments.filter((t) => t.status === 'COMPLETED').length;
+    const active = treatments.filter((t) => t.status !== 'completed').length;
+    const completed = treatments.filter((t) => t.status === 'completed').length;
     const totalCost = treatments.reduce((sum, t) => sum + (Number(t.cost) || 0), 0);
     return { active, completed, totalCost };
   }, [treatments]);
@@ -899,7 +980,7 @@ function EmptyMini({ label }: { label: string }) {
   );
 }
 
-function ComingSoonPanel({ tab, wave }: { tab: string; wave: number }) {
+function ComingSoonPanel({ tab, wave }: { tab: string; wave: number | string }) {
   return (
     <View style={styles.comingSoon}>
       <View style={styles.comingSoonIcon}>
@@ -907,7 +988,7 @@ function ComingSoonPanel({ tab, wave }: { tab: string; wave: number }) {
       </View>
       <Text style={styles.comingSoonTitle}>{tab} — Wave {wave}</Text>
       <Text style={styles.comingSoonSub}>
-        This tab is part of Wave {wave} and will be built next. The Overview tab is fully functional now.
+        This tab is being built next. The Overview, Clinical, Appointments, and More tabs are fully functional now.
       </Text>
     </View>
   );

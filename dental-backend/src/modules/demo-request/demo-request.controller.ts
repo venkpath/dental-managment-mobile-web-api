@@ -3,7 +3,7 @@ import {
   ParseUUIDPipe, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { SuperAdmin } from '../../common/decorators/super-admin.decorator.js';
 import { DemoRequestService } from './demo-request.service.js';
@@ -17,6 +17,7 @@ export class DemoRequestController {
   // ── Public: anyone can submit a demo request ──
   @Post('public/demo-request')
   @Public()
+  @SkipThrottle({ default: true })
   @Throttle({ strict: { ttl: 60000, limit: 3 } }) // max 3 submissions per minute per IP
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Submit a demo request (public, no auth)' })

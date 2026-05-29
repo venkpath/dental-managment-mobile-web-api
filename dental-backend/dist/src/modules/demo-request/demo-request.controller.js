@@ -48,6 +48,7 @@ exports.DemoRequestController = DemoRequestController;
 __decorate([
     (0, common_1.Post)('public/demo-request'),
     (0, public_decorator_js_1.Public)(),
+    (0, throttler_1.SkipThrottle)({ default: true }),
     (0, throttler_1.Throttle)({ strict: { ttl: 60000, limit: 3 } }),
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
     (0, swagger_1.ApiOperation)({ summary: 'Submit a demo request (public, no auth)' }),

@@ -448,6 +448,7 @@ model User {
   availability              DoctorAvailability[]
 
   feature_grants            UserFeatureAccess[]
+  push_device_tokens        PushDeviceToken[]
 
   @@unique([email, clinic_id])
   @@index([clinic_id])
@@ -1170,11 +1171,26 @@ model PatientToothCondition {
   @@map("patient_tooth_conditions")
 }
 
+model PushDeviceToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  token      String   @unique @db.VarChar(255)
+  platform   String?  @db.VarChar(20)
+  device_id  String?  @db.VarChar(100)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("push_device_tokens")
+}
+
 model Notification {
   id         String   @id @default(uuid()) @db.Uuid
   clinic_id  String   @db.Uuid
   user_id    String?  @db.Uuid
-  type       String   @db.VarChar(50) // appointment_reminder, payment_overdue, low_inventory, system
+  type       String   @db.VarChar(50) // appointment_confirmed, appointment_reminder, payment_overdue, low_inventory, system
   title      String   @db.VarChar(255)
   body       String   @db.Text
   is_read    Boolean  @default(false)

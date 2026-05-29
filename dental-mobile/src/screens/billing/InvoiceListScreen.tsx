@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,6 @@ import {
   ActivityIndicator,
   TextInput,
   ScrollView,
-  Modal,
-  Pressable,
-  Animated,
-  Easing,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,40 +16,21 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { invoiceService } from '../../services/invoice.service';
 import { formatCurrency, getLocale } from '../../utils/format';
-import Badge from '../../components/Badge';
 import EmptyState from '../../components/EmptyState';
-import { radius } from '../../theme';
+import {
+  PaginationBar,
+  PageSizeSheet,
+  IndeterminateBar,
+  DEFAULT_PAGE_SIZE,
+} from '../../components/Pagination';
 import { useBottomInset } from '../../hooks/useBottomInset';
 import { useDrawer } from '../../components/DrawerMenu';
+import { C, invoiceIconColors, invoiceStatusMeta } from './_invoiceTheme';
 import type { Invoice, BillingStackParamList } from '../../types';
 
 type Nav = NativeStackNavigationProp<BillingStackParamList>;
 
-// ─── Design tokens ─────────────────────────────────────────────────────────
-const C = {
-  indigo:      '#4361EE',
-  indigoLight: '#EEF2FF',
-  green:       '#059669',
-  greenLight:  '#d1fae5',
-  amber:       '#d97706',
-  amberLight:  '#fef3c7',
-  red:         '#dc2626',
-  redLight:    '#fee2e2',
-  gray:        '#64748b',
-  grayLight:   '#f1f5f9',
-  teal:        '#0891b2',
-  tealLight:   '#ecfeff',
-  bg:          '#F8FAFC',
-  surface:     '#ffffff',
-  text:        '#0f172a',
-  textSub:     '#475569',
-  textMuted:   '#94a3b8',
-  border:      '#E2E8F0',
-  divider:     '#f1f5f9',
-};
-
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
-const DEFAULT_PAGE_SIZE = 10;
+// C tokens imported from ./_invoiceTheme
 
 // ─── Filters ────────────────────────────────────────────────────────────────
 type FilterKey =
@@ -89,105 +66,6 @@ interface StatusCounts {
   partially_refunded: number;
   refunded: number;
 }
-
-// ─── Indeterminate progress bar (page transitions) ──────────────────────────
-function IndeterminateBar() {
-  const x = useRef(new Animated.Value(-0.5)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(x, {
-        toValue: 1, duration: 900,
-        easing: Easing.bezier(0.4, 0, 0.2, 1),
-        useNativeDriver: true,
-      }),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [x]);
-  return (
-    <View style={s.progressTrack}>
-      <Animated.View
-        style={[s.progressFill, {
-          transform: [{
-            translateX: x.interpolate({ inputRange: [-0.5, 1], outputRange: [-160, 600] }),
-          }],
-        }]}
-      />
-    </View>
-  );
-}
-
-// ─── Pagination bar (mirrors PatientListScreen) ──────────────────────────────
-interface PaginationBarProps {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-  onPageChange: (p: number) => void;
-  onPickPageSize: () => void;
-}
-const PaginationBar = React.memo(function PaginationBar({
-  page, pageSize, total, totalPages, onPageChange, onPickPageSize,
-}: PaginationBarProps) {
-  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const to   = Math.min(page * pageSize, total);
-
-  const maxShow = 3;
-  let start = Math.max(1, Math.min(page - 1, totalPages - maxShow + 1));
-  if (start < 1) start = 1;
-  const pageNums: number[] = [];
-  for (let i = start; i < start + maxShow && i <= totalPages; i++) pageNums.push(i);
-
-  const prevOff = page <= 1;
-  const nextOff = page >= totalPages;
-
-  return (
-    <View style={pg.wrap}>
-      <View style={pg.row1}>
-        <Text style={pg.showing}>
-          Showing <Text style={pg.bold}>{from}</Text>–<Text style={pg.bold}>{to}</Text>
-          {' '}of <Text style={pg.bold}>{total}</Text>
-        </Text>
-        <TouchableOpacity style={pg.perPage} onPress={onPickPageSize} activeOpacity={0.7}>
-          <Text style={pg.perPageTxt}>{pageSize} / page</Text>
-          <Ionicons name="chevron-down" size={12} color={C.textSub} />
-        </TouchableOpacity>
-      </View>
-      <View style={pg.row2}>
-        <TouchableOpacity
-          style={[pg.navBtn, prevOff && pg.navBtnOff]}
-          disabled={prevOff}
-          onPress={() => onPageChange(page - 1)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chevron-back" size={14} color={prevOff ? C.textMuted : C.textSub} />
-          <Text style={[pg.navTxt, prevOff && pg.navTxtOff]}>Prev</Text>
-        </TouchableOpacity>
-        <View style={pg.nums}>
-          {pageNums.map((n) => (
-            <TouchableOpacity
-              key={n}
-              style={[pg.numBtn, n === page && pg.numBtnActive]}
-              onPress={() => onPageChange(n)}
-              activeOpacity={0.7}
-            >
-              <Text style={[pg.numTxt, n === page && pg.numTxtActive]}>{n}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <TouchableOpacity
-          style={[pg.navBtn, nextOff && pg.navBtnOff]}
-          disabled={nextOff}
-          onPress={() => onPageChange(page + 1)}
-          activeOpacity={0.7}
-        >
-          <Text style={[pg.navTxt, nextOff && pg.navTxtOff]}>Next</Text>
-          <Ionicons name="chevron-forward" size={14} color={nextOff ? C.textMuted : C.textSub} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-});
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
 export default function InvoiceListScreen() {
@@ -235,18 +113,22 @@ export default function InvoiceListScreen() {
   // ── Count loader (stable) ──────────────────────────────────────────────────
   const loadCounts = useCallback(async () => {
     try {
-      const [allRes, pendingRes, partialRes, paidRes] = await Promise.all([
+      const [allRes, pendingRes, partialRes, paidRes, partRefRes, refRes] = await Promise.all([
         invoiceService.list({ limit: 1 }),
-        invoiceService.list({ status: 'pending',        limit: 1 }),
+        invoiceService.list({ status: 'pending', limit: 1 }),
         invoiceService.list({ status: 'partially_paid', limit: 1 }),
-        invoiceService.list({ status: 'paid',           limit: 1 }),
+        invoiceService.list({ status: 'paid', limit: 1 }),
+        invoiceService.list({ status: 'partially_refunded', limit: 1 }).catch(() => ({ meta: { total: 0 } })),
+        invoiceService.list({ status: 'refunded', limit: 1 }).catch(() => ({ meta: { total: 0 } })),
       ]);
-      const tot  = allRes.meta?.total     ?? 0;
-      const pend = pendingRes.meta?.total ?? 0;
-      const part = partialRes.meta?.total ?? 0;
-      const paid = paidRes.meta?.total    ?? 0;
-      const ref  = Math.max(0, tot - pend - part - paid);
-      setCounts({ all: tot, pending: pend, partially_paid: part, paid, partially_refunded: ref, refunded: ref });
+      setCounts({
+        all: allRes.meta?.total ?? 0,
+        pending: pendingRes.meta?.total ?? 0,
+        partially_paid: partialRes.meta?.total ?? 0,
+        paid: paidRes.meta?.total ?? 0,
+        partially_refunded: partRefRes.meta?.total ?? 0,
+        refunded: refRes.meta?.total ?? 0,
+      });
     } catch {
       /* keep zeros on failure */
     } finally {
@@ -383,20 +265,10 @@ export default function InvoiceListScreen() {
 
   const getCount = countFor;
 
-  const iconStyle = (status: Invoice['status']) => {
-    switch (status) {
-      case 'paid':               return { bg: C.greenLight, icon: C.green };
-      case 'pending':            return { bg: C.amberLight, icon: C.amber };
-      case 'partially_paid':     return { bg: C.tealLight,  icon: C.teal  };
-      case 'partially_refunded': return { bg: C.redLight,   icon: C.red   };
-      case 'refunded':           return { bg: C.grayLight,  icon: C.gray  };
-      default:                   return { bg: C.indigoLight, icon: C.indigo };
-    }
-  };
-
-  // ── Row renderer ─────────────────────────────────────────────────────────
   const renderItem = useCallback(({ item }: { item: Invoice }) => {
-    const ic = iconStyle(item.status);
+    const ic = invoiceIconColors(item.status);
+    const sm = invoiceStatusMeta(item.status);
+    const isDraft = item.lifecycle_status === 'draft';
     return (
       <TouchableOpacity
         activeOpacity={0.7}
@@ -405,7 +277,7 @@ export default function InvoiceListScreen() {
       >
         <View style={s.cardRow}>
           <View style={[s.iconBox, { backgroundColor: ic.bg }]}>
-            <Ionicons name="receipt-outline" size={18} color={ic.icon} />
+            <Ionicons name="receipt-outline" size={20} color={ic.icon} />
           </View>
 
           <View style={s.cardInfo}>
@@ -424,18 +296,20 @@ export default function InvoiceListScreen() {
           </View>
 
           <View style={s.cardRight}>
-            <View style={s.amountItem}>
-              <Text style={s.amountLabel}>TOTAL</Text>
-              <Text style={s.totalAmt}>{formatCurrency(Number(item.total_amount))}</Text>
+            <View style={s.amtBlock}>
+              <Text style={s.amtLbl}>TOTAL</Text>
+              <Text style={s.amtVal}>{formatCurrency(Number(item.total_amount))}</Text>
             </View>
-            <View style={s.amountItem}>
-              <Text style={s.amountLabel}>NET AMOUNT</Text>
+            <View style={s.amtBlock}>
+              <Text style={s.amtLbl}>NET</Text>
               <Text style={s.netAmt}>{formatCurrency(Number(item.net_amount))}</Text>
             </View>
-            <Badge label={item.status} variant={item.status} showDot={false} size="sm" />
+            <View style={[s.statusPill, { backgroundColor: isDraft ? C.amberLight : sm.bg }]}>
+              <Text style={[s.statusPillTxt, { color: isDraft ? C.amber : sm.fg }]}>
+                {isDraft ? 'Draft' : sm.label}
+              </Text>
+            </View>
           </View>
-
-          <Ionicons name="chevron-forward" size={14} color={C.textMuted} />
         </View>
       </TouchableOpacity>
     );
@@ -568,62 +442,16 @@ export default function InvoiceListScreen() {
         </View>
       )}
 
-      {/* ── Page size picker ── */}
-      <Modal
+      <PageSizeSheet
         visible={pageSizeOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPageSizeOpen(false)}
-      >
-        <Pressable style={s.sheetBackdrop} onPress={() => setPageSizeOpen(false)}>
-          <Pressable style={s.actionSheet} onPress={(e) => e.stopPropagation()}>
-            <View style={s.sheetHeader}>
-              <Text style={s.sheetTitle}>Items per page</Text>
-              <Text style={s.sheetSub}>Choose how many invoices to show</Text>
-            </View>
-            {PAGE_SIZE_OPTIONS.map((n) => (
-              <TouchableOpacity
-                key={n}
-                style={s.sheetItem}
-                onPress={() => changePageSize(n)}
-                activeOpacity={0.7}
-              >
-                <View style={s.sheetIconBox}>
-                  <Text style={s.sheetIconNum}>{n}</Text>
-                </View>
-                <Text style={s.sheetItemLabel}>{n} per page</Text>
-                {n === pageSize && <Ionicons name="checkmark" size={18} color={C.indigo} />}
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={s.sheetCancel} onPress={() => setPageSizeOpen(false)}>
-              <Text style={s.sheetCancelTxt}>Cancel</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        pageSize={pageSize}
+        noun="invoices"
+        onPick={changePageSize}
+        onClose={() => setPageSizeOpen(false)}
+      />
     </View>
   );
 }
-
-// ─── Pagination bar styles ────────────────────────────────────────────────────
-const pg = StyleSheet.create({
-  wrap:        { backgroundColor: C.surface, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: C.border, gap: 8 },
-  row1:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  showing:     { fontSize: 13, color: C.textSub, flexShrink: 1 },
-  bold:        { fontWeight: '700', color: C.text },
-  perPage:     { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10 },
-  perPageTxt:  { fontSize: 12, color: C.text, fontWeight: '600' },
-  row2:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },
-  navBtn:      { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, height: 34, borderRadius: 10, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface },
-  navBtnOff:   { backgroundColor: C.bg, borderColor: C.divider },
-  navTxt:      { fontSize: 13, color: C.textSub, fontWeight: '600' },
-  navTxtOff:   { color: C.textMuted },
-  nums:        { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1, justifyContent: 'center' },
-  numBtn:      { minWidth: 34, height: 34, paddingHorizontal: 8, borderRadius: 10, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
-  numBtnActive:{ backgroundColor: C.indigo, borderColor: C.indigo },
-  numTxt:      { fontSize: 13, color: C.textSub, fontWeight: '600' },
-  numTxtActive:{ color: '#fff' },
-});
 
 // ─── Screen styles ────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
@@ -643,7 +471,7 @@ const s = StyleSheet.create({
 
   filtersRow:     { flexGrow: 0, backgroundColor: C.surface, borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.border },
   filtersContent: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, gap: 8, alignItems: 'center' },
-  filterTab:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.full, backgroundColor: C.bg, gap: 5 },
+  filterTab:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: C.bg, gap: 5 },
   filterTabActive:{ backgroundColor: C.indigo },
   filterDot:      { width: 6, height: 6, borderRadius: 3 },
   filterTabText:  { fontSize: 13, fontWeight: '500', color: C.textSub },
@@ -660,31 +488,21 @@ const s = StyleSheet.create({
   progressTrack: { position: 'absolute', top: 0, left: 0, right: 0, height: 2, backgroundColor: C.indigoLight, zIndex: 10, overflow: 'hidden' },
   progressFill:  { height: '100%', width: '40%', backgroundColor: C.indigo },
 
-  card:        { backgroundColor: C.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.border, shadowColor: '#0f172a', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 2 },
+  card:        { backgroundColor: C.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: C.border, shadowColor: '#0f172a', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   cardRow:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconBox:     { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  cardInfo:    { flex: 1, gap: 2 },
-  invoiceNum:  { fontSize: 11, fontWeight: '700', color: C.indigo, letterSpacing: 0.3 },
-  patientName: { fontSize: 14, fontWeight: '700', color: C.text },
-  dateRow:     { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  iconBox:     { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  cardInfo:    { flex: 1, gap: 3 },
+  invoiceNum:  { fontSize: 13, fontWeight: '800', color: C.indigo, letterSpacing: 0.2 },
+  patientName: { fontSize: 13, fontWeight: '600', color: C.text },
+  dateRow:     { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },
   dateText:    { fontSize: 11, color: C.textMuted },
-  cardRight:   { alignItems: 'flex-end', gap: 2, flexShrink: 0 },
-  amountItem:  { alignItems: 'flex-end' },
-  amountLabel: { fontSize: 9, fontWeight: '600', color: C.textMuted, letterSpacing: 0.5, textTransform: 'uppercase' },
-  totalAmt:    { fontSize: 12, fontWeight: '600', color: C.textSub },
-  netAmt:      { fontSize: 14, fontWeight: '800', color: C.text },
+  cardRight:   { alignItems: 'flex-end', gap: 4, flexShrink: 0 },
+  amtBlock:    { alignItems: 'flex-end' },
+  amtLbl:      { fontSize: 9, fontWeight: '700', color: C.textMuted, letterSpacing: 0.4 },
+  amtVal:      { fontSize: 12, fontWeight: '600', color: C.textSub },
+  netAmt:      { fontSize: 15, fontWeight: '800', color: C.text },
+  statusPill:  { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, marginTop: 2 },
+  statusPillTxt: { fontSize: 10, fontWeight: '700' },
 
   pagFooter: { paddingHorizontal: 16, paddingTop: 6, backgroundColor: C.bg, borderTopWidth: 1, borderTopColor: C.border },
-
-  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(15,23,42,0.45)', justifyContent: 'flex-end' },
-  actionSheet:   { backgroundColor: C.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 6 },
-  sheetHeader:   { paddingHorizontal: 8, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.divider, marginBottom: 4 },
-  sheetTitle:    { fontSize: 16, fontWeight: '700', color: C.text },
-  sheetSub:      { fontSize: 12, color: C.textSub, marginTop: 2 },
-  sheetItem:     { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 8, paddingVertical: 12, borderRadius: 12 },
-  sheetIconBox:  { width: 38, height: 38, borderRadius: 12, backgroundColor: C.indigoLight, alignItems: 'center', justifyContent: 'center' },
-  sheetIconNum:  { color: C.indigo, fontSize: 14, fontWeight: '700' },
-  sheetItemLabel:{ fontSize: 14, fontWeight: '700', color: C.text, flex: 1 },
-  sheetCancel:   { backgroundColor: C.bg, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
-  sheetCancelTxt:{ fontSize: 14, fontWeight: '700', color: C.textSub },
 });

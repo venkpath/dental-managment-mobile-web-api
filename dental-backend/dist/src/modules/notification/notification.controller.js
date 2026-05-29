@@ -19,6 +19,7 @@ const swagger_1 = require("@nestjs/swagger");
 const notification_service_js_1 = require("./notification.service.js");
 const notification_cron_js_1 = require("./notification.cron.js");
 const index_js_1 = require("./dto/index.js");
+const push_device_service_js_1 = require("./push-device.service.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
 const current_user_decorator_js_1 = require("../../common/decorators/current-user.decorator.js");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
@@ -27,9 +28,19 @@ const index_js_2 = require("../user/dto/index.js");
 let NotificationController = class NotificationController {
     notificationService;
     cronService;
-    constructor(notificationService, cronService) {
+    pushDeviceService;
+    constructor(notificationService, cronService, pushDeviceService) {
         this.notificationService = notificationService;
         this.cronService = cronService;
+        this.pushDeviceService = pushDeviceService;
+    }
+    async registerPushToken(user, dto) {
+        await this.pushDeviceService.register(user.sub, dto);
+        return { ok: true };
+    }
+    async unregisterPushToken(user, dto) {
+        await this.pushDeviceService.unregister(user.sub, dto.token);
+        return { ok: true };
     }
     async triggerCrons() {
         const results = {};
@@ -90,6 +101,28 @@ let NotificationController = class NotificationController {
     }
 };
 exports.NotificationController = NotificationController;
+__decorate([
+    (0, common_1.Post)('push-token'),
+    (0, swagger_1.ApiOperation)({ summary: 'Register Expo push token for the current user (mobile app)' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Token registered' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, index_js_1.RegisterPushTokenDto]),
+    __metadata("design:returntype", Promise)
+], NotificationController.prototype, "registerPushToken", null);
+__decorate([
+    (0, common_1.Delete)('push-token'),
+    (0, swagger_1.ApiOperation)({ summary: 'Unregister Expo push token (logout / disable notifications)' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Token removed' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, index_js_1.UnregisterPushTokenDto]),
+    __metadata("design:returntype", Promise)
+], NotificationController.prototype, "unregisterPushToken", null);
 __decorate([
     (0, common_1.Post)('trigger-crons'),
     (0, roles_decorator_js_1.Roles)(index_js_2.UserRole.ADMIN),
@@ -164,6 +197,7 @@ exports.NotificationController = NotificationController = __decorate([
     (0, common_1.UseGuards)(require_clinic_guard_js_1.RequireClinicGuard),
     (0, common_1.Controller)('notifications'),
     __metadata("design:paramtypes", [notification_service_js_1.NotificationService,
-        notification_cron_js_1.NotificationCronService])
+        notification_cron_js_1.NotificationCronService,
+        push_device_service_js_1.PushDeviceService])
 ], NotificationController);
 //# sourceMappingURL=notification.controller.js.map

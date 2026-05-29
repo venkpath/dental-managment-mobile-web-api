@@ -13,7 +13,10 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { formatCurrency } from '../../../utils/format';
+import type { PatientStackParamList } from '../../../types';
 import {
   patientPreferencesService,
   type PatientPreferences,
@@ -141,31 +144,12 @@ export function MoreTab({
         />
         {openKey === 'memberships' && (
           <View style={s.sectionBody}>
-            <MembershipsSection active={activeMemberships} past={pastMemberships} />
-          </View>
-        )}
-      </View>
-
-      {/* ── Insurance ── */}
-      <View style={s.sectionWrap}>
-        <SectionRow
-          icon="shield"
-          iconColor="#0369A1"
-          title="Insurance & EHS"
-          subtitle={
-            insurance.length > 0
-              ? `${insurance.filter((i) => i.is_active !== false).length} active policy${insurance.length === 1 ? '' : 'ies'}`
-              : 'No insurance on file'
-          }
-          badge={insurance.length > 0
-            ? { label: `${insurance.length}`, bg: '#E0F2FE', text: '#0369A1' }
-            : undefined}
-          expanded={openKey === 'insurance'}
-          onToggle={() => toggle('insurance')}
-        />
-        {openKey === 'insurance' && (
-          <View style={s.sectionBody}>
-            <InsuranceSection items={insurance} />
+            <MembershipsSection
+              active={activeMemberships}
+              past={pastMemberships}
+              patientId={patientId}
+              patientName={patientName}
+            />
           </View>
         )}
       </View>
@@ -191,24 +175,7 @@ export function MoreTab({
         />
         {openKey === 'consents' && (
           <View style={s.sectionBody}>
-            <ConsentsSection items={consents} />
-          </View>
-        )}
-      </View>
-
-      {/* ── Messaging Preferences ── */}
-      <View style={s.sectionWrap}>
-        <SectionRow
-          icon="chatbubbles"
-          iconColor="#4361EE"
-          title="Messaging"
-          subtitle="Channel & quiet-hour preferences"
-          expanded={openKey === 'messaging'}
-          onToggle={() => toggle('messaging')}
-        />
-        {openKey === 'messaging' && (
-          <View style={s.sectionBody}>
-            <MessagingSection patientId={patientId} />
+            <ConsentsSection items={consents} patientId={patientId} patientName={patientName} />
           </View>
         )}
       </View>
@@ -218,16 +185,35 @@ export function MoreTab({
 
 // ─── 1. Memberships ──────────────────────────────────────────────────────────
 function MembershipsSection({
-  active, past,
-}: { active: MembershipEnrollment[]; past: MembershipEnrollment[] }) {
+  active, past, patientId, patientName,
+}: {
+  active: MembershipEnrollment[];
+  past: MembershipEnrollment[];
+  patientId: string;
+  patientName: string;
+}) {
+  const navigation = useNavigation<NativeStackNavigationProp<PatientStackParamList>>();
   const hasAny = active.length + past.length > 0;
+  const enrollBtn = (
+    <TouchableOpacity
+      style={s.enrollBtn}
+      onPress={() => navigation.navigate('EnrollMembership', { patientId, patientName })}
+    >
+      <Ionicons name="add-circle" size={14} color="#7C3AED" />
+      <Text style={s.enrollBtnTxt}>Enroll in Membership</Text>
+    </TouchableOpacity>
+  );
+
   if (!hasAny) {
     return (
-      <Empty
-        icon="shield-checkmark-outline"
-        title="No membership history"
-        sub="Membership enrollments will appear here."
-      />
+      <View style={{ gap: 10 }}>
+        <Empty
+          icon="shield-checkmark-outline"
+          title="No membership history"
+          sub="Membership enrollments will appear here."
+        />
+        {enrollBtn}
+      </View>
     );
   }
   return (
@@ -241,7 +227,7 @@ function MembershipsSection({
           {past.map((e) => <EnrollmentCard key={e.id} enrollment={e} muted />)}
         </>
       )}
-      <ComingSoonBtn label="Enroll in Membership" />
+      {enrollBtn}
     </View>
   );
 }
@@ -417,7 +403,14 @@ function DocSlot({ label, present }: { label: string; present: boolean }) {
 }
 
 // ─── 3. Consents ─────────────────────────────────────────────────────────────
-function ConsentsSection({ items }: { items: PatientConsent[] }) {
+function ConsentsSection({
+  items, patientId, patientName,
+}: {
+  items: PatientConsent[];
+  patientId: string;
+  patientName: string;
+}) {
+  const navigation = useNavigation<NativeStackNavigationProp<PatientStackParamList>>();
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const openConsent = async (id: string) => {
@@ -475,8 +468,23 @@ function ConsentsSection({ items }: { items: PatientConsent[] }) {
     );
   };
 
+  const newConsentBtn = (
+    <TouchableOpacity
+      style={s.newConsentBtn}
+      onPress={() => navigation.navigate('NewConsent', { patientId })}
+    >
+      <Ionicons name="add-circle" size={14} color="#15803D" />
+      <Text style={s.newConsentBtnTxt}>New Consent</Text>
+    </TouchableOpacity>
+  );
+
   if (items.length === 0) {
-    return <Empty icon="document-text-outline" title="No consent forms yet" sub="Generated consents will appear here." />;
+    return (
+      <View style={{ gap: 10 }}>
+        <Empty icon="document-text-outline" title="No consent forms yet" sub="Generated consents will appear here." />
+        {newConsentBtn}
+      </View>
+    );
   }
 
   return (
@@ -544,7 +552,15 @@ function ConsentsSection({ items }: { items: PatientConsent[] }) {
                     <Ionicons name="paper-plane" size={13} color="#0369A1" />
                     <Text style={[s.btnGhostTxt, { color: '#0369A1' }]}>Send link</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={s.btnPrimary} onPress={() => Alert.alert('Coming soon', 'Signature pad is being built next.')} disabled={isBusy}>
+                  <TouchableOpacity
+                    style={s.btnPrimary}
+                    onPress={() => navigation.navigate('SignConsent', {
+                      consentId: c.id,
+                      consentTitle: title,
+                      defaultName: patientName,
+                    })}
+                    disabled={isBusy}
+                  >
                     <Ionicons name="create" size={13} color="#fff" />
                     <Text style={s.btnPrimaryTxt}>Sign</Text>
                   </TouchableOpacity>
@@ -560,7 +576,7 @@ function ConsentsSection({ items }: { items: PatientConsent[] }) {
           </View>
         );
       })}
-      <ComingSoonBtn label="New Consent" />
+      {newConsentBtn}
     </View>
   );
 }
@@ -905,6 +921,20 @@ const s = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 7,
   },
   btnPrimaryTxt: { fontSize: 11, fontWeight: '700', color: '#fff' },
+
+  // Action buttons (Enroll / New Consent)
+  enrollBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: '#EDE9FE', borderRadius: 10, paddingVertical: 11,
+    borderWidth: 1, borderColor: '#DDD6FE',
+  },
+  enrollBtnTxt: { fontSize: 12, fontWeight: '700', color: '#7C3AED' },
+  newConsentBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: '#DCFCE7', borderRadius: 10, paddingVertical: 11,
+    borderWidth: 1, borderColor: '#BBF7D0',
+  },
+  newConsentBtnTxt: { fontSize: 12, fontWeight: '700', color: '#15803D' },
 
   // Divider for past memberships
   divider: { paddingVertical: 4 },

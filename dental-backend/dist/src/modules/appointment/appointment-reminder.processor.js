@@ -20,6 +20,7 @@ const queue_names_js_1 = require("../../common/queue/queue-names.js");
 const appointment_reminder_config_js_1 = require("./appointment-reminder.config.js");
 const name_util_js_1 = require("../../common/utils/name.util.js");
 const appointment_notification_service_js_1 = require("./appointment-notification.service.js");
+const appointment_staff_notification_service_js_1 = require("../notification/appointment-staff-notification.service.js");
 function formatDate(date) {
     return date.toLocaleDateString('en-IN', {
         day: '2-digit',
@@ -65,14 +66,27 @@ let AppointmentReminderProcessor = AppointmentReminderProcessor_1 = class Appoin
     prisma;
     communicationService;
     notificationService;
+    staffNotificationService;
     logger = new common_1.Logger(AppointmentReminderProcessor_1.name);
-    constructor(prisma, communicationService, notificationService) {
+    constructor(prisma, communicationService, notificationService, staffNotificationService) {
         super();
         this.prisma = prisma;
         this.communicationService = communicationService;
         this.notificationService = notificationService;
+        this.staffNotificationService = staffNotificationService;
     }
     async process(job) {
+        if (job.data.kind === 'staff_app') {
+            const { appointmentId, clinicId } = job.data;
+            this.logger.log(`Processing staff app reminder (30min) for appointment ${appointmentId}`);
+            try {
+                await this.staffNotificationService.notifyAppointmentReminder30Min(clinicId, appointmentId);
+            }
+            catch (e) {
+                this.logger.warn(`Staff app reminder failed for ${appointmentId}: ${e.message}`);
+            }
+            return;
+        }
         if (job.data.kind === 'dentist') {
             const { appointmentId, clinicId, reminderHours } = job.data;
             this.logger.log(`Processing dentist reminder (${reminderHours}h before) for appointment ${appointmentId}`);
@@ -181,6 +195,7 @@ exports.AppointmentReminderProcessor = AppointmentReminderProcessor = Appointmen
     (0, bullmq_1.Processor)(queue_names_js_1.QUEUE_NAMES.APPOINTMENT_REMINDER),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         communication_service_js_1.CommunicationService,
-        appointment_notification_service_js_1.AppointmentNotificationService])
+        appointment_notification_service_js_1.AppointmentNotificationService,
+        appointment_staff_notification_service_js_1.AppointmentStaffNotificationService])
 ], AppointmentReminderProcessor);
 //# sourceMappingURL=appointment-reminder.processor.js.map

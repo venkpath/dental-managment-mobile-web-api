@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,273 +7,413 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  TextInput,
+  ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { appointmentService } from '../../services/appointment.service';
 import { getLocale } from '../../utils/format';
-import Badge from '../../components/Badge';
 import EmptyState from '../../components/EmptyState';
-import { colors, spacing, typography, radius, shadow } from '../../theme';
+import {
+  PaginationBar,
+  PageSizeSheet,
+  IndeterminateBar,
+  DEFAULT_PAGE_SIZE,
+} from '../../components/Pagination';
+import { radius } from '../../theme';
 import { useBottomInset } from '../../hooks/useBottomInset';
-import type { Appointment, AppointmentStackParamList } from '../../types';
+import { useDrawer } from '../../components/DrawerMenu';
+import type { Appointment, AppointmentStatus, AppointmentStackParamList } from '../../types';
 
 type Nav = NativeStackNavigationProp<AppointmentStackParamList>;
 
-const FILTERS = ['All', 'Today', 'Scheduled', 'Completed'] as const;
-type Filter = typeof FILTERS[number];
+// ─── Design tokens (shared with billing / patient lists) ─────────────────────
+const C = {
+  indigo: '#4361EE', indigoLight: '#EEF2FF',
+  green: '#059669', greenLight: '#d1fae5',
+  amber: '#d97706', amberLight: '#fef3c7',
+  red: '#dc2626', redLight: '#fee2e2',
+  gray: '#64748b', grayLight: '#f1f5f9',
+  teal: '#0891b2', tealLight: '#ecfeff',
+  violet: '#7c3aed', violetLight: '#f5f3ff',
+  orange: '#ea580c', orangeLight: '#ffedd5',
+  bg: '#F8FAFC', surface: '#ffffff',
+  text: '#0f172a', textSub: '#475569', textMuted: '#94a3b8',
+  border: '#E2E8F0', divider: '#f1f5f9',
+};
 
-const TODAY = new Date().toISOString().split('T')[0];
+const todayStr = () => new Date().toISOString().split('T')[0];
+const farFutureStr = () => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 2);
+  return d.toISOString().split('T')[0];
+};
 
+// ─── Filters → backend params ────────────────────────────────────────────────
+type FilterKey = 'Today' | 'Upcoming' | 'All' | 'Scheduled' | 'Completed' | 'Cancelled' | 'No Show';
+
+interface FilterDef {
+  key: FilterKey;
+  dot: string;
+  build: () => { date?: string; start_date?: string; end_date?: string; status?: string };
+}
+
+const FILTERS: FilterDef[] = [
+  { key: 'Today',     dot: C.indigo,  build: () => ({ date: todayStr() }) },
+  { key: 'Upcoming',  dot: C.teal,    build: () => ({ start_date: todayStr(), end_date: farFutureStr() }) },
+  { key: 'All',       dot: C.gray,    build: () => ({}) },
+  { key: 'Scheduled', dot: C.indigo,  build: () => ({ status: 'scheduled' }) },
+  { key: 'Completed', dot: C.green,   build: () => ({ status: 'completed' }) },
+  { key: 'Cancelled', dot: C.red,     build: () => ({ status: 'cancelled' }) },
+  { key: 'No Show',   dot: C.amber,   build: () => ({ status: 'no_show' }) },
+];
+
+// ─── Status visuals ──────────────────────────────────────────────────────────
+function statusMeta(status: AppointmentStatus) {
+  switch (status) {
+    case 'scheduled':   return { bg: C.indigoLight, fg: C.indigo, label: 'Scheduled' };
+    case 'checked_in':  return { bg: C.tealLight,   fg: C.teal,   label: 'Checked In' };
+    case 'in_progress': return { bg: C.violetLight, fg: C.violet, label: 'In Progress' };
+    case 'completed':   return { bg: C.greenLight,  fg: C.green,  label: 'Completed' };
+    case 'cancelled':   return { bg: C.redLight,    fg: C.red,    label: 'Cancelled' };
+    case 'no_show':     return { bg: C.amberLight,  fg: C.amber,  label: 'No Show' };
+    default:            return { bg: C.grayLight,   fg: C.gray,   label: String(status) };
+  }
+}
+
+function isPastAppointment(appt: Appointment): boolean {
+  const now = new Date();
+  const d = new Date(appt.appointment_date);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const apptDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  if (apptDay < today) return true;
+  if (apptDay.getTime() === today.getTime() && appt.end_time) {
+    const [h, m] = appt.end_time.split(':').map(Number);
+    return now.getHours() * 60 + now.getMinutes() > h * 60 + m;
+  }
+  return false;
+}
+
+const fmtTime = (t?: string) => {
+  if (!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hr = h % 12 === 0 ? 12 : h % 12;
+  return `${hr}:${String(m).padStart(2, '0')} ${ampm}`;
+};
+
+// ─── Screen ──────────────────────────────────────────────────────────────────
 export default function AppointmentListScreen() {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const bottomInset = useBottomInset();
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<Filter>('Today');
-  const [loadError, setLoadError] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const { open: openDrawer } = useDrawer();
 
-  const loadAppointments = useCallback(async (f: Filter = filter, p = 1) => {
-    if (p === 1) setLoading(true);
-    else setLoadingMore(true);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [pageTransition, setPageTransition] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [filter, setFilter] = useState<FilterKey>('Today');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [total, setTotal] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [pageSizeOpen, setPageSizeOpen] = useState(false);
+
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
+
+  const fetchSeq = useRef(0);
+  const filterRef = useRef(filter);
+  const pageRef = useRef(page);
+  const pageSizeRef = useRef(pageSize);
+  filterRef.current = filter;
+  pageRef.current = page;
+  pageSizeRef.current = pageSize;
+
+  const loadAppointments = useCallback(async (
+    p = 1,
+    f: FilterKey = 'Today',
+    limit = DEFAULT_PAGE_SIZE,
+    refresh = false,
+  ) => {
+    const seq = ++fetchSeq.current;
+    if (refresh) setRefreshing(true);
+    else setPageTransition(true);
+
     try {
+      const def = FILTERS.find((d) => d.key === f);
+      const res = await appointmentService.list({ ...(def?.build() ?? {}), page: p, limit });
+      if (seq !== fetchSeq.current) return;
       setLoadError(false);
-      const params: { page: number; limit: number; date?: string; status?: string } = { page: p, limit: 20 };
-      if (f === 'Today') params.date = TODAY;
-      if (f === 'Scheduled') params.status = 'scheduled';
-      if (f === 'Completed') params.status = 'completed';
-      const res = await appointmentService.list(params);
-      const items = res.data || [];
-      setAppointments(p === 1 ? items : (prev) => [...prev, ...items]);
-      setHasMore(p < (res.meta?.totalPages ?? 1));
+      setAppointments(res.data ?? []);
+      setTotal(res.meta?.total ?? (res.data?.length ?? 0));
       setPage(p);
     } catch {
-      if (p === 1) setLoadError(true);
+      if (seq === fetchSeq.current && p === 1) {
+        setLoadError(true);
+        setAppointments([]);
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
-      setLoadingMore(false);
+      if (seq === fetchSeq.current) {
+        setInitialLoading(false);
+        setRefreshing(false);
+        setPageTransition(false);
+      }
     }
-  }, [filter]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadAppointments(filter);
-    }, [filter])
+      loadAppointments(pageRef.current, filterRef.current, pageSizeRef.current);
+    }, [loadAppointments])
   );
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadAppointments(filter, 1);
+  const handleFilterChange = (f: FilterKey) => {
+    if (f === filter) return;
+    setFilter(f);
+    setPage(1);
+    setSearchQuery('');
+    loadAppointments(1, f, pageSize);
   };
 
-  const onLoadMore = () => {
-    if (!loadingMore && hasMore) loadAppointments(filter, page + 1);
+  const goToPage = (p: number) => {
+    if (p < 1 || p > totalPages || p === page) return;
+    loadAppointments(p, filter, pageSize);
   };
 
-  const renderItem = ({ item }: { item: Appointment }) => (
-    <TouchableOpacity
-      activeOpacity={0.7}
-      onPress={() => navigation.navigate('AppointmentDetail', { appointmentId: item.id })}
-      style={styles.card}
-    >
-      <View style={styles.cardTop}>
-        <View style={styles.timeBlock}>
-          <Text style={styles.time}>{item.start_time}</Text>
-          <View style={styles.timeDivider} />
-          <Text style={styles.timeEnd}>{item.end_time}</Text>
-        </View>
-        <View style={styles.cardInfo}>
-          <Text style={styles.patientName}>
-            {item.patient.first_name} {item.patient.last_name}
-          </Text>
-          <View style={styles.detailRow}>
-            <Ionicons name="call-outline" size={12} color={colors.textMuted} />
-            <Text style={styles.phone}>{item.patient.phone}</Text>
+  const changePageSize = (n: number) => {
+    setPageSize(n);
+    setPageSizeOpen(false);
+    loadAppointments(1, filter, n);
+  };
+
+  const onRefresh = () => loadAppointments(page, filter, pageSize, true);
+
+  const visible = useMemo(() => {
+    if (!searchQuery.trim()) return appointments;
+    const q = searchQuery.toLowerCase();
+    return appointments.filter((a) => {
+      const name = `${a.patient?.first_name ?? ''} ${a.patient?.last_name ?? ''}`.toLowerCase();
+      return name.includes(q) || (a.patient?.phone ?? '').includes(q) || (a.dentist?.name ?? '').toLowerCase().includes(q);
+    });
+  }, [appointments, searchQuery]);
+
+  const renderItem = useCallback(({ item }: { item: Appointment }) => {
+    const sm = statusMeta(item.status);
+    const pastDue = (item.status === 'scheduled' || item.status === 'checked_in') && isPastAppointment(item);
+    return (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => navigation.navigate('AppointmentDetail', { appointmentId: item.id })}
+        style={s.card}
+      >
+        <View style={s.cardRow}>
+          <View style={[s.iconBox, { backgroundColor: sm.bg }]}>
+            <Ionicons name="calendar" size={20} color={sm.fg} />
           </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="person-outline" size={12} color={colors.primary} />
-            <Text style={styles.dentist}>Dr. {item.dentist.name}</Text>
+
+          <View style={s.cardInfo}>
+            <Text style={s.patientName} numberOfLines={1}>
+              {item.patient?.first_name} {item.patient?.last_name}
+            </Text>
+            <View style={s.metaRow}>
+              <Ionicons name="time-outline" size={12} color={C.textMuted} />
+              <Text style={s.metaText} numberOfLines={1}>
+                {fmtTime(item.start_time)}{item.end_time ? ` – ${fmtTime(item.end_time)}` : ''}
+              </Text>
+            </View>
+            <View style={s.metaRow}>
+              <Ionicons name="person-outline" size={12} color={C.indigo} />
+              <Text style={s.dentistText} numberOfLines={1}>Dr. {item.dentist?.name}</Text>
+            </View>
+          </View>
+
+          <View style={s.cardRight}>
+            <Text style={s.dateText}>
+              {new Date(item.appointment_date).toLocaleDateString(getLocale(), { day: 'numeric', month: 'short' })}
+            </Text>
+            <View style={[s.statusPill, { backgroundColor: sm.bg }]}>
+              <Text style={[s.statusPillTxt, { color: sm.fg }]}>{sm.label}</Text>
+            </View>
+            {pastDue && (
+              <View style={s.pastDuePill}>
+                <Text style={s.pastDueTxt}>Past Due</Text>
+              </View>
+            )}
           </View>
         </View>
-        <Badge label={item.status} variant={item.status} showDot={false} size="sm" />
-      </View>
-      <View style={styles.cardBottom}>
-        <View style={styles.detailRow}>
-          <Ionicons name="calendar-outline" size={12} color={colors.textMuted} />
-          <Text style={styles.date}>
-            {new Date(item.appointment_date).toLocaleDateString(getLocale(), {
-              weekday: 'short', day: 'numeric', month: 'short',
-            })}
-          </Text>
-        </View>
-        {item.branch && (
-          <View style={styles.detailRow}>
-            <Ionicons name="business-outline" size={12} color={colors.textMuted} />
-            <Text style={styles.branch}>{item.branch.name}</Text>
-          </View>
-        )}
-      </View>
-      {item.notes && (
-        <View style={[styles.detailRow, { marginTop: spacing.xs }]}>
-          <Ionicons name="document-text-outline" size={12} color={colors.textMuted} />
-          <Text style={styles.notes} numberOfLines={1}>{item.notes}</Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  }, [navigation]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Appointments</Text>
+    <View style={[s.screen, { paddingTop: insets.top }]}>
+      {/* Top bar */}
+      <View style={s.topbar}>
+        <TouchableOpacity onPress={openDrawer} style={s.iconBtn} activeOpacity={0.7}>
+          <Ionicons name="menu" size={22} color={C.text} />
+        </TouchableOpacity>
+        <View style={s.titleBlock}>
+          <Text style={s.title}>Appointments</Text>
+          <Text style={s.subtitle}>Manage patient appointments</Text>
+        </View>
         <TouchableOpacity
-          style={styles.bookBtn}
+          style={s.addBtn}
           onPress={() => navigation.navigate('BookAppointment', {})}
-          activeOpacity={0.7}
+          activeOpacity={0.85}
         >
-          <Ionicons name="add" size={18} color={colors.white} />
-          <Text style={styles.bookBtnText}>Book</Text>
+          <Ionicons name="add" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      {/* Filter tabs */}
-      <View style={styles.filters}>
-        {FILTERS.map((f) => (
-          <TouchableOpacity
-            key={f}
-            style={[styles.filterTab, filter === f && styles.filterTabActive]}
-            onPress={() => setFilter(f)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
-          </TouchableOpacity>
-        ))}
+      {/* Search */}
+      <View style={s.searchWrap}>
+        <View style={s.searchBox}>
+          <Ionicons name="search" size={16} color={C.textMuted} />
+          <TextInput
+            style={s.searchInput}
+            placeholder="Search by patient, phone or doctor"
+            placeholderTextColor={C.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+        </View>
       </View>
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
+      {/* Filter tabs */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={s.filtersRow}
+        contentContainerStyle={s.filtersContent}
+      >
+        {FILTERS.map((f) => {
+          const active = filter === f.key;
+          return (
+            <TouchableOpacity
+              key={f.key}
+              style={[s.filterTab, active && s.filterTabActive]}
+              onPress={() => handleFilterChange(f.key)}
+              activeOpacity={0.7}
+            >
+              {!active && <View style={[s.filterDot, { backgroundColor: f.dot }]} />}
+              <Text style={[s.filterTabText, active && s.filterTabTextActive]}>{f.key}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* List */}
+      {initialLoading ? (
+        <View style={s.center}>
+          <ActivityIndicator size="large" color={C.indigo} />
         </View>
       ) : (
-        <FlatList
-          data={appointments}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={[styles.list, { paddingBottom: spacing['2xl'] + bottomInset }]}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
-          onEndReached={onLoadMore}
-          onEndReachedThreshold={0.3}
-          ListFooterComponent={
-            loadingMore
-              ? <ActivityIndicator style={{ padding: 16 }} color={colors.primary} />
-              : hasMore
-              ? (
-                <TouchableOpacity style={styles.loadMoreBtn} onPress={onLoadMore}>
-                  <Text style={styles.loadMoreText}>Load More</Text>
-                  <Ionicons name="chevron-down" size={16} color={colors.primary} />
-                </TouchableOpacity>
+        <View style={{ flex: 1, position: 'relative' }}>
+          {pageTransition && <IndeterminateBar />}
+          <FlatList
+            data={visible}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            style={[{ flex: 1 }, pageTransition && { opacity: 0.55 }]}
+            contentContainerStyle={s.list}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.indigo]} />}
+            ListEmptyComponent={
+              loadError ? (
+                <EmptyState title="Failed to load" subtitle="Pull down to retry" icon="alert-circle" />
+              ) : (
+                <EmptyState
+                  title="No appointments"
+                  subtitle={searchQuery.trim() ? `No results for "${searchQuery}"` : 'No appointments for this filter'}
+                  icon="calendar-outline"
+                />
               )
-              : appointments.length > 0
-              ? <Text style={styles.endText}>All appointments loaded</Text>
-              : null
-          }
-          ListEmptyComponent={
-            loadError ? (
-              <EmptyState title="Failed to load" subtitle="Pull down to retry" icon="alert-circle" />
-            ) : (
-              <EmptyState
-                title="No appointments"
-                subtitle={filter === 'Today' ? 'No appointments scheduled for today' : 'No appointments found'}
-                icon="calendar-outline"
-              />
-            )
-          }
-          showsVerticalScrollIndicator={false}
-        />
+            }
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            removeClippedSubviews
+          />
+        </View>
       )}
-    </SafeAreaView>
+
+      {/* Pagination */}
+      {!initialLoading && total > 0 && (
+        <View
+          style={[s.pagFooter, { paddingBottom: Math.max(6, bottomInset) }]}
+          pointerEvents={pageTransition ? 'none' : 'auto'}
+        >
+          <PaginationBar
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            totalPages={totalPages}
+            onPageChange={goToPage}
+            onPickPageSize={() => setPageSizeOpen(true)}
+          />
+        </View>
+      )}
+
+      <PageSizeSheet
+        visible={pageSizeOpen}
+        pageSize={pageSize}
+        noun="appointments"
+        onPick={changePageSize}
+        onClose={() => setPageSizeOpen(false)}
+      />
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-    backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.divider,
-  },
-  headerTitle: { fontSize: typography.lg, fontWeight: '700', color: colors.text },
-  bookBtn: {
-    backgroundColor: colors.primary, borderRadius: radius.md,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
-    ...shadow.colored(colors.primary),
-  },
-  bookBtnText: { fontSize: typography.sm, fontWeight: '600', color: colors.white },
-  filters: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  filterTab: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: radius.full,
-    backgroundColor: colors.background,
-  },
-  filterTabActive: {
-    backgroundColor: colors.primary,
-  },
-  filterText: { fontSize: typography.sm, color: colors.textSecondary, fontWeight: '500' },
-  filterTextActive: { color: colors.white, fontWeight: '600' },
-  list: { padding: spacing.lg, gap: spacing.sm },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.base,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadow.sm,
-  },
-  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, marginBottom: spacing.sm },
-  timeBlock: { alignItems: 'center', minWidth: 50 },
-  time: { fontSize: typography.sm, fontWeight: '700', color: colors.primary },
-  timeDivider: { width: 12, height: 1, backgroundColor: colors.border, marginVertical: 3 },
-  timeEnd: { fontSize: typography.xs, color: colors.textMuted },
-  cardInfo: { flex: 1, gap: 3 },
-  patientName: { fontSize: typography.base, fontWeight: '600', color: colors.text },
-  detailRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  phone: { fontSize: typography.xs, color: colors.textSecondary },
-  dentist: { fontSize: typography.xs, color: colors.primary, fontWeight: '500' },
-  cardBottom: { flexDirection: 'row', gap: spacing.base, borderTopWidth: 1, borderTopColor: colors.divider, paddingTop: spacing.sm },
-  date: { fontSize: typography.xs, color: colors.textSecondary },
-  branch: { fontSize: typography.xs, color: colors.textSecondary },
-  notes: { fontSize: typography.xs, color: colors.textMuted, flex: 1 },
+const s = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.bg },
+
+  topbar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, gap: 10, backgroundColor: C.bg },
+  iconBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', shadowColor: '#0f172a', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 2 },
+  titleBlock: { flex: 1 },
+  title: { fontSize: 18, fontWeight: '800', color: C.text },
+  subtitle: { fontSize: 11, color: C.textSub, marginTop: 1 },
+  addBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.indigo, alignItems: 'center', justifyContent: 'center', shadowColor: C.indigo, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+
+  searchWrap: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 10, gap: 10, backgroundColor: C.bg },
+  searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surface, borderRadius: 12, paddingHorizontal: 12, height: 42, borderWidth: 1, borderColor: C.border },
+  searchInput: { flex: 1, fontSize: 13, color: C.text, paddingVertical: 0 },
+
+  filtersRow: { flexGrow: 0, backgroundColor: C.surface, borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.border },
+  filtersContent: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, gap: 8, alignItems: 'center' },
+  filterTab: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.full, backgroundColor: C.bg, gap: 5 },
+  filterTabActive: { backgroundColor: C.indigo },
+  filterDot: { width: 6, height: 6, borderRadius: 3 },
+  filterTabText: { fontSize: 13, fontWeight: '500', color: C.textSub },
+  filterTabTextActive: { color: '#fff', fontWeight: '700' },
+
+  list: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 8 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadMoreBtn: {
-    margin: spacing.base,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  loadMoreText: { fontSize: typography.sm, fontWeight: '600', color: colors.primary },
-  endText: { textAlign: 'center', fontSize: typography.xs, color: colors.textMuted, padding: spacing.md },
+
+  card: { backgroundColor: C.surface, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: C.border, shadowColor: '#0f172a', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  iconBox: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  cardInfo: { flex: 1, gap: 3 },
+  patientName: { fontSize: 15, fontWeight: '800', color: C.text },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  metaText: { fontSize: 12, color: C.textSub, flexShrink: 1 },
+  dentistText: { fontSize: 12, color: C.indigo, fontWeight: '600', flexShrink: 1 },
+  cardRight: { alignItems: 'flex-end', gap: 6, flexShrink: 0 },
+  dateText: { fontSize: 13, fontWeight: '800', color: C.text },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  statusPillTxt: { fontSize: 11, fontWeight: '700' },
+  pastDuePill: { backgroundColor: C.orangeLight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  pastDueTxt: { fontSize: 10, fontWeight: '700', color: C.orange },
+
+  pagFooter: { paddingHorizontal: 16, paddingTop: 6, backgroundColor: C.bg, borderTopWidth: 1, borderTopColor: C.border },
 });

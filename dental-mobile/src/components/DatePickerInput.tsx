@@ -18,7 +18,7 @@ export default function DatePickerInput({
   value,
   onChange,
   error,
-  maxDate = new Date(),
+  maxDate,
   minDate,
 }: Props) {
   const [show, setShow] = useState(false);
@@ -69,8 +69,8 @@ export default function DatePickerInput({
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={handleChange}
-          maximumDate={maxDate}
-          minimumDate={minDate}
+          {...(maxDate ? { maximumDate: maxDate } : {})}
+          {...(minDate ? { minimumDate: minDate } : {})}
         />
       )}
     </View>

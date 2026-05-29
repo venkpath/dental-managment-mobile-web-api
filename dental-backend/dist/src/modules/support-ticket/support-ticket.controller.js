@@ -50,6 +50,7 @@ let SupportTicketController = class SupportTicketController {
 exports.SupportTicketController = SupportTicketController;
 __decorate([
     (0, common_1.Post)('support-tickets'),
+    (0, throttler_1.SkipThrottle)({ default: true }),
     (0, throttler_1.Throttle)({ strict: { ttl: 60000, limit: 5 } }),
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
     (0, swagger_1.ApiOperation)({ summary: 'Submit a support ticket' }),

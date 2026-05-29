@@ -9,3 +9,4 @@ export interface DentistReminderDefinition {
     hours: number;
 }
 export declare function getDentistReminderDefinition(config: Record<string, unknown>): DentistReminderDefinition;
+export declare const STAFF_APP_REMINDER_MINUTES = 30;

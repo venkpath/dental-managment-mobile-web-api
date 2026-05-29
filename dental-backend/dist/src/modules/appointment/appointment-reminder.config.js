@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.STAFF_APP_REMINDER_MINUTES = void 0;
 exports.getReminderDefinitions = getReminderDefinitions;
 exports.isReminderEnabled = isReminderEnabled;
 exports.getDentistReminderDefinition = getDentistReminderDefinition;
@@ -47,4 +48,5 @@ function getDentistReminderDefinition(config) {
         hours: parseHours(config['hours'], 2),
     };
 }
+exports.STAFF_APP_REMINDER_MINUTES = 30;
 //# sourceMappingURL=appointment-reminder.config.js.map

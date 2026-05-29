@@ -6,6 +6,8 @@ export const appointmentService = {
     page?: number;
     limit?: number;
     date?: string;
+    start_date?: string;
+    end_date?: string;
     dentist_id?: string;
     status?: string;
   }): Promise<PaginatedResponse<Appointment>> => {

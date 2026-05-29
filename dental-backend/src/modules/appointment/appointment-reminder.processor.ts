@@ -9,6 +9,7 @@ import type { AppointmentReminderJobData } from './appointment-reminder.types.js
 import { isReminderEnabled } from './appointment-reminder.config.js';
 import { formatDoctorName } from '../../common/utils/name.util.js';
 import { AppointmentNotificationService } from './appointment-notification.service.js';
+import { AppointmentStaffNotificationService } from '../notification/appointment-staff-notification.service.js';
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString('en-IN', {
@@ -66,13 +67,24 @@ export class AppointmentReminderProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly communicationService: CommunicationService,
     private readonly notificationService: AppointmentNotificationService,
+    private readonly staffNotificationService: AppointmentStaffNotificationService,
   ) {
     super();
   }
 
   async process(job: Job<AppointmentReminderJobData>): Promise<void> {
-    // The reminder queue carries two job kinds: patient (default) and
-    // dentist. Discriminate up-front so each path has the right shape.
+    if (job.data.kind === 'staff_app') {
+      const { appointmentId, clinicId } = job.data;
+      this.logger.log(`Processing staff app reminder (30min) for appointment ${appointmentId}`);
+      try {
+        await this.staffNotificationService.notifyAppointmentReminder30Min(clinicId, appointmentId);
+      } catch (e) {
+        this.logger.warn(`Staff app reminder failed for ${appointmentId}: ${(e as Error).message}`);
+      }
+      return;
+    }
+
+    // The reminder queue carries patient (default) and dentist kinds.
     if (job.data.kind === 'dentist') {
       const { appointmentId, clinicId, reminderHours } = job.data;
       this.logger.log(

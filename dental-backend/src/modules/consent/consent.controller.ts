@@ -15,7 +15,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -208,6 +208,7 @@ export class ConsentController {
   // ─── Public signing routes (patient side, no auth) ──────────────
 
   @Public()
+  @SkipThrottle({ default: true })
   @Throttle({ strict: { ttl: 60000, limit: 30 } })
   @Get('public/consents/:token')
   @ApiOperation({ summary: 'Public — fetch consent metadata by signing token' })
@@ -216,6 +217,7 @@ export class ConsentController {
   }
 
   @Public()
+  @SkipThrottle({ default: true })
   @Throttle({ strict: { ttl: 60000, limit: 20 } })
   @Get('public/consents/:token/pdf')
   @ApiOperation({ summary: 'Public — get a presigned URL to view the unsigned PDF' })
@@ -225,6 +227,7 @@ export class ConsentController {
 
   // OTP request dispatches a paid WhatsApp message — keep it tight.
   @Public()
+  @SkipThrottle({ default: true })
   @Throttle({ strict: { ttl: 60000, limit: 3 } })
   @Post('public/consents/:token/request-otp')
   @ApiOperation({ summary: 'Public — send a one-time code to the patient phone' })
@@ -235,6 +238,7 @@ export class ConsentController {
   // Brute-force defense (the per-consent otp_attempts counter is the
   // primary guard; this throttle is the IP-level second line).
   @Public()
+  @SkipThrottle({ default: true })
   @Throttle({ strict: { ttl: 60000, limit: 10 } })
   @Post('public/consents/:token/verify-otp')
   @ApiOperation({ summary: 'Public — verify the OTP entered on the sign page' })
@@ -246,6 +250,7 @@ export class ConsentController {
   }
 
   @Public()
+  @SkipThrottle({ default: true })
   @Throttle({ strict: { ttl: 60000, limit: 5 } })
   @Post('public/consents/:token/sign')
   @ApiOperation({ summary: 'Public — submit signature, finalise consent' })

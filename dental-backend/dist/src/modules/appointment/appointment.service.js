@@ -18,6 +18,7 @@ const appointment_notification_service_js_1 = require("./appointment-notificatio
 const appointment_reminder_producer_js_1 = require("./appointment-reminder.producer.js");
 const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
 const review_trigger_service_js_1 = require("../public-directory/review-trigger.service.js");
+const appointment_staff_notification_service_js_1 = require("../notification/appointment-staff-notification.service.js");
 const CLINIC_TIMEZONE = process.env.CLINIC_TIMEZONE || 'Asia/Kolkata';
 function getTodayDate(tz = CLINIC_TIMEZONE) {
     return new Date().toLocaleDateString('en-CA', { timeZone: tz });
@@ -37,13 +38,15 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
     reminderProducer;
     planLimit;
     reviewTrigger;
+    staffNotificationService;
     logger = new common_1.Logger(AppointmentService_1.name);
-    constructor(prisma, notificationService, reminderProducer, planLimit, reviewTrigger) {
+    constructor(prisma, notificationService, reminderProducer, planLimit, reviewTrigger, staffNotificationService) {
         this.prisma = prisma;
         this.notificationService = notificationService;
         this.reminderProducer = reminderProducer;
         this.planLimit = planLimit;
         this.reviewTrigger = reviewTrigger;
+        this.staffNotificationService = staffNotificationService;
     }
     async create(clinicId, dto) {
         if (dto.start_time >= dto.end_time) {
@@ -107,6 +110,9 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
         });
         this.notificationService.sendDentistConfirmation(clinicId, appointment.id).catch((e) => {
             this.logger.warn(`Dentist confirmation notification failed: ${e.message}`);
+        });
+        this.staffNotificationService.notifyAppointmentConfirmed(clinicId, appointment.id).catch((e) => {
+            this.logger.warn(`Staff appointment confirmed notification failed: ${e.message}`);
         });
         await this.tryScheduleReminders(clinicId, appointment.id, appointment.appointment_date, appointment.start_time);
         return appointment;
@@ -447,6 +453,7 @@ exports.AppointmentService = AppointmentService = AppointmentService_1 = __decor
         appointment_notification_service_js_1.AppointmentNotificationService,
         appointment_reminder_producer_js_1.AppointmentReminderProducer,
         plan_limit_service_js_1.PlanLimitService,
-        review_trigger_service_js_1.ReviewTriggerService])
+        review_trigger_service_js_1.ReviewTriggerService,
+        appointment_staff_notification_service_js_1.AppointmentStaffNotificationService])
 ], AppointmentService);
 //# sourceMappingURL=appointment.service.js.map

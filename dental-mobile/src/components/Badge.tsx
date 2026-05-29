@@ -4,8 +4,8 @@ import { colors, radius, spacing, typography } from '../theme';
 
 type Variant =
   | 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW'
-  | 'scheduled' | 'completed' | 'cancelled' | 'no_show'
-  | 'PLANNED' | 'IN_PROGRESS'
+  | 'scheduled' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show'
+  | 'PLANNED' | 'IN_PROGRESS' | 'planned' | 'in_progress' | 'completed'
   | 'PENDING' | 'PAID' | 'PARTIALLY_PAID' | 'PARTIALLY_REFUNDED' | 'REFUNDED'
   | 'pending' | 'paid' | 'partially_paid' | 'partially_refunded' | 'refunded'
   | 'default';
@@ -16,11 +16,16 @@ const variantMap: Record<string, { bg: string; text: string; dot: string }> = {
   CANCELLED:      { bg: colors.dangerLight,    text: '#991b1b',          dot: colors.danger },
   NO_SHOW:        { bg: colors.warningLight,   text: '#92400e',          dot: colors.warning },
   scheduled:      { bg: colors.primaryLight,   text: colors.primaryDark, dot: colors.primary },
+  checked_in:     { bg: '#ecfeff',             text: '#0e7490',          dot: '#0891b2' },
+  in_progress:    { bg: '#f5f3ff',             text: '#6d28d9',          dot: '#7c3aed' },
   completed:      { bg: colors.successLight,   text: '#065f46',          dot: colors.success },
   cancelled:      { bg: colors.dangerLight,    text: '#991b1b',          dot: colors.danger },
   no_show:        { bg: colors.warningLight,   text: '#92400e',          dot: colors.warning },
   PLANNED:        { bg: colors.purpleLight,    text: '#5b21b6',          dot: colors.purple },
   IN_PROGRESS:    { bg: colors.warningLight,   text: '#92400e',          dot: colors.warning },
+  planned:        { bg: colors.purpleLight,    text: '#5b21b6',          dot: colors.purple },
+  in_progress:    { bg: colors.warningLight,   text: '#92400e',          dot: colors.warning },
+  completed:      { bg: colors.successLight,   text: '#065f46',          dot: colors.success },
   PENDING:        { bg: colors.warningLight,   text: '#92400e',          dot: colors.warning },
   PAID:           { bg: colors.successLight,   text: '#065f46',          dot: colors.success },
   PARTIALLY_PAID: { bg: colors.primaryLight,   text: colors.primaryDark, dot: colors.primary },
@@ -36,11 +41,13 @@ const variantMap: Record<string, { bg: string; text: string; dot: string }> = {
 
 const labelMap: Record<string, string> = {
   SCHEDULED: 'Scheduled', scheduled: 'Scheduled',
+  checked_in: 'Checked In', in_progress: 'In Progress',
   COMPLETED: 'Completed', completed: 'Completed',
   CANCELLED: 'Cancelled', cancelled: 'Cancelled',
   NO_SHOW: 'No Show',     no_show: 'No Show',
-  PLANNED: 'Planned',
-  IN_PROGRESS: 'In Progress',
+  PLANNED: 'Planned', planned: 'Planned',
+  IN_PROGRESS: 'In Progress', in_progress: 'In Progress',
+  completed: 'Completed',
   PENDING: 'Pending',                   pending: 'Pending',
   PAID: 'Paid',                         paid: 'Paid',
   PARTIALLY_PAID: 'Partially Paid',     partially_paid: 'Partially Paid',
