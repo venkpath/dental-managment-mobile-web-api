@@ -196,6 +196,9 @@ export type PatientStackParamList = {
   AddTreatment: { patientId: string; patientName: string };
   EditTreatment: { treatmentId: string };
   PatientPrescriptions: { patientId: string; patientName: string };
+  NewPrescription: { patientId: string; patientName: string; visitId?: string; prefillDiagnosis?: string };
+  ConsultationDetail: { visitId: string; patientName?: string };
+  StartConsultation: { patientId: string; patientName: string; visitId?: string };
 };
 
 export type AppointmentStackParamList = {

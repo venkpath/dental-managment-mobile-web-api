@@ -24,9 +24,10 @@ class CreateClinicalVisitDto {
     medical_history_notes;
     examination_notes;
     review_after_date;
+    diagnosis_summary;
     vital_signs;
     static _OPENAPI_METADATA_FACTORY() {
-        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: true, type: () => String, format: "uuid" }, appointment_id: { required: false, type: () => String, format: "uuid" }, chief_complaint: { required: false, type: () => String }, history_of_present_illness: { required: false, type: () => String }, past_dental_history: { required: false, type: () => String }, medical_history_notes: { required: false, type: () => String }, examination_notes: { required: false, type: () => String }, review_after_date: { required: false, type: () => String }, vital_signs: { required: false, type: () => Object } };
+        return { branch_id: { required: true, type: () => String, format: "uuid" }, patient_id: { required: true, type: () => String, format: "uuid" }, dentist_id: { required: true, type: () => String, format: "uuid" }, appointment_id: { required: false, type: () => String, format: "uuid" }, chief_complaint: { required: false, type: () => String }, history_of_present_illness: { required: false, type: () => String }, past_dental_history: { required: false, type: () => String }, medical_history_notes: { required: false, type: () => String }, examination_notes: { required: false, type: () => String }, review_after_date: { required: false, type: () => String }, diagnosis_summary: { required: false, type: () => String }, vital_signs: { required: false, type: () => Object } };
     }
 }
 exports.CreateClinicalVisitDto = CreateClinicalVisitDto;
@@ -87,6 +88,12 @@ __decorate([
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)
 ], CreateClinicalVisitDto.prototype, "review_after_date", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: "Clinician's assessment / diagnosis summary" }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateClinicalVisitDto.prototype, "diagnosis_summary", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Vital signs JSON (bp, pulse, temp, etc.)' }),
     (0, class_validator_1.IsOptional)(),

@@ -2,9 +2,9 @@ import api from './api';
 import type { Patient, PaginatedResponse } from '../types';
 
 export const patientService = {
-  list: async (page = 1, search = ''): Promise<PaginatedResponse<Patient>> => {
+  list: async (page = 1, search = '', limit = 10): Promise<PaginatedResponse<Patient>> => {
     const { data } = await api.get('/patients', {
-      params: { page, limit: 20, search: search || undefined },
+      params: { page, limit, search: search || undefined },
     });
     return data;
   },

@@ -11,6 +11,7 @@ import { loadCurrencyFromStorage } from '../store/currency.store';
 import LoadingScreen from '../components/LoadingScreen';
 import { shadow } from '../theme';
 
+import { DrawerProvider, DrawerMenu } from '../components/DrawerMenu';
 import LoginScreen from '../screens/auth/LoginScreen';
 import DashboardScreen from '../screens/dashboard/DashboardScreen';
 import PatientListScreen from '../screens/patients/PatientListScreen';
@@ -21,6 +22,9 @@ import TreatmentListScreen from '../screens/treatments/TreatmentListScreen';
 import AddTreatmentScreen from '../screens/treatments/AddTreatmentScreen';
 import EditTreatmentScreen from '../screens/treatments/EditTreatmentScreen';
 import PatientPrescriptionsScreen from '../screens/patients/PatientPrescriptionsScreen';
+import NewPrescriptionScreen from '../screens/prescriptions/NewPrescriptionScreen';
+import ConsultationDetailScreen from '../screens/patients/ConsultationDetailScreen';
+import StartConsultationScreen from '../screens/patients/StartConsultationScreen';
 import AppointmentListScreen from '../screens/appointments/AppointmentListScreen';
 import AppointmentDetailScreen from '../screens/appointments/AppointmentDetailScreen';
 import BookAppointmentScreen from '../screens/appointments/BookAppointmentScreen';
@@ -78,6 +82,9 @@ function PatientsNavigator() {
       <PatientStack.Screen name="AddTreatment" component={AddTreatmentScreen} />
       <PatientStack.Screen name="EditTreatment" component={EditTreatmentScreen} />
       <PatientStack.Screen name="PatientPrescriptions" component={PatientPrescriptionsScreen} />
+      <PatientStack.Screen name="NewPrescription" component={NewPrescriptionScreen} />
+      <PatientStack.Screen name="ConsultationDetail" component={ConsultationDetailScreen} />
+      <PatientStack.Screen name="StartConsultation" component={StartConsultationScreen} />
     </PatientStack.Navigator>
   );
 }
@@ -211,16 +218,19 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer>
-      <Root.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
-        {isAuthenticated ? (
-          <>
-            <Root.Screen name="App" component={AppTabs} />
-            <Root.Screen name="Profile" component={ProfileScreen} options={{ animation: 'slide_from_bottom' }} />
-          </>
-        ) : (
-          <Root.Screen name="Login" component={LoginScreen} />
-        )}
-      </Root.Navigator>
+      <DrawerProvider>
+        <Root.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+          {isAuthenticated ? (
+            <>
+              <Root.Screen name="App" component={AppTabs} />
+              <Root.Screen name="Profile" component={ProfileScreen} options={{ animation: 'slide_from_bottom' }} />
+            </>
+          ) : (
+            <Root.Screen name="Login" component={LoginScreen} />
+          )}
+        </Root.Navigator>
+        {isAuthenticated && <DrawerMenu />}
+      </DrawerProvider>
     </NavigationContainer>
   );
 }

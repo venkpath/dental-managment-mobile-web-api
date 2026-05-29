@@ -49,6 +49,11 @@ export class CreateClinicalVisitDto {
   @IsDateString()
   review_after_date?: string;
 
+  @ApiPropertyOptional({ description: "Clinician's assessment / diagnosis summary" })
+  @IsOptional()
+  @IsString()
+  diagnosis_summary?: string;
+
   @ApiPropertyOptional({ description: 'Vital signs JSON (bp, pulse, temp, etc.)' })
   @IsOptional()
   @IsObject()

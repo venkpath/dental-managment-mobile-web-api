@@ -238,8 +238,8 @@ export declare class ClinicalVisitService {
         medical_history_notes: string | null;
         examination_notes: string | null;
         review_after_date: Date | null;
-        vital_signs: Prisma.JsonValue | null;
         diagnosis_summary: string | null;
+        vital_signs: Prisma.JsonValue | null;
         soap_notes: Prisma.JsonValue | null;
         finalized_at: Date | null;
     }>;
@@ -379,8 +379,8 @@ export declare class ClinicalVisitService {
             medical_history_notes: string | null;
             examination_notes: string | null;
             review_after_date: Date | null;
-            vital_signs: Prisma.JsonValue | null;
             diagnosis_summary: string | null;
+            vital_signs: Prisma.JsonValue | null;
             soap_notes: Prisma.JsonValue | null;
             finalized_at: Date | null;
         } | null;

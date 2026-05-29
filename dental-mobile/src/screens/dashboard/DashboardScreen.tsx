@@ -16,11 +16,13 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../types';
 import { dashboardService } from '../../services/dashboard.service';
 import { appointmentService } from '../../services/appointment.service';
+import { insightsService, type InsightSummary as AISummary } from '../../services/insights.service';
 import { useAuthStore } from '../../store/auth.store';
 import { formatCurrency } from '../../utils/format';
 import { shadow } from '../../theme';
 import type { DashboardSummary, Appointment, PaymentBreakdown, SparklineDay } from '../../types';
 import { useBottomInset } from '../../hooks/useBottomInset';
+import { useDrawer } from '../../components/DrawerMenu';
 
 const SW = Dimensions.get('window').width;
 const CHART_H = 80;
@@ -162,12 +164,14 @@ export default function DashboardScreen() {
   const { user } = useAuthStore();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const bottomInset = useBottomInset();
+  const { open: openDrawer } = useDrawer();
 
   const [summary, setSummary]         = useState<DashboardSummary | null>(null);
   const [todayAppts, setTodayAppts]   = useState<Appointment[]>([]);
   const [payments, setPayments]       = useState<PaymentBreakdown | null>(null);
   const [chartData, setChartData]     = useState<SparklineDay[]>([]);
   const [chartPeriod, setChartPeriod] = useState<'7' | '30'>('7');
+  const [insights, setInsights]       = useState<AISummary | null>(null);
   const [loading, setLoading]         = useState(true);
   const [refreshing, setRefreshing]   = useState(false);
   const [loadError, setLoadError]     = useState(false);
@@ -175,20 +179,21 @@ export default function DashboardScreen() {
   const loadData = useCallback(async (period: '7' | '30' = chartPeriod) => {
     try {
       setLoadError(false);
-      const [summaryRes, apptsRes, pmts, sparklines] = await Promise.all([
+      const [summaryRes, apptsRes, pmts, sparklines, insightsRes] = await Promise.all([
         dashboardService.getSummary(),
         appointmentService.list({ date: TODAY, limit: 20 }),
         dashboardService.getPaymentBreakdown().catch(() => null),
         dashboardService.getSparklines(period === '7' ? 7 : 30).catch(() => ({ daily: [] as SparklineDay[] })),
+        insightsService.getSummary().catch(() => null),
       ]);
       setSummary(summaryRes);
-      // appointmentService returns PaginatedResponse — handle both shapes defensively
       const apptList: Appointment[] = Array.isArray(apptsRes)
         ? apptsRes
         : ((apptsRes as any)?.data ?? []);
       setTodayAppts(apptList.slice(0, 8));
       setPayments(pmts);
       setChartData(sparklines.daily);
+      setInsights(insightsRes);
     } catch {
       setLoadError(true);
     } finally {
@@ -234,7 +239,7 @@ export default function DashboardScreen() {
     <View style={s.screen}>
       <SafeAreaView edges={['top']} style={s.safeTop}>
         <View style={s.header}>
-          <TouchableOpacity style={s.menuBtn}>
+          <TouchableOpacity style={s.menuBtn} onPress={openDrawer}>
             <Ionicons name="menu" size={22} color="#0f172a" />
           </TouchableOpacity>
           <View style={s.greetBlock}>
@@ -294,6 +299,81 @@ export default function DashboardScreen() {
               ))}
             </View>
           </LinearGradient>
+        </View>
+
+        {/* ── AI Clinic Insights ── */}
+        <View style={s.pad}>
+          <View style={s.aiCard}>
+            {/* Header */}
+            <View style={s.aiHeader}>
+              <View style={s.aiTitleRow}>
+                <Ionicons name="sparkles" size={16} color="#7C3AED" />
+                <Text style={s.aiTitle}>AI Clinic Insights</Text>
+                <View style={s.aiBetaBadge}><Text style={s.aiBetaTxt}>BETA</Text></View>
+              </View>
+              <TouchableOpacity style={s.aiViewAllBtn}>
+                <Text style={s.aiViewAllTxt}>View all insights</Text>
+                <Ionicons name="arrow-forward" size={13} color="#4361EE" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Metrics row */}
+            <View style={s.aiMetricsRow}>
+              {[
+                {
+                  icon: 'people'       as IoniconsName,
+                  color: '#ef4444',
+                  label: 'At-risk patients',
+                  value: insights ? String(insights.total_at_risk) : '—',
+                  trend: 'up',
+                },
+                {
+                  icon: 'alarm'        as IoniconsName,
+                  color: '#f59e0b',
+                  label: 'Recall due',
+                  value: insights ? String(insights.recall.total) : '—',
+                  trend: 'up',
+                },
+                {
+                  icon: 'trending-up'  as IoniconsName,
+                  color: '#059669',
+                  label: 'Potential revenue',
+                  value: insights ? formatCurrency(insights.conversion.potential_revenue) : '—',
+                  trend: 'up',
+                },
+                {
+                  icon: 'shield'       as IoniconsName,
+                  color: '#6366f1',
+                  label: 'Revenue at risk',
+                  value: insights ? formatCurrency(0) : '—',
+                  trend: null,
+                },
+              ].map((m) => (
+                <View key={m.label} style={s.aiMetric}>
+                  <View style={s.aiMetricTop}>
+                    <Ionicons name={m.icon} size={14} color={m.color} />
+                    {m.trend === 'up' && <Ionicons name="arrow-up" size={11} color="#ef4444" />}
+                  </View>
+                  <Text style={s.aiMetricValue} numberOfLines={1} adjustsFontSizeToFit>{m.value}</Text>
+                  <Text style={s.aiMetricLabel} numberOfLines={2}>{m.label}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Action buttons */}
+            <View style={s.aiActions}>
+              <TouchableOpacity style={s.aiOutlineBtn}>
+                <Ionicons name="people-outline" size={15} color="#4361EE" />
+                <Text style={s.aiOutlineBtnTxt}>Review Patients</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.aiSolidBtnWrap}>
+                <LinearGradient colors={['#4361EE', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.aiSolidBtn}>
+                  <Ionicons name="send" size={14} color="#fff" />
+                  <Text style={s.aiSolidBtnTxt}>Send Reminders</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {/* ── Today's Schedule ── */}
@@ -516,6 +596,27 @@ const s = StyleSheet.create({
 
   // Section title
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginBottom: 12 },
+
+  // AI Clinic Insights
+  aiCard:         { backgroundColor: '#F5F3FF', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#DDD6FE', ...shadow.sm },
+  aiHeader:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  aiTitleRow:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  aiTitle:        { fontSize: 14, fontWeight: '700', color: '#0f172a' },
+  aiBetaBadge:    { backgroundColor: '#EDE9FE', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
+  aiBetaTxt:      { fontSize: 9, fontWeight: '700', color: '#7C3AED', letterSpacing: 0.5 },
+  aiViewAllBtn:   { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  aiViewAllTxt:   { fontSize: 12, color: '#4361EE', fontWeight: '600' },
+  aiMetricsRow:   { flexDirection: 'row', gap: 6, marginBottom: 14 },
+  aiMetric:       { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 10, gap: 3 },
+  aiMetricTop:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  aiMetricValue:  { fontSize: 15, fontWeight: '800', color: '#0f172a' },
+  aiMetricLabel:  { fontSize: 9, color: '#64748b', fontWeight: '500', lineHeight: 13 },
+  aiActions:      { flexDirection: 'row', gap: 8 },
+  aiOutlineBtn:   { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: '#4361EE', backgroundColor: '#fff' },
+  aiOutlineBtnTxt:{ fontSize: 13, fontWeight: '600', color: '#4361EE' },
+  aiSolidBtnWrap: { flex: 1, borderRadius: 12, overflow: 'hidden', ...shadow.sm },
+  aiSolidBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 },
+  aiSolidBtnTxt:  { fontSize: 13, fontWeight: '600', color: '#fff' },
 
   // Quick Actions
   qaRow:  { flexDirection: 'row', gap: 8 },

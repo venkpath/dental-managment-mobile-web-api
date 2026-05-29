@@ -25,7 +25,15 @@ api.interceptors.response.use(
   (response) => {
     if (response.data?.success === true) {
       if (response.data.meta) {
-        return { ...response, data: { data: response.data.data, meta: response.data.meta } };
+        // Backend uses snake_case (total_pages); normalise to camelCase for the app
+        const raw = response.data.meta;
+        const meta = {
+          total: raw.total,
+          page: raw.page,
+          limit: raw.limit,
+          totalPages: raw.totalPages ?? raw.total_pages ?? 0,
+        };
+        return { ...response, data: { data: response.data.data, meta } };
       }
       return { ...response, data: response.data.data };
     }

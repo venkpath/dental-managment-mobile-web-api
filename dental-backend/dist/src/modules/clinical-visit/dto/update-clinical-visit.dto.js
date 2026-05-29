@@ -16,20 +16,13 @@ const create_clinical_visit_dto_js_1 = require("./create-clinical-visit.dto.js")
 const class_validator_1 = require("class-validator");
 const swagger_2 = require("@nestjs/swagger");
 class UpdateClinicalVisitDto extends (0, swagger_1.PartialType)(create_clinical_visit_dto_js_1.CreateClinicalVisitDto) {
-    diagnosis_summary;
     soap_notes;
     review_after_date;
     static _OPENAPI_METADATA_FACTORY() {
-        return { diagnosis_summary: { required: false, type: () => String }, soap_notes: { required: false, type: () => Object }, review_after_date: { required: false, type: () => String } };
+        return { soap_notes: { required: false, type: () => Object }, review_after_date: { required: false, type: () => String } };
     }
 }
 exports.UpdateClinicalVisitDto = UpdateClinicalVisitDto;
-__decorate([
-    (0, swagger_2.ApiPropertyOptional)({ description: 'Diagnosis summary entered during/after examination' }),
-    (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsString)(),
-    __metadata("design:type", String)
-], UpdateClinicalVisitDto.prototype, "diagnosis_summary", void 0);
 __decorate([
     (0, swagger_2.ApiPropertyOptional)({ description: 'SOAP notes JSON (AI-generated or manual)' }),
     (0, class_validator_1.IsOptional)(),
