@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 import { AuthService } from './auth.service.js';
-import { LoginDto, LookupDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
+import { LoginDto, LookupDto, LookupByPhoneDto, LoginByPhoneDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
 export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
@@ -16,6 +16,17 @@ export declare class AuthController {
         requires_clinic_selection: boolean;
     }>;
     login(dto: LoginDto, req: Request, res: Response): Promise<import("./auth.service.js").LoginResponse>;
+    lookupByPhone(dto: LookupByPhoneDto): Promise<{
+        clinics: {
+            clinic_id: string;
+            clinic_name: string;
+            clinic_email: string;
+            subscription_status: string;
+            role: string;
+        }[];
+        requires_clinic_selection: boolean;
+    }>;
+    loginByPhone(dto: LoginByPhoneDto, req: Request, res: Response): Promise<import("./auth.service.js").LoginResponse>;
     changePassword(user: JwtPayload, dto: ChangePasswordDto): Promise<{
         message: string;
     }>;

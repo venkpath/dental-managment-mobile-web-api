@@ -52,6 +52,17 @@ export declare class AuthService {
         requires_clinic_selection: boolean;
     }>;
     login(dto: LoginDto, req?: Request): Promise<LoginResponse>;
+    lookupByPhone(phone: string, password: string): Promise<{
+        clinics: {
+            clinic_id: string;
+            clinic_name: string;
+            clinic_email: string;
+            subscription_status: string;
+            role: string;
+        }[];
+        requires_clinic_selection: boolean;
+    }>;
+    loginByPhone(phone: string, password: string, clinicId: string, req?: Request): Promise<LoginResponse>;
     changePassword(userId: string, dto: ChangePasswordDto): Promise<{
         message: string;
     }>;
@@ -106,6 +117,8 @@ export declare class AuthService {
     sendRegistrationOtp(phone: string): Promise<{
         message: string;
     }>;
+    private sendRegistrationOtpViaSms;
+    private sendRegistrationOtpViaWhatsApp;
     verifyRegistrationOtp(phone: string, code: string): Promise<{
         verified: boolean;
         token?: string;

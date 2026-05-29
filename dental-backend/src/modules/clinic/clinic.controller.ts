@@ -2,6 +2,7 @@ import {
   Controller, Get, Post, Patch, Param, Body, ParseUUIDPipe,
   UseInterceptors, UploadedFile, BadRequestException, Res, Logger,
 } from '@nestjs/common';
+import { get as httpsGet } from 'https';
 import {
   ApiTags,
   ApiOperation,
@@ -50,6 +51,61 @@ export class ClinicController {
   @ApiCreatedResponse({ description: 'Clinic created successfully with 14-day trial' })
   async create(@Body() dto: CreateClinicDto) {
     return this.clinicService.create(dto);
+  }
+
+  // ─── Pincode lookup (public) ────────────────────────────────────────────────
+  // In-memory cache — pincodes never change so a process-lifetime cache is fine.
+  private static readonly pincodeCache = new Map<string, { state: string; country: string } | null>();
+
+  @Get('pincode/:pin')
+  @Public()
+  @ApiOperation({ summary: 'Look up state/country from a 6-digit Indian pincode' })
+  @ApiOkResponse({ description: 'state and country, or null if not found' })
+  async lookupPincode(@Param('pin') pin: string) {
+    if (!/^\d{6}$/.test(pin)) throw new BadRequestException('Pincode must be exactly 6 digits');
+
+    if (ClinicController.pincodeCache.has(pin)) {
+      return ClinicController.pincodeCache.get(pin) ?? null;
+    }
+
+    // Fetch from India Post API — uses a scoped agent that skips cert validation
+    // because the govt API has a frequently expired certificate.
+    const result = await new Promise<{ state: string; country: string } | null>((resolve) => {
+      const url = `https://api.postalpincode.in/pincode/${pin}`;
+      const req = httpsGet(url, { rejectUnauthorized: false }, (res) => {
+        let body = '';
+        res.on('data', (chunk: Buffer) => { body += chunk; });
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(body) as Array<{
+              Status: string;
+              PostOffice?: Array<{ State: string; Country: string }>;
+            }>;
+            if (json[0]?.Status === 'Success' && json[0].PostOffice?.length) {
+              const { State, Country } = json[0].PostOffice[0];
+              resolve({ state: State, country: Country });
+            } else {
+              resolve(null);
+            }
+          } catch {
+            resolve(null);
+          }
+        });
+      });
+      req.on('error', () => resolve(null));
+      req.setTimeout(6000, () => { req.destroy(); resolve(null); });
+    });
+
+    ClinicController.pincodeCache.set(pin, result);
+    return result;
+  }
+
+  @Get('me/onboarding-status')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get clinic profile completion checklist and percentage' })
+  @ApiOkResponse({ description: 'Onboarding checklist with percentage' })
+  async getOnboardingStatus(@CurrentUser() user: RequestUser) {
+    return this.clinicService.getOnboardingStatus(user.clinicId);
   }
 
   @Get('me')

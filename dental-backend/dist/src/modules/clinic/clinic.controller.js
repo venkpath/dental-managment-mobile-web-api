@@ -16,6 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ClinicController = void 0;
 const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
+const https_1 = require("https");
 const swagger_1 = require("@nestjs/swagger");
 const platform_express_1 = require("@nestjs/platform-express");
 const crypto_1 = require("crypto");
@@ -30,7 +31,8 @@ const s3_service_js_1 = require("../../common/services/s3.service.js");
 const clinic_service_js_1 = require("./clinic.service.js");
 const index_js_1 = require("./dto/index.js");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
-let ClinicController = ClinicController_1 = class ClinicController {
+let ClinicController = class ClinicController {
+    static { ClinicController_1 = this; }
     clinicService;
     s3Service;
     prisma;
@@ -42,6 +44,43 @@ let ClinicController = ClinicController_1 = class ClinicController {
     }
     async create(dto) {
         return this.clinicService.create(dto);
+    }
+    static pincodeCache = new Map();
+    async lookupPincode(pin) {
+        if (!/^\d{6}$/.test(pin))
+            throw new common_1.BadRequestException('Pincode must be exactly 6 digits');
+        if (ClinicController_1.pincodeCache.has(pin)) {
+            return ClinicController_1.pincodeCache.get(pin) ?? null;
+        }
+        const result = await new Promise((resolve) => {
+            const url = `https://api.postalpincode.in/pincode/${pin}`;
+            const req = (0, https_1.get)(url, { rejectUnauthorized: false }, (res) => {
+                let body = '';
+                res.on('data', (chunk) => { body += chunk; });
+                res.on('end', () => {
+                    try {
+                        const json = JSON.parse(body);
+                        if (json[0]?.Status === 'Success' && json[0].PostOffice?.length) {
+                            const { State, Country } = json[0].PostOffice[0];
+                            resolve({ state: State, country: Country });
+                        }
+                        else {
+                            resolve(null);
+                        }
+                    }
+                    catch {
+                        resolve(null);
+                    }
+                });
+            });
+            req.on('error', () => resolve(null));
+            req.setTimeout(6000, () => { req.destroy(); resolve(null); });
+        });
+        ClinicController_1.pincodeCache.set(pin, result);
+        return result;
+    }
+    async getOnboardingStatus(user) {
+        return this.clinicService.getOnboardingStatus(user.clinicId);
     }
     async getMyClinic(user) {
         const clinic = await this.clinicService.findOne(user.clinicId);
@@ -149,6 +188,28 @@ __decorate([
     __metadata("design:paramtypes", [index_js_1.CreateClinicDto]),
     __metadata("design:returntype", Promise)
 ], ClinicController.prototype, "create", null);
+__decorate([
+    (0, common_1.Get)('pincode/:pin'),
+    (0, public_decorator_js_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Look up state/country from a 6-digit Indian pincode' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'state and country, or null if not found' }),
+    openapi.ApiResponse({ status: 200, type: Object }),
+    __param(0, (0, common_1.Param)('pin')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ClinicController.prototype, "lookupPincode", null);
+__decorate([
+    (0, common_1.Get)('me/onboarding-status'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get clinic profile completion checklist and percentage' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Onboarding checklist with percentage' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], ClinicController.prototype, "getOnboardingStatus", null);
 __decorate([
     (0, common_1.Get)('me'),
     (0, swagger_1.ApiBearerAuth)(),

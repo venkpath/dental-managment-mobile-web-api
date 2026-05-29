@@ -140,6 +140,93 @@ let AuthService = class AuthService {
             .catch(() => { });
         return result;
     }
+    async lookupByPhone(phone, password) {
+        const users = await this.prisma.user.findMany({
+            where: { phone, status: 'active', phone_verified: true },
+            include: {
+                clinic: { select: { id: true, name: true, email: true, subscription_status: true } },
+            },
+        });
+        if (users.length === 0) {
+            throw new common_1.UnauthorizedException('Invalid phone number or password');
+        }
+        const validUsers = [];
+        for (const user of users) {
+            if (await this.passwordService.verify(password, user.password_hash)) {
+                validUsers.push(user);
+            }
+        }
+        if (validUsers.length === 0) {
+            throw new common_1.UnauthorizedException('Invalid phone number or password');
+        }
+        const clinics = validUsers.map((u) => ({
+            clinic_id: u.clinic.id,
+            clinic_name: u.clinic.name,
+            clinic_email: u.clinic.email,
+            subscription_status: u.clinic.subscription_status,
+            role: u.role,
+        }));
+        return { clinics, requires_clinic_selection: clinics.length > 1 };
+    }
+    async loginByPhone(phone, password, clinicId, req) {
+        const user = await this.prisma.user.findFirst({
+            where: { phone, clinic_id: clinicId, status: 'active', phone_verified: true },
+        });
+        if (!user) {
+            throw new common_1.UnauthorizedException('Invalid phone number or password');
+        }
+        const passwordValid = await this.passwordService.verify(password, user.password_hash);
+        if (!passwordValid) {
+            throw new common_1.UnauthorizedException('Invalid phone number or password');
+        }
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: user.clinic_id },
+            select: { is_suspended: true },
+        });
+        if (clinic?.is_suspended) {
+            throw new common_1.ForbiddenException({
+                code: 'ACCOUNT_SUSPENDED',
+                message: 'Your account has been suspended. Please contact Smart Dental Desk support to reactivate.',
+            });
+        }
+        const payload = {
+            sub: user.id,
+            type: 'user',
+            clinic_id: user.clinic_id,
+            role: user.role,
+            branch_id: user.branch_id,
+        };
+        const requiresVerification = !user.email_verified && !user.phone_verified;
+        const result = {
+            access_token: await this.jwtService.signAsync(payload),
+            user: {
+                id: user.id,
+                clinic_id: user.clinic_id,
+                branch_id: user.branch_id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                role: user.role,
+                status: user.status,
+                email_verified: user.email_verified,
+                phone_verified: user.phone_verified,
+                requires_verification: requiresVerification,
+            },
+        };
+        const ip = req?.ip || req?.headers?.['x-forwarded-for'] || undefined;
+        const userAgent = req?.headers?.['user-agent'] || undefined;
+        await this.auditLogService
+            .log({
+            clinic_id: user.clinic_id,
+            user_id: user.id,
+            action: 'login',
+            entity: 'auth',
+            entity_id: user.id,
+            metadata: { phone: user.phone, role: user.role, ...(ip ? { ip } : {}), ...(userAgent ? { user_agent: userAgent } : {}) },
+        })
+            .catch(() => { });
+        return result;
+    }
     async changePassword(userId, dto) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) {
@@ -178,6 +265,12 @@ let AuthService = class AuthService {
         });
         if (existingClinic) {
             throw new common_1.ConflictException('A clinic with this email already exists');
+        }
+        const existingPhoneUser = await this.prisma.user.findFirst({
+            where: { phone: dto.admin_phone, role: 'SuperAdmin' },
+        });
+        if (existingPhoneUser) {
+            throw new common_1.ConflictException('A clinic is already registered with this phone number. Please use a different number or sign in.');
         }
         let planId;
         let isFreePlan = false;
@@ -245,6 +338,7 @@ let AuthService = class AuthService {
                     is_doctor: dto.is_doctor ?? false,
                     license_number: dto.is_doctor ? (dto.license_number ?? null) : null,
                     status: 'active',
+                    phone_verified: true,
                 },
                 select: {
                     id: true,
@@ -714,15 +808,104 @@ let AuthService = class AuthService {
         }
         sends.push(now);
         this.regOtpSendTracker.set(phone, sends);
+        const alreadyRegistered = await this.prisma.user.findFirst({
+            where: { phone, role: 'SuperAdmin' },
+            select: { id: true },
+        });
+        if (alreadyRegistered) {
+            throw new common_1.ConflictException('A clinic is already registered with this number. Please sign in instead.');
+        }
+        await this.prisma.registrationLead.upsert({
+            where: { phone },
+            update: { updated_at: new Date() },
+            create: { phone },
+        }).catch(() => {
+        });
         const otp = String((0, crypto_1.randomInt)(100000, 999999));
         const OTP_EXPIRY_MS = 10 * 60 * 1000;
         this.regOtpStore.set(phone, { code: otp, expiresAt: now + OTP_EXPIRY_MS, attempts: 0 });
+        const smsApiKey = this.configService.get('app.sms.apiKey');
+        const smsDltTemplateId = this.configService.get('app.sms.defaultDltTemplateId');
+        const smsConfigured = !!(smsApiKey && smsDltTemplateId);
+        const waAccessToken = this.configService.get('app.whatsapp.accessToken');
+        const waPhoneNumberId = this.configService.get('app.whatsapp.phoneNumberId');
+        const waConfigured = !!(waAccessToken && waPhoneNumberId);
+        if (!smsConfigured && !waConfigured) {
+            this.logger.warn('Neither SMS nor WhatsApp configured — registration OTP not sent');
+            return { message: 'OTP generated (no channel configured on server).' };
+        }
+        let smsSent = false;
+        let waSent = false;
+        if (smsConfigured) {
+            try {
+                await this.sendRegistrationOtpViaSms(phone, otp);
+                smsSent = true;
+            }
+            catch (err) {
+                this.logger.warn(`SMS OTP failed, trying WhatsApp: ${err.message}`);
+            }
+        }
+        if (waConfigured) {
+            try {
+                await this.sendRegistrationOtpViaWhatsApp(phone, otp);
+                waSent = true;
+            }
+            catch (err) {
+                this.logger.warn(`WhatsApp OTP failed: ${err.message}`);
+            }
+        }
+        if (!smsSent && !waSent) {
+            throw new common_1.BadRequestException('Failed to send OTP. Please check the number and try again.');
+        }
+        const channel = smsSent && waSent ? 'SMS and WhatsApp' : smsSent ? 'SMS' : 'WhatsApp';
+        return { message: `OTP sent to your ${channel} number. Valid for 10 minutes.` };
+    }
+    async sendRegistrationOtpViaSms(phone, otp) {
+        const apiKey = this.configService.get('app.sms.apiKey');
+        const senderId = this.configService.get('app.sms.senderId') || 'GRATSO';
+        const entityId = this.configService.get('app.sms.entityId') || '';
+        const templateId = this.configService.get('app.sms.defaultDltTemplateId');
+        const templateBody = this.configService.get('app.sms.dltTemplateBody') ||
+            "Your otp for {#var#} by grats it is {#var#}, otp valid for 10min, please don't share with any one,";
+        let slot = 0;
+        const text = templateBody.replace(/\{#var#\}/g, () => {
+            slot++;
+            if (slot === 1)
+                return 'Registration for Smart Dental Desk';
+            if (slot === 2)
+                return otp;
+            return '';
+        });
+        const digits = phone.replace(/[^0-9]/g, '');
+        const number = digits.length === 10 ? `91${digits}` : digits;
+        const params = new URLSearchParams({
+            APIKey: apiKey,
+            senderid: senderId,
+            channel: '2',
+            DCS: '0',
+            flashsms: '0',
+            number,
+            text,
+            route: '47',
+            dlttemplateid: templateId,
+        });
+        if (entityId)
+            params.set('EntityId', entityId);
+        const response = await fetch(`https://www.smsgatewayhub.com/api/mt/SendSMS?${params.toString()}`, { signal: AbortSignal.timeout(15000) });
+        const data = await response.json();
+        const ok = data['ErrorCode'] === '000' || data['ErrorCode'] === 0;
+        if (ok) {
+            this.logger.log(`Registration OTP sent via SMS to ${number}`);
+        }
+        else {
+            const errMsg = String(data['ErrorMessage'] ?? 'SMS gateway error');
+            this.logger.warn(`Registration OTP SMS failed to ${number}: ${errMsg}`);
+            throw new common_1.BadRequestException(`Could not send SMS OTP: ${errMsg}`);
+        }
+    }
+    async sendRegistrationOtpViaWhatsApp(phone, otp) {
         const accessToken = this.configService.get('app.whatsapp.accessToken');
         const phoneNumberId = this.configService.get('app.whatsapp.phoneNumberId');
-        if (!accessToken || !phoneNumberId) {
-            this.logger.warn('Platform WhatsApp not configured — registration OTP not sent via WhatsApp');
-            return { message: 'OTP generated (WhatsApp not configured on server).' };
-        }
         const destination = phone.startsWith('+') ? phone.slice(1) : phone.replace(/[^0-9]/g, '');
         const payload = {
             messaging_product: 'whatsapp',
@@ -746,29 +929,20 @@ let AuthService = class AuthService {
                 ],
             },
         };
-        try {
-            const url = `${AuthService_1.META_GRAPH_API}/${phoneNumberId}/messages`;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-                signal: AbortSignal.timeout(15000),
-            });
-            const data = await response.json();
-            if (!response.ok) {
-                const error = data.error?.message ?? 'Meta API error';
-                this.logger.warn(`Registration OTP WhatsApp send failed to ${destination}: ${error}`);
-                throw new common_1.BadRequestException(`Could not send WhatsApp message: ${error}`);
-            }
-            this.logger.log(`Registration OTP sent via WhatsApp to ${destination}`);
+        const url = `${AuthService_1.META_GRAPH_API}/${phoneNumberId}/messages`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(15000),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            const error = data.error?.message ?? 'Meta API error';
+            this.logger.warn(`Registration OTP WhatsApp send failed to ${destination}: ${error}`);
+            throw new common_1.BadRequestException(`Could not send WhatsApp OTP: ${error}`);
         }
-        catch (err) {
-            if (err instanceof common_1.BadRequestException)
-                throw err;
-            this.logger.error(`Registration OTP WhatsApp fetch error: ${err.message}`);
-            throw new common_1.BadRequestException('Failed to send WhatsApp OTP. Please check the number and try again.');
-        }
-        return { message: 'OTP sent to your WhatsApp number. Valid for 10 minutes.' };
+        this.logger.log(`Registration OTP sent via WhatsApp to ${destination}`);
     }
     async verifyRegistrationOtp(phone, code) {
         const entry = this.regOtpStore.get(phone);

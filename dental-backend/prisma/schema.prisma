@@ -2741,3 +2741,12 @@ model ClinicDirectoryReview {
   @@index([overall_rating])
   @@map("clinic_directory_reviews")
 }
+
+model RegistrationLead {
+  id         String   @id @default(uuid()) @db.Uuid
+  phone      String   @unique @db.VarChar(20)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("registration_leads")
+}

@@ -127,6 +127,98 @@ let ClinicService = class ClinicService {
             include: { plan: true },
         });
     }
+    async getOnboardingStatus(clinicId) {
+        const [clinic, branch, staffCount, patientCount, appointmentCount] = await Promise.all([
+            this.prisma.clinic.findUnique({
+                where: { id: clinicId },
+                select: { logo_url: true, address: true, city: true, state: true, phone: true },
+            }),
+            this.prisma.branch.findFirst({
+                where: { clinic_id: clinicId },
+                select: { working_start_time: true, working_end_time: true },
+            }),
+            this.prisma.user.count({
+                where: { clinic_id: clinicId, role: { not: 'SuperAdmin' }, status: 'active' },
+            }),
+            this.prisma.patient.count({ where: { clinic_id: clinicId } }),
+            this.prisma.appointment.count({ where: { clinic_id: clinicId } }),
+        ]);
+        const items = [
+            {
+                id: 'clinic_logo',
+                title: 'Upload clinic logo',
+                description: 'Shows on invoices, prescriptions & patient communications',
+                completed: !!clinic?.logo_url,
+                href: '/settings',
+                category: 'setup',
+                weight: 5,
+            },
+            {
+                id: 'clinic_address',
+                title: 'Complete clinic address',
+                description: 'Required for invoices and public directory listing',
+                completed: !!(clinic?.address && clinic?.city && clinic?.state),
+                href: '/settings',
+                category: 'setup',
+                weight: 10,
+            },
+            {
+                id: 'clinic_phone',
+                title: 'Add clinic contact number',
+                description: 'Printed on prescriptions and invoices for patients',
+                completed: !!clinic?.phone,
+                href: '/settings',
+                category: 'setup',
+                weight: 5,
+            },
+            {
+                id: 'branch_hours',
+                title: 'Set branch working hours',
+                description: 'Define when patients can book and staff can be scheduled',
+                completed: !!(branch?.working_start_time && branch?.working_end_time),
+                href: '/branches',
+                category: 'setup',
+                weight: 15,
+            },
+            {
+                id: 'add_staff',
+                title: 'Invite your first staff member',
+                description: 'Add dentists, receptionists or assistants to your clinic',
+                completed: staffCount > 0,
+                href: '/staff',
+                category: 'team',
+                weight: 15,
+            },
+            {
+                id: 'add_patient',
+                title: 'Add your first patient',
+                description: 'Register a patient to start managing their dental care',
+                completed: patientCount > 0,
+                href: '/patients/new',
+                category: 'patients',
+                weight: 20,
+            },
+            {
+                id: 'book_appointment',
+                title: 'Book your first appointment',
+                description: 'Schedule a patient on the calendar',
+                completed: appointmentCount > 0,
+                href: '/appointments',
+                category: 'patients',
+                weight: 25,
+            },
+        ];
+        const totalWeight = items.reduce((sum, i) => sum + i.weight, 0);
+        const completedWeight = items
+            .filter((i) => i.completed)
+            .reduce((sum, i) => sum + i.weight, 0);
+        return {
+            percentage: Math.round((completedWeight / totalWeight) * 100),
+            completed_count: items.filter((i) => i.completed).length,
+            total_count: items.length,
+            items,
+        };
+    }
 };
 exports.ClinicService = ClinicService;
 exports.ClinicService = ClinicService = __decorate([

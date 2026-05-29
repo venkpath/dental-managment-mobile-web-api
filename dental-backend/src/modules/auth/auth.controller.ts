@@ -6,7 +6,7 @@ import { Public } from '../../common/decorators/public.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 import { AuthService } from './auth.service.js';
-import { LoginDto, LookupDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
+import { LoginDto, LookupDto, LookupByPhoneDto, LoginByPhoneDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -46,6 +46,41 @@ export class AuthController {
       sameSite: 'strict',
       path: '/',
       maxAge: 24 * 60 * 60 * 1000, // 1 day
+    });
+    return result;
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Post('lookup-by-phone')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Look up clinics for a phone/password combination (phone_verified users only)' })
+  @ApiResponse({ status: 200, description: 'List of clinics the user belongs to' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  async lookupByPhone(@Body() dto: LookupByPhoneDto) {
+    return this.authService.lookupByPhone(dto.phone, dto.password);
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Post('login-by-phone')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login with phone, password and clinic_id (phone_verified users only)' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials or unverified phone' })
+  async loginByPhone(
+    @Body() dto: LoginByPhoneDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.loginByPhone(dto.phone, dto.password, dto.clinic_id, req);
+    const isProduction = process.env['NODE_ENV'] === 'production';
+    res.cookie('access_token', result.access_token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 24 * 60 * 60 * 1000,
     });
     return result;
   }

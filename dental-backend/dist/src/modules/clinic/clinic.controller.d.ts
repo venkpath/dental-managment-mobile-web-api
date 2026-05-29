@@ -79,6 +79,25 @@ export declare class ClinicController {
         inactivity_reminder_30_sent: boolean;
         inactivity_reminder_40_sent: boolean;
     }>;
+    private static readonly pincodeCache;
+    lookupPincode(pin: string): Promise<{
+        state: string;
+        country: string;
+    } | null>;
+    getOnboardingStatus(user: RequestUser): Promise<{
+        percentage: number;
+        completed_count: number;
+        total_count: number;
+        items: {
+            id: string;
+            title: string;
+            description: string;
+            completed: boolean;
+            href: string;
+            category: string;
+            weight: number;
+        }[];
+    }>;
     getMyClinic(user: RequestUser): Promise<{
         days_inactive: number;
         inactivity_warning: boolean;

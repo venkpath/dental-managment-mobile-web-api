@@ -30,4 +30,18 @@ export declare class ClinicService {
     }>;
     update(id: string, dto: UpdateClinicDto): Promise<Clinic>;
     updateSubscription(id: string, dto: UpdateSubscriptionDto): Promise<Clinic>;
+    getOnboardingStatus(clinicId: string): Promise<{
+        percentage: number;
+        completed_count: number;
+        total_count: number;
+        items: {
+            id: string;
+            title: string;
+            description: string;
+            completed: boolean;
+            href: string;
+            category: string;
+            weight: number;
+        }[];
+    }>;
 }

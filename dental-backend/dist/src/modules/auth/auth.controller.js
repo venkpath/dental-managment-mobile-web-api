@@ -41,6 +41,21 @@ let AuthController = class AuthController {
         });
         return result;
     }
+    async lookupByPhone(dto) {
+        return this.authService.lookupByPhone(dto.phone, dto.password);
+    }
+    async loginByPhone(dto, req, res) {
+        const result = await this.authService.loginByPhone(dto.phone, dto.password, dto.clinic_id, req);
+        const isProduction = process.env['NODE_ENV'] === 'production';
+        res.cookie('access_token', result.access_token, {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: 'strict',
+            path: '/',
+            maxAge: 24 * 60 * 60 * 1000,
+        });
+        return result;
+    }
     async changePassword(user, dto) {
         return this.authService.changePassword(user.sub, dto);
     }
@@ -110,6 +125,36 @@ __decorate([
     __metadata("design:paramtypes", [index_js_1.LoginDto, Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
+__decorate([
+    (0, public_decorator_js_1.Public)(),
+    (0, throttler_1.Throttle)({ default: { ttl: 60000, limit: 5 } }),
+    (0, common_1.Post)('lookup-by-phone'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Look up clinics for a phone/password combination (phone_verified users only)' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'List of clinics the user belongs to' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid credentials' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [index_js_1.LookupByPhoneDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "lookupByPhone", null);
+__decorate([
+    (0, public_decorator_js_1.Public)(),
+    (0, throttler_1.Throttle)({ default: { ttl: 60000, limit: 5 } }),
+    (0, common_1.Post)('login-by-phone'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Login with phone, password and clinic_id (phone_verified users only)' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Login successful' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid credentials or unverified phone' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.OK, type: Object }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)({ passthrough: true })),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [index_js_1.LoginByPhoneDto, Object, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "loginByPhone", null);
 __decorate([
     (0, common_1.Post)('change-password'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
