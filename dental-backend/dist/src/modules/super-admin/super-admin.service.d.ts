@@ -72,6 +72,8 @@ export declare class SuperAdminService {
             website_url: string | null;
             google_maps_url: string | null;
             review_secret: string | null;
+            is_directory_only: boolean;
+            directory_contact_name: string | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -154,6 +156,8 @@ export declare class SuperAdminService {
             website_url: string | null;
             google_maps_url: string | null;
             review_secret: string | null;
+            is_directory_only: boolean;
+            directory_contact_name: string | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -313,6 +317,8 @@ export declare class SuperAdminService {
         website_url: string | null;
         google_maps_url: string | null;
         review_secret: string | null;
+        is_directory_only: boolean;
+        directory_contact_name: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -394,6 +400,8 @@ export declare class SuperAdminService {
             website_url: string | null;
             google_maps_url: string | null;
             review_secret: string | null;
+            is_directory_only: boolean;
+            directory_contact_name: string | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -476,6 +484,8 @@ export declare class SuperAdminService {
         directory_requested_at: Date | null;
         clinic_description: string | null;
         specialties: string | null;
+        is_directory_only: boolean;
+        directory_contact_name: string | null;
     }[]>;
     approveDirectoryListing(id: string): Promise<{
         approved: boolean;
@@ -485,6 +495,7 @@ export declare class SuperAdminService {
         rejected: boolean;
         clinic_name: string;
     }>;
+    private sendListingApprovedEmail;
     suspendClinic(id: string, reason?: string): Promise<{
         suspended: boolean;
         clinic_name: string;

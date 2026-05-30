@@ -56,6 +56,8 @@ export declare class ClinicController {
         website_url: string | null;
         google_maps_url: string | null;
         review_secret: string | null;
+        is_directory_only: boolean;
+        directory_contact_name: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -142,6 +144,8 @@ export declare class ClinicController {
         website_url: string | null;
         google_maps_url: string | null;
         review_secret: string | null;
+        is_directory_only: boolean;
+        directory_contact_name: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -225,6 +229,8 @@ export declare class ClinicController {
         website_url: string | null;
         google_maps_url: string | null;
         review_secret: string | null;
+        is_directory_only: boolean;
+        directory_contact_name: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -289,6 +295,8 @@ export declare class ClinicController {
         website_url: string | null;
         google_maps_url: string | null;
         review_secret: string | null;
+        is_directory_only: boolean;
+        directory_contact_name: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -353,6 +361,8 @@ export declare class ClinicController {
         website_url: string | null;
         google_maps_url: string | null;
         review_secret: string | null;
+        is_directory_only: boolean;
+        directory_contact_name: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -417,6 +427,8 @@ export declare class ClinicController {
         website_url: string | null;
         google_maps_url: string | null;
         review_secret: string | null;
+        is_directory_only: boolean;
+        directory_contact_name: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -481,6 +493,8 @@ export declare class ClinicController {
         website_url: string | null;
         google_maps_url: string | null;
         review_secret: string | null;
+        is_directory_only: boolean;
+        directory_contact_name: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -545,6 +559,8 @@ export declare class ClinicController {
         website_url: string | null;
         google_maps_url: string | null;
         review_secret: string | null;
+        is_directory_only: boolean;
+        directory_contact_name: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;

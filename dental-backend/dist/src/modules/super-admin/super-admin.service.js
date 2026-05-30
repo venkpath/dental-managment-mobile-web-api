@@ -348,6 +348,8 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
                 clinic_description: true,
                 specialties: true,
                 created_at: true,
+                is_directory_only: true,
+                directory_contact_name: true,
             },
             orderBy: { directory_requested_at: 'asc' },
         });
@@ -368,6 +370,9 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
                 directory_rejection_reason: null,
             },
         });
+        if (clinic.email) {
+            this.sendListingApprovedEmail(clinic).catch((err) => this.logger.warn(`Listing approved email failed: ${err.message}`));
+        }
         return { approved: true, clinic_name: clinic.name };
     }
     async rejectDirectoryListing(id, reason) {
@@ -386,6 +391,48 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
             },
         });
         return { rejected: true, clinic_name: clinic.name };
+    }
+    async sendListingApprovedEmail(clinic) {
+        if (!clinic.email || !this.ensureEmailConfigured())
+            return;
+        const claimUrl = `${this.frontendUrl}/register?claim=${clinic.id}`;
+        const profileUrl = `${this.frontendUrl}/find-dentist/${clinic.id}`;
+        const html = `
+      <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;">
+        <div style="background:linear-gradient(135deg,#14b8a6,#3b82f6);padding:32px;border-radius:12px 12px 0 0;">
+          <h1 style="color:#fff;margin:0;font-size:22px;">🎉 Your Clinic is Now Live!</h1>
+        </div>
+        <div style="padding:32px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+          <p style="color:#374151;font-size:15px;line-height:1.6;">
+            Hi ${clinic.directory_contact_name || 'Doctor'},<br/><br/>
+            <strong>${clinic.name}</strong> is now live on Smart Dental Desk. Patients can discover and contact you through our directory.
+          </p>
+          <div style="text-align:center;margin:24px 0;">
+            <a href="${profileUrl}" style="display:inline-block;background:#0ea5e9;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:14px;">View Your Live Profile →</a>
+          </div>
+          <hr style="border:none;border-top:1px solid #f3f4f6;margin:24px 0;"/>
+          <p style="color:#374151;font-size:14px;line-height:1.6;">
+            Want to do more? Activate the full software — manage appointments, send WhatsApp reminders, generate GST invoices, and maintain patient records.
+          </p>
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:16px 0;">
+            <p style="color:#166534;font-size:13px;margin:0 0 6px 0;font-weight:600;">✓ 14-day free trial — no credit card needed</p>
+            <p style="color:#166534;font-size:13px;margin:0;">✓ Your clinic details are already pre-filled from your listing</p>
+          </div>
+          <div style="text-align:center;margin:24px 0;">
+            <a href="${claimUrl}" style="display:inline-block;background:linear-gradient(135deg,#3b5bff,#6366f1);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:15px;">Activate Free Trial →</a>
+          </div>
+          <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:24px;">
+            Smart Dental Desk · <a href="${this.frontendUrl}" style="color:#9ca3af;">smartdentaldesk.com</a>
+          </p>
+        </div>
+      </div>
+    `;
+        await this.emailProvider.send({
+            to: clinic.email,
+            subject: `Your clinic "${clinic.name}" is now live on Smart Dental Desk`,
+            body: `Your clinic "${clinic.name}" is now live on Smart Dental Desk. View your profile or activate your free trial at ${claimUrl}`,
+            html,
+        });
     }
     async suspendClinic(id, reason) {
         const clinic = await this.prisma.clinic.findUnique({ where: { id } });

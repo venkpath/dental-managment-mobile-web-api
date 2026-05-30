@@ -1,6 +1,8 @@
 import type { Response } from 'express';
 import { PrismaService } from '../../database/prisma.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 declare class DirectorySearchQuery {
     lat?: number;
     lng?: number;
@@ -28,10 +30,50 @@ declare class ReviewSortQuery {
     page?: number;
     limit?: number;
 }
+declare class SendPhoneOtpDto {
+    phone: string;
+}
+declare class VerifyPhoneOtpDto {
+    phone: string;
+    code: string;
+}
+declare class SendEmailOtpDto {
+    email: string;
+    phone_token: string;
+}
+declare class VerifyEmailOtpDto {
+    email: string;
+    code: string;
+}
+declare class SubmitListingDto {
+    phone_token: string;
+    email_token: string;
+    clinic_name: string;
+    contact_name: string;
+    address: string;
+    city: string;
+    state: string;
+    pincode?: string;
+    google_maps_url?: string;
+    latitude?: number;
+    longitude?: number;
+    specialties?: string[];
+    treatments?: string[];
+    working_hours_label?: string;
+    languages_spoken?: string;
+    website_url?: string;
+    clinic_description?: string;
+}
 export declare class PublicDirectoryController {
     private readonly prisma;
     private readonly s3;
-    constructor(prisma: PrismaService, s3: S3Service);
+    private readonly config;
+    private readonly jwt;
+    private readonly logger;
+    private readonly phoneOtpStore;
+    private readonly phoneOtpSendTracker;
+    private readonly emailOtpStore;
+    constructor(prisma: PrismaService, s3: S3Service, config: ConfigService, jwt: JwtService);
     searchClinics(query: DirectorySearchQuery, res: Response): Promise<{
         data: {
             id: string;
@@ -179,6 +221,32 @@ export declare class PublicDirectoryController {
         message: string;
         review_id: string;
     }>;
+    sendListingPhoneOtp(dto: SendPhoneOtpDto): Promise<{
+        message: string;
+    }>;
+    verifyListingPhoneOtp(dto: VerifyPhoneOtpDto): Promise<{
+        verified: boolean;
+        token: string;
+        message: string;
+    }>;
+    sendListingEmailOtp(dto: SendEmailOtpDto): Promise<{
+        message: string;
+    }>;
+    verifyListingEmailOtp(dto: VerifyEmailOtpDto): Promise<{
+        verified: boolean;
+        token: string;
+        message: string;
+    }>;
+    submitListing(dto: SubmitListingDto): Promise<{
+        success: boolean;
+        message: string;
+        clinic_id?: undefined;
+    } | {
+        success: boolean;
+        clinic_id: string;
+        message: string;
+    }>;
+    private notifySuperAdmin;
     createReviewToken(clinicId: string, appointmentId: string, doctorId?: string): Promise<string>;
 }
 export {};

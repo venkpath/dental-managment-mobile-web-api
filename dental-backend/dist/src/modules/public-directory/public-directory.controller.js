@@ -1,10 +1,43 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
@@ -24,6 +57,9 @@ const throttler_1 = require("@nestjs/throttler");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
 const crypto_1 = require("crypto");
+const config_1 = require("@nestjs/config");
+const jwt_1 = require("@nestjs/jwt");
+const nodemailer = __importStar(require("nodemailer"));
 class DirectorySearchQuery {
     lat;
     lng;
@@ -214,6 +250,200 @@ __decorate([
     (0, class_validator_1.Max)(50),
     __metadata("design:type", Number)
 ], ReviewSortQuery.prototype, "limit", void 0);
+class SendPhoneOtpDto {
+    phone;
+}
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: '+919876543210' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(7),
+    (0, class_validator_1.MaxLength)(20),
+    __metadata("design:type", String)
+], SendPhoneOtpDto.prototype, "phone", void 0);
+class VerifyPhoneOtpDto {
+    phone;
+    code;
+}
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: '+919876543210' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(7),
+    (0, class_validator_1.MaxLength)(20),
+    __metadata("design:type", String)
+], VerifyPhoneOtpDto.prototype, "phone", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: '482910' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(6),
+    (0, class_validator_1.MaxLength)(6),
+    __metadata("design:type", String)
+], VerifyPhoneOtpDto.prototype, "code", void 0);
+class SendEmailOtpDto {
+    email;
+    phone_token;
+}
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: 'dr.sharma@clinic.com' }),
+    (0, class_validator_1.IsEmail)(),
+    __metadata("design:type", String)
+], SendEmailOtpDto.prototype, "email", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ description: 'Phone verification token from verify-phone-otp step' }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], SendEmailOtpDto.prototype, "phone_token", void 0);
+class VerifyEmailOtpDto {
+    email;
+    code;
+}
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: 'dr.sharma@clinic.com' }),
+    (0, class_validator_1.IsEmail)(),
+    __metadata("design:type", String)
+], VerifyEmailOtpDto.prototype, "email", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: '293847' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(6),
+    (0, class_validator_1.MaxLength)(6),
+    __metadata("design:type", String)
+], VerifyEmailOtpDto.prototype, "code", void 0);
+class SubmitListingDto {
+    phone_token;
+    email_token;
+    clinic_name;
+    contact_name;
+    address;
+    city;
+    state;
+    pincode;
+    google_maps_url;
+    latitude;
+    longitude;
+    specialties;
+    treatments;
+    working_hours_label;
+    languages_spoken;
+    website_url;
+    clinic_description;
+}
+__decorate([
+    (0, swagger_2.ApiProperty)({ description: 'Phone verification JWT from verify-phone-otp' }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "phone_token", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ description: 'Email verification JWT from verify-email-otp' }),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "email_token", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: 'Sharma Dental Clinic' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(2),
+    (0, class_validator_1.MaxLength)(255),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "clinic_name", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: 'Dr. Rajesh Sharma' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(2),
+    (0, class_validator_1.MaxLength)(200),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "contact_name", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: '12, MG Road, Koramangala' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(5),
+    (0, class_validator_1.MaxLength)(500),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "address", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: 'Bengaluru' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(2),
+    (0, class_validator_1.MaxLength)(100),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "city", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ example: 'Karnataka' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(2),
+    (0, class_validator_1.MaxLength)(100),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "state", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ example: '560034' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(10),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "pincode", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ example: 'https://maps.app.goo.gl/...' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(1000),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "google_maps_url", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ description: 'Latitude from browser geolocation', example: 12.9716 }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_transformer_1.Type)(() => Number),
+    __metadata("design:type", Number)
+], SubmitListingDto.prototype, "latitude", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ description: 'Longitude from browser geolocation', example: 77.5946 }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_transformer_1.Type)(() => Number),
+    __metadata("design:type", Number)
+], SubmitListingDto.prototype, "longitude", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ example: ['General Dentistry', 'Orthodontics'] }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMaxSize)(10),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], SubmitListingDto.prototype, "specialties", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ example: ['Root Canal', 'Teeth Whitening', 'Braces'] }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMaxSize)(30),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], SubmitListingDto.prototype, "treatments", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ example: 'Mon–Sat 9am–7pm' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(200),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "working_hours_label", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ example: 'English, Hindi, Kannada' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(300),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "languages_spoken", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ example: 'https://drsharmadental.com' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(500),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "website_url", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ example: 'Family dental clinic with 15 years of experience.' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(500),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "clinic_description", void 0);
 const CITY_ALIASES = {
     bengaluru: ['bengaluru', 'bangalore'],
     bangalore: ['bengaluru', 'bangalore'],
@@ -313,9 +543,20 @@ function computeClinicAvailability(branches, schemaDay, istMinutes, bookedToday)
 let PublicDirectoryController = class PublicDirectoryController {
     prisma;
     s3;
-    constructor(prisma, s3) {
+    config;
+    jwt;
+    logger = new (class {
+        log = (m) => console.log(`[PublicDirectory] ${m}`);
+        warn = (m) => console.warn(`[PublicDirectory] ${m}`);
+    })();
+    phoneOtpStore = new Map();
+    phoneOtpSendTracker = new Map();
+    emailOtpStore = new Map();
+    constructor(prisma, s3, config, jwt) {
         this.prisma = prisma;
         this.s3 = s3;
+        this.config = config;
+        this.jwt = jwt;
     }
     async searchClinics(query, res) {
         const { lat, lng, city, specialty, q, country, page = 1, limit = 12, availableToday, radius, sort = 'relevance' } = query;
@@ -686,6 +927,297 @@ let PublicDirectoryController = class PublicDirectoryController {
         });
         return { success: true, message: 'Thank you for your review!', review_id: review.id };
     }
+    async sendListingPhoneOtp(dto) {
+        const phone = dto.phone.trim();
+        const now = Date.now();
+        const ONE_HOUR = 60 * 60 * 1000;
+        const sends = (this.phoneOtpSendTracker.get(phone) ?? []).filter((t) => now - t < ONE_HOUR);
+        if (sends.length >= 3) {
+            throw new common_1.HttpException('Too many OTP requests for this number. Please try again after an hour.', common_1.HttpStatus.TOO_MANY_REQUESTS);
+        }
+        sends.push(now);
+        this.phoneOtpSendTracker.set(phone, sends);
+        const otp = String((0, crypto_1.randomInt)(100000, 999999));
+        const OTP_EXPIRY_MS = 10 * 60 * 1000;
+        this.phoneOtpStore.set(phone, { code: otp, expiresAt: now + OTP_EXPIRY_MS, attempts: 0 });
+        const apiKey = this.config.get('app.sms.apiKey');
+        const templateId = this.config.get('app.sms.defaultDltTemplateId');
+        if (!apiKey || !templateId) {
+            this.logger.warn('Platform SMS not configured — listing phone OTP not sent');
+            return { message: 'OTP generated. (SMS not configured on server)' };
+        }
+        const senderId = this.config.get('app.sms.senderId') || 'SDDSK';
+        const entityId = this.config.get('app.sms.entityId') || '';
+        const templateBody = this.config.get('app.sms.dltTemplateBody') ||
+            "Your otp for {#var#} by grats it is {#var#}, otp valid for 10min, please don't share with any one,";
+        let slot = 0;
+        const text = templateBody.replace(/\{#var#\}/g, () => {
+            slot++;
+            if (slot === 1)
+                return 'listing your practice on Smart Dental Desk';
+            if (slot === 2)
+                return otp;
+            return '';
+        });
+        const digits = phone.replace(/[^0-9]/g, '');
+        const number = digits.length === 10 ? `91${digits}` : digits;
+        const params = new URLSearchParams({
+            APIKey: apiKey,
+            senderid: senderId,
+            channel: '2',
+            DCS: '0',
+            flashsms: '0',
+            number,
+            text,
+            route: '47',
+            dlttemplateid: templateId,
+        });
+        if (entityId)
+            params.set('EntityId', entityId);
+        try {
+            const res = await fetch(`https://www.smsgatewayhub.com/api/mt/SendSMS?${params.toString()}`, {
+                signal: AbortSignal.timeout(15000),
+            });
+            const data = await res.json();
+            const ok = data['ErrorCode'] === '000' || data['ErrorCode'] === 0;
+            if (!ok) {
+                const errMsg = String(data['ErrorMessage'] ?? 'SMS gateway error');
+                this.logger.warn(`Listing phone OTP SMS failed to ${number}: ${errMsg}`);
+                throw new common_1.BadRequestException(`Could not send SMS OTP: ${errMsg}`);
+            }
+            this.logger.log(`Listing phone OTP sent to ${number}`);
+        }
+        catch (err) {
+            if (err instanceof common_1.BadRequestException)
+                throw err;
+            throw new common_1.BadRequestException('Failed to send SMS OTP. Please check the number and try again.');
+        }
+        return { message: 'OTP sent to your mobile number. Valid for 10 minutes.' };
+    }
+    async verifyListingPhoneOtp(dto) {
+        const phone = dto.phone.trim();
+        const entry = this.phoneOtpStore.get(phone);
+        if (!entry)
+            throw new common_1.BadRequestException('OTP not found or expired. Please request a new one.');
+        if (Date.now() > entry.expiresAt) {
+            this.phoneOtpStore.delete(phone);
+            throw new common_1.BadRequestException('OTP has expired. Please request a new one.');
+        }
+        if (entry.attempts >= 3) {
+            this.phoneOtpStore.delete(phone);
+            throw new common_1.BadRequestException('Too many failed attempts. Please request a new OTP.');
+        }
+        const a = Buffer.from(dto.code);
+        const b = Buffer.from(entry.code);
+        let diff = a.length !== b.length ? 1 : 0;
+        const len = Math.min(a.length, b.length);
+        for (let i = 0; i < len; i++)
+            diff |= a[i] ^ b[i];
+        if (diff !== 0) {
+            entry.attempts++;
+            throw new common_1.BadRequestException('Invalid OTP. Please try again.');
+        }
+        this.phoneOtpStore.delete(phone);
+        const token = await this.jwt.signAsync({ phone, type: 'listing_phone_verified' }, { expiresIn: '30m' });
+        return { verified: true, token, message: 'Phone verified successfully.' };
+    }
+    async sendListingEmailOtp(dto) {
+        try {
+            const payload = await this.jwt.verifyAsync(dto.phone_token);
+            if (payload.type !== 'listing_phone_verified')
+                throw new Error('wrong type');
+        }
+        catch {
+            throw new common_1.BadRequestException('Invalid or expired phone verification token. Please verify your phone first.');
+        }
+        const email = dto.email.trim().toLowerCase();
+        const otp = String((0, crypto_1.randomInt)(100000, 999999));
+        const OTP_EXPIRY_MS = 10 * 60 * 1000;
+        this.emailOtpStore.set(email, { code: otp, expiresAt: Date.now() + OTP_EXPIRY_MS, attempts: 0 });
+        const host = this.config.get('app.smtp.host');
+        const user = this.config.get('app.smtp.user');
+        const pass = this.config.get('app.smtp.pass') || '';
+        const fromAddr = this.config.get('app.smtp.from') || user || 'noreply@smartdentaldesk.com';
+        const port = this.config.get('app.smtp.port') || 587;
+        const secure = this.config.get('app.smtp.secure') || false;
+        if (!host || !user) {
+            this.logger.warn('Platform SMTP not configured — listing email OTP not sent');
+            return { message: 'OTP generated. (Email not configured on server)' };
+        }
+        try {
+            const transporter = nodemailer.createTransport({
+                host, port, secure,
+                auth: { user, pass },
+                connectionTimeout: 15000,
+                greetingTimeout: 15000,
+                socketTimeout: 30000,
+                ...(!secure && { tls: { rejectUnauthorized: false } }),
+            });
+            await transporter.sendMail({
+                from: `"Smart Dental Desk" <${fromAddr}>`,
+                to: email,
+                subject: `${otp} — Your verification code for Smart Dental Desk listing`,
+                html: `
+          <div style="font-family:Inter,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="text-align:center;margin-bottom:24px;">
+              <span style="font-size:20px;font-weight:700;color:#1a78d6;">Smart</span>
+              <span style="font-size:20px;font-weight:700;color:#1ec991;margin-left:4px;">Dental Desk</span>
+            </div>
+            <h2 style="font-size:18px;font-weight:600;color:#111827;text-align:center;margin:0 0 8px;">Verify your email address</h2>
+            <p style="color:#6b7280;font-size:14px;text-align:center;margin:0 0 28px;">Enter this code to verify your email for your free practice listing.</p>
+            <div style="background:#f3f4f6;border-radius:10px;padding:20px;text-align:center;margin-bottom:24px;">
+              <span style="font-size:36px;font-weight:700;letter-spacing:10px;color:#111827;">${otp}</span>
+            </div>
+            <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">This code expires in 10 minutes. Do not share it with anyone.</p>
+          </div>
+        `,
+            });
+            this.logger.log(`Listing email OTP sent to ${email}`);
+        }
+        catch (err) {
+            this.logger.warn(`Listing email OTP send failed to ${email}: ${err.message}`);
+            throw new common_1.BadRequestException('Failed to send email OTP. Please check the address and try again.');
+        }
+        return { message: 'OTP sent to your email address. Valid for 10 minutes.' };
+    }
+    async verifyListingEmailOtp(dto) {
+        const email = dto.email.trim().toLowerCase();
+        const entry = this.emailOtpStore.get(email);
+        if (!entry)
+            throw new common_1.BadRequestException('OTP not found or expired. Please request a new one.');
+        if (Date.now() > entry.expiresAt) {
+            this.emailOtpStore.delete(email);
+            throw new common_1.BadRequestException('OTP has expired. Please request a new one.');
+        }
+        if (entry.attempts >= 3) {
+            this.emailOtpStore.delete(email);
+            throw new common_1.BadRequestException('Too many failed attempts. Please request a new OTP.');
+        }
+        const a = Buffer.from(dto.code);
+        const b = Buffer.from(entry.code);
+        let diff = a.length !== b.length ? 1 : 0;
+        const len = Math.min(a.length, b.length);
+        for (let i = 0; i < len; i++)
+            diff |= a[i] ^ b[i];
+        if (diff !== 0) {
+            entry.attempts++;
+            throw new common_1.BadRequestException('Invalid OTP. Please try again.');
+        }
+        this.emailOtpStore.delete(email);
+        const token = await this.jwt.signAsync({ email, type: 'listing_email_verified' }, { expiresIn: '30m' });
+        return { verified: true, token, message: 'Email verified successfully.' };
+    }
+    async submitListing(dto) {
+        let verifiedPhone;
+        try {
+            const payload = await this.jwt.verifyAsync(dto.phone_token);
+            if (payload.type !== 'listing_phone_verified')
+                throw new Error('wrong type');
+            verifiedPhone = payload.phone;
+        }
+        catch {
+            throw new common_1.BadRequestException('Invalid or expired phone verification token.');
+        }
+        let verifiedEmail;
+        try {
+            const payload = await this.jwt.verifyAsync(dto.email_token);
+            if (payload.type !== 'listing_email_verified')
+                throw new Error('wrong type');
+            verifiedEmail = payload.email;
+        }
+        catch {
+            throw new common_1.BadRequestException('Invalid or expired email verification token.');
+        }
+        const existing = await this.prisma.clinic.findFirst({
+            where: {
+                is_directory_only: true,
+                OR: [{ phone: verifiedPhone }, { email: verifiedEmail }],
+            },
+            select: { id: true, directory_approval_status: true },
+        });
+        if (existing) {
+            if (existing.directory_approval_status === 'pending') {
+                return { success: true, message: 'Your listing is already under review. We will notify you once it is approved.' };
+            }
+            if (existing.directory_approval_status === 'approved') {
+                return { success: true, message: 'Your practice is already listed in our directory.' };
+            }
+        }
+        const clinic = await this.prisma.clinic.create({
+            data: {
+                name: dto.clinic_name.trim(),
+                email: verifiedEmail,
+                phone: verifiedPhone,
+                address: dto.address.trim(),
+                city: dto.city.trim(),
+                state: dto.state.trim(),
+                country: 'India',
+                pincode: dto.pincode?.trim() ?? null,
+                google_maps_url: dto.google_maps_url?.trim() ?? null,
+                latitude: dto.latitude ?? null,
+                longitude: dto.longitude ?? null,
+                specialties: dto.specialties?.join(',') ?? null,
+                directory_treatments: dto.treatments?.join(',') ?? null,
+                working_hours_label: dto.working_hours_label?.trim() ?? null,
+                languages_spoken: dto.languages_spoken?.trim() ?? null,
+                website_url: dto.website_url?.trim() ?? null,
+                clinic_description: dto.clinic_description?.trim() ?? null,
+                is_directory_only: true,
+                directory_contact_name: dto.contact_name.trim(),
+                directory_approval_status: 'pending',
+                directory_requested_at: new Date(),
+                listed_in_directory: false,
+                subscription_status: 'directory',
+            },
+            select: { id: true, name: true },
+        });
+        this.notifySuperAdmin(clinic.name, dto.contact_name, verifiedPhone, verifiedEmail).catch(() => { });
+        this.logger.log(`Free listing submitted: clinic ${clinic.id} (${clinic.name}) — pending approval`);
+        return {
+            success: true,
+            clinic_id: clinic.id,
+            message: 'Your listing has been submitted for review. We will notify you at your email once it is approved (usually within 24 hours).',
+        };
+    }
+    async notifySuperAdmin(clinicName, contactName, phone, email) {
+        const host = this.config.get('app.smtp.host');
+        const user = this.config.get('app.smtp.user');
+        const pass = this.config.get('app.smtp.pass') || '';
+        const fromAddr = this.config.get('app.smtp.from') || user || 'noreply@smartdentaldesk.com';
+        const port = this.config.get('app.smtp.port') || 587;
+        const secure = this.config.get('app.smtp.secure') || false;
+        const siteUrl = this.config.get('app.frontendUrl') || 'https://smartdentaldesk.com';
+        if (!host || !user)
+            return;
+        const transporter = nodemailer.createTransport({
+            host, port, secure,
+            auth: { user, pass },
+            connectionTimeout: 15000,
+            greetingTimeout: 15000,
+            socketTimeout: 30000,
+            ...(!secure && { tls: { rejectUnauthorized: false } }),
+        });
+        await transporter.sendMail({
+            from: `"Smart Dental Desk" <${fromAddr}>`,
+            to: fromAddr,
+            subject: `New free listing request: ${clinicName}`,
+            html: `
+        <div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;">
+          <h2 style="font-size:18px;font-weight:700;color:#111827;margin:0 0 16px;">New Free Listing Request</h2>
+          <table style="width:100%;border-collapse:collapse;font-size:14px;color:#374151;">
+            <tr><td style="padding:6px 0;font-weight:600;width:140px;">Clinic</td><td>${clinicName}</td></tr>
+            <tr><td style="padding:6px 0;font-weight:600;">Contact</td><td>${contactName}</td></tr>
+            <tr><td style="padding:6px 0;font-weight:600;">Phone</td><td>${phone}</td></tr>
+            <tr><td style="padding:6px 0;font-weight:600;">Email</td><td>${email}</td></tr>
+          </table>
+          <div style="margin-top:24px;">
+            <a href="${siteUrl}/super-admin/directory-approvals" style="display:inline-block;background:#6366f1;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Review in Dashboard →</a>
+          </div>
+          <p style="color:#9ca3af;font-size:12px;margin-top:20px;">Both phone (${phone}) and email (${email}) have been OTP-verified.</p>
+        </div>
+      `,
+        });
+    }
     async createReviewToken(clinicId, appointmentId, doctorId) {
         const token = (0, crypto_1.randomBytes)(32).toString('hex');
         await this.prisma.clinicDirectoryReview.create({
@@ -745,11 +1277,63 @@ __decorate([
     __metadata("design:paramtypes", [String, SubmitReviewDto]),
     __metadata("design:returntype", Promise)
 ], PublicDirectoryController.prototype, "submitReview", null);
+__decorate([
+    (0, common_1.Post)('list-practice/send-phone-otp'),
+    (0, public_decorator_js_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Send SMS OTP to phone for free listing verification' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [SendPhoneOtpDto]),
+    __metadata("design:returntype", Promise)
+], PublicDirectoryController.prototype, "sendListingPhoneOtp", null);
+__decorate([
+    (0, common_1.Post)('list-practice/verify-phone-otp'),
+    (0, public_decorator_js_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Verify phone OTP for free listing; returns a short-lived phone token' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [VerifyPhoneOtpDto]),
+    __metadata("design:returntype", Promise)
+], PublicDirectoryController.prototype, "verifyListingPhoneOtp", null);
+__decorate([
+    (0, common_1.Post)('list-practice/send-email-otp'),
+    (0, public_decorator_js_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Send email OTP for free listing (requires phone_token)' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [SendEmailOtpDto]),
+    __metadata("design:returntype", Promise)
+], PublicDirectoryController.prototype, "sendListingEmailOtp", null);
+__decorate([
+    (0, common_1.Post)('list-practice/verify-email-otp'),
+    (0, public_decorator_js_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Verify email OTP for free listing; returns a short-lived email token' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [VerifyEmailOtpDto]),
+    __metadata("design:returntype", Promise)
+], PublicDirectoryController.prototype, "verifyListingEmailOtp", null);
+__decorate([
+    (0, common_1.Post)('list-practice/submit'),
+    (0, public_decorator_js_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Submit a free practice listing after phone + email verification' }),
+    openapi.ApiResponse({ status: 201, type: Object }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [SubmitListingDto]),
+    __metadata("design:returntype", Promise)
+], PublicDirectoryController.prototype, "submitListing", null);
 exports.PublicDirectoryController = PublicDirectoryController = __decorate([
     (0, throttler_1.SkipThrottle)(),
     (0, swagger_1.ApiTags)('Public Directory'),
     (0, common_1.Controller)('public/directory'),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
-        s3_service_js_1.S3Service])
+        s3_service_js_1.S3Service,
+        config_1.ConfigService,
+        jwt_1.JwtService])
 ], PublicDirectoryController);
 //# sourceMappingURL=public-directory.controller.js.map

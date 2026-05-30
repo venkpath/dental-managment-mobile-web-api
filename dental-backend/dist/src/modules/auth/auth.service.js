@@ -386,6 +386,132 @@ let AuthService = class AuthService {
             admin: result.admin,
         };
     }
+    async getClaimPreview(clinicId) {
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: {
+                id: true, name: true, city: true, state: true, address: true,
+                phone: true, email: true, is_directory_only: true,
+                directory_approval_status: true,
+                _count: { select: { users: true } },
+            },
+        });
+        if (!clinic)
+            throw new common_1.NotFoundException('Listing not found');
+        if (!clinic.is_directory_only)
+            throw new common_1.BadRequestException('This clinic is already a full subscriber');
+        if (clinic.directory_approval_status !== 'approved')
+            throw new common_1.BadRequestException('This listing has not been approved yet');
+        if (clinic._count.users > 0)
+            throw new common_1.ConflictException('This listing has already been claimed');
+        return {
+            id: clinic.id,
+            name: clinic.name,
+            city: clinic.city,
+            state: clinic.state,
+            address: clinic.address,
+            phone: clinic.phone,
+            email: clinic.email,
+        };
+    }
+    async claimDirectoryListing(dto) {
+        let verifiedPhone;
+        try {
+            const payload = await this.jwtService.verifyAsync(dto.phone_verification_token);
+            if (payload.type !== 'phone_reg_verified')
+                throw new common_1.BadRequestException('Invalid phone verification token');
+            verifiedPhone = payload.phone;
+        }
+        catch (err) {
+            if (err instanceof common_1.BadRequestException)
+                throw err;
+            throw new common_1.BadRequestException('Phone verification token is invalid or expired. Please verify your number again.');
+        }
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: dto.clinic_id },
+            include: { _count: { select: { users: true } } },
+        });
+        if (!clinic)
+            throw new common_1.NotFoundException('Listing not found');
+        if (!clinic.is_directory_only)
+            throw new common_1.BadRequestException('Already a full subscriber');
+        if (clinic.directory_approval_status !== 'approved')
+            throw new common_1.BadRequestException('Listing not yet approved');
+        if (clinic._count.users > 0)
+            throw new common_1.ConflictException('This listing has already been claimed');
+        const existingEmail = await this.prisma.user.findFirst({ where: { email: dto.admin_email } });
+        if (existingEmail)
+            throw new common_1.ConflictException('An account with this email already exists');
+        const FREE_GRACE = 30;
+        const TRIAL_DAYS = 14;
+        let planId;
+        let isFreePlan = false;
+        if (dto.plan_key && dto.plan_key !== 'trial') {
+            const plan = await this.prisma.plan.findFirst({
+                where: { name: { contains: dto.plan_key, mode: 'insensitive' } },
+            });
+            if (plan) {
+                planId = plan.id;
+                isFreePlan = plan.name.toLowerCase() === 'free';
+            }
+        }
+        const trialEndsAt = new Date();
+        trialEndsAt.setDate(trialEndsAt.getDate() + (isFreePlan ? FREE_GRACE : TRIAL_DAYS));
+        const result = await this.prisma.$transaction(async (tx) => {
+            const updatedClinic = await tx.clinic.update({
+                where: { id: dto.clinic_id },
+                data: {
+                    is_directory_only: false,
+                    subscription_status: isFreePlan ? 'active' : 'trial',
+                    trial_ends_at: trialEndsAt,
+                    billing_cycle: dto.billing_cycle === 'yearly' ? 'yearly' : 'monthly',
+                    ...(planId ? { plan_id: planId } : {}),
+                },
+            });
+            const branch = await tx.branch.create({
+                data: {
+                    clinic_id: dto.clinic_id,
+                    name: 'Main Branch',
+                    address: clinic.address || undefined,
+                    phone: clinic.phone || undefined,
+                },
+            });
+            const admin = await tx.user.create({
+                data: {
+                    clinic_id: dto.clinic_id,
+                    branch_id: branch.id,
+                    name: (0, name_util_js_1.decodeHtmlEntities)(dto.admin_name),
+                    email: dto.admin_email,
+                    phone: verifiedPhone,
+                    password_hash: await this.passwordService.hash(dto.admin_password),
+                    role: 'SuperAdmin',
+                    is_doctor: dto.is_doctor ?? false,
+                    status: 'active',
+                    phone_verified: true,
+                },
+                select: { id: true, clinic_id: true, branch_id: true, name: true, email: true, role: true, status: true },
+            });
+            return { clinic: updatedClinic, admin };
+        });
+        this.sendOnboardingWelcomeEmail({
+            admin_name: result.admin.name,
+            admin_email: result.admin.email,
+            admin_password: dto.admin_password,
+            clinic_name: result.clinic.name,
+            subscription_status: result.clinic.subscription_status,
+            trial_ends_at: result.clinic.trial_ends_at,
+        }).catch((err) => this.logger.warn(`Claim welcome email failed: ${err.message}`));
+        return {
+            clinic: {
+                id: result.clinic.id,
+                name: result.clinic.name,
+                email: result.clinic.email,
+                subscription_status: result.clinic.subscription_status,
+                trial_ends_at: result.clinic.trial_ends_at,
+            },
+            admin: result.admin,
+        };
+    }
     async sendOnboardingWelcomeEmail(data) {
         if (!this.ensurePlatformEmailConfigured())
             return;

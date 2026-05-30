@@ -86,6 +86,42 @@ export declare class AuthService {
             branch_id: string | null;
         };
     }>;
+    getClaimPreview(clinicId: string): Promise<{
+        id: string;
+        name: string;
+        city: string | null;
+        state: string | null;
+        address: string | null;
+        phone: string | null;
+        email: string;
+    }>;
+    claimDirectoryListing(dto: {
+        clinic_id: string;
+        admin_name: string;
+        admin_email: string;
+        admin_password: string;
+        phone_verification_token: string;
+        is_doctor?: boolean;
+        plan_key?: string;
+        billing_cycle?: string;
+    }): Promise<{
+        clinic: {
+            id: string;
+            name: string;
+            email: string;
+            subscription_status: string;
+            trial_ends_at: Date | null;
+        };
+        admin: {
+            id: string;
+            email: string;
+            name: string;
+            status: string;
+            clinic_id: string;
+            role: string;
+            branch_id: string | null;
+        };
+    }>;
     private sendOnboardingWelcomeEmail;
     private sendOnboardingAdminAlertEmail;
     private ensurePlatformEmailConfigured;

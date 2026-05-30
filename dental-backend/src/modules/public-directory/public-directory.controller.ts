@@ -1,12 +1,12 @@
 import {
   Controller, Get, Post, Param, Body, Query, Res,
-  ParseUUIDPipe, NotFoundException, BadRequestException,
+  ParseUUIDPipe, NotFoundException, BadRequestException, HttpException, HttpStatus,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import {
   IsString, IsOptional, IsInt, IsNumber, IsBoolean, Min, Max, MinLength,
-  MaxLength, IsIn,
+  MaxLength, IsIn, IsEmail, IsArray, ArrayMaxSize,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
@@ -14,7 +14,10 @@ import { Public } from '../../common/decorators/public.decorator.js';
 import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaService } from '../../database/prisma.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomInt } from 'crypto';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import * as nodemailer from 'nodemailer';
 
 // ─── DTOs ───────────────────────────────────────────────────────────────────
 
@@ -166,6 +169,157 @@ class ReviewSortQuery {
   limit?: number;
 }
 
+// ─── List-Practice DTOs ─────────────────────────────────────────────────────
+
+class SendPhoneOtpDto {
+  @ApiProperty({ example: '+919876543210' })
+  @IsString()
+  @MinLength(7)
+  @MaxLength(20)
+  phone!: string;
+}
+
+class VerifyPhoneOtpDto {
+  @ApiProperty({ example: '+919876543210' })
+  @IsString()
+  @MinLength(7)
+  @MaxLength(20)
+  phone!: string;
+
+  @ApiProperty({ example: '482910' })
+  @IsString()
+  @MinLength(6)
+  @MaxLength(6)
+  code!: string;
+}
+
+class SendEmailOtpDto {
+  @ApiProperty({ example: 'dr.sharma@clinic.com' })
+  @IsEmail()
+  email!: string;
+
+  @ApiProperty({ description: 'Phone verification token from verify-phone-otp step' })
+  @IsString()
+  phone_token!: string;
+}
+
+class VerifyEmailOtpDto {
+  @ApiProperty({ example: 'dr.sharma@clinic.com' })
+  @IsEmail()
+  email!: string;
+
+  @ApiProperty({ example: '293847' })
+  @IsString()
+  @MinLength(6)
+  @MaxLength(6)
+  code!: string;
+}
+
+class SubmitListingDto {
+  @ApiProperty({ description: 'Phone verification JWT from verify-phone-otp' })
+  @IsString()
+  phone_token!: string;
+
+  @ApiProperty({ description: 'Email verification JWT from verify-email-otp' })
+  @IsString()
+  email_token!: string;
+
+  // Step 1
+  @ApiProperty({ example: 'Sharma Dental Clinic' })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(255)
+  clinic_name!: string;
+
+  @ApiProperty({ example: 'Dr. Rajesh Sharma' })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(200)
+  contact_name!: string;
+
+  // Step 2
+  @ApiProperty({ example: '12, MG Road, Koramangala' })
+  @IsString()
+  @MinLength(5)
+  @MaxLength(500)
+  address!: string;
+
+  @ApiProperty({ example: 'Bengaluru' })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  city!: string;
+
+  @ApiProperty({ example: 'Karnataka' })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  state!: string;
+
+  @ApiPropertyOptional({ example: '560034' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  pincode?: string;
+
+  @ApiPropertyOptional({ example: 'https://maps.app.goo.gl/...' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  google_maps_url?: string;
+
+  @ApiPropertyOptional({ description: 'Latitude from browser geolocation', example: 12.9716 })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  latitude?: number;
+
+  @ApiPropertyOptional({ description: 'Longitude from browser geolocation', example: 77.5946 })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  longitude?: number;
+
+  // Step 3
+  @ApiPropertyOptional({ example: ['General Dentistry', 'Orthodontics'] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  specialties?: string[];
+
+  @ApiPropertyOptional({ example: ['Root Canal', 'Teeth Whitening', 'Braces'] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @IsString({ each: true })
+  treatments?: string[];
+
+  @ApiPropertyOptional({ example: 'Mon–Sat 9am–7pm' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  working_hours_label?: string;
+
+  @ApiPropertyOptional({ example: 'English, Hindi, Kannada' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  languages_spoken?: string;
+
+  @ApiPropertyOptional({ example: 'https://drsharmadental.com' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  website_url?: string;
+
+  @ApiPropertyOptional({ example: 'Family dental clinic with 15 years of experience.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  clinic_description?: string;
+}
+
 // ─── City alias normalization ────────────────────────────────────────────────
 // Strips trailing ", State/Country" geocoder suffixes and expands known
 // dual-name cities so a search for "Bengaluru" also matches "Bangalore".
@@ -309,9 +463,20 @@ function computeClinicAvailability(
 @ApiTags('Public Directory')
 @Controller('public/directory')
 export class PublicDirectoryController {
+  private readonly logger = new (class { log = (m: string) => console.log(`[PublicDirectory] ${m}`); warn = (m: string) => console.warn(`[PublicDirectory] ${m}`); })();
+
+  /** phone → { code, expiresAt, attempts } */
+  private readonly phoneOtpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
+  /** phone → list of send timestamps (rate limit) */
+  private readonly phoneOtpSendTracker = new Map<string, number[]>();
+  /** email → { code, expiresAt, attempts } */
+  private readonly emailOtpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly s3: S3Service,
+    private readonly config: ConfigService,
+    private readonly jwt: JwtService,
   ) {}
 
   // ── GET /public/directory — search / list clinics ──
@@ -765,6 +930,353 @@ export class PublicDirectoryController {
     });
 
     return { success: true, message: 'Thank you for your review!', review_id: review.id };
+  }
+
+  // ── POST /public/directory/list-practice/send-phone-otp ──────────────────
+  @Post('list-practice/send-phone-otp')
+  @Public()
+  @ApiOperation({ summary: 'Send SMS OTP to phone for free listing verification' })
+  async sendListingPhoneOtp(@Body() dto: SendPhoneOtpDto) {
+    const phone = dto.phone.trim();
+
+    // Rate limit: 3 sends per phone per hour
+    const now = Date.now();
+    const ONE_HOUR = 60 * 60 * 1000;
+    const sends = (this.phoneOtpSendTracker.get(phone) ?? []).filter((t) => now - t < ONE_HOUR);
+    if (sends.length >= 3) {
+      throw new HttpException(
+        'Too many OTP requests for this number. Please try again after an hour.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    sends.push(now);
+    this.phoneOtpSendTracker.set(phone, sends);
+
+    const otp = String(randomInt(100000, 999999));
+    const OTP_EXPIRY_MS = 10 * 60 * 1000;
+    this.phoneOtpStore.set(phone, { code: otp, expiresAt: now + OTP_EXPIRY_MS, attempts: 0 });
+
+    const apiKey = this.config.get<string>('app.sms.apiKey');
+    const templateId = this.config.get<string>('app.sms.defaultDltTemplateId');
+
+    if (!apiKey || !templateId) {
+      this.logger.warn('Platform SMS not configured — listing phone OTP not sent');
+      return { message: 'OTP generated. (SMS not configured on server)' };
+    }
+
+    const senderId = this.config.get<string>('app.sms.senderId') || 'SDDSK';
+    const entityId = this.config.get<string>('app.sms.entityId') || '';
+    const templateBody =
+      this.config.get<string>('app.sms.dltTemplateBody') ||
+      "Your otp for {#var#} by grats it is {#var#}, otp valid for 10min, please don't share with any one,";
+
+    let slot = 0;
+    const text = templateBody.replace(/\{#var#\}/g, () => {
+      slot++;
+      if (slot === 1) return 'listing your practice on Smart Dental Desk';
+      if (slot === 2) return otp;
+      return '';
+    });
+
+    const digits = phone.replace(/[^0-9]/g, '');
+    const number = digits.length === 10 ? `91${digits}` : digits;
+
+    const params = new URLSearchParams({
+      APIKey: apiKey,
+      senderid: senderId,
+      channel: '2',
+      DCS: '0',
+      flashsms: '0',
+      number,
+      text,
+      route: '47',
+      dlttemplateid: templateId,
+    });
+    if (entityId) params.set('EntityId', entityId);
+
+    try {
+      const res = await fetch(`https://www.smsgatewayhub.com/api/mt/SendSMS?${params.toString()}`, {
+        signal: AbortSignal.timeout(15000),
+      });
+      const data = await res.json() as Record<string, unknown>;
+      const ok = data['ErrorCode'] === '000' || data['ErrorCode'] === 0;
+      if (!ok) {
+        const errMsg = String(data['ErrorMessage'] ?? 'SMS gateway error');
+        this.logger.warn(`Listing phone OTP SMS failed to ${number}: ${errMsg}`);
+        throw new BadRequestException(`Could not send SMS OTP: ${errMsg}`);
+      }
+      this.logger.log(`Listing phone OTP sent to ${number}`);
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      throw new BadRequestException('Failed to send SMS OTP. Please check the number and try again.');
+    }
+
+    return { message: 'OTP sent to your mobile number. Valid for 10 minutes.' };
+  }
+
+  // ── POST /public/directory/list-practice/verify-phone-otp ─────────────────
+  @Post('list-practice/verify-phone-otp')
+  @Public()
+  @ApiOperation({ summary: 'Verify phone OTP for free listing; returns a short-lived phone token' })
+  async verifyListingPhoneOtp(@Body() dto: VerifyPhoneOtpDto) {
+    const phone = dto.phone.trim();
+    const entry = this.phoneOtpStore.get(phone);
+
+    if (!entry) throw new BadRequestException('OTP not found or expired. Please request a new one.');
+    if (Date.now() > entry.expiresAt) {
+      this.phoneOtpStore.delete(phone);
+      throw new BadRequestException('OTP has expired. Please request a new one.');
+    }
+    if (entry.attempts >= 3) {
+      this.phoneOtpStore.delete(phone);
+      throw new BadRequestException('Too many failed attempts. Please request a new OTP.');
+    }
+
+    // Constant-time comparison
+    const a = Buffer.from(dto.code);
+    const b = Buffer.from(entry.code);
+    let diff = a.length !== b.length ? 1 : 0;
+    const len = Math.min(a.length, b.length);
+    for (let i = 0; i < len; i++) diff |= a[i] ^ b[i];
+
+    if (diff !== 0) {
+      entry.attempts++;
+      throw new BadRequestException('Invalid OTP. Please try again.');
+    }
+
+    this.phoneOtpStore.delete(phone);
+    const token = await this.jwt.signAsync({ phone, type: 'listing_phone_verified' }, { expiresIn: '30m' });
+    return { verified: true, token, message: 'Phone verified successfully.' };
+  }
+
+  // ── POST /public/directory/list-practice/send-email-otp ───────────────────
+  @Post('list-practice/send-email-otp')
+  @Public()
+  @ApiOperation({ summary: 'Send email OTP for free listing (requires phone_token)' })
+  async sendListingEmailOtp(@Body() dto: SendEmailOtpDto) {
+    // Validate that phone was already verified
+    try {
+      const payload = await this.jwt.verifyAsync<{ phone: string; type: string }>(dto.phone_token);
+      if (payload.type !== 'listing_phone_verified') throw new Error('wrong type');
+    } catch {
+      throw new BadRequestException('Invalid or expired phone verification token. Please verify your phone first.');
+    }
+
+    const email = dto.email.trim().toLowerCase();
+    const otp = String(randomInt(100000, 999999));
+    const OTP_EXPIRY_MS = 10 * 60 * 1000;
+    this.emailOtpStore.set(email, { code: otp, expiresAt: Date.now() + OTP_EXPIRY_MS, attempts: 0 });
+
+    const host = this.config.get<string>('app.smtp.host');
+    const user = this.config.get<string>('app.smtp.user');
+    const pass = this.config.get<string>('app.smtp.pass') || '';
+    const fromAddr = this.config.get<string>('app.smtp.from') || user || 'noreply@smartdentaldesk.com';
+    const port = this.config.get<number>('app.smtp.port') || 587;
+    const secure = this.config.get<boolean>('app.smtp.secure') || false;
+
+    if (!host || !user) {
+      this.logger.warn('Platform SMTP not configured — listing email OTP not sent');
+      return { message: 'OTP generated. (Email not configured on server)' };
+    }
+
+    try {
+      const transporter = nodemailer.createTransport({
+        host, port, secure,
+        auth: { user, pass },
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
+        socketTimeout: 30000,
+        ...(!secure && { tls: { rejectUnauthorized: false } }),
+      });
+
+      await transporter.sendMail({
+        from: `"Smart Dental Desk" <${fromAddr}>`,
+        to: email,
+        subject: `${otp} — Your verification code for Smart Dental Desk listing`,
+        html: `
+          <div style="font-family:Inter,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="text-align:center;margin-bottom:24px;">
+              <span style="font-size:20px;font-weight:700;color:#1a78d6;">Smart</span>
+              <span style="font-size:20px;font-weight:700;color:#1ec991;margin-left:4px;">Dental Desk</span>
+            </div>
+            <h2 style="font-size:18px;font-weight:600;color:#111827;text-align:center;margin:0 0 8px;">Verify your email address</h2>
+            <p style="color:#6b7280;font-size:14px;text-align:center;margin:0 0 28px;">Enter this code to verify your email for your free practice listing.</p>
+            <div style="background:#f3f4f6;border-radius:10px;padding:20px;text-align:center;margin-bottom:24px;">
+              <span style="font-size:36px;font-weight:700;letter-spacing:10px;color:#111827;">${otp}</span>
+            </div>
+            <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">This code expires in 10 minutes. Do not share it with anyone.</p>
+          </div>
+        `,
+      });
+      this.logger.log(`Listing email OTP sent to ${email}`);
+    } catch (err) {
+      this.logger.warn(`Listing email OTP send failed to ${email}: ${(err as Error).message}`);
+      throw new BadRequestException('Failed to send email OTP. Please check the address and try again.');
+    }
+
+    return { message: 'OTP sent to your email address. Valid for 10 minutes.' };
+  }
+
+  // ── POST /public/directory/list-practice/verify-email-otp ─────────────────
+  @Post('list-practice/verify-email-otp')
+  @Public()
+  @ApiOperation({ summary: 'Verify email OTP for free listing; returns a short-lived email token' })
+  async verifyListingEmailOtp(@Body() dto: VerifyEmailOtpDto) {
+    const email = dto.email.trim().toLowerCase();
+    const entry = this.emailOtpStore.get(email);
+
+    if (!entry) throw new BadRequestException('OTP not found or expired. Please request a new one.');
+    if (Date.now() > entry.expiresAt) {
+      this.emailOtpStore.delete(email);
+      throw new BadRequestException('OTP has expired. Please request a new one.');
+    }
+    if (entry.attempts >= 3) {
+      this.emailOtpStore.delete(email);
+      throw new BadRequestException('Too many failed attempts. Please request a new OTP.');
+    }
+
+    const a = Buffer.from(dto.code);
+    const b = Buffer.from(entry.code);
+    let diff = a.length !== b.length ? 1 : 0;
+    const len = Math.min(a.length, b.length);
+    for (let i = 0; i < len; i++) diff |= a[i] ^ b[i];
+
+    if (diff !== 0) {
+      entry.attempts++;
+      throw new BadRequestException('Invalid OTP. Please try again.');
+    }
+
+    this.emailOtpStore.delete(email);
+    const token = await this.jwt.signAsync({ email, type: 'listing_email_verified' }, { expiresIn: '30m' });
+    return { verified: true, token, message: 'Email verified successfully.' };
+  }
+
+  // ── POST /public/directory/list-practice/submit ───────────────────────────
+  @Post('list-practice/submit')
+  @Public()
+  @ApiOperation({ summary: 'Submit a free practice listing after phone + email verification' })
+  async submitListing(@Body() dto: SubmitListingDto) {
+    // Validate phone token
+    let verifiedPhone: string;
+    try {
+      const payload = await this.jwt.verifyAsync<{ phone: string; type: string }>(dto.phone_token);
+      if (payload.type !== 'listing_phone_verified') throw new Error('wrong type');
+      verifiedPhone = payload.phone;
+    } catch {
+      throw new BadRequestException('Invalid or expired phone verification token.');
+    }
+
+    // Validate email token
+    let verifiedEmail: string;
+    try {
+      const payload = await this.jwt.verifyAsync<{ email: string; type: string }>(dto.email_token);
+      if (payload.type !== 'listing_email_verified') throw new Error('wrong type');
+      verifiedEmail = payload.email;
+    } catch {
+      throw new BadRequestException('Invalid or expired email verification token.');
+    }
+
+    // Check for duplicate submission (same phone or email in last 24h for directory-only clinics)
+    const existing = await this.prisma.clinic.findFirst({
+      where: {
+        is_directory_only: true,
+        OR: [{ phone: verifiedPhone }, { email: verifiedEmail }],
+      },
+      select: { id: true, directory_approval_status: true },
+    });
+
+    if (existing) {
+      if (existing.directory_approval_status === 'pending') {
+        return { success: true, message: 'Your listing is already under review. We will notify you once it is approved.' };
+      }
+      if (existing.directory_approval_status === 'approved') {
+        return { success: true, message: 'Your practice is already listed in our directory.' };
+      }
+    }
+
+    const clinic = await this.prisma.clinic.create({
+      data: {
+        name: dto.clinic_name.trim(),
+        email: verifiedEmail,
+        phone: verifiedPhone,
+        address: dto.address.trim(),
+        city: dto.city.trim(),
+        state: dto.state.trim(),
+        country: 'India',
+        pincode: dto.pincode?.trim() ?? null,
+        google_maps_url: dto.google_maps_url?.trim() ?? null,
+        latitude: dto.latitude ?? null,
+        longitude: dto.longitude ?? null,
+        specialties: dto.specialties?.join(',') ?? null,
+        directory_treatments: dto.treatments?.join(',') ?? null,
+        working_hours_label: dto.working_hours_label?.trim() ?? null,
+        languages_spoken: dto.languages_spoken?.trim() ?? null,
+        website_url: dto.website_url?.trim() ?? null,
+        clinic_description: dto.clinic_description?.trim() ?? null,
+        // Directory flags
+        is_directory_only: true,
+        directory_contact_name: dto.contact_name.trim(),
+        directory_approval_status: 'pending',
+        directory_requested_at: new Date(),
+        listed_in_directory: false,
+        // Minimal subscription state — directory-only clinics have no app access
+        subscription_status: 'directory',
+      },
+      select: { id: true, name: true },
+    });
+
+    // Notify super-admin via email
+    this.notifySuperAdmin(clinic.name, dto.contact_name, verifiedPhone, verifiedEmail).catch(() => {});
+
+    this.logger.log(`Free listing submitted: clinic ${clinic.id} (${clinic.name}) — pending approval`);
+
+    return {
+      success: true,
+      clinic_id: clinic.id,
+      message: 'Your listing has been submitted for review. We will notify you at your email once it is approved (usually within 24 hours).',
+    };
+  }
+
+  private async notifySuperAdmin(clinicName: string, contactName: string, phone: string, email: string) {
+    const host = this.config.get<string>('app.smtp.host');
+    const user = this.config.get<string>('app.smtp.user');
+    const pass = this.config.get<string>('app.smtp.pass') || '';
+    const fromAddr = this.config.get<string>('app.smtp.from') || user || 'noreply@smartdentaldesk.com';
+    const port = this.config.get<number>('app.smtp.port') || 587;
+    const secure = this.config.get<boolean>('app.smtp.secure') || false;
+    const siteUrl = this.config.get<string>('app.frontendUrl') || 'https://smartdentaldesk.com';
+
+    if (!host || !user) return;
+
+    const transporter = nodemailer.createTransport({
+      host, port, secure,
+      auth: { user, pass },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 30000,
+      ...(!secure && { tls: { rejectUnauthorized: false } }),
+    });
+
+    await transporter.sendMail({
+      from: `"Smart Dental Desk" <${fromAddr}>`,
+      to: fromAddr,
+      subject: `New free listing request: ${clinicName}`,
+      html: `
+        <div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;">
+          <h2 style="font-size:18px;font-weight:700;color:#111827;margin:0 0 16px;">New Free Listing Request</h2>
+          <table style="width:100%;border-collapse:collapse;font-size:14px;color:#374151;">
+            <tr><td style="padding:6px 0;font-weight:600;width:140px;">Clinic</td><td>${clinicName}</td></tr>
+            <tr><td style="padding:6px 0;font-weight:600;">Contact</td><td>${contactName}</td></tr>
+            <tr><td style="padding:6px 0;font-weight:600;">Phone</td><td>${phone}</td></tr>
+            <tr><td style="padding:6px 0;font-weight:600;">Email</td><td>${email}</td></tr>
+          </table>
+          <div style="margin-top:24px;">
+            <a href="${siteUrl}/super-admin/directory-approvals" style="display:inline-block;background:#6366f1;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Review in Dashboard →</a>
+          </div>
+          <p style="color:#9ca3af;font-size:12px;margin-top:20px;">Both phone (${phone}) and email (${email}) have been OTP-verified.</p>
+        </div>
+      `,
+    });
   }
 
   // ── Internal helper used by appointment completion flow ──

@@ -8,6 +8,8 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PublicDirectoryModule = void 0;
 const common_1 = require("@nestjs/common");
+const jwt_1 = require("@nestjs/jwt");
+const config_1 = require("@nestjs/config");
 const public_directory_controller_js_1 = require("./public-directory.controller.js");
 const review_trigger_service_js_1 = require("./review-trigger.service.js");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
@@ -18,7 +20,18 @@ let PublicDirectoryModule = class PublicDirectoryModule {
 exports.PublicDirectoryModule = PublicDirectoryModule;
 exports.PublicDirectoryModule = PublicDirectoryModule = __decorate([
     (0, common_1.Module)({
-        imports: [communication_module_js_1.CommunicationModule],
+        imports: [
+            communication_module_js_1.CommunicationModule,
+            config_1.ConfigModule,
+            jwt_1.JwtModule.registerAsync({
+                imports: [config_1.ConfigModule],
+                inject: [config_1.ConfigService],
+                useFactory: (config) => ({
+                    secret: config.get('app.jwtSecret') || config.get('JWT_SECRET') || 'secret',
+                    signOptions: { expiresIn: '30m' },
+                }),
+            }),
+        ],
         controllers: [public_directory_controller_js_1.PublicDirectoryController],
         providers: [prisma_service_js_1.PrismaService, public_directory_controller_js_1.PublicDirectoryController, review_trigger_service_js_1.ReviewTriggerService, s3_service_js_1.S3Service],
         exports: [review_trigger_service_js_1.ReviewTriggerService],

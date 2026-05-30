@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException, ForbiddenException, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, ForbiddenException, NotFoundException, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { randomInt } from 'crypto';
@@ -461,6 +461,142 @@ export class AuthService {
         subscription_status: result.clinic.subscription_status,
         trial_ends_at: result.clinic.trial_ends_at,
         plan_id: result.clinic.plan_id,
+      },
+      admin: result.admin,
+    };
+  }
+
+  // ── Directory listing claim ───────────────────────────────────────────────────
+
+  async getClaimPreview(clinicId: string) {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: {
+        id: true, name: true, city: true, state: true, address: true,
+        phone: true, email: true, is_directory_only: true,
+        directory_approval_status: true,
+        _count: { select: { users: true } },
+      },
+    });
+    if (!clinic) throw new NotFoundException('Listing not found');
+    if (!clinic.is_directory_only) throw new BadRequestException('This clinic is already a full subscriber');
+    if (clinic.directory_approval_status !== 'approved') throw new BadRequestException('This listing has not been approved yet');
+    if (clinic._count.users > 0) throw new ConflictException('This listing has already been claimed');
+    return {
+      id: clinic.id,
+      name: clinic.name,
+      city: clinic.city,
+      state: clinic.state,
+      address: clinic.address,
+      phone: clinic.phone,
+      email: clinic.email,
+    };
+  }
+
+  async claimDirectoryListing(dto: {
+    clinic_id: string;
+    admin_name: string;
+    admin_email: string;
+    admin_password: string;
+    phone_verification_token: string;
+    is_doctor?: boolean;
+    plan_key?: string;
+    billing_cycle?: string;
+  }) {
+    // Verify phone token
+    let verifiedPhone: string;
+    try {
+      const payload = await this.jwtService.verifyAsync<{ phone: string; type: string }>(
+        dto.phone_verification_token,
+      );
+      if (payload.type !== 'phone_reg_verified') throw new BadRequestException('Invalid phone verification token');
+      verifiedPhone = payload.phone;
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      throw new BadRequestException('Phone verification token is invalid or expired. Please verify your number again.');
+    }
+
+    // Validate clinic is still claimable
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: dto.clinic_id },
+      include: { _count: { select: { users: true } } },
+    });
+    if (!clinic) throw new NotFoundException('Listing not found');
+    if (!clinic.is_directory_only) throw new BadRequestException('Already a full subscriber');
+    if (clinic.directory_approval_status !== 'approved') throw new BadRequestException('Listing not yet approved');
+    if (clinic._count.users > 0) throw new ConflictException('This listing has already been claimed');
+
+    // Check email uniqueness
+    const existingEmail = await this.prisma.user.findFirst({ where: { email: dto.admin_email } });
+    if (existingEmail) throw new ConflictException('An account with this email already exists');
+
+    // Resolve plan
+    const FREE_GRACE = 30;
+    const TRIAL_DAYS = 14;
+    let planId: string | undefined;
+    let isFreePlan = false;
+    if (dto.plan_key && dto.plan_key !== 'trial') {
+      const plan = await this.prisma.plan.findFirst({
+        where: { name: { contains: dto.plan_key, mode: 'insensitive' } },
+      });
+      if (plan) { planId = plan.id; isFreePlan = plan.name.toLowerCase() === 'free'; }
+    }
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + (isFreePlan ? FREE_GRACE : TRIAL_DAYS));
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updatedClinic = await tx.clinic.update({
+        where: { id: dto.clinic_id },
+        data: {
+          is_directory_only: false,
+          subscription_status: isFreePlan ? 'active' : 'trial',
+          trial_ends_at: trialEndsAt,
+          billing_cycle: dto.billing_cycle === 'yearly' ? 'yearly' : 'monthly',
+          ...(planId ? { plan_id: planId } : {}),
+        },
+      });
+      const branch = await tx.branch.create({
+        data: {
+          clinic_id: dto.clinic_id,
+          name: 'Main Branch',
+          address: clinic.address || undefined,
+          phone: clinic.phone || undefined,
+        },
+      });
+      const admin = await tx.user.create({
+        data: {
+          clinic_id: dto.clinic_id,
+          branch_id: branch.id,
+          name: decodeHtmlEntities(dto.admin_name),
+          email: dto.admin_email,
+          phone: verifiedPhone,
+          password_hash: await this.passwordService.hash(dto.admin_password),
+          role: 'SuperAdmin',
+          is_doctor: dto.is_doctor ?? false,
+          status: 'active',
+          phone_verified: true,
+        },
+        select: { id: true, clinic_id: true, branch_id: true, name: true, email: true, role: true, status: true },
+      });
+      return { clinic: updatedClinic, admin };
+    });
+
+    this.sendOnboardingWelcomeEmail({
+      admin_name: result.admin.name,
+      admin_email: result.admin.email,
+      admin_password: dto.admin_password,
+      clinic_name: result.clinic.name,
+      subscription_status: result.clinic.subscription_status,
+      trial_ends_at: result.clinic.trial_ends_at,
+    }).catch((err) => this.logger.warn(`Claim welcome email failed: ${err.message}`));
+
+    return {
+      clinic: {
+        id: result.clinic.id,
+        name: result.clinic.name,
+        email: result.clinic.email,
+        subscription_status: result.clinic.subscription_status,
+        trial_ends_at: result.clinic.trial_ends_at,
       },
       admin: result.admin,
     };

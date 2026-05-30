@@ -80,6 +80,12 @@ let AuthController = class AuthController {
     async verifyPhone(user, body) {
         return this.authService.verifyPhone(user.sub, user.clinic_id, body.phone, body.code);
     }
+    async getClaimPreview(clinicId) {
+        return this.authService.getClaimPreview(clinicId);
+    }
+    async claimDirectoryListing(body) {
+        return this.authService.claimDirectoryListing(body);
+    }
     async sendRegistrationOtp(body) {
         return this.authService.sendRegistrationOtp(body.phone);
     }
@@ -260,6 +266,34 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "verifyPhone", null);
+__decorate([
+    (0, public_decorator_js_1.Public)(),
+    (0, common_1.Get)('claim/:clinicId'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get preview data for a free listing claim (pre-fills registration form)' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Clinic preview data for the claim form' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Not claimable (already subscriber or not approved)' }),
+    (0, swagger_1.ApiResponse)({ status: 409, description: 'Already claimed' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('clinicId', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "getClaimPreview", null);
+__decorate([
+    (0, public_decorator_js_1.Public)(),
+    (0, throttler_1.Throttle)({ default: { ttl: 60000, limit: 3 } }),
+    (0, common_1.Post)('claim'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, swagger_1.ApiOperation)({ summary: 'Claim a free directory listing and activate full software (14-day trial)' }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Listing claimed, admin user created' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Invalid token or listing not approved' }),
+    (0, swagger_1.ApiResponse)({ status: 409, description: 'Already claimed or email conflict' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.CREATED }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "claimDirectoryListing", null);
 __decorate([
     (0, public_decorator_js_1.Public)(),
     (0, throttler_1.Throttle)({ default: { ttl: 3600000, limit: 5 } }),

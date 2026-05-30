@@ -1,4 +1,4 @@
-import { Body, Controller, Post, HttpCode, HttpStatus, Req, Res } from '@nestjs/common';
+import { Body, Controller, Post, Get, Param, ParseUUIDPipe, HttpCode, HttpStatus, Req, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
@@ -170,6 +170,39 @@ export class AuthController {
   }
 
   // ─── Registration WhatsApp OTP ───
+
+  // ── Directory listing → full software conversion ─────────────────────────────
+
+  @Public()
+  @Get('claim/:clinicId')
+  @ApiOperation({ summary: 'Get preview data for a free listing claim (pre-fills registration form)' })
+  @ApiResponse({ status: 200, description: 'Clinic preview data for the claim form' })
+  @ApiResponse({ status: 400, description: 'Not claimable (already subscriber or not approved)' })
+  @ApiResponse({ status: 409, description: 'Already claimed' })
+  async getClaimPreview(@Param('clinicId', ParseUUIDPipe) clinicId: string) {
+    return this.authService.getClaimPreview(clinicId);
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60000, limit: 3 } })
+  @Post('claim')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Claim a free directory listing and activate full software (14-day trial)' })
+  @ApiResponse({ status: 201, description: 'Listing claimed, admin user created' })
+  @ApiResponse({ status: 400, description: 'Invalid token or listing not approved' })
+  @ApiResponse({ status: 409, description: 'Already claimed or email conflict' })
+  async claimDirectoryListing(@Body() body: {
+    clinic_id: string;
+    admin_name: string;
+    admin_email: string;
+    admin_password: string;
+    phone_verification_token: string;
+    is_doctor?: boolean;
+    plan_key?: string;
+    billing_cycle?: string;
+  }) {
+    return this.authService.claimDirectoryListing(body);
+  }
 
   @Public()
   @Throttle({ default: { ttl: 3600000, limit: 5 } })
