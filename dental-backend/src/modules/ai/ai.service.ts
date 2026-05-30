@@ -61,6 +61,7 @@ import {
   buildExpenseAdvisorUserPrompt,
 } from './prompts/expense-advisor.prompt.js';
 import type { ExpenseAdvisorChatDto } from './dto/expense-advisor-chat.dto.js';
+import { withGuardrails } from './prompts/guardrails.prompt.js';
 
 @Injectable()
 export class AiService {
@@ -289,13 +290,15 @@ export class AiService {
     imageBase64: string,
     mimeType: string,
     meta: AiCallMeta,
+    featureName = 'dental X-ray analysis',
   ): Promise<Record<string, unknown>> {
     const model = 'gpt-4o';
+    const guardedPrompt = withGuardrails(systemPrompt, featureName);
     try {
       const response = await this.openai.chat.completions.create({
         model,
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: guardedPrompt },
           {
             role: 'user',
             content: [
@@ -335,12 +338,14 @@ export class AiService {
     userPrompt: string,
     meta: AiCallMeta,
     maxTokens = 2000,
+    featureName = 'AI assistance',
   ): Promise<Record<string, unknown>> {
+    const guardedPrompt = withGuardrails(systemPrompt, featureName);
     try {
       const response = await this.openai.chat.completions.create({
         model: this.model,
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: guardedPrompt },
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.3,
@@ -426,7 +431,7 @@ export class AiService {
       clinicId,
       userId,
       type: 'clinical_notes',
-    });
+    }, 2000, 'clinical note generation');
 
     const response = {
       ...result,
@@ -492,7 +497,7 @@ export class AiService {
       clinicId,
       userId,
       type: 'prescription',
-    });
+    }, 2000, 'dental prescription generation');
 
     const response = {
       ...result,
@@ -569,7 +574,7 @@ export class AiService {
       clinicId,
       userId,
       type: 'treatment_plan',
-    });
+    }, 2000, 'treatment plan generation');
 
     const response = {
       ...result,
@@ -699,7 +704,7 @@ export class AiService {
       clinicId,
       userId,
       type: 'revenue_insights',
-    });
+    }, 2000, 'clinic revenue and operational insights');
 
     const response = {
       ...result,
@@ -828,12 +833,20 @@ export class AiService {
       },
     });
 
+    // Input sanitization — truncate excessively long messages to prevent injection
+    if (dto.message.length > 1000) {
+      throw new BadRequestException('Message too long. Please keep your question under 1000 characters.');
+    }
+    if (dto.history && dto.history.length > 20) {
+      throw new BadRequestException('Conversation history too long. Please start a new conversation.');
+    }
+
     this.logger.log(`Spendly chat for clinic ${clinicId} (msg len ${dto.message.length})`);
     const result = await this.callLLM(EXPENSE_ADVISOR_SYSTEM_PROMPT, userPrompt, {
       clinicId,
       userId,
       type: 'expense_advisor',
-    });
+    }, 2000, 'clinic expense analysis and financial advice');
 
     return {
       response: typeof result.response === 'string' ? result.response : '',
@@ -875,7 +888,7 @@ export class AiService {
       clinicId,
       userId,
       type: 'chart_analysis',
-    });
+    }, 2000, 'dental chart risk analysis');
 
     const response = {
       ...result,
@@ -974,7 +987,7 @@ export class AiService {
       clinicId,
       userId,
       type: 'appointment_summary',
-    });
+    }, 2000, 'appointment visit summary generation');
 
     const response = {
       ...result,
@@ -1020,7 +1033,7 @@ export class AiService {
       clinicId,
       userId,
       type: 'campaign_content',
-    });
+    }, 2000, 'WhatsApp and SMS campaign content generation for this clinic');
 
     const response = {
       ...result,
@@ -1158,7 +1171,7 @@ export class AiService {
       clinicId,
       userId,
       type: 'review_reply',
-    });
+    }, 2000, 'Google review reply drafting for this clinic');
 
     return {
       reply: String(result['reply'] ?? '').trim(),
@@ -1189,7 +1202,7 @@ export class AiService {
       clinicId,
       userId,
       type: 'consent_form',
-    }, 4000);
+    }, 4000, 'dental consent form template generation');
 
     const title = String(result['title'] ?? '').trim();
     const body = (result['body'] && typeof result['body'] === 'object' ? result['body'] : null) as

@@ -30,6 +30,7 @@ const campaign_content_prompt_js_1 = require("./prompts/campaign-content.prompt.
 const xray_analysis_prompt_js_1 = require("./prompts/xray-analysis.prompt.js");
 const review_reply_prompt_js_1 = require("./prompts/review-reply.prompt.js");
 const expense_advisor_prompt_js_1 = require("./prompts/expense-advisor.prompt.js");
+const guardrails_prompt_js_1 = require("./prompts/guardrails.prompt.js");
 let AiService = AiService_1 = class AiService {
     prisma;
     config;
@@ -204,13 +205,14 @@ let AiService = AiService_1 = class AiService {
         await this.prisma.aiInsight.delete({ where: { id: insightId } });
         return { deleted: true };
     }
-    async callVisionLLM(systemPrompt, userPrompt, imageBase64, mimeType, meta) {
+    async callVisionLLM(systemPrompt, userPrompt, imageBase64, mimeType, meta, featureName = 'dental X-ray analysis') {
         const model = 'gpt-4o';
+        const guardedPrompt = (0, guardrails_prompt_js_1.withGuardrails)(systemPrompt, featureName);
         try {
             const response = await this.openai.chat.completions.create({
                 model,
                 messages: [
-                    { role: 'system', content: systemPrompt },
+                    { role: 'system', content: guardedPrompt },
                     {
                         role: 'user',
                         content: [
@@ -244,12 +246,13 @@ let AiService = AiService_1 = class AiService {
             throw new common_1.BadRequestException('AI X-ray analysis temporarily unavailable. Please try again.');
         }
     }
-    async callLLM(systemPrompt, userPrompt, meta, maxTokens = 2000) {
+    async callLLM(systemPrompt, userPrompt, meta, maxTokens = 2000, featureName = 'AI assistance') {
+        const guardedPrompt = (0, guardrails_prompt_js_1.withGuardrails)(systemPrompt, featureName);
         try {
             const response = await this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
-                    { role: 'system', content: systemPrompt },
+                    { role: 'system', content: guardedPrompt },
                     { role: 'user', content: userPrompt },
                 ],
                 temperature: 0.3,
@@ -322,7 +325,7 @@ let AiService = AiService_1 = class AiService {
             clinicId,
             userId,
             type: 'clinical_notes',
-        });
+        }, 2000, 'clinical note generation');
         const response = {
             ...result,
             patient_id: dto.patient_id,
@@ -376,7 +379,7 @@ let AiService = AiService_1 = class AiService {
             clinicId,
             userId,
             type: 'prescription',
-        });
+        }, 2000, 'dental prescription generation');
         const response = {
             ...result,
             patient_id: dto.patient_id,
@@ -440,7 +443,7 @@ let AiService = AiService_1 = class AiService {
             clinicId,
             userId,
             type: 'treatment_plan',
-        });
+        }, 2000, 'treatment plan generation');
         const response = {
             ...result,
             patient_id: dto.patient_id,
@@ -546,7 +549,7 @@ let AiService = AiService_1 = class AiService {
             clinicId,
             userId,
             type: 'revenue_insights',
-        });
+        }, 2000, 'clinic revenue and operational insights');
         const response = {
             ...result,
             generated_at: new Date().toISOString(),
@@ -647,12 +650,18 @@ let AiService = AiService_1 = class AiService {
                 branch_name: branch?.name,
             },
         });
+        if (dto.message.length > 1000) {
+            throw new common_1.BadRequestException('Message too long. Please keep your question under 1000 characters.');
+        }
+        if (dto.history && dto.history.length > 20) {
+            throw new common_1.BadRequestException('Conversation history too long. Please start a new conversation.');
+        }
         this.logger.log(`Spendly chat for clinic ${clinicId} (msg len ${dto.message.length})`);
         const result = await this.callLLM(expense_advisor_prompt_js_1.EXPENSE_ADVISOR_SYSTEM_PROMPT, userPrompt, {
             clinicId,
             userId,
             type: 'expense_advisor',
-        });
+        }, 2000, 'clinic expense analysis and financial advice');
         return {
             response: typeof result.response === 'string' ? result.response : '',
             suggestions: Array.isArray(result.suggestions) ? result.suggestions.slice(0, 3) : [],
@@ -686,7 +695,7 @@ let AiService = AiService_1 = class AiService {
             clinicId,
             userId,
             type: 'chart_analysis',
-        });
+        }, 2000, 'dental chart risk analysis');
         const response = {
             ...result,
             patient_id: dto.patient_id,
@@ -768,7 +777,7 @@ let AiService = AiService_1 = class AiService {
             clinicId,
             userId,
             type: 'appointment_summary',
-        });
+        }, 2000, 'appointment visit summary generation');
         const response = {
             ...result,
             appointment_id: dto.appointment_id,
@@ -806,7 +815,7 @@ let AiService = AiService_1 = class AiService {
             clinicId,
             userId,
             type: 'campaign_content',
-        });
+        }, 2000, 'WhatsApp and SMS campaign content generation for this clinic');
         const response = {
             ...result,
             generated_at: new Date().toISOString(),
@@ -893,7 +902,7 @@ let AiService = AiService_1 = class AiService {
             clinicId,
             userId,
             type: 'review_reply',
-        });
+        }, 2000, 'Google review reply drafting for this clinic');
         return {
             reply: String(result['reply'] ?? '').trim(),
             language: String(result['language'] ?? 'en'),
@@ -907,7 +916,7 @@ let AiService = AiService_1 = class AiService {
             clinicId,
             userId,
             type: 'consent_form',
-        }, 4000);
+        }, 4000, 'dental consent form template generation');
         const title = String(result['title'] ?? '').trim();
         const body = (result['body'] && typeof result['body'] === 'object' ? result['body'] : null);
         if (!title || !body) {
