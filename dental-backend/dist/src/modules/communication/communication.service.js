@@ -2505,6 +2505,10 @@ let CommunicationService = class CommunicationService {
                 connectionMethod: 'embedded_signup',
             },
         }, { skipFeatureCheck: true });
+        await this.prisma.clinic.update({
+            where: { id: clinicId },
+            data: { has_own_waba: true },
+        });
         this.logger.log(`Embedded Signup complete for clinic ${clinicId}: ${phone.display_phone_number}`);
         return {
             success: true,
@@ -2534,6 +2538,10 @@ let CommunicationService = class CommunicationService {
                 whatsapp_provider: null,
                 whatsapp_config: {},
             },
+        });
+        await this.prisma.clinic.update({
+            where: { id: clinicId },
+            data: { has_own_waba: false },
         });
         this.whatsAppProvider.removeClinic(clinicId);
         return { success: true, message: 'WhatsApp disconnected successfully' };

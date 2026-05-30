@@ -3403,6 +3403,12 @@ export class CommunicationService {
       },
     }, { skipFeatureCheck: true });
 
+    // Mark the clinic as BYO-WABA so template management and usage tracking work correctly
+    await this.prisma.clinic.update({
+      where: { id: clinicId },
+      data: { has_own_waba: true },
+    });
+
     this.logger.log(`Embedded Signup complete for clinic ${clinicId}: ${phone.display_phone_number}`);
 
     return {
@@ -3450,6 +3456,11 @@ export class CommunicationService {
         whatsapp_provider: null,
         whatsapp_config: {},
       },
+    });
+
+    await this.prisma.clinic.update({
+      where: { id: clinicId },
+      data: { has_own_waba: false },
     });
 
     // Remove cached provider config
