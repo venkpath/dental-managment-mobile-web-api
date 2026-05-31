@@ -113,6 +113,9 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     async rejectDirectoryListing(id, body) {
         return this.superAdminService.rejectDirectoryListing(id, body.reason);
     }
+    async setWhatsAppConnectAccess(id, body) {
+        return this.superAdminService.setWhatsAppConnectAccess(id, body.approved === true);
+    }
     async suspendClinic(id, body) {
         return this.superAdminService.suspendClinic(id, body.reason);
     }
@@ -453,6 +456,17 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "rejectDirectoryListing", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/clinics/:id/whatsapp-access'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Enable/disable a clinic self-connecting its own WhatsApp Business Account (after business verification)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "setWhatsAppConnectAccess", null);
 __decorate([
     (0, common_1.Patch)('super-admins/clinics/:id/suspend'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),

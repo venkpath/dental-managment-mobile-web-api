@@ -3168,7 +3168,51 @@ export class CommunicationService {
    * 4. Subscribe WABA to app webhooks
    * 5. Save credentials to clinic settings
    */
+  /**
+   * Clinic requests access to connect its own WhatsApp Business Account.
+   * Records the request so a super-admin can verify the business and enable
+   * self-connect via the super-admin panel. Idempotent — returns the current
+   * approval state if already approved or already requested.
+   */
+  async requestWhatsAppConnectAccess(clinicId: string) {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { id: true, whatsapp_connect_approved: true, whatsapp_connect_requested_at: true },
+    });
+    if (!clinic) throw new NotFoundException('Clinic not found');
+
+    if (clinic.whatsapp_connect_approved) {
+      return { status: 'approved', message: 'WhatsApp self-connect is already enabled for your clinic.' };
+    }
+
+    if (!clinic.whatsapp_connect_requested_at) {
+      await this.prisma.clinic.update({
+        where: { id: clinicId },
+        data: { whatsapp_connect_requested_at: new Date() },
+      });
+      this.logger.log(`WhatsApp connect access requested by clinic ${clinicId}`);
+    }
+
+    return {
+      status: 'requested',
+      message: 'Thanks! We have received your request. Our team will verify your business and enable WhatsApp connect for you.',
+    };
+  }
+
   async completeWhatsAppEmbeddedSignup(clinicId: string, code?: string, accessToken?: string, sessionPhoneNumberId?: string, sessionWabaId?: string, _redirectUri?: string) {
+    // Gate: clinics cannot self-connect their own WhatsApp Business Account.
+    // A super-admin must verify the business and enable connect access first.
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { whatsapp_connect_approved: true },
+    });
+    if (!clinic) throw new NotFoundException('Clinic not found');
+    if (!clinic.whatsapp_connect_approved) {
+      throw new ForbiddenException(
+        'WhatsApp self-connect is not enabled for your clinic yet. Please contact us to verify your business — we will enable it for you.',
+      );
+    }
+
     const appId = this.configService.get<string>('app.facebook.appId');
     const appSecret = this.configService.get<string>('app.facebook.appSecret');
 

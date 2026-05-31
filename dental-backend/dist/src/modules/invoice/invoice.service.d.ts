@@ -1,6 +1,7 @@
 import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { AutomationService } from '../automation/automation.service.js';
+import { ReviewTriggerService } from '../public-directory/review-trigger.service.js';
 import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto, CreateRefundDto } from './dto/index.js';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto.js';
 import { Invoice, Payment, Refund, Prisma } from '@prisma/client';
@@ -78,13 +79,14 @@ export declare class InvoiceService {
     private readonly prisma;
     private readonly communicationService;
     private readonly automationService;
+    private readonly reviewTrigger;
     private readonly invoicePdfService;
     private readonly s3Service;
     private readonly planLimit;
     private readonly patientInsurance;
     private readonly auditLog;
     private readonly logger;
-    constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService, invoicePdfService: InvoicePdfService, s3Service: S3Service, planLimit: PlanLimitService, patientInsurance: PatientInsuranceService, auditLog: AuditLogService);
+    constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService, reviewTrigger: ReviewTriggerService, invoicePdfService: InvoicePdfService, s3Service: S3Service, planLimit: PlanLimitService, patientInsurance: PatientInsuranceService, auditLog: AuditLogService);
     create(clinicId: string, dto: CreateInvoiceDto, createdByUserId?: string): Promise<Invoice>;
     findAll(clinicId: string, query: QueryInvoiceDto): Promise<PaginatedResult<Invoice>>;
     findOne(clinicId: string, id: string): Promise<InvoiceWithIncludes>;

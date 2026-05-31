@@ -2341,7 +2341,38 @@ let CommunicationService = class CommunicationService {
 </html>`;
     }
     static META_GRAPH_API = 'https://graph.facebook.com/v21.0';
+    async requestWhatsAppConnectAccess(clinicId) {
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: { id: true, whatsapp_connect_approved: true, whatsapp_connect_requested_at: true },
+        });
+        if (!clinic)
+            throw new common_1.NotFoundException('Clinic not found');
+        if (clinic.whatsapp_connect_approved) {
+            return { status: 'approved', message: 'WhatsApp self-connect is already enabled for your clinic.' };
+        }
+        if (!clinic.whatsapp_connect_requested_at) {
+            await this.prisma.clinic.update({
+                where: { id: clinicId },
+                data: { whatsapp_connect_requested_at: new Date() },
+            });
+            this.logger.log(`WhatsApp connect access requested by clinic ${clinicId}`);
+        }
+        return {
+            status: 'requested',
+            message: 'Thanks! We have received your request. Our team will verify your business and enable WhatsApp connect for you.',
+        };
+    }
     async completeWhatsAppEmbeddedSignup(clinicId, code, accessToken, sessionPhoneNumberId, sessionWabaId, _redirectUri) {
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: { whatsapp_connect_approved: true },
+        });
+        if (!clinic)
+            throw new common_1.NotFoundException('Clinic not found');
+        if (!clinic.whatsapp_connect_approved) {
+            throw new common_1.ForbiddenException('WhatsApp self-connect is not enabled for your clinic yet. Please contact us to verify your business — we will enable it for you.');
+        }
         const appId = this.configService.get('app.facebook.appId');
         const appSecret = this.configService.get('app.facebook.appSecret');
         if (!appId || !appSecret) {

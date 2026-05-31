@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { AutomationService } from '../automation/automation.service.js';
+import { ReviewTriggerService } from '../public-directory/review-trigger.service.js';
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
 import { CreateInvoiceDto, CreatePaymentDto, CreateInstallmentPlanDto, QueryInvoiceDto, CreateRefundDto } from './dto/index.js';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto.js';
@@ -47,6 +48,7 @@ export class InvoiceService {
     private readonly prisma: PrismaService,
     private readonly communicationService: CommunicationService,
     private readonly automationService: AutomationService,
+    private readonly reviewTrigger: ReviewTriggerService,
     private readonly invoicePdfService: InvoicePdfService,
     private readonly s3Service: S3Service,
     private readonly planLimit: PlanLimitService,
@@ -227,6 +229,16 @@ export class InvoiceService {
         }
       }
 
+      return invoice;
+    }).then((invoice) => {
+      // Fire review request for issued (non-draft) invoices.
+      // The ReviewTriggerService deduplicates by patient within 48 hours,
+      // so if an appointment or consultation already triggered a request today, this is a no-op.
+      if (!isDraft) {
+        this.reviewTrigger
+          .triggerInvoiceReview(clinicId, invoice.patient_id, invoice.dentist_id ?? null)
+          .catch(() => {});
+      }
       return invoice;
     });
   }

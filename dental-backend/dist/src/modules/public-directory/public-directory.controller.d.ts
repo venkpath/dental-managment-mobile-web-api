@@ -1,5 +1,6 @@
 import type { Response } from 'express';
 import { PrismaService } from '../../database/prisma.service.js';
+import { Prisma } from '@prisma/client';
 import { S3Service } from '../../common/services/s3.service.js';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -94,7 +95,7 @@ export declare class PublicDirectoryController {
                 name: string;
                 profile_photo_url: string | null;
                 years_experience: number | null;
-                specializations: import("@prisma/client/runtime/client").JsonValue;
+                specializations: Prisma.JsonValue;
             }[];
             branch_cover_id: string | null;
             lat: number | null;
@@ -145,8 +146,8 @@ export declare class PublicDirectoryController {
             languages_spoken: string | null;
             bio: string | null;
             years_experience: number | null;
-            education: import("@prisma/client/runtime/client").JsonValue;
-            specializations: import("@prisma/client/runtime/client").JsonValue;
+            education: Prisma.JsonValue;
+            specializations: Prisma.JsonValue;
         }[];
         reviews: {
             total: number;
@@ -247,6 +248,7 @@ export declare class PublicDirectoryController {
         message: string;
     }>;
     private notifySuperAdmin;
+    private notifyClinicOfNewReview;
     createReviewToken(clinicId: string, appointmentId: string, doctorId?: string): Promise<string>;
 }
 export {};

@@ -15,6 +15,7 @@ const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const communication_service_js_1 = require("../communication/communication.service.js");
 const automation_service_js_1 = require("../automation/automation.service.js");
+const review_trigger_service_js_1 = require("../public-directory/review-trigger.service.js");
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
 const client_1 = require("@prisma/client");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
@@ -49,16 +50,18 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
     prisma;
     communicationService;
     automationService;
+    reviewTrigger;
     invoicePdfService;
     s3Service;
     planLimit;
     patientInsurance;
     auditLog;
     logger = new common_1.Logger(InvoiceService_1.name);
-    constructor(prisma, communicationService, automationService, invoicePdfService, s3Service, planLimit, patientInsurance, auditLog) {
+    constructor(prisma, communicationService, automationService, reviewTrigger, invoicePdfService, s3Service, planLimit, patientInsurance, auditLog) {
         this.prisma = prisma;
         this.communicationService = communicationService;
         this.automationService = automationService;
+        this.reviewTrigger = reviewTrigger;
         this.invoicePdfService = invoicePdfService;
         this.s3Service = s3Service;
         this.planLimit = planLimit;
@@ -181,6 +184,13 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                         },
                     });
                 }
+            }
+            return invoice;
+        }).then((invoice) => {
+            if (!isDraft) {
+                this.reviewTrigger
+                    .triggerInvoiceReview(clinicId, invoice.patient_id, invoice.dentist_id ?? null)
+                    .catch(() => { });
             }
             return invoice;
         });
@@ -827,6 +837,7 @@ exports.InvoiceService = InvoiceService = InvoiceService_1 = __decorate([
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         communication_service_js_1.CommunicationService,
         automation_service_js_1.AutomationService,
+        review_trigger_service_js_1.ReviewTriggerService,
         invoice_pdf_service_js_1.InvoicePdfService,
         s3_service_js_1.S3Service,
         plan_limit_service_js_1.PlanLimitService,

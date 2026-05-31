@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
 const public_directory_controller_js_1 = require("./public-directory.controller.js");
+const clinic_reviews_controller_js_1 = require("./clinic-reviews.controller.js");
 const review_trigger_service_js_1 = require("./review-trigger.service.js");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
@@ -32,7 +33,7 @@ exports.PublicDirectoryModule = PublicDirectoryModule = __decorate([
                 }),
             }),
         ],
-        controllers: [public_directory_controller_js_1.PublicDirectoryController],
+        controllers: [public_directory_controller_js_1.PublicDirectoryController, clinic_reviews_controller_js_1.ClinicReviewsController],
         providers: [prisma_service_js_1.PrismaService, public_directory_controller_js_1.PublicDirectoryController, review_trigger_service_js_1.ReviewTriggerService, s3_service_js_1.S3Service],
         exports: [review_trigger_service_js_1.ReviewTriggerService],
     })

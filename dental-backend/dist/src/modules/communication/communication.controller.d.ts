@@ -447,6 +447,10 @@ export declare class CommunicationController {
         success: boolean;
         error?: undefined;
     }>;
+    requestWhatsAppConnectAccess(clinicId: string): Promise<{
+        status: string;
+        message: string;
+    }>;
     completeEmbeddedSignup(clinicId: string, dto: WhatsAppEmbeddedSignupDto): Promise<{
         success: boolean;
         waba_id: string;

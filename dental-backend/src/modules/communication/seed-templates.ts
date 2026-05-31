@@ -834,6 +834,30 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
       insight: 'Revenue ↑18% vs 7-day avg. 3 invoices pending — follow up to recover dues. ⚠️ AI estimate.',
     },
   },
+
+  // ─── Post-Visit Patient Review Request ───────────────────────────────────
+  // Sent to patients after appointment completion, manual consultation finalization,
+  // or invoice creation — whichever occurs first (48-hour patient dedup prevents duplicates).
+  //
+  // Meta registration:
+  //   Template name : review_request_post_visit
+  //   Category      : UTILITY
+  //   Language      : English (en)
+  //   Variables     : {{1}} patient name · {{2}} clinic name · {{3}} review URL
+  {
+    channel: 'whatsapp',
+    category: 'utility',
+    template_name: 'review_request_post_visit',
+    body: 'Hi {{1}}! 😊 Thank you for visiting *{{2}}*. We hope you had a great experience!\n\nShare your feedback (takes 30 seconds):\n{{3}}\n\nYour review helps other patients find great dental care. 🙏\n\nFor any queries, call us: {{4}}',
+    variables: { body: ['patient_name', 'clinic_name', 'review_url', 'clinic_phone'], buttons: [] },
+    language: 'en',
+    sampleValues: {
+      patient_name: 'Priya',
+      clinic_name: 'SmileCare Dental',
+      review_url: 'https://smartdentaldesk.com/review/abc123token',
+      clinic_phone: '+91 98765 43210',
+    },
+  },
 ];
 
 export async function seedDefaultTemplates(prisma: PrismaService): Promise<void> {

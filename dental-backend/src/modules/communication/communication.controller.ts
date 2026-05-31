@@ -389,6 +389,15 @@ export class CommunicationController {
 
   // ─── WhatsApp Embedded Signup (Connect / Disconnect) ───
 
+  @Post('whatsapp/request-access')
+  @ApiOperation({
+    summary: 'Request access to connect your own WhatsApp Business Account — a super-admin enables it after verifying your business',
+  })
+  @ApiCreatedResponse({ description: 'Request recorded' })
+  async requestWhatsAppConnectAccess(@CurrentClinic() clinicId: string) {
+    return this.communicationService.requestWhatsAppConnectAccess(clinicId);
+  }
+
   @Post('whatsapp/embedded-signup')
   @ApiOperation({
     summary: 'Complete WhatsApp Embedded Signup — exchanges Meta auth code for credentials and saves them',

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
+import { ReviewTriggerService } from '../public-directory/review-trigger.service.js';
 import { ClinicalVisit, TreatmentPlan, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
 import {
@@ -17,6 +18,7 @@ export class ClinicalVisitService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly planLimit: PlanLimitService,
+    private readonly reviewTrigger: ReviewTriggerService,
   ) {}
 
   // Map treatment procedures to dental chart condition names
@@ -193,12 +195,29 @@ export class ClinicalVisitService {
       include: { patient: true, dentist: true, branch: true, appointment: true },
     });
 
-    // Auto-update appointment status to 'completed' when consultation is finalized
+    // Auto-update appointment status to 'completed' when consultation is finalized.
+    // We update the appointment row directly (not via AppointmentService), so we must
+    // also fire the review request here — the trigger lives in AppointmentService.update()
+    // and would otherwise never run for the appointment → consultation → finalize flow.
+    // The trigger is fire-and-forget and deduplicates by patient within 48h.
     if (updatedVisit.appointment_id) {
       await this.prisma.appointment.update({
         where: { id: updatedVisit.appointment_id },
         data: { status: 'completed' },
       });
+      this.reviewTrigger
+        .triggerPostAppointmentReview(
+          clinicId,
+          updatedVisit.appointment_id,
+          updatedVisit.patient_id,
+          updatedVisit.dentist_id,
+        )
+        .catch(() => {});
+    } else {
+      // No linked appointment — trigger the review directly from here (fire-and-forget)
+      this.reviewTrigger
+        .triggerConsultationReview(clinicId, updatedVisit.patient_id, updatedVisit.dentist_id)
+        .catch(() => {});
     }
 
     return updatedVisit;

@@ -922,10 +922,13 @@ let PublicDirectoryController = class PublicDirectoryController {
                 comment: dto.comment,
                 token_used_at: new Date(),
                 is_verified: true,
+                approval_status: 'submitted',
+                is_visible: false,
             },
             select: { id: true, clinic_id: true, overall_rating: true },
         });
-        return { success: true, message: 'Thank you for your review!', review_id: review.id };
+        this.notifyClinicOfNewReview(review.clinic_id, review.id, review.overall_rating).catch(() => { });
+        return { success: true, message: 'Thank you for your review! It will appear on the clinic\'s profile once approved.', review_id: review.id };
     }
     async sendListingPhoneOtp(dto) {
         const phone = dto.phone.trim();
@@ -1216,6 +1219,25 @@ let PublicDirectoryController = class PublicDirectoryController {
           <p style="color:#9ca3af;font-size:12px;margin-top:20px;">Both phone (${phone}) and email (${email}) have been OTP-verified.</p>
         </div>
       `,
+        });
+    }
+    async notifyClinicOfNewReview(clinicId, reviewId, rating) {
+        const admins = await this.prisma.user.findMany({
+            where: { clinic_id: clinicId, role: { in: ['Admin', 'SuperAdmin'] }, status: 'active' },
+            select: { id: true },
+        });
+        if (!admins.length)
+            return;
+        const stars = rating;
+        await this.prisma.notification.createMany({
+            data: admins.map((admin) => ({
+                clinic_id: clinicId,
+                user_id: admin.id,
+                type: 'review_submitted',
+                title: 'New patient review awaiting approval',
+                body: `A patient left a ${stars}-star review. Go to Reviews to approve or reject it.`,
+                metadata: { review_id: reviewId },
+            })),
         });
     }
     async createReviewToken(clinicId, appointmentId, doctorId) {

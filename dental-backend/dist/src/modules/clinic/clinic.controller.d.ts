@@ -35,6 +35,9 @@ export declare class ClinicController {
         next_billing_at: Date | null;
         is_complimentary: boolean;
         has_own_waba: boolean;
+        whatsapp_connect_approved: boolean;
+        whatsapp_connect_requested_at: Date | null;
+        whatsapp_connect_approved_at: Date | null;
         logo_url: string | null;
         currency_code: string;
         default_phone_country: string;
@@ -123,6 +126,9 @@ export declare class ClinicController {
         next_billing_at: Date | null;
         is_complimentary: boolean;
         has_own_waba: boolean;
+        whatsapp_connect_approved: boolean;
+        whatsapp_connect_requested_at: Date | null;
+        whatsapp_connect_approved_at: Date | null;
         logo_url: string | null;
         currency_code: string;
         default_phone_country: string;
@@ -208,6 +214,9 @@ export declare class ClinicController {
         next_billing_at: Date | null;
         is_complimentary: boolean;
         has_own_waba: boolean;
+        whatsapp_connect_approved: boolean;
+        whatsapp_connect_requested_at: Date | null;
+        whatsapp_connect_approved_at: Date | null;
         logo_url: string | null;
         currency_code: string;
         default_phone_country: string;
@@ -274,6 +283,9 @@ export declare class ClinicController {
         next_billing_at: Date | null;
         is_complimentary: boolean;
         has_own_waba: boolean;
+        whatsapp_connect_approved: boolean;
+        whatsapp_connect_requested_at: Date | null;
+        whatsapp_connect_approved_at: Date | null;
         logo_url: string | null;
         currency_code: string;
         default_phone_country: string;
@@ -340,6 +352,9 @@ export declare class ClinicController {
         next_billing_at: Date | null;
         is_complimentary: boolean;
         has_own_waba: boolean;
+        whatsapp_connect_approved: boolean;
+        whatsapp_connect_requested_at: Date | null;
+        whatsapp_connect_approved_at: Date | null;
         logo_url: string | null;
         currency_code: string;
         default_phone_country: string;
@@ -406,6 +421,9 @@ export declare class ClinicController {
         next_billing_at: Date | null;
         is_complimentary: boolean;
         has_own_waba: boolean;
+        whatsapp_connect_approved: boolean;
+        whatsapp_connect_requested_at: Date | null;
+        whatsapp_connect_approved_at: Date | null;
         logo_url: string | null;
         currency_code: string;
         default_phone_country: string;
@@ -472,6 +490,9 @@ export declare class ClinicController {
         next_billing_at: Date | null;
         is_complimentary: boolean;
         has_own_waba: boolean;
+        whatsapp_connect_approved: boolean;
+        whatsapp_connect_requested_at: Date | null;
+        whatsapp_connect_approved_at: Date | null;
         logo_url: string | null;
         currency_code: string;
         default_phone_country: string;
@@ -538,6 +559,9 @@ export declare class ClinicController {
         next_billing_at: Date | null;
         is_complimentary: boolean;
         has_own_waba: boolean;
+        whatsapp_connect_approved: boolean;
+        whatsapp_connect_requested_at: Date | null;
+        whatsapp_connect_approved_at: Date | null;
         logo_url: string | null;
         currency_code: string;
         default_phone_country: string;

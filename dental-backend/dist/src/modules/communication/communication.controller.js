@@ -237,6 +237,9 @@ let CommunicationController = class CommunicationController {
         }
         return this.communicationService.editWhatsAppTemplateOnMeta(clinicId, id, body);
     }
+    async requestWhatsAppConnectAccess(clinicId) {
+        return this.communicationService.requestWhatsAppConnectAccess(clinicId);
+    }
     async completeEmbeddedSignup(clinicId, dto) {
         return this.communicationService.completeWhatsAppEmbeddedSignup(clinicId, dto.code, dto.accessToken, dto.phoneNumberId, dto.wabaId, dto.redirectUri);
     }
@@ -498,6 +501,18 @@ __decorate([
     __metadata("design:paramtypes", [String, String, Object]),
     __metadata("design:returntype", Promise)
 ], CommunicationController.prototype, "editWhatsAppTemplateOnMeta", null);
+__decorate([
+    (0, common_1.Post)('whatsapp/request-access'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Request access to connect your own WhatsApp Business Account — a super-admin enables it after verifying your business',
+    }),
+    (0, swagger_1.ApiCreatedResponse)({ description: 'Request recorded' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], CommunicationController.prototype, "requestWhatsAppConnectAccess", null);
 __decorate([
     (0, common_1.Post)('whatsapp/embedded-signup'),
     (0, swagger_1.ApiOperation)({

@@ -182,6 +182,16 @@ export class SuperAdminController {
     return this.superAdminService.rejectDirectoryListing(id, body.reason);
   }
 
+  @Patch('super-admins/clinics/:id/whatsapp-access')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Enable/disable a clinic self-connecting its own WhatsApp Business Account (after business verification)' })
+  async setWhatsAppConnectAccess(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { approved: boolean },
+  ) {
+    return this.superAdminService.setWhatsAppConnectAccess(id, body.approved === true);
+  }
+
   @Patch('super-admins/clinics/:id/suspend')
   @SuperAdmin()
   @ApiOperation({ summary: 'Suspend a clinic account (blocks all logins)' })

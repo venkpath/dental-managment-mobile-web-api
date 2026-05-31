@@ -30,6 +30,12 @@ model Clinic {
   next_billing_at           DateTime?
   is_complimentary          Boolean   @default(false)
   has_own_waba              Boolean   @default(false) // true = clinic brings their own WhatsApp Business Account (no platform WA billing)
+  // Self-connect gate for BYO-WABA Embedded Signup. Clinics cannot connect
+  // their own WhatsApp Business Account until a super-admin verifies the
+  // business and enables it. Mirrors the directory approval gate below.
+  whatsapp_connect_approved     Boolean   @default(false)
+  whatsapp_connect_requested_at DateTime?
+  whatsapp_connect_approved_at  DateTime?
   logo_url                  String?   @db.Text
   currency_code             String    @default("INR") @db.VarChar(10)
   default_phone_country     String    @default("in") @db.VarChar(10)
@@ -547,6 +553,7 @@ model Patient {
   consents                 PatientConsent[]
   insight_score            PatientInsightScore?
   insurances               PatientInsurance[]
+  directory_reviews        ClinicDirectoryReview[] @relation("DirectoryReviews")
 
   @@index([clinic_id])
   @@index([branch_id])
@@ -2736,8 +2743,11 @@ model Room {
 model ClinicDirectoryReview {
   id             String   @id @default(uuid()) @db.Uuid
   clinic_id      String   @db.Uuid
+  patient_id     String?  @db.Uuid
   doctor_id      String?  @db.Uuid
   appointment_id String?  @db.Uuid
+  // Which event triggered the review request: appointment | consultation | invoice
+  source         String   @default("appointment") @db.VarChar(20)
   token          String   @unique @db.VarChar(64)
   token_used_at  DateTime?
   reviewer_name  String   @db.VarChar(200)
@@ -2748,19 +2758,23 @@ model ClinicDirectoryReview {
   wait_time_rating  Int?
   value_rating      Int?
   comment           String? @db.Text
-  is_visible        Boolean  @default(true)
+  approval_status   String  @default("pending")
+  is_visible        Boolean  @default(false)
   is_verified       Boolean  @default(false)
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
 
-  clinic  Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-  doctor  User?  @relation(fields: [doctor_id], references: [id], onDelete: SetNull)
+  clinic   Clinic   @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+  doctor   User?    @relation(fields: [doctor_id], references: [id], onDelete: SetNull)
+  patient  Patient? @relation("DirectoryReviews", fields: [patient_id], references: [id], onDelete: SetNull)
 
   @@index([clinic_id])
+  @@index([clinic_id, patient_id])
   @@index([doctor_id])
   @@index([appointment_id])
   @@index([token])
   @@index([clinic_id, is_visible])
+  @@index([clinic_id, approval_status])
   @@index([overall_rating])
   @@map("clinic_directory_reviews")
 }

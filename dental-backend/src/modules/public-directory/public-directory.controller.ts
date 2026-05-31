@@ -13,6 +13,7 @@ import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaService } from '../../database/prisma.service.js';
+import { Prisma } from '@prisma/client';
 import { S3Service } from '../../common/services/s3.service.js';
 import { randomBytes, randomInt } from 'crypto';
 import { ConfigService } from '@nestjs/config';
@@ -925,11 +926,19 @@ export class PublicDirectoryController {
         comment: dto.comment,
         token_used_at: new Date(),
         is_verified: true,
+        approval_status: 'submitted',
+        // Force hidden until a clinic admin approves. Tokens created before the
+        // approval feature shipped defaulted is_visible=true, so we must reset it
+        // here or those reviews would go public without approval.
+        is_visible: false,
       },
       select: { id: true, clinic_id: true, overall_rating: true },
     });
 
-    return { success: true, message: 'Thank you for your review!', review_id: review.id };
+    // Notify clinic admins so they can approve the review
+    this.notifyClinicOfNewReview(review.clinic_id, review.id, review.overall_rating).catch(() => {});
+
+    return { success: true, message: 'Thank you for your review! It will appear on the clinic\'s profile once approved.', review_id: review.id };
   }
 
   // ── POST /public/directory/list-practice/send-phone-otp ──────────────────
@@ -1276,6 +1285,27 @@ export class PublicDirectoryController {
           <p style="color:#9ca3af;font-size:12px;margin-top:20px;">Both phone (${phone}) and email (${email}) have been OTP-verified.</p>
         </div>
       `,
+    });
+  }
+
+  // ── Notify clinic admins when a patient submits a review ──
+  private async notifyClinicOfNewReview(clinicId: string, reviewId: string, rating: number) {
+    const admins = await this.prisma.user.findMany({
+      where: { clinic_id: clinicId, role: { in: ['Admin', 'SuperAdmin'] }, status: 'active' },
+      select: { id: true },
+    });
+    if (!admins.length) return;
+
+    const stars = rating;
+    await this.prisma.notification.createMany({
+      data: admins.map((admin) => ({
+        clinic_id: clinicId,
+        user_id: admin.id,
+        type: 'review_submitted',
+        title: 'New patient review awaiting approval',
+        body: `A patient left a ${stars}-star review. Go to Reviews to approve or reject it.`,
+        metadata: { review_id: reviewId } as Prisma.InputJsonValue,
+      })),
     });
   }
 

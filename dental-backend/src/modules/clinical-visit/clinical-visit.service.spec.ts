@@ -3,6 +3,8 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { ClinicalVisitService } from './clinical-visit.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
+import { ReviewTriggerService } from '../public-directory/review-trigger.service.js';
+import { ClinicalVisitStatus } from './dto/query-clinical-visit.dto.js';
 
 const clinicId = 'clinic-uuid-0001';
 const branchId = 'branch-uuid-0001';
@@ -91,6 +93,12 @@ const mockPrisma = {
 
 const mockPlanLimit = { enforceMonthlyCap: jest.fn() };
 
+const mockReviewTrigger = {
+  triggerPostAppointmentReview: jest.fn().mockResolvedValue(undefined),
+  triggerConsultationReview: jest.fn().mockResolvedValue(undefined),
+  triggerInvoiceReview: jest.fn().mockResolvedValue(undefined),
+};
+
 describe('ClinicalVisitService', () => {
   let service: ClinicalVisitService;
 
@@ -100,6 +108,7 @@ describe('ClinicalVisitService', () => {
         ClinicalVisitService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PlanLimitService, useValue: mockPlanLimit },
+        { provide: ReviewTriggerService, useValue: mockReviewTrigger },
       ],
     }).compile();
 
@@ -197,7 +206,7 @@ describe('ClinicalVisitService', () => {
     });
 
     it('should filter by status', async () => {
-      await service.findAll(clinicId, { status: 'finalized' });
+      await service.findAll(clinicId, { status: ClinicalVisitStatus.FINALIZED });
       expect(mockPrisma.clinicalVisit.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.objectContaining({ status: 'finalized' }) }),
       );

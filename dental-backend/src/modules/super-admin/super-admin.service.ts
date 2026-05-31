@@ -619,6 +619,29 @@ export class SuperAdminService {
     return { rejected: true, clinic_name: clinic.name };
   }
 
+  /**
+   * Enable or disable a clinic's ability to self-connect its own WhatsApp
+   * Business Account via Embedded Signup. Clinics cannot connect on their own;
+   * a super-admin flips this on after verifying the business.
+   */
+  async setWhatsAppConnectAccess(id: string, approved: boolean) {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id },
+      select: { id: true, name: true },
+    });
+    if (!clinic) throw new NotFoundException('Clinic not found');
+
+    await this.prisma.clinic.update({
+      where: { id },
+      data: {
+        whatsapp_connect_approved: approved,
+        whatsapp_connect_approved_at: approved ? new Date() : null,
+      },
+    });
+
+    return { whatsapp_connect_approved: approved, clinic_name: clinic.name };
+  }
+
   private async sendListingApprovedEmail(clinic: {
     id: string; name: string; email: string | null; directory_contact_name?: string | null;
   }) {

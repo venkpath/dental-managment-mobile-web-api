@@ -17,6 +17,7 @@ const communication_service_js_1 = require("../communication/communication.servi
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
 const crypto_1 = require("crypto");
 const APP_BASE_URL = process.env['APP_BASE_URL'] || 'https://smartdentaldesk.com';
+const DEDUP_WINDOW_HOURS = 48;
 let ReviewTriggerService = ReviewTriggerService_1 = class ReviewTriggerService {
     prisma;
     communicationService;
@@ -26,52 +27,102 @@ let ReviewTriggerService = ReviewTriggerService_1 = class ReviewTriggerService {
         this.communicationService = communicationService;
     }
     async triggerPostAppointmentReview(clinicId, appointmentId, patientId, dentistId) {
+        await this.sendReviewRequest({
+            clinicId,
+            patientId,
+            doctorId: dentistId || null,
+            appointmentId,
+            source: 'appointment',
+        });
+    }
+    async triggerConsultationReview(clinicId, patientId, dentistId) {
+        await this.sendReviewRequest({
+            clinicId,
+            patientId,
+            doctorId: dentistId || null,
+            appointmentId: null,
+            source: 'consultation',
+        });
+    }
+    async triggerInvoiceReview(clinicId, patientId, dentistId) {
+        await this.sendReviewRequest({
+            clinicId,
+            patientId,
+            doctorId: dentistId ?? null,
+            appointmentId: null,
+            source: 'invoice',
+        });
+    }
+    async sendReviewRequest(opts) {
         try {
+            const { clinicId, patientId, doctorId, appointmentId, source } = opts;
             const clinic = await this.prisma.clinic.findUnique({
                 where: { id: clinicId },
-                select: { listed_in_directory: true, name: true },
+                select: { listed_in_directory: true, name: true, phone: true },
             });
             if (!clinic?.listed_in_directory)
                 return;
+            const cutoff = new Date(Date.now() - DEDUP_WINDOW_HOURS * 60 * 60 * 1000);
             const existing = await this.prisma.clinicDirectoryReview.findFirst({
-                where: { appointment_id: appointmentId },
-            });
-            if (existing)
-                return;
-            const token = (0, crypto_1.randomBytes)(32).toString('hex');
-            await this.prisma.clinicDirectoryReview.create({
-                data: {
+                where: {
                     clinic_id: clinicId,
-                    doctor_id: dentistId || null,
-                    appointment_id: appointmentId,
-                    token,
-                    reviewer_name: '',
-                    overall_rating: 0,
+                    patient_id: patientId,
+                    created_at: { gte: cutoff },
                 },
+                select: { id: true },
             });
-            const reviewUrl = `${APP_BASE_URL}/review/${token}`;
+            if (existing) {
+                this.logger.log(`Review request skipped for patient ${patientId} — already sent within ${DEDUP_WINDOW_HOURS}h`);
+                return;
+            }
+            if (appointmentId) {
+                const byAppt = await this.prisma.clinicDirectoryReview.findFirst({
+                    where: { appointment_id: appointmentId },
+                    select: { id: true },
+                });
+                if (byAppt)
+                    return;
+            }
             const patient = await this.prisma.patient.findUnique({
                 where: { id: patientId },
                 select: { first_name: true, id: true },
             });
             if (!patient)
                 return;
+            const token = (0, crypto_1.randomBytes)(32).toString('hex');
+            await this.prisma.clinicDirectoryReview.create({
+                data: {
+                    clinic_id: clinicId,
+                    patient_id: patientId,
+                    doctor_id: doctorId,
+                    appointment_id: appointmentId,
+                    source,
+                    token,
+                    reviewer_name: '',
+                    overall_rating: 0,
+                    approval_status: 'pending',
+                    is_visible: false,
+                },
+            });
+            const reviewUrl = `${APP_BASE_URL}/review/${token}`;
+            const clinicPhone = clinic.phone ?? '';
             await this.communicationService.sendMessage(clinicId, {
                 patient_id: patientId,
                 channel: send_message_dto_js_1.MessageChannel.WHATSAPP,
                 category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
-                body: `Hi ${patient.first_name}! 😊 Thank you for visiting *${clinic.name}*. We hope you had a great experience!\n\nShare your feedback (takes 30 seconds): ${reviewUrl}\n\nYour review helps other patients find us. 🙏`,
+                body: `Hi ${patient.first_name}! 😊 Thank you for visiting *${clinic.name}*. We hope you had a great experience!\n\nShare your feedback (takes 30 seconds):\n${reviewUrl}\n\nYour review helps other patients find great dental care. 🙏${clinicPhone ? `\n\nFor any queries, call us: ${clinicPhone}` : ''}`,
                 variables: {
                     patient_name: patient.first_name,
                     clinic_name: clinic.name,
                     review_url: reviewUrl,
+                    clinic_phone: clinicPhone,
                 },
-                metadata: { automation: 'post_appointment_review', appointment_id: appointmentId },
+                metadata: { automation: 'post_visit_review', source, appointment_id: appointmentId ?? undefined },
             });
-            this.logger.log(`Review request sent for appointment ${appointmentId}`);
+            this.logger.log(`Review request sent — patient ${patientId}, source: ${source}`);
         }
         catch (e) {
-            this.logger.warn(`Post-appointment review trigger failed: ${e.message}`);
+            this.logger.warn(`Review trigger failed: ${e.message}`);
         }
     }
 };
