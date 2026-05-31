@@ -778,12 +778,23 @@ export class CommunicationService {
   // ─── Clinic Settings ───
 
   async getClinicSettings(clinicId: string) {
-    const [settings, canCustomize] = await Promise.all([
+    const [settings, canCustomize, clinic] = await Promise.all([
       this.getOrCreateClinicSettings(clinicId),
       this.hasClinicFeature(clinicId, 'CUSTOM_PROVIDER_CONFIG'),
+      this.prisma.clinic.findUnique({
+        where: { id: clinicId },
+        select: { whatsapp_connect_approved: true, whatsapp_connect_requested_at: true },
+      }),
     ]);
 
-    return { ...settings, can_customize_providers: canCustomize };
+    return {
+      ...settings,
+      can_customize_providers: canCustomize,
+      // Self-connect gate: clinics can only connect their own WABA after a
+      // super-admin verifies the business and enables it.
+      whatsapp_connect_approved: clinic?.whatsapp_connect_approved ?? false,
+      whatsapp_connect_requested: !!clinic?.whatsapp_connect_requested_at,
+    };
   }
 
   async updateClinicSettings(clinicId: string, dto: UpdateClinicSettingsDto, options?: { skipFeatureCheck?: boolean }) {

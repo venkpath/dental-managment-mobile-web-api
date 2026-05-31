@@ -294,6 +294,8 @@ export declare class CommunicationService {
     }>;
     getClinicSettings(clinicId: string): Promise<{
         can_customize_providers: boolean;
+        whatsapp_connect_approved: boolean;
+        whatsapp_connect_requested: boolean;
         id: string;
         created_at: Date;
         updated_at: Date;
