@@ -487,6 +487,32 @@ export declare class SuperAdminService {
         is_directory_only: boolean;
         directory_contact_name: string | null;
     }[]>;
+    getPendingSignups(): Promise<{
+        id: string;
+        email: string;
+        name: string;
+        created_at: Date;
+        phone: string | null;
+        city: string | null;
+        state: string | null;
+        country: string | null;
+        users: {
+            email: string;
+            name: string;
+            phone: string | null;
+        }[];
+    }[]>;
+    approveSignup(id: string, planKey?: string): Promise<{
+        approved: boolean;
+        clinic_name: string;
+        status: string;
+    }>;
+    rejectSignup(id: string, reason: string): Promise<{
+        rejected: boolean;
+        clinic_name: string;
+    }>;
+    private sendSignupApprovedEmail;
+    private sendSignupRejectedEmail;
     approveDirectoryListing(id: string): Promise<{
         approved: boolean;
         clinic_name: string;

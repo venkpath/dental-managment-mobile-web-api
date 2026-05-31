@@ -116,12 +116,18 @@ export class AuthService {
 
     const clinic = await this.prisma.clinic.findUnique({
       where: { id: user.clinic_id },
-      select: { is_suspended: true },
+      select: { is_suspended: true, subscription_status: true },
     });
     if (clinic?.is_suspended) {
       throw new ForbiddenException({
         code: 'ACCOUNT_SUSPENDED',
         message: 'Your account has been suspended. Please contact Smart Dental Desk support to reactivate.',
+      });
+    }
+    if (clinic?.subscription_status === 'pending') {
+      throw new ForbiddenException({
+        code: 'PENDING_APPROVAL',
+        message: 'Your account is pending approval. You will receive an email once our team has reviewed your application.',
       });
     }
 
@@ -219,12 +225,18 @@ export class AuthService {
 
     const clinic = await this.prisma.clinic.findUnique({
       where: { id: user.clinic_id },
-      select: { is_suspended: true },
+      select: { is_suspended: true, subscription_status: true },
     });
     if (clinic?.is_suspended) {
       throw new ForbiddenException({
         code: 'ACCOUNT_SUSPENDED',
         message: 'Your account has been suspended. Please contact Smart Dental Desk support to reactivate.',
+      });
+    }
+    if (clinic?.subscription_status === 'pending') {
+      throw new ForbiddenException({
+        code: 'PENDING_APPROVAL',
+        message: 'Your account is pending approval. You will receive an email once our team has reviewed your application.',
       });
     }
 
@@ -352,7 +364,10 @@ export class AuthService {
       d.setDate(d.getDate() + graceDays);
       return d;
     })();
-    const subscriptionStatus = isFreePlan ? 'active' : 'trial';
+    // New signups require super admin approval before accessing the dashboard.
+    // Approved clinics are moved to 'trial' or 'active' by the super admin.
+    const requireApproval = this.configService.get<string>('REQUIRE_SIGNUP_APPROVAL') !== 'false';
+    const subscriptionStatus = requireApproval ? 'pending' : (isFreePlan ? 'active' : 'trial');
 
     // Create clinic + admin user in a single transaction
     const result = await this.prisma.$transaction(async (tx) => {

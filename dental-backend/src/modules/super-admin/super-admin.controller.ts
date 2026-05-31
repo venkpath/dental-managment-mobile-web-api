@@ -138,6 +138,33 @@ export class SuperAdminController {
     return this.clinicService.updateSubscription(id, dto);
   }
 
+  @Get('super-admins/pending-signups')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'List all clinics pending signup approval' })
+  async getPendingSignups() {
+    return this.superAdminService.getPendingSignups();
+  }
+
+  @Patch('super-admins/clinics/:id/approve-signup')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Approve a pending clinic signup and grant trial access' })
+  async approveSignup(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { plan_key?: string },
+  ) {
+    return this.superAdminService.approveSignup(id, body.plan_key);
+  }
+
+  @Delete('super-admins/clinics/:id/reject-signup')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Reject and delete a pending clinic signup' })
+  async rejectSignup(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { reason: string },
+  ) {
+    return this.superAdminService.rejectSignup(id, body.reason);
+  }
+
   @Patch('super-admins/clinics/:id/directory-approve')
   @SuperAdmin()
   @ApiOperation({ summary: 'Approve a clinic directory listing request' })

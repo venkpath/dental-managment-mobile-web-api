@@ -98,6 +98,15 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     async updateSubscription(id, dto) {
         return this.clinicService.updateSubscription(id, dto);
     }
+    async getPendingSignups() {
+        return this.superAdminService.getPendingSignups();
+    }
+    async approveSignup(id, body) {
+        return this.superAdminService.approveSignup(id, body.plan_key);
+    }
+    async rejectSignup(id, body) {
+        return this.superAdminService.rejectSignup(id, body.reason);
+    }
     async approveDirectoryListing(id) {
         return this.superAdminService.approveDirectoryListing(id);
     }
@@ -392,6 +401,37 @@ __decorate([
     __metadata("design:paramtypes", [String, index_js_2.UpdateSubscriptionDto]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "updateSubscription", null);
+__decorate([
+    (0, common_1.Get)('super-admins/pending-signups'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List all clinics pending signup approval' }),
+    openapi.ApiResponse({ status: 200 }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getPendingSignups", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/clinics/:id/approve-signup'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Approve a pending clinic signup and grant trial access' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "approveSignup", null);
+__decorate([
+    (0, common_1.Delete)('super-admins/clinics/:id/reject-signup'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Reject and delete a pending clinic signup' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "rejectSignup", null);
 __decorate([
     (0, common_1.Patch)('super-admins/clinics/:id/directory-approve'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),

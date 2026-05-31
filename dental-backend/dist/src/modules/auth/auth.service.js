@@ -94,12 +94,18 @@ let AuthService = class AuthService {
         }
         const clinic = await this.prisma.clinic.findUnique({
             where: { id: user.clinic_id },
-            select: { is_suspended: true },
+            select: { is_suspended: true, subscription_status: true },
         });
         if (clinic?.is_suspended) {
             throw new common_1.ForbiddenException({
                 code: 'ACCOUNT_SUSPENDED',
                 message: 'Your account has been suspended. Please contact Smart Dental Desk support to reactivate.',
+            });
+        }
+        if (clinic?.subscription_status === 'pending') {
+            throw new common_1.ForbiddenException({
+                code: 'PENDING_APPROVAL',
+                message: 'Your account is pending approval. You will receive an email once our team has reviewed your application.',
             });
         }
         const payload = {
@@ -181,12 +187,18 @@ let AuthService = class AuthService {
         }
         const clinic = await this.prisma.clinic.findUnique({
             where: { id: user.clinic_id },
-            select: { is_suspended: true },
+            select: { is_suspended: true, subscription_status: true },
         });
         if (clinic?.is_suspended) {
             throw new common_1.ForbiddenException({
                 code: 'ACCOUNT_SUSPENDED',
                 message: 'Your account has been suspended. Please contact Smart Dental Desk support to reactivate.',
+            });
+        }
+        if (clinic?.subscription_status === 'pending') {
+            throw new common_1.ForbiddenException({
+                code: 'PENDING_APPROVAL',
+                message: 'Your account is pending approval. You will receive an email once our team has reviewed your application.',
             });
         }
         const payload = {
@@ -290,7 +302,8 @@ let AuthService = class AuthService {
             d.setDate(d.getDate() + graceDays);
             return d;
         })();
-        const subscriptionStatus = isFreePlan ? 'active' : 'trial';
+        const requireApproval = this.configService.get('REQUIRE_SIGNUP_APPROVAL') !== 'false';
+        const subscriptionStatus = requireApproval ? 'pending' : (isFreePlan ? 'active' : 'trial');
         const result = await this.prisma.$transaction(async (tx) => {
             const clinic = await tx.clinic.create({
                 data: {

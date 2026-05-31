@@ -565,6 +565,34 @@ export declare class SuperAdminController {
         inactivity_reminder_30_sent: boolean;
         inactivity_reminder_40_sent: boolean;
     }>;
+    getPendingSignups(): Promise<{
+        id: string;
+        email: string;
+        name: string;
+        created_at: Date;
+        phone: string | null;
+        city: string | null;
+        state: string | null;
+        country: string | null;
+        users: {
+            email: string;
+            name: string;
+            phone: string | null;
+        }[];
+    }[]>;
+    approveSignup(id: string, body: {
+        plan_key?: string;
+    }): Promise<{
+        approved: boolean;
+        clinic_name: string;
+        status: string;
+    }>;
+    rejectSignup(id: string, body: {
+        reason: string;
+    }): Promise<{
+        rejected: boolean;
+        clinic_name: string;
+    }>;
     approveDirectoryListing(id: string): Promise<{
         approved: boolean;
         clinic_name: string;

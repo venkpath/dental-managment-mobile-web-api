@@ -354,6 +354,120 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
             orderBy: { directory_requested_at: 'asc' },
         });
     }
+    async getPendingSignups() {
+        return this.prisma.clinic.findMany({
+            where: { subscription_status: 'pending' },
+            select: {
+                id: true, name: true, email: true, phone: true,
+                city: true, state: true, country: true, created_at: true,
+                users: {
+                    where: { role: 'SuperAdmin' },
+                    select: { name: true, email: true, phone: true },
+                    take: 1,
+                },
+            },
+            orderBy: { created_at: 'desc' },
+        });
+    }
+    async approveSignup(id, planKey) {
+        const clinic = await this.prisma.clinic.findUnique({ where: { id } });
+        if (!clinic)
+            throw new common_1.NotFoundException('Clinic not found');
+        if (clinic.subscription_status !== 'pending') {
+            throw new common_1.BadRequestException('This clinic is not in pending status');
+        }
+        let planId;
+        let targetStatus = 'trial';
+        const key = planKey ?? 'free';
+        const plan = await this.prisma.plan.findFirst({
+            where: { name: { contains: key, mode: 'insensitive' } },
+        });
+        if (plan) {
+            planId = plan.id;
+            if (plan.name.toLowerCase() === 'free')
+                targetStatus = 'active';
+        }
+        const trialEndsAt = new Date();
+        trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+        await this.prisma.clinic.update({
+            where: { id },
+            data: {
+                subscription_status: targetStatus,
+                trial_ends_at: targetStatus === 'trial' ? trialEndsAt : undefined,
+                ...(planId ? { plan_id: planId } : {}),
+            },
+        });
+        if (clinic.email) {
+            this.sendSignupApprovedEmail(clinic).catch((err) => this.logger.warn(`Signup approval email failed: ${err.message}`));
+        }
+        return { approved: true, clinic_name: clinic.name, status: targetStatus };
+    }
+    async rejectSignup(id, reason) {
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id },
+            include: { users: { where: { role: 'SuperAdmin' }, take: 1 } },
+        });
+        if (!clinic)
+            throw new common_1.NotFoundException('Clinic not found');
+        if (clinic.subscription_status !== 'pending') {
+            throw new common_1.BadRequestException('This clinic is not in pending status');
+        }
+        await this.prisma.clinic.delete({ where: { id } });
+        const adminEmail = clinic.users[0]?.email ?? clinic.email;
+        if (adminEmail) {
+            this.sendSignupRejectedEmail(adminEmail, clinic.name, reason).catch((err) => this.logger.warn(`Signup rejection email failed: ${err.message}`));
+        }
+        return { rejected: true, clinic_name: clinic.name };
+    }
+    async sendSignupApprovedEmail(clinic) {
+        if (!clinic.email || !this.ensureEmailConfigured())
+            return;
+        const loginUrl = `${this.frontendUrl}/login`;
+        const html = `
+      <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;">
+        <div style="background:linear-gradient(135deg,#3b5bff,#6366f1);padding:32px;border-radius:12px 12px 0 0;">
+          <h1 style="color:#fff;margin:0;font-size:22px;">Your account is approved! 🎉</h1>
+        </div>
+        <div style="padding:32px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+          <p style="color:#374151;font-size:15px;line-height:1.6;">
+            Hi, great news! Your clinic <strong>${clinic.name}</strong> has been approved on Smart Dental Desk.
+            You now have full access to the platform.
+          </p>
+          <div style="text-align:center;margin:28px 0;">
+            <a href="${loginUrl}" style="display:inline-block;background:linear-gradient(135deg,#3b5bff,#6366f1);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:700;font-size:15px;">
+              Sign In to Your Clinic →
+            </a>
+          </div>
+          <p style="color:#6b7280;font-size:13px;text-align:center;">
+            Questions? Reply to this email or contact <a href="mailto:support@smartdentaldesk.com" style="color:#3b5bff;">support@smartdentaldesk.com</a>
+          </p>
+        </div>
+      </div>
+    `;
+        await this.emailProvider.send({
+            to: clinic.email,
+            subject: `Your Smart Dental Desk account for "${clinic.name}" is approved`,
+            body: `Your clinic ${clinic.name} has been approved. Sign in at ${loginUrl}`,
+            html,
+        });
+    }
+    async sendSignupRejectedEmail(to, clinicName, reason) {
+        if (!this.ensureEmailConfigured())
+            return;
+        await this.emailProvider.send({
+            to,
+            subject: `Update on your Smart Dental Desk application — ${clinicName}`,
+            body: `We were unable to approve your application for ${clinicName}. Reason: ${reason}. Contact support@smartdentaldesk.com for assistance.`,
+            html: `
+        <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;">
+          <h2 style="color:#1f2937;">Update on your application</h2>
+          <p style="color:#374151;">We were unable to approve the application for <strong>${clinicName}</strong> at this time.</p>
+          ${reason ? `<p style="color:#374151;"><strong>Reason:</strong> ${reason}</p>` : ''}
+          <p style="color:#374151;">If you believe this is an error, please contact us at <a href="mailto:support@smartdentaldesk.com">support@smartdentaldesk.com</a>.</p>
+        </div>
+      `,
+        });
+    }
     async approveDirectoryListing(id) {
         const clinic = await this.prisma.clinic.findUnique({ where: { id } });
         if (!clinic)
