@@ -899,6 +899,29 @@ let PublicDirectoryController = class PublicDirectoryController {
         ]);
         return { data, meta: { total, page, limit, total_pages: Math.ceil(total / limit) } };
     }
+    async getReviewToken(token) {
+        if (!token || token.length > 64)
+            throw new common_1.BadRequestException('Invalid token');
+        const review = await this.prisma.clinicDirectoryReview.findUnique({
+            where: { token },
+            select: {
+                id: true,
+                token_used_at: true,
+                clinic: { select: { id: true, name: true, logo_url: true, city: true } },
+                doctor: { select: { name: true } },
+            },
+        });
+        if (!review)
+            throw new common_1.NotFoundException('Review link not found or expired');
+        if (review.token_used_at)
+            throw new common_1.BadRequestException('This review link has already been used');
+        return {
+            clinic_name: review.clinic.name,
+            clinic_city: review.clinic.city,
+            clinic_logo_url: review.clinic.logo_url ?? null,
+            doctor_name: review.doctor?.name ?? null,
+        };
+    }
     async submitReview(token, dto) {
         if (!token || token.length > 64)
             throw new common_1.BadRequestException('Invalid token');
@@ -1288,6 +1311,16 @@ __decorate([
     __metadata("design:paramtypes", [String, ReviewSortQuery]),
     __metadata("design:returntype", Promise)
 ], PublicDirectoryController.prototype, "getClinicReviews", null);
+__decorate([
+    (0, common_1.Get)('review/:token'),
+    (0, public_decorator_js_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get clinic info for a review token (used to display clinic name on the form)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('token')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], PublicDirectoryController.prototype, "getReviewToken", null);
 __decorate([
     (0, common_1.Post)('review/:token'),
     (0, public_decorator_js_1.Public)(),

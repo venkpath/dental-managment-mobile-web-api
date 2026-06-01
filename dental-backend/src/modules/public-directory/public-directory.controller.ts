@@ -896,6 +896,34 @@ export class PublicDirectoryController {
     return { data, meta: { total, page, limit, total_pages: Math.ceil(total / limit) } };
   }
 
+  // ── GET /public/directory/review/:token — fetch clinic info for the review form ──
+  @Get('review/:token')
+  @Public()
+  @ApiOperation({ summary: 'Get clinic info for a review token (used to display clinic name on the form)' })
+  async getReviewToken(@Param('token') token: string) {
+    if (!token || token.length > 64) throw new BadRequestException('Invalid token');
+
+    const review = await this.prisma.clinicDirectoryReview.findUnique({
+      where: { token },
+      select: {
+        id: true,
+        token_used_at: true,
+        clinic: { select: { id: true, name: true, logo_url: true, city: true } },
+        doctor: { select: { name: true } },
+      },
+    });
+
+    if (!review) throw new NotFoundException('Review link not found or expired');
+    if (review.token_used_at) throw new BadRequestException('This review link has already been used');
+
+    return {
+      clinic_name: review.clinic.name,
+      clinic_city: review.clinic.city,
+      clinic_logo_url: review.clinic.logo_url ?? null,
+      doctor_name: review.doctor?.name ?? null,
+    };
+  }
+
   // ── POST /public/directory/review/:token — submit a review via token link ──
   @Post('review/:token')
   @Public()

@@ -708,14 +708,14 @@ const DEFAULT_TEMPLATES = [
         channel: 'whatsapp',
         category: 'utility',
         template_name: 'review_request_post_visit',
-        body: 'Hi {{1}}! 😊 Thank you for visiting *{{2}}*. We hope you had a great experience!\n\nShare your feedback (takes 30 seconds):\n{{3}}\n\nYour review helps other patients find great dental care. 🙏\n\nFor any queries, call us: {{4}}',
+        body: 'Dear {{1}},\n\nThank you for choosing *{{2}}* for your dental care.\n\nKindly help us with your experience(s) while you were at our hospital by clicking on the link below.\n\n{{3}}\n\nShould you need any assistance, please feel free to contact us at {{4}}.\n\nThank you for your trust and support.',
         variables: { body: ['patient_name', 'clinic_name', 'review_url', 'clinic_phone'], buttons: [] },
         language: 'en',
         sampleValues: {
-            patient_name: 'Priya',
-            clinic_name: 'SmileCare Dental',
+            patient_name: 'Vijaya Rekha',
+            clinic_name: 'Sai Priya Dental Clinic',
             review_url: 'https://smartdentaldesk.com/review/abc123token',
-            clinic_phone: '+91 98765 43210',
+            clinic_phone: '+919542130593',
         },
     },
 ];

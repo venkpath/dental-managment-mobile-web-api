@@ -75,12 +75,17 @@ export class ReviewTriggerService {
     try {
       const { clinicId, patientId, doctorId, appointmentId, source } = opts;
 
-      // Only trigger for clinics opted into the public directory
+      // Send review requests for ALL clinics — not just directory-listed ones.
+      // A clinic may not be listed today but could opt in months or years later;
+      // we want the review history already collected for them. Submitted reviews
+      // stay hidden (is_visible:false, approval_status:'pending') until the clinic
+      // lists and approves them, so this affects data collection only, never
+      // public exposure.
       const clinic = await this.prisma.clinic.findUnique({
         where: { id: clinicId },
-        select: { listed_in_directory: true, name: true, phone: true },
+        select: { name: true, phone: true },
       });
-      if (!clinic?.listed_in_directory) return;
+      if (!clinic) return;
 
       // Dedup: skip if patient already got a review request within the dedup window
       const cutoff = new Date(Date.now() - DEDUP_WINDOW_HOURS * 60 * 60 * 1000);
@@ -134,11 +139,45 @@ export class ReviewTriggerService {
 
       const clinicPhone = clinic.phone ?? '';
 
+      // Look up the pre-approved WhatsApp template.
+      // Without template_id, Meta rejects the message as a "re-engagement" attempt
+      // whenever the patient's 24-hour session window has expired.
+      // Find the approved WhatsApp review template.
+      // Priority: clinic-specific approved → clinic-specific active → platform approved → platform active.
+      const template = await this.prisma.messageTemplate.findFirst({
+        where: {
+          template_name: 'review_request_post_visit',
+          channel: 'whatsapp',
+          is_active: true,
+          whatsapp_template_status: 'approved',
+          OR: [{ clinic_id: clinicId }, { clinic_id: null }],
+        },
+        orderBy: { clinic_id: 'desc' },
+        select: { id: true },
+      }) ?? await this.prisma.messageTemplate.findFirst({
+        where: {
+          template_name: 'review_request_post_visit',
+          channel: 'whatsapp',
+          is_active: true,
+          OR: [{ clinic_id: clinicId }, { clinic_id: null }],
+        },
+        orderBy: { clinic_id: 'desc' },
+        select: { id: true },
+      });
+
+      if (!template) {
+        this.logger.warn(
+          `WhatsApp template "review_request_post_visit" not found or inactive for clinic ${clinicId}. ` +
+          `Go to Communication → WhatsApp Templates, ensure the template exists with that exact name and status is Approved.`,
+        );
+        return;
+      }
+
       await this.communicationService.sendMessage(clinicId, {
         patient_id: patientId,
         channel: MessageChannel.WHATSAPP,
         category: MessageCategory.TRANSACTIONAL,
-        body: `Hi ${patient.first_name}! 😊 Thank you for visiting *${clinic.name}*. We hope you had a great experience!\n\nShare your feedback (takes 30 seconds):\n${reviewUrl}\n\nYour review helps other patients find great dental care. 🙏${clinicPhone ? `\n\nFor any queries, call us: ${clinicPhone}` : ''}`,
+        template_id: template.id,
         variables: {
           patient_name: patient.first_name,
           clinic_name: clinic.name,

@@ -58,9 +58,9 @@ let ReviewTriggerService = ReviewTriggerService_1 = class ReviewTriggerService {
             const { clinicId, patientId, doctorId, appointmentId, source } = opts;
             const clinic = await this.prisma.clinic.findUnique({
                 where: { id: clinicId },
-                select: { listed_in_directory: true, name: true, phone: true },
+                select: { name: true, phone: true },
             });
-            if (!clinic?.listed_in_directory)
+            if (!clinic)
                 return;
             const cutoff = new Date(Date.now() - DEDUP_WINDOW_HOURS * 60 * 60 * 1000);
             const existing = await this.prisma.clinicDirectoryReview.findFirst({
@@ -106,11 +106,36 @@ let ReviewTriggerService = ReviewTriggerService_1 = class ReviewTriggerService {
             });
             const reviewUrl = `${APP_BASE_URL}/review/${token}`;
             const clinicPhone = clinic.phone ?? '';
+            const template = await this.prisma.messageTemplate.findFirst({
+                where: {
+                    template_name: 'review_request_post_visit',
+                    channel: 'whatsapp',
+                    is_active: true,
+                    whatsapp_template_status: 'approved',
+                    OR: [{ clinic_id: clinicId }, { clinic_id: null }],
+                },
+                orderBy: { clinic_id: 'desc' },
+                select: { id: true },
+            }) ?? await this.prisma.messageTemplate.findFirst({
+                where: {
+                    template_name: 'review_request_post_visit',
+                    channel: 'whatsapp',
+                    is_active: true,
+                    OR: [{ clinic_id: clinicId }, { clinic_id: null }],
+                },
+                orderBy: { clinic_id: 'desc' },
+                select: { id: true },
+            });
+            if (!template) {
+                this.logger.warn(`WhatsApp template "review_request_post_visit" not found or inactive for clinic ${clinicId}. ` +
+                    `Go to Communication → WhatsApp Templates, ensure the template exists with that exact name and status is Approved.`);
+                return;
+            }
             await this.communicationService.sendMessage(clinicId, {
                 patient_id: patientId,
                 channel: send_message_dto_js_1.MessageChannel.WHATSAPP,
                 category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
-                body: `Hi ${patient.first_name}! 😊 Thank you for visiting *${clinic.name}*. We hope you had a great experience!\n\nShare your feedback (takes 30 seconds):\n${reviewUrl}\n\nYour review helps other patients find great dental care. 🙏${clinicPhone ? `\n\nFor any queries, call us: ${clinicPhone}` : ''}`,
+                template_id: template.id,
                 variables: {
                     patient_name: patient.first_name,
                     clinic_name: clinic.name,
