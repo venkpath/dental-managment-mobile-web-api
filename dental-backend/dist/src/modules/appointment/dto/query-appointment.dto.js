@@ -22,8 +22,9 @@ class QueryAppointmentDto extends pagination_query_dto_js_1.PaginationQueryDto {
     dentist_id;
     branch_id;
     patient_id;
+    sort;
     static _OPENAPI_METADATA_FACTORY() {
-        return { date: { required: false, type: () => String }, start_date: { required: false, type: () => String }, end_date: { required: false, type: () => String }, status: { required: false, type: () => String }, dentist_id: { required: false, type: () => String, format: "uuid" }, branch_id: { required: false, type: () => String, format: "uuid" }, patient_id: { required: false, type: () => String, format: "uuid" } };
+        return { date: { required: false, type: () => String }, start_date: { required: false, type: () => String }, end_date: { required: false, type: () => String }, status: { required: false, type: () => String }, dentist_id: { required: false, type: () => String, format: "uuid" }, branch_id: { required: false, type: () => String, format: "uuid" }, patient_id: { required: false, type: () => String, format: "uuid" }, sort: { required: false, type: () => Object, enum: ['asc', 'desc'] } };
     }
 }
 exports.QueryAppointmentDto = QueryAppointmentDto;
@@ -69,4 +70,13 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], QueryAppointmentDto.prototype, "patient_id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Sort by appointment date then time. Defaults to desc (newest first). Use asc for Today / Upcoming schedules.',
+        enum: ['asc', 'desc'],
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['asc', 'desc']),
+    __metadata("design:type", String)
+], QueryAppointmentDto.prototype, "sort", void 0);
 //# sourceMappingURL=query-appointment.dto.js.map

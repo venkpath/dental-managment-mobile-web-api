@@ -27,4 +27,20 @@ export const patientService = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/patients/${id}`);
   },
+
+  uploadProfilePhoto: async (
+    id: string,
+    file: { uri: string; name: string; type: string },
+  ): Promise<{ profile_photo_url: string }> => {
+    const form = new FormData();
+    form.append('file', file as unknown as Blob);
+    const { data } = await api.post<{ profile_photo_url: string }>(`/patients/${id}/profile-photo`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  },
+
+  deleteProfilePhoto: async (id: string): Promise<void> => {
+    await api.delete(`/patients/${id}/profile-photo`);
+  },
 };

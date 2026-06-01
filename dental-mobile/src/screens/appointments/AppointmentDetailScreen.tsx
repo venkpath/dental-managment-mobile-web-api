@@ -113,21 +113,21 @@ export default function AppointmentDetailScreen() {
 
   const updateStatus = (status: AppointmentStatus, confirm: string) => {
     Alert.alert('Update status', confirm, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Confirm',
-        onPress: async () => {
-          setUpdating(true);
-          try {
-            const updated = await appointmentService.updateStatus(appointmentId, status);
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: async () => {
+            setUpdating(true);
+            try {
+              const updated = await appointmentService.updateStatus(appointmentId, status);
             setAppt(updated);
-          } catch (err: unknown) {
-            Alert.alert('Error', err instanceof Error ? err.message : 'Update failed');
-          } finally {
-            setUpdating(false);
-          }
+            } catch (err: unknown) {
+              Alert.alert('Error', err instanceof Error ? err.message : 'Update failed');
+            } finally {
+              setUpdating(false);
+            }
+          },
         },
-      },
     ]);
   };
 
@@ -183,21 +183,21 @@ export default function AppointmentDetailScreen() {
 
   const handleDelete = () => {
     Alert.alert('Delete appointment', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          setDeleting(true);
-          try {
-            await appointmentService.delete(appointmentId);
-            navigation.goBack();
-          } catch (err: unknown) {
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await appointmentService.delete(appointmentId);
+              navigation.goBack();
+            } catch (err: unknown) {
             Alert.alert('Error', err instanceof Error ? err.message : 'Delete failed');
-            setDeleting(false);
-          }
+              setDeleting(false);
+            }
+          },
         },
-      },
     ]);
   };
 
@@ -316,9 +316,9 @@ export default function AppointmentDetailScreen() {
             <View style={s.sectionHead}>
               <Ionicons name="document-text-outline" size={18} color={C.indigo} />
               <Text style={s.sectionTitle}>Notes</Text>
-            </View>
+                  </View>
             <Text style={s.noteValue}>{appt.notes}</Text>
-          </View>
+              </View>
         ) : null}
 
         {/* Status actions */}
@@ -352,7 +352,7 @@ export default function AppointmentDetailScreen() {
           <TouchableOpacity style={s.deleteBtn} onPress={handleDelete} disabled={deleting} activeOpacity={0.7}>
             <Ionicons name="trash-outline" size={18} color={C.red} />
             <Text style={s.deleteTxt}>{deleting ? 'Deleting…' : 'Delete Appointment'}</Text>
-          </TouchableOpacity>
+        </TouchableOpacity>
         )}
       </ScrollView>
 

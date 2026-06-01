@@ -7,4 +7,5 @@ export declare class QueryAppointmentDto extends PaginationQueryDto {
     dentist_id?: string;
     branch_id?: string;
     patient_id?: string;
+    sort?: 'asc' | 'desc';
 }

@@ -1,23 +1,17 @@
 import React, { useState, useCallback } from 'react';
-import {
-  View, Text, StyleSheet, ScrollView, Alert,
-  KeyboardAvoidingView, Platform, Switch,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, Switch, Alert } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { expenseService } from '../../services/expense.service';
 import { branchService } from '../../services/branch.service';
 import { useAuthStore } from '../../store/auth.store';
 import Input from '../../components/Input';
-import Button from '../../components/Button';
-import ScreenHeader from '../../components/ScreenHeader';
+import FormScreenLayout, { FormCard, formInputWrap } from '../../components/FormScreenLayout';
 import DatePickerInput from '../../components/DatePickerInput';
 import SelectSheet from '../../components/SelectSheet';
-import { FormSection, SelectField } from '../../components/FormSection';
+import { SelectField } from '../../components/FormSection';
 import { expensePaymentModeLabel } from '../../utils/expensePaymentMode';
-import { colors, spacing } from '../../theme';
-import { useBottomInset } from '../../hooks/useBottomInset';
+import { APP_C, formUi } from '../../theme/appChrome';
 import type { ExpenseCategory, Branch, BillingStackParamList, ExpensePaymentMode } from '../../types';
 
 type Nav = NativeStackNavigationProp<BillingStackParamList>;
@@ -37,7 +31,6 @@ function todayIso() {
 export default function AddExpenseScreen() {
   const navigation = useNavigation<Nav>();
   const { branchId } = useAuthStore();
-  const bottomInset = useBottomInset();
 
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -49,6 +42,7 @@ export default function AddExpenseScreen() {
     branch_id: branchId ?? '',
     payment_mode: 'cash' as ExpensePaymentMode,
     vendor: '',
+    receipt_url: '',
     notes: '',
     is_recurring: false,
     recurring_frequency: 'monthly',
@@ -90,12 +84,13 @@ export default function AddExpenseScreen() {
         title: form.title.trim(),
         amount: Number(form.amount),
         date: form.date,
-        branch_id: form.branch_id || branchId || undefined,
+        branch_id: form.branch_id || branchId!,
         payment_mode: form.payment_mode,
         vendor: form.vendor.trim() || undefined,
+        receipt_url: form.receipt_url.trim() || undefined,
         notes: form.notes.trim() || undefined,
         is_recurring: form.is_recurring,
-        recurring_frequency: form.is_recurring ? form.recurring_frequency : undefined,
+        ...(form.is_recurring && { recurring_frequency: form.recurring_frequency }),
       });
       Alert.alert('Saved', 'Expense recorded.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     } catch (err: unknown) {
@@ -106,64 +101,64 @@ export default function AddExpenseScreen() {
   };
 
   const catLabel = categories.find((c) => c.id === form.category_id)?.name ?? '';
-  const branchLabel = branches.find((b) => b.id === form.branch_id)?.name ?? (form.branch_id ? 'Branch' : '');
+  const branchLabel = branches.find((b) => b.id === form.branch_id)?.name ?? '';
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
-      <ScreenHeader title="Add expense" subtitle="Record clinic spending" onBack={() => navigation.goBack()} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          contentContainerStyle={[s.scroll, { paddingBottom: bottomInset + 24 }]}
-          keyboardShouldPersistTaps="handled"
-        >
-          <SelectField
-            label="Category *"
-            value={catLabel}
-            placeholder="Select category"
-            error={errors.category_id}
-            onPress={() => setCatSheet(true)}
-          />
-          <Input label="Title *" value={form.title} onChangeText={(v) => set('title', v)} error={errors.title} placeholder="e.g. Office rent" />
-          <Input label="Amount *" value={form.amount} onChangeText={(v) => set('amount', v)} error={errors.amount} keyboardType="decimal-pad" placeholder="0.00" />
-          <DatePickerInput label="Date *" value={form.date} onChange={(v) => set('date', v)} error={errors.date} />
-          <SelectField
-            label="Payment mode"
-            value={expensePaymentModeLabel(form.payment_mode)}
-            onPress={() => setPaySheet(true)}
-          />
-          {branches.length > 1 ? (
-            <SelectField
-              label="Branch"
-              value={branchLabel}
-              placeholder="Select branch"
-              onPress={() => setBranchSheet(true)}
-            />
-          ) : null}
-          <Input label="Vendor" value={form.vendor} onChangeText={(v) => set('vendor', v)} placeholder="Supplier or payee" />
-          <Input label="Notes" value={form.notes} onChangeText={(v) => set('notes', v)} multiline placeholder="Optional notes" />
+    <FormScreenLayout
+      title="Add expense"
+      subtitle="Record clinic spending"
+      onBack={() => navigation.goBack()}
+      primaryAction={{ label: 'Save expense', onPress: handleSave, loading }}
+    >
+      <FormCard title="Expense">
+        <SelectField
+          label="Category *"
+          value={catLabel}
+          placeholder="Select category"
+          error={errors.category_id}
+          onPress={() => setCatSheet(true)}
+        />
+        <Input label="Title *" value={form.title} onChangeText={(v) => set('title', v)}
+          error={errors.title} placeholder="e.g. Office rent" containerStyle={formInputWrap.tight} />
+        <Input label="Amount *" value={form.amount} onChangeText={(v) => set('amount', v)}
+          error={errors.amount} keyboardType="decimal-pad" placeholder="0.00"
+          containerStyle={formInputWrap.tight} />
+        <DatePickerInput label="Date *" value={form.date} onChange={(v) => set('date', v)} error={errors.date} />
+        <SelectField
+          label="Payment mode"
+          value={expensePaymentModeLabel(form.payment_mode)}
+          onPress={() => setPaySheet(true)}
+        />
+        {branches.length > 1 ? (
+          <SelectField label="Branch" value={branchLabel} placeholder="Select branch" onPress={() => setBranchSheet(true)} />
+        ) : null}
+        <Input label="Vendor" value={form.vendor} onChangeText={(v) => set('vendor', v)}
+          placeholder="Supplier or payee" containerStyle={formInputWrap.tight} />
+        <Input label="Receipt URL" value={form.receipt_url} onChangeText={(v) => set('receipt_url', v)}
+          placeholder="Link to receipt image or PDF"
+          autoCapitalize="none" keyboardType="url" containerStyle={formInputWrap.tight} />
+        <Input label="Notes" value={form.notes} onChangeText={(v) => set('notes', v)}
+          multiline placeholder="Optional notes" containerStyle={formInputWrap.tight} />
+      </FormCard>
 
-          <FormSection title="Recurring">
-            <View style={s.switchRow}>
-              <Text style={s.switchLabel}>Recurring expense</Text>
-              <Switch
-                value={form.is_recurring}
-                onValueChange={(v) => set('is_recurring', v)}
-                trackColor={{ false: colors.border, true: colors.primaryLight }}
-                thumbColor={form.is_recurring ? colors.primary : '#f4f4f5'}
-              />
-            </View>
-            {form.is_recurring ? (
-              <SelectField
-                label="Frequency"
-                value={RECUR_FREQ.find((f) => f.value === form.recurring_frequency)?.label ?? ''}
-                onPress={() => setFreqSheet(true)}
-              />
-            ) : null}
-          </FormSection>
-
-          <Button title="Save expense" onPress={handleSave} loading={loading} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+      <FormCard title="Recurring">
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 15, fontWeight: '600', color: APP_C.text }}>Recurring expense</Text>
+          <Switch
+            value={form.is_recurring}
+            onValueChange={(v) => set('is_recurring', v)}
+            trackColor={{ false: APP_C.border, true: APP_C.indigoLight }}
+            thumbColor={form.is_recurring ? APP_C.indigo : '#f4f4f5'}
+          />
+        </View>
+        {form.is_recurring ? (
+          <SelectField
+            label="Frequency"
+            value={RECUR_FREQ.find((f) => f.value === form.recurring_frequency)?.label ?? ''}
+            onPress={() => setFreqSheet(true)}
+          />
+        ) : null}
+      </FormCard>
 
       <SelectSheet
         visible={catSheet}
@@ -197,13 +192,6 @@ export default function AddExpenseScreen() {
         onSelect={(v) => set('recurring_frequency', v)}
         onClose={() => setFreqSheet(false)}
       />
-    </SafeAreaView>
+    </FormScreenLayout>
   );
 }
-
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: spacing.lg, gap: spacing.md },
-  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
-  switchLabel: { fontSize: 15, color: colors.text, fontWeight: '500' },
-});

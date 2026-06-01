@@ -10,6 +10,8 @@ export const appointmentService = {
     end_date?: string;
     dentist_id?: string;
     status?: string;
+    /** asc = Today/Upcoming; desc = All and status tabs (requires deployed backend). */
+    sort?: 'asc' | 'desc';
   }): Promise<PaginatedResponse<Appointment>> => {
     const { data } = await api.get('/appointments', {
       params: { page: 1, limit: 20, ...params },

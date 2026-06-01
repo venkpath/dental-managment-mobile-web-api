@@ -9,7 +9,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing, typography } from '../theme';
+import { spacing, typography } from '../theme';
+import { APP_C } from '../theme/appChrome';
 
 export interface SelectOption {
   value: string;
@@ -55,7 +56,7 @@ export default function SelectSheet({
                   activeOpacity={0.7}
                 >
                   <Text style={[s.rowLabel, active && s.rowLabelActive]}>{item.label}</Text>
-                  {active ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
+                  {active ? <Ionicons name="checkmark" size={18} color={APP_C.indigo} /> : null}
                 </TouchableOpacity>
               );
             }}
@@ -69,7 +70,7 @@ export default function SelectSheet({
 const s = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(15,23,42,0.45)', justifyContent: 'flex-end' },
   sheet: {
-    backgroundColor: colors.surface,
+    backgroundColor: APP_C.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: spacing.lg,
@@ -80,12 +81,12 @@ const s = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.border,
+    backgroundColor: APP_C.border,
     alignSelf: 'center',
     marginTop: spacing.sm,
     marginBottom: spacing.md,
   },
-  title: { fontSize: typography.lg, fontWeight: '800', color: colors.text, marginBottom: spacing.sm },
+  title: { fontSize: typography.lg, fontWeight: '800', color: APP_C.text, marginBottom: spacing.sm },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -93,9 +94,9 @@ const s = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: APP_C.border,
   },
-  rowActive: { backgroundColor: colors.primaryLight, borderRadius: radius.md, borderBottomWidth: 0 },
-  rowLabel: { fontSize: 15, color: colors.text, flex: 1 },
-  rowLabelActive: { fontWeight: '700', color: colors.primaryDark },
+  rowActive: { backgroundColor: APP_C.indigoLight, borderRadius: 12, borderBottomWidth: 0 },
+  rowLabel: { fontSize: 15, color: APP_C.text, flex: 1 },
+  rowLabelActive: { fontWeight: '700', color: APP_C.indigo },
 });

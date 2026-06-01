@@ -21,6 +21,7 @@ export declare class AppointmentService {
     private readonly staffNotificationService;
     private readonly logger;
     constructor(prisma: PrismaService, notificationService: AppointmentNotificationService, reminderProducer: AppointmentReminderProducer, planLimit: PlanLimitService, reviewTrigger: ReviewTriggerService, staffNotificationService: AppointmentStaffNotificationService);
+    private resolveAppointmentListOrder;
     create(clinicId: string, dto: CreateAppointmentDto): Promise<Appointment>;
     getAvailableSlots(clinicId: string, query: QueryAvailableSlotsDto): Promise<AvailableSlot[]>;
     findAll(clinicId: string, query: QueryAppointmentDto): Promise<PaginatedResult<Appointment>>;

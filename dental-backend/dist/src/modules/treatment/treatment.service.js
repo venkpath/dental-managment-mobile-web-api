@@ -105,7 +105,7 @@ let TreatmentService = class TreatmentService {
         const [data, total] = await Promise.all([
             this.prisma.treatment.findMany({
                 where,
-                orderBy: { created_at: 'desc' },
+                orderBy: [{ updated_at: 'desc' }, { created_at: 'desc' }],
                 include: { patient: true, dentist: true, branch: true },
                 skip: (page - 1) * limit,
                 take: limit,

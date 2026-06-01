@@ -1,4 +1,4 @@
-import { IsOptional, IsUUID, IsDateString, IsString } from 'class-validator';
+import { IsOptional, IsUUID, IsDateString, IsString, IsIn } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto.js';
 
@@ -37,4 +37,13 @@ export class QueryAppointmentDto extends PaginationQueryDto {
   @IsOptional()
   @IsUUID()
   patient_id?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Sort by appointment date then time. Defaults to desc (newest first). Use asc for Today / Upcoming schedules.',
+    enum: ['asc', 'desc'],
+  })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sort?: 'asc' | 'desc';
 }

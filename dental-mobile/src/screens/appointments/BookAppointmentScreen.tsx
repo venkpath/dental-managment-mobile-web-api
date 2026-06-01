@@ -1,14 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import {
-  View, Text, TextInput, StyleSheet, ScrollView, Alert,
-  KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { appointmentService } from '../../services/appointment.service';
+import { branchService } from '../../services/branch.service';
 import { userService, type StaffUser } from '../../services/user.service';
 import { addMinutes } from '../../utils/time';
 import { formatSlotRange } from '../../utils/appointmentSlots';
@@ -18,18 +15,14 @@ import PatientSearchInput from '../../components/PatientSearchInput';
 import DatePickerInput from '../../components/DatePickerInput';
 import SelectSheet from '../../components/SelectSheet';
 import AppointmentSlotPicker from '../../components/AppointmentSlotPicker';
-import { useBottomInset } from '../../hooks/useBottomInset';
-import type { AppointmentStackParamList } from '../../types';
+import Input from '../../components/Input';
+import FormScreenLayout, { FormCard, formInputWrap } from '../../components/FormScreenLayout';
+import { SelectField } from '../../components/FormSection';
+import { APP_C, formUi } from '../../theme/appChrome';
+import type { AppointmentStackParamList, Branch } from '../../types';
 
 type Route = RouteProp<AppointmentStackParamList, 'BookAppointment'>;
 type Nav = NativeStackNavigationProp<AppointmentStackParamList>;
-
-const C = {
-  indigo: '#4361EE', indigoLight: '#EEF2FF',
-  bg: '#F8FAFC', surface: '#ffffff',
-  text: '#0f172a', textSub: '#475569', textMuted: '#94a3b8',
-  border: '#E2E8F0', divider: '#EEF2F6',
-};
 
 function todayIso() {
   const d = new Date();
@@ -39,10 +32,11 @@ function todayIso() {
 export default function BookAppointmentScreen() {
   const route = useRoute<Route>();
   const navigation = useNavigation<Nav>();
-  const insets = useSafeAreaInsets();
-  const bottomInset = useBottomInset();
-  const { branchId } = useAuthStore();
+  const { branchId: authBranchId } = useAuthStore();
 
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState(authBranchId ?? '');
+  const [branchSheet, setBranchSheet] = useState(false);
   const [dentists, setDentists] = useState<StaffUser[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(
     route.params?.patientId ? { id: route.params.patientId, name: '' } : null,
@@ -56,34 +50,36 @@ export default function BookAppointmentScreen() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-  const [loadingDentists, setLoadingDentists] = useState(true);
+  const [booting, setBooting] = useState(true);
   const [dentistSheet, setDentistSheet] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   useFocusEffect(useCallback(() => {
-    setLoadingDentists(true);
-    userService.listStaff()
-      .then((staff) => {
+    setBooting(true);
+    Promise.all([userService.listStaff(), branchService.list()])
+      .then(([staff, brs]) => {
         const only = staff.filter((u) => /dentist|consultant/i.test(u.role));
         setDentists(only.length > 0 ? only : staff);
+        setBranches(brs);
+        setSelectedBranchId((prev) => prev || authBranchId || brs[0]?.id || '');
       })
       .catch(() => setDentists([]))
-      .finally(() => setLoadingDentists(false));
-  }, []));
+      .finally(() => setBooting(false));
+  }, [authBranchId]));
 
   const set = (field: string, value: string) => {
     setForm((p) => ({ ...p, [field]: value }));
     setErrors((p) => ({ ...p, [field]: '' }));
   };
 
-  const fetchSlots = useCallback(async (dentistId: string, date: string) => {
-    if (!branchId || !dentistId || !date) return;
+  const fetchSlots = useCallback(async (dentistId: string, date: string, branch = selectedBranchId) => {
+    if (!branch || !dentistId || !date) return;
     setLoadingSlots(true);
     setAvailableSlots([]);
     try {
       setAvailableSlots(await appointmentService.getAvailableSlots({
-        branch_id: branchId,
+        branch_id: branch,
         dentist_id: dentistId,
         date,
       }));
@@ -92,7 +88,13 @@ export default function BookAppointmentScreen() {
     } finally {
       setLoadingSlots(false);
     }
-  }, [branchId]);
+  }, [selectedBranchId]);
+
+  const onBranchChange = (branch: string) => {
+    setSelectedBranchId(branch);
+    setForm((p) => ({ ...p, start_time: '', end_time: '' }));
+    if (form.dentist_id) fetchSlots(form.dentist_id, form.appointment_date, branch);
+  };
 
   const onDentistChange = (dentistId: string) => {
     set('dentist_id', dentistId);
@@ -123,8 +125,8 @@ export default function BookAppointmentScreen() {
 
   const handleBook = async () => {
     if (!validate()) return;
-    if (!branchId) {
-      Alert.alert('Error', 'No branch assigned');
+    if (!selectedBranchId) {
+      Alert.alert('Error', 'Select a branch');
       return;
     }
     setLoading(true);
@@ -132,7 +134,7 @@ export default function BookAppointmentScreen() {
       await appointmentService.create({
         patient_id: selectedPatient!.id,
         dentist_id: form.dentist_id,
-        branch_id: branchId,
+        branch_id: selectedBranchId,
         appointment_date: form.appointment_date,
         start_time: form.start_time,
         end_time: form.end_time || addMinutes(form.start_time, 30),
@@ -151,123 +153,116 @@ export default function BookAppointmentScreen() {
   };
 
   const dentistName = dentists.find((d) => d.id === form.dentist_id)?.name;
+  const branchName = branches.find((b) => b.id === selectedBranchId)?.name ?? '';
+  const dentistLabel = booting
+    ? 'Loading dentists…'
+    : dentistName
+      ? `Dr. ${dentistName}`
+      : '';
 
   return (
-    <KeyboardAvoidingView style={ui.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={{ paddingTop: insets.top, backgroundColor: C.bg }}>
-        <View style={ui.topbar}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={ui.iconBtn} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={20} color={C.text} />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={ui.topTitle}>Book appointment</Text>
-            <Text style={ui.topSub}>Schedule a new visit</Text>
-          </View>
-        </View>
-      </View>
+    <FormScreenLayout
+      title="Book appointment"
+      subtitle="Schedule a new visit"
+      onBack={() => navigation.goBack()}
+      booting={booting}
+      bootMessage="Loading schedule…"
+      primaryAction={{ label: 'Book appointment', onPress: handleBook, loading }}
+    >
+      <FormCard title="Patient">
+        <PatientSearchInput
+          selectedPatient={selectedPatient}
+          onSelect={(p) => {
+            setSelectedPatient(p.id ? p : null);
+            setErrors((e) => ({ ...e, patient_id: '' }));
+          }}
+          error={errors.patient_id}
+        />
+      </FormCard>
 
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 + bottomInset, gap: 14 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={ui.card}>
-          <Text style={ui.sectionLabel}>Patient</Text>
-          <PatientSearchInput
-            selectedPatient={selectedPatient}
-            onSelect={(p) => { setSelectedPatient(p.id ? p : null); setErrors((e) => ({ ...e, patient_id: '' })); }}
-            error={errors.patient_id}
+      <FormCard title="Schedule">
+        {branches.length > 1 ? (
+          <SelectField
+            label="Branch *"
+            value={branchName}
+            placeholder="Select branch"
+            onPress={() => setBranchSheet(true)}
           />
-        </View>
+        ) : null}
+        <SelectField
+          label="Dentist *"
+          value={dentistLabel}
+          placeholder="Select dentist"
+          error={errors.dentist_id}
+          onPress={() => {
+            if (!booting) setDentistSheet(true);
+          }}
+        />
+        <DatePickerInput
+          label="Date *"
+          value={form.appointment_date}
+          onChange={onDateChange}
+          minDate={new Date()}
+          error={errors.appointment_date}
+        />
+      </FormCard>
 
-        <View style={ui.card}>
-          <Text style={ui.sectionLabel}>Schedule</Text>
-          <Text style={ui.fieldLabel}>Dentist *</Text>
-          <TouchableOpacity
-            style={[ui.field, errors.dentist_id && ui.fieldError]}
-            onPress={() => {
-              if (loadingDentists) return;
-              setDentistSheet(true);
-            }}
-            activeOpacity={0.7}
-          >
-            {loadingDentists ? (
-              <ActivityIndicator color={C.indigo} style={{ flex: 1 }} />
+      <FormCard title="Time slot">
+        {!form.dentist_id ? (
+          <Text style={formUi.hint}>Select a dentist and date to see available slots.</Text>
+        ) : (
+          <>
+            {form.start_time ? (
+              <View style={slotStyles.selected}>
+                <Ionicons name="checkmark-circle" size={18} color={APP_C.indigo} />
+                <Text style={slotStyles.selectedTxt}>
+                  {formatSlotRange(form.start_time, form.end_time)}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setForm((p) => ({ ...p, start_time: '', end_time: '' }))}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={slotStyles.change}>Change</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+            {loadingSlots ? (
+              <View style={slotStyles.loadingRow}>
+                <ActivityIndicator color={APP_C.indigo} />
+                <Text style={formUi.hint}>Loading available slots…</Text>
+              </View>
             ) : (
-              <Text style={[ui.fieldTxt, !dentistName && ui.placeholder]}>
-                {dentistName ? `Dr. ${dentistName}` : 'Select dentist'}
-              </Text>
-            )}
-            <Ionicons name="chevron-down" size={16} color={C.textMuted} />
-          </TouchableOpacity>
-          {errors.dentist_id ? <Text style={ui.errorTxt}>{errors.dentist_id}</Text> : null}
-
-          <View style={{ marginTop: 12 }}>
-            <DatePickerInput
-              label="Date *"
-              value={form.appointment_date}
-              onChange={onDateChange}
-              minDate={new Date()}
-              error={errors.appointment_date}
-            />
-          </View>
-        </View>
-
-        <View style={ui.card}>
-          <Text style={ui.sectionLabel}>Time slot *</Text>
-          {!form.dentist_id ? (
-            <Text style={ui.hint}>Select a dentist and date to see available slots.</Text>
-          ) : (
-            <>
-              {form.start_time ? (
-                <View style={ui.selectedSlot}>
-                  <Ionicons name="checkmark-circle" size={18} color={C.indigo} />
-                  <Text style={ui.selectedSlotTxt}>
-                    {formatSlotRange(form.start_time, form.end_time)}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setForm((p) => ({ ...p, start_time: '', end_time: '' }))}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Text style={ui.changeTxt}>Change</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : null}
               <AppointmentSlotPicker
                 slots={availableSlots}
                 selectedStartTime={form.start_time}
                 onSelect={pickTimeSlot}
-                loading={loadingSlots}
+                loading={false}
               />
-              {errors.start_time ? <Text style={ui.errorTxt}>{errors.start_time}</Text> : null}
-            </>
-          )}
-        </View>
+            )}
+            {errors.start_time ? <Text style={formUi.errorTxt}>{errors.start_time}</Text> : null}
+          </>
+        )}
+      </FormCard>
 
-        <View style={ui.card}>
-          <Text style={ui.sectionLabel}>Notes</Text>
-          <TextInput
-            value={form.notes}
-            onChangeText={(v) => set('notes', v)}
-            placeholder="Reason for visit, special instructions…"
-            placeholderTextColor={C.textMuted}
-            multiline
-            style={[ui.inputBox, { minHeight: 72, textAlignVertical: 'top' }]}
-          />
-        </View>
-      </ScrollView>
+      <FormCard title="Visit notes">
+        <Input
+          value={form.notes}
+          onChangeText={(v) => set('notes', v)}
+          placeholder="Reason for visit, special instructions… (optional)"
+          multiline
+          numberOfLines={4}
+          containerStyle={formInputWrap.tight}
+        />
+      </FormCard>
 
-      <View style={[ui.footer, { paddingBottom: Math.max(12, bottomInset) }]}>
-        <TouchableOpacity
-          style={[ui.primaryBtn, loading && ui.btnDisabled]}
-          onPress={handleBook}
-          disabled={loading}
-          activeOpacity={0.85}
-        >
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={ui.primaryTxt}>Book appointment</Text>}
-        </TouchableOpacity>
-      </View>
-
+      <SelectSheet
+        visible={branchSheet}
+        title="Branch"
+        options={branches.map((b) => ({ value: b.id, label: b.name }))}
+        selectedValue={selectedBranchId}
+        onSelect={onBranchChange}
+        onClose={() => setBranchSheet(false)}
+      />
       <SelectSheet
         visible={dentistSheet}
         title="Dentist"
@@ -276,54 +271,22 @@ export default function BookAppointmentScreen() {
         onSelect={onDentistChange}
         onClose={() => setDentistSheet(false)}
       />
-    </KeyboardAvoidingView>
+    </FormScreenLayout>
   );
 }
 
-const ui = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg },
-  topbar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
-  iconBtn: {
-    width: 36, height: 36, borderRadius: 10, backgroundColor: C.surface,
-    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border,
+const slotStyles = StyleSheet.create({
+  selected: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: APP_C.indigoLight,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#c7d2fe',
   },
-  topTitle: { fontSize: 18, fontWeight: '800', color: C.text },
-  topSub: { fontSize: 12, color: C.textSub, marginTop: 1 },
-  card: {
-    backgroundColor: C.surface, borderRadius: 16, padding: 16,
-    borderWidth: 1, borderColor: C.border,
-  },
-  sectionLabel: { fontSize: 11, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10 },
-  fieldLabel: { fontSize: 13, fontWeight: '600', color: C.textSub, marginBottom: 6 },
-  field: {
-    flexDirection: 'row', alignItems: 'center', minHeight: 48,
-    borderWidth: 1, borderColor: C.border, borderRadius: 12,
-    paddingHorizontal: 12, backgroundColor: C.bg, gap: 8,
-  },
-  fieldError: { borderColor: '#dc2626' },
-  fieldTxt: { flex: 1, fontSize: 15, color: C.text },
-  placeholder: { color: C.textMuted },
-  hint: { fontSize: 13, color: C.textMuted, lineHeight: 18 },
-  errorTxt: { fontSize: 12, color: '#dc2626', marginTop: 6 },
-  selectedSlot: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: C.indigoLight, borderRadius: 12, padding: 12, marginBottom: 12,
-    borderWidth: 1, borderColor: '#c7d2fe',
-  },
-  selectedSlotTxt: { flex: 1, fontSize: 14, fontWeight: '700', color: C.indigo },
-  changeTxt: { fontSize: 13, fontWeight: '700', color: C.indigo },
-  inputBox: {
-    borderWidth: 1, borderColor: C.border, borderRadius: 12,
-    paddingHorizontal: 12, paddingVertical: 11, fontSize: 15, color: C.text, backgroundColor: C.bg,
-  },
-  footer: {
-    paddingHorizontal: 16, paddingTop: 10,
-    backgroundColor: C.surface, borderTopWidth: 1, borderTopColor: C.border,
-  },
-  primaryBtn: {
-    backgroundColor: C.indigo, borderRadius: 14, paddingVertical: 14,
-    alignItems: 'center', justifyContent: 'center', minHeight: 48,
-  },
-  primaryTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  btnDisabled: { opacity: 0.6 },
+  selectedTxt: { flex: 1, fontSize: 14, fontWeight: '700', color: APP_C.indigo },
+  change: { fontSize: 13, fontWeight: '700', color: APP_C.indigo },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
 });

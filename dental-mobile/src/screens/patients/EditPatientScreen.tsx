@@ -1,42 +1,72 @@
 import React, { useState, useCallback } from 'react';
-import {
-  View, Text, StyleSheet, ScrollView, Alert,
-  KeyboardAvoidingView, Platform, TouchableOpacity,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, TouchableOpacity, Alert, Image, StyleSheet } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as ImagePicker from 'expo-image-picker';
 import { patientService } from '../../services/patient.service';
+import { branchService } from '../../services/branch.service';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
-import ScreenHeader from '../../components/ScreenHeader';
+import PatientPhoneInput from '../../components/PatientPhoneInput';
+import FormScreenLayout, { FormCard, formInputWrap } from '../../components/FormScreenLayout';
 import DatePickerInput from '../../components/DatePickerInput';
-import { colors, spacing, typography, radius } from '../../theme';
-import { useBottomInset } from '../../hooks/useBottomInset';
-import type { PatientStackParamList } from '../../types';
+import SelectSheet from '../../components/SelectSheet';
+import { SelectField } from '../../components/FormSection';
+import { BLOOD_GROUPS } from '../../constants/patientForm';
+import { parseStoredPhone, isValidPhoneForCountry, toE164FromCountry } from '../../utils/phone';
+import type { CountryDial } from '../../utils/countryCodes';
+import { formUi, APP_C } from '../../theme/appChrome';
+import type { Branch, PatientStackParamList } from '../../types';
 
 type Route = RouteProp<PatientStackParamList, 'EditPatient'>;
 type Nav = NativeStackNavigationProp<PatientStackParamList>;
 
 const GENDERS = [
-  { value: 'Male', label: '♂ Male' },
-  { value: 'Female', label: '♀ Female' },
-  { value: 'Other', label: '⚥ Other' },
+  { value: 'Male', label: 'Male' },
+  { value: 'Female', label: 'Female' },
+  { value: 'Other', label: 'Other' },
 ] as const;
 
 type Gender = 'Male' | 'Female' | 'Other';
+
+async function pickImage() {
+  const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!perm.granted) {
+    Alert.alert('Permission needed', 'Allow access to your photo library.');
+    return null;
+  }
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    aspect: [1, 1],
+    quality: 0.9,
+  });
+  if (result.canceled || !result.assets?.[0]) return null;
+  const asset = result.assets[0];
+  return {
+    uri: asset.uri,
+    name: asset.fileName ?? `photo-${Date.now()}.jpg`,
+    type: asset.mimeType ?? 'image/jpeg',
+  };
+}
 
 export default function EditPatientScreen() {
   const route = useRoute<Route>();
   const navigation = useNavigation<Nav>();
   const { patientId } = route.params;
-  const bottomInset = useBottomInset();
 
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState('');
+  const [branchSheet, setBranchSheet] = useState(false);
+  const [phoneCountry, setPhoneCountry] = useState<CountryDial>(parseStoredPhone('').country);
+  const [phoneLocal, setPhoneLocal] = useState('');
+  const [profilePhotoFile, setProfilePhotoFile] = useState<{ uri: string; name: string; type: string } | null>(null);
+  const [profilePreview, setProfilePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [form, setForm] = useState({
-    first_name: '', last_name: '', phone: '', email: '',
+    first_name: '', last_name: '', email: '',
     gender: '' as Gender | '',
     date_of_birth: '',
     age: '',
@@ -45,20 +75,28 @@ export default function EditPatientScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useFocusEffect(useCallback(() => {
-    patientService.get(patientId).then((p) => {
-      setForm({
-        first_name: p.first_name,
-        last_name: p.last_name,
-        phone: p.phone,
-        email: p.email ?? '',
-        gender: (p.gender as Gender) ?? '',
-        date_of_birth: p.date_of_birth ? p.date_of_birth.split('T')[0] : '',
-        age: p.age ? String(p.age) : '',
-        blood_group: p.blood_group ?? '',
-        allergies: (p as any).allergies ?? '',
-        notes: p.notes ?? '',
-      });
-    }).finally(() => setFetching(false));
+    setFetching(true);
+    Promise.all([patientService.get(patientId), branchService.list()])
+      .then(([p, list]) => {
+        setBranches(list);
+        const parsed = parseStoredPhone(p.phone);
+        setPhoneCountry(parsed.country);
+        setPhoneLocal(parsed.local);
+        setSelectedBranchId(p.branch_id ?? p.branch?.id ?? list[0]?.id ?? '');
+        if (p.profile_photo_url) setProfilePreview(p.profile_photo_url);
+        setForm({
+          first_name: p.first_name,
+          last_name: p.last_name,
+          email: p.email ?? '',
+          gender: (p.gender as Gender) ?? '',
+          date_of_birth: p.date_of_birth ? p.date_of_birth.split('T')[0] : '',
+          age: p.age ? String(p.age) : '',
+          blood_group: p.blood_group ?? '',
+          allergies: p.allergies ?? '',
+          notes: p.notes ?? '',
+        });
+      })
+      .finally(() => setFetching(false));
   }, [patientId]));
 
   const set = (field: string, value: string) => {
@@ -70,9 +108,12 @@ export default function EditPatientScreen() {
     const e: Record<string, string> = {};
     if (!form.first_name.trim()) e.first_name = 'Required';
     if (!form.last_name.trim()) e.last_name = 'Required';
-    if (!form.phone.trim()) e.phone = 'Required';
-    else if (!/^[6-9]\d{9}$/.test(form.phone.trim())) e.phone = 'Enter valid 10-digit number';
+    if (!phoneLocal.trim()) e.phone = 'Required';
+    else if (!isValidPhoneForCountry(phoneLocal, phoneCountry)) {
+      e.phone = `Enter a valid ${phoneCountry.minLength}${phoneCountry.minLength !== phoneCountry.maxLength ? `–${phoneCountry.maxLength}` : ''}-digit number`;
+    }
     if (!form.gender) e.gender = 'Please select a gender';
+    if (!selectedBranchId) e.branch_id = 'Select a branch';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -84,17 +125,29 @@ export default function EditPatientScreen() {
       const payload: Record<string, unknown> = {
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
-        phone: form.phone.trim(),
+        phone: toE164FromCountry(phoneLocal, phoneCountry),
         gender: form.gender,
+        branch_id: selectedBranchId,
       };
       if (form.email.trim()) payload.email = form.email.trim();
       if (form.date_of_birth) payload.date_of_birth = form.date_of_birth;
       if (form.age.trim() && !form.date_of_birth) payload.age = parseInt(form.age.trim(), 10);
-      if (form.blood_group.trim()) payload.blood_group = form.blood_group.trim();
+      if (form.blood_group) payload.blood_group = form.blood_group;
       if (form.allergies.trim()) payload.allergies = form.allergies.trim();
       payload.notes = form.notes.trim();
 
-      await patientService.update(patientId, payload as any);
+      await patientService.update(patientId, payload as Parameters<typeof patientService.update>[1]);
+
+      if (profilePhotoFile) {
+        try {
+          const res = await patientService.uploadProfilePhoto(patientId, profilePhotoFile);
+          setProfilePreview(res.profile_photo_url);
+          setProfilePhotoFile(null);
+        } catch {
+          Alert.alert('Partial success', 'Patient updated, but profile photo upload failed.');
+        }
+      }
+
       Alert.alert('Saved', 'Patient details updated successfully.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
@@ -105,112 +158,158 @@ export default function EditPatientScreen() {
     }
   };
 
-  if (fetching) {
-    return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScreenHeader title="Edit Patient" onBack={() => navigation.goBack()} />
-        <View style={styles.center}><Text style={styles.loadingText}>Loading...</Text></View>
-      </SafeAreaView>
-    );
-  }
+  const branchLabel = branches.find((b) => b.id === selectedBranchId)?.name ?? '';
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScreenHeader title="Edit Patient" onBack={() => navigation.goBack()} />
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={[styles.content, { paddingBottom: spacing['2xl'] + bottomInset }]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={styles.sectionLabel}>Basic Information</Text>
-          <View style={styles.row2}>
-            <Input label="First Name *" value={form.first_name} onChangeText={(v) => set('first_name', v)}
-              error={errors.first_name} containerStyle={styles.half} />
-            <Input label="Last Name *" value={form.last_name} onChangeText={(v) => set('last_name', v)}
-              error={errors.last_name} containerStyle={styles.half} />
-          </View>
-          <Input label="Mobile Number *" value={form.phone} onChangeText={(v) => set('phone', v)}
-            keyboardType="phone-pad" maxLength={10} error={errors.phone} />
-          <Input label="Email" value={form.email} onChangeText={(v) => set('email', v)}
-            keyboardType="email-address" autoCapitalize="none" />
-
-          <Text style={styles.sectionLabel}>Patient Details</Text>
-
-          {/* Gender */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Gender *</Text>
-            <View style={styles.pillRow}>
-              {GENDERS.map((g) => (
-                <TouchableOpacity key={g.value}
-                  style={[styles.pill, form.gender === g.value && styles.pillActive]}
-                  onPress={() => set('gender', form.gender === g.value ? '' : g.value)}
-                >
-                  <Text style={[styles.pillText, form.gender === g.value && styles.pillTextActive]}>
-                    {g.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+    <FormScreenLayout
+      title="Edit patient"
+      subtitle="Update patient profile"
+      onBack={() => navigation.goBack()}
+      booting={fetching}
+      primaryAction={{ label: 'Save changes', onPress: handleSave, loading }}
+    >
+      <FormCard title="Profile photo">
+        <View style={photoStyles.row}>
+          {profilePreview ? (
+            <Image source={{ uri: profilePreview }} style={photoStyles.avatar} />
+          ) : (
+            <View style={photoStyles.placeholder}>
+              <Text style={photoStyles.initials}>
+                {(form.first_name[0] ?? '') + (form.last_name[0] ?? '') || '?'}
+              </Text>
             </View>
-            {errors.gender && <Text style={styles.errorText}>{errors.gender}</Text>}
-          </View>
-
-          {/* Date of Birth with picker */}
-          <DatePickerInput
-            label="Date of Birth"
-            value={form.date_of_birth}
-            maxDate={new Date()}
-            onChange={(v) => { set('date_of_birth', v); set('age', ''); }}
-          />
-
-          {/* Age — only if DOB not set */}
-          {!form.date_of_birth && (
-            <Input label="Age (if DOB unknown)" value={form.age} onChangeText={(v) => set('age', v)}
-              placeholder="e.g. 35" keyboardType="number-pad" maxLength={3} />
           )}
+          <View style={photoStyles.actions}>
+            <Button title="Change photo" variant="outline" size="sm" onPress={async () => {
+              const file = await pickImage();
+              if (!file) return;
+              setProfilePhotoFile(file);
+              setProfilePreview(file.uri);
+            }} />
+            {profilePreview ? (
+              <Button title="Remove" variant="ghost" size="sm" onPress={() => {
+                Alert.alert('Remove photo', 'Remove profile photo?', [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Remove',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        await patientService.deleteProfilePhoto(patientId);
+                        setProfilePreview(null);
+                        setProfilePhotoFile(null);
+                      } catch (err: unknown) {
+                        Alert.alert('Error', err instanceof Error ? err.message : 'Failed to remove photo');
+                      }
+                    },
+                  },
+                ]);
+              }} />
+            ) : null}
+          </View>
+        </View>
+      </FormCard>
 
-          <Input label="Blood Group" value={form.blood_group}
-            onChangeText={(v) => set('blood_group', v.toUpperCase())}
-            placeholder="A+, B-, O+..." autoCapitalize="characters" maxLength={4} />
+      <FormCard title="Basic information">
+        {branches.length > 1 ? (
+          <SelectField
+            label="Branch *"
+            value={branchLabel}
+            placeholder="Select branch"
+            error={errors.branch_id}
+            onPress={() => setBranchSheet(true)}
+          />
+        ) : null}
+        <View style={formUi.row2}>
+          <Input label="First name *" value={form.first_name} onChangeText={(v) => set('first_name', v)}
+            error={errors.first_name} containerStyle={[formInputWrap.tight, formUi.half]} />
+          <Input label="Last name *" value={form.last_name} onChangeText={(v) => set('last_name', v)}
+            error={errors.last_name} containerStyle={[formInputWrap.tight, formUi.half]} />
+        </View>
+        <View style={formInputWrap.tight}>
+          <PatientPhoneInput
+            country={phoneCountry}
+            local={phoneLocal}
+            onCountryChange={setPhoneCountry}
+            onLocalChange={(v) => { setPhoneLocal(v); setErrors((p) => ({ ...p, phone: '' })); }}
+            error={errors.phone}
+          />
+        </View>
+        <Input label="Email" value={form.email} onChangeText={(v) => set('email', v)}
+          keyboardType="email-address" autoCapitalize="none" containerStyle={formInputWrap.tight} />
+      </FormCard>
 
-          <Input label="Allergies" value={form.allergies} onChangeText={(v) => set('allergies', v)}
-            placeholder="e.g. Penicillin, Latex" />
+      <FormCard title="Patient details">
+        <View>
+          <Text style={formUi.fieldLabel}>Gender *</Text>
+          <View style={formUi.pillRow}>
+            {GENDERS.map((g) => (
+              <TouchableOpacity
+                key={g.value}
+                style={[formUi.pill, form.gender === g.value && formUi.pillActive]}
+                onPress={() => set('gender', g.value)}
+                activeOpacity={0.7}
+              >
+                <Text style={[formUi.pillTxt, form.gender === g.value && formUi.pillTxtActive]}>{g.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {errors.gender ? <Text style={formUi.errorTxt}>{errors.gender}</Text> : null}
+        </View>
 
-          <Input label="Notes" value={form.notes} onChangeText={(v) => set('notes', v)}
-            placeholder="Medical history, special instructions..."
-            multiline numberOfLines={3} textAlignVertical="top" style={styles.textarea} />
+        <DatePickerInput
+          label="Date of birth"
+          value={form.date_of_birth}
+          maxDate={new Date()}
+          showAge
+          onChange={(v) => { set('date_of_birth', v); set('age', ''); }}
+        />
 
-          <Button title="Save Changes" onPress={handleSave} loading={loading} size="lg" />
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        {!form.date_of_birth && (
+          <Input label="Age (if DOB unknown)" value={form.age} onChangeText={(v) => set('age', v)}
+            placeholder="e.g. 35" keyboardType="number-pad" maxLength={3} containerStyle={formInputWrap.tight} />
+        )}
+
+        <Text style={[formUi.fieldLabel, { marginTop: 8 }]}>Blood group</Text>
+        <View style={formUi.pillRow}>
+          {BLOOD_GROUPS.map((bg) => (
+            <TouchableOpacity
+              key={bg}
+              style={[formUi.pill, form.blood_group === bg && formUi.pillActive]}
+              onPress={() => set('blood_group', form.blood_group === bg ? '' : bg)}
+              activeOpacity={0.7}
+            >
+              <Text style={[formUi.pillTxt, form.blood_group === bg && formUi.pillTxtActive]}>{bg}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Input label="Allergies" value={form.allergies} onChangeText={(v) => set('allergies', v)}
+          containerStyle={formInputWrap.tight} />
+        <Input label="Notes" value={form.notes} onChangeText={(v) => set('notes', v)}
+          multiline numberOfLines={3} textAlignVertical="top"
+          style={{ minHeight: 80, paddingTop: 8 }} containerStyle={formInputWrap.tight} />
+      </FormCard>
+
+      <SelectSheet
+        visible={branchSheet}
+        title="Branch"
+        options={branches.map((b) => ({ value: b.id, label: b.name }))}
+        selectedValue={selectedBranchId}
+        onSelect={setSelectedBranchId}
+        onClose={() => setBranchSheet(false)}
+      />
+    </FormScreenLayout>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  flex: { flex: 1 },
-  scroll: { flex: 1 },
-  content: { padding: spacing.base },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { color: colors.textSecondary },
-  sectionLabel: {
-    fontSize: typography.xs, fontWeight: '700', color: colors.textMuted,
-    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: spacing.md, marginTop: spacing.sm,
+const photoStyles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  avatar: { width: 72, height: 72, borderRadius: 36 },
+  placeholder: {
+    width: 72, height: 72, borderRadius: 36, backgroundColor: APP_C.indigoLight,
+    alignItems: 'center', justifyContent: 'center',
   },
-  row2: { flexDirection: 'row', gap: spacing.sm },
-  half: { flex: 1 },
-  fieldGroup: { marginBottom: spacing.md },
-  fieldLabel: { fontSize: typography.sm, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
-  pillRow: { flexDirection: 'row', gap: spacing.sm },
-  pill: {
-    flex: 1, paddingVertical: spacing.sm, borderRadius: radius.md,
-    borderWidth: 1.5, borderColor: colors.border, alignItems: 'center',
-  },
-  pillActive: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
-  pillText: { fontSize: typography.sm, color: colors.textSecondary, fontWeight: '500' },
-  pillTextActive: { color: colors.primary, fontWeight: '700' },
-  errorText: { fontSize: typography.xs, color: colors.danger, marginTop: spacing.xs, fontWeight: '500' },
-  textarea: { minHeight: 80, paddingTop: spacing.sm },
+  initials: { fontSize: 20, fontWeight: '700', color: APP_C.indigo },
+  actions: { flex: 1, gap: 4 },
 });

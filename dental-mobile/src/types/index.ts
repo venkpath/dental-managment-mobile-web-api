@@ -32,8 +32,10 @@ export interface Patient {
   allergies?: string;
   medical_history?: Record<string, unknown>;
   notes?: string;
+  branch_id?: string;
+  profile_photo_url?: string | null;
   created_at: string;
-  branch?: { name: string };
+  branch?: { id?: string; name: string };
 }
 
 export type AppointmentStatus =

@@ -9,11 +9,17 @@ import {
   ActivityIndicator,
   TextInput,
   ScrollView,
+  Modal,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { treatmentService } from '../../services/treatment.service';
 import { formatCurrency } from '../../utils/format';
 import EmptyState from '../../components/EmptyState';
@@ -25,11 +31,16 @@ import {
 } from '../../components/Pagination';
 import { useBottomInset } from '../../hooks/useBottomInset';
 import { useDrawer } from '../../components/DrawerMenu';
+import PatientSearchInput from '../../components/PatientSearchInput';
+import { formUi } from '../../theme/appChrome';
 import { radius } from '../../theme';
 import { treatmentStatusMeta } from '../../utils/treatmentStatus';
-import type { Treatment, TreatmentStatus, BillingStackParamList } from '../../types';
+import type { Treatment, TreatmentStatus, BillingStackParamList, TabParamList } from '../../types';
 
-type Nav = NativeStackNavigationProp<BillingStackParamList>;
+type Nav = CompositeNavigationProp<
+  NativeStackNavigationProp<BillingStackParamList>,
+  BottomTabNavigationProp<TabParamList>
+>;
 
 const C = {
   indigo: '#4361EE', indigoLight: '#EEF2FF',
@@ -68,6 +79,7 @@ export default function ClinicTreatmentListScreen() {
   const [total, setTotal] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
+  const [addPatientOpen, setAddPatientOpen] = useState(false);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
 
@@ -192,6 +204,13 @@ export default function ClinicTreatmentListScreen() {
           <Text style={s.title}>Treatments</Text>
           <Text style={s.subtitle}>Clinical procedures & billing</Text>
         </View>
+        <TouchableOpacity
+          style={s.addBtn}
+          onPress={() => setAddPatientOpen(true)}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="add" size={22} color="#fff" />
+        </TouchableOpacity>
       </View>
 
       <View style={s.searchWrap}>
@@ -275,6 +294,51 @@ export default function ClinicTreatmentListScreen() {
         </View>
       )}
 
+      <Modal visible={addPatientOpen} transparent animationType="slide" onRequestClose={() => setAddPatientOpen(false)}>
+        <KeyboardAvoidingView
+          style={s.modalRoot}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={insets.top}
+        >
+          <Pressable style={formUi.sheetBackdrop} onPress={() => setAddPatientOpen(false)}>
+            <Pressable
+              style={[formUi.sheet, { paddingBottom: Math.max(24, bottomInset + 12) }]}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+              >
+                <View style={formUi.sheetHandle} />
+                <Text style={formUi.sheetTitle}>New treatment</Text>
+                <Text style={formUi.sheetSub}>Select a patient to record a treatment</Text>
+                <PatientSearchInput
+                  label="Patient *"
+                  selectedPatient={null}
+                  onSelect={(p) => {
+                    if (!p.id) return;
+                    setAddPatientOpen(false);
+                    navigation.navigate('Patients', {
+                      screen: 'AddTreatment',
+                      params: { patientId: p.id, patientName: p.name },
+                    });
+                  }}
+                />
+                <TouchableOpacity
+                  style={[formUi.primaryBtn, { marginTop: 16 }]}
+                  onPress={() => setAddPatientOpen(false)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={formUi.primaryTxt}>Cancel</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Modal>
+
       <PageSizeSheet
         visible={pageSizeOpen}
         pageSize={pageSize}
@@ -287,12 +351,14 @@ export default function ClinicTreatmentListScreen() {
 }
 
 const s = StyleSheet.create({
+  modalRoot: { flex: 1, justifyContent: 'flex-end' },
   screen: { flex: 1, backgroundColor: C.bg },
   topbar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, gap: 10, backgroundColor: C.bg },
   iconBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', shadowColor: '#0f172a', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 2 },
   titleBlock: { flex: 1 },
   title: { fontSize: 18, fontWeight: '800', color: C.text },
   subtitle: { fontSize: 11, color: C.textSub, marginTop: 1 },
+  addBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.indigo, alignItems: 'center', justifyContent: 'center' },
   searchWrap: { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 10, backgroundColor: C.bg },
   searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surface, borderRadius: 12, paddingHorizontal: 12, height: 42, borderWidth: 1, borderColor: C.border },
   searchInput: { flex: 1, fontSize: 13, color: C.text, paddingVertical: 0 },

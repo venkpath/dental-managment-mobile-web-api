@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, radius } from '../theme';
+import { spacing, radius } from '../theme';
+import { APP_C } from '../theme/appChrome';
 
 export function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -60,7 +61,7 @@ export function SelectField({
         <Text style={value ? s.selectValue : s.selectPlaceholder} numberOfLines={1}>
           {value || placeholder || 'Select…'}
         </Text>
-        <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+        <Ionicons name="chevron-down" size={16} color={APP_C.textMuted} />
       </TouchableOpacity>
       {error ? <Text style={s.error}>{error}</Text> : null}
     </View>
@@ -69,35 +70,35 @@ export function SelectField({
 
 const s = StyleSheet.create({
   section: { marginBottom: spacing.lg },
-  label: { fontSize: typography.xs, fontWeight: '700', color: colors.textSecondary, marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 0.5 },
+  label: { fontSize: 11, fontWeight: '700', color: APP_C.textMuted, marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 0.6 },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   pill: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: radius.full,
-    backgroundColor: colors.background,
+    backgroundColor: APP_C.bg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: APP_C.border,
   },
-  pillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  pillTxt: { fontSize: 13, fontWeight: '500', color: colors.textSecondary },
+  pillActive: { backgroundColor: APP_C.indigo, borderColor: APP_C.indigo },
+  pillTxt: { fontSize: 13, fontWeight: '600', color: APP_C.textSub },
   pillTxtActive: { color: '#fff', fontWeight: '700' },
   field: { marginBottom: spacing.md },
-  fieldLabel: { fontSize: typography.sm, fontWeight: '600', color: colors.textSecondary, marginBottom: 6 },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: APP_C.textSub, marginBottom: 6 },
   select: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.surface,
+    backgroundColor: APP_C.bg,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
+    borderColor: APP_C.border,
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     minHeight: 48,
   },
-  selectError: { borderColor: colors.danger },
-  selectValue: { fontSize: 15, color: colors.text, flex: 1 },
-  selectPlaceholder: { fontSize: 15, color: colors.textMuted, flex: 1 },
-  error: { fontSize: 12, color: colors.danger, marginTop: 4 },
+  selectError: { borderColor: APP_C.red },
+  selectValue: { fontSize: 15, color: APP_C.text, flex: 1 },
+  selectPlaceholder: { fontSize: 15, color: APP_C.textMuted, flex: 1 },
+  error: { fontSize: 12, color: APP_C.red, marginTop: 4 },
 });

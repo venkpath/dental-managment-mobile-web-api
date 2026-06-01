@@ -139,7 +139,7 @@ let PatientService = PatientService_1 = class PatientService {
         const [data, total] = await Promise.all([
             this.prisma.patient.findMany({
                 where,
-                orderBy: { created_at: 'desc' },
+                orderBy: [{ updated_at: 'desc' }, { created_at: 'desc' }],
                 include: {
                     branch: true,
                     primary_memberships: {

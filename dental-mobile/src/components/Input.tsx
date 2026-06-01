@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TextInputProps, ViewStyle, Platform } from 'react-native';
 import { colors, radius, spacing, typography } from '../theme';
+import { APP_C } from '../theme/appChrome';
 
 interface Props extends TextInputProps {
   label?: string;
@@ -11,26 +12,29 @@ interface Props extends TextInputProps {
   rightElement?: React.ReactNode;
 }
 
-export default function Input({ label, error, hint, containerStyle, style, prefix, rightElement, ...props }: Props) {
+export default function Input({ label, error, hint, containerStyle, style, prefix, rightElement, multiline, ...props }: Props) {
   const [focused, setFocused] = useState(false);
+  const isMultiline = !!multiline;
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label ? <Text style={styles.label}>{label}</Text> : null}
       <View style={[
         styles.inputWrap,
+        isMultiline && styles.inputWrapMultiline,
         focused && styles.inputWrapFocused,
         !!error && styles.inputWrapError,
       ]}>
-        {prefix && <Text style={styles.prefix}>{prefix}</Text>}
+        {prefix ? <Text style={styles.prefix}>{prefix}</Text> : null}
         <TextInput
-          style={[styles.input, style]}
-          placeholderTextColor={colors.textMuted}
+          style={[styles.input, isMultiline && styles.inputMultiline, style]}
+          placeholderTextColor={APP_C.textMuted}
+          multiline={multiline}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           {...props}
         />
-        {rightElement && <View style={styles.rightEl}>{rightElement}</View>}
+        {rightElement ? <View style={styles.rightEl}>{rightElement}</View> : null}
       </View>
       {error ? (
         <Text style={styles.error}>{error}</Text>
@@ -44,28 +48,35 @@ export default function Input({ label, error, hint, containerStyle, style, prefi
 const styles = StyleSheet.create({
   container: { marginBottom: spacing.base },
   label: {
-    fontSize: typography.sm,
+    fontSize: 13,
     fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
+    color: APP_C.textSub,
+    marginBottom: 6,
   },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderWidth: 1.5,
-    borderColor: '#e2e8f0',
-    borderRadius: radius.md,
+    backgroundColor: APP_C.bg,
+    borderWidth: 1,
+    borderColor: APP_C.border,
+    borderRadius: 12,
     paddingHorizontal: spacing.base,
+    minHeight: 52,
     height: 52,
   },
+  inputWrapMultiline: {
+    height: undefined,
+    minHeight: 96,
+    alignItems: 'flex-start',
+    paddingVertical: spacing.sm,
+  },
   inputWrapFocused: {
-    borderColor: colors.primary,
-    backgroundColor: '#ffffff',
+    borderColor: APP_C.indigo,
+    backgroundColor: APP_C.surface,
   },
   inputWrapError: {
-    borderColor: colors.danger,
-    backgroundColor: '#fef2f2',
+    borderColor: APP_C.red,
+    backgroundColor: APP_C.redLight,
   },
   prefix: {
     fontSize: typography.base,
@@ -76,7 +87,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: typography.base,
-    color: colors.text,
+    color: APP_C.text,
     height: '100%',
     paddingVertical: 0,
     textAlignVertical: 'center',
@@ -84,18 +95,25 @@ const styles = StyleSheet.create({
       android: { paddingTop: 0, paddingBottom: 0 },
     }),
   },
+  inputMultiline: {
+    minHeight: 72,
+    height: undefined,
+    textAlignVertical: 'top',
+    paddingTop: Platform.OS === 'android' ? 4 : 2,
+    paddingBottom: Platform.OS === 'android' ? 4 : 2,
+  },
   rightEl: {
     marginLeft: spacing.sm,
   },
   error: {
-    fontSize: typography.xs,
-    color: colors.danger,
-    marginTop: spacing.xs,
+    fontSize: 12,
+    color: APP_C.red,
+    marginTop: 4,
     fontWeight: '500',
   },
   hint: {
     fontSize: typography.xs,
-    color: colors.textMuted,
+    color: APP_C.textMuted,
     marginTop: spacing.xs,
   },
 });

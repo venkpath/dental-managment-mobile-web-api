@@ -58,17 +58,19 @@ type FilterKey = 'Today' | 'Upcoming' | 'All' | 'Scheduled' | 'Completed' | 'Can
 interface FilterDef {
   key: FilterKey;
   dot: string;
+  /** Server applies sort — earliest-first for schedule tabs, newest-first for history. */
+  sort: 'asc' | 'desc';
   build: () => { date?: string; start_date?: string; end_date?: string; status?: string };
 }
 
 const FILTERS: FilterDef[] = [
-  { key: 'Today',     dot: C.indigo,  build: () => ({ date: todayStr() }) },
-  { key: 'Upcoming',  dot: C.teal,    build: () => ({ start_date: todayStr(), end_date: farFutureStr() }) },
-  { key: 'All',       dot: C.gray,    build: () => ({}) },
-  { key: 'Scheduled', dot: C.indigo,  build: () => ({ status: 'scheduled' }) },
-  { key: 'Completed', dot: C.green,   build: () => ({ status: 'completed' }) },
-  { key: 'Cancelled', dot: C.red,     build: () => ({ status: 'cancelled' }) },
-  { key: 'No Show',   dot: C.amber,   build: () => ({ status: 'no_show' }) },
+  { key: 'Today',     dot: C.indigo,  sort: 'asc',  build: () => ({ date: todayStr() }) },
+  { key: 'Upcoming',  dot: C.teal,    sort: 'asc',  build: () => ({ start_date: todayStr(), end_date: farFutureStr() }) },
+  { key: 'All',       dot: C.gray,    sort: 'desc', build: () => ({}) },
+  { key: 'Scheduled', dot: C.indigo,  sort: 'desc', build: () => ({ status: 'scheduled' }) },
+  { key: 'Completed', dot: C.green,   sort: 'desc', build: () => ({ status: 'completed' }) },
+  { key: 'Cancelled', dot: C.red,     sort: 'desc', build: () => ({ status: 'cancelled' }) },
+  { key: 'No Show',   dot: C.amber,   sort: 'desc', build: () => ({ status: 'no_show' }) },
 ];
 
 // ─── Status visuals ──────────────────────────────────────────────────────────
@@ -146,7 +148,12 @@ export default function AppointmentListScreen() {
 
     try {
       const def = FILTERS.find((d) => d.key === f);
-      const res = await appointmentService.list({ ...(def?.build() ?? {}), page: p, limit });
+      const res = await appointmentService.list({
+        ...(def?.build() ?? {}),
+        page: p,
+        limit,
+        sort: def?.sort ?? 'desc',
+      });
       if (seq !== fetchSeq.current) return;
       setLoadError(false);
       setAppointments(res.data ?? []);

@@ -3,8 +3,10 @@ import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { patientService } from '../services/patient.service';
-import { colors, spacing, typography, radius, shadow } from '../theme';
+import { APP_C } from '../theme/appChrome';
+import { spacing, typography, radius, shadow } from '../theme';
 import type { Patient } from '../types';
 
 interface Props {
@@ -14,7 +16,7 @@ interface Props {
   error?: string;
 }
 
-export default function PatientSearchInput({ label = 'Patient *', selectedPatient, onSelect, error }: Props) {
+export default function PatientSearchInput({ label, selectedPatient, onSelect, error }: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Patient[]>([]);
   const [searching, setSearching] = useState(false);
@@ -61,36 +63,35 @@ export default function PatientSearchInput({ label = 'Patient *', selectedPatien
 
   return (
     <View style={styles.wrapper}>
-      <Text style={styles.label}>{label}</Text>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
 
       {selectedPatient?.id ? (
-        // Selected state — show name chip with clear button
         <View style={[styles.selectedChip, error && styles.chipError]}>
           <View style={styles.chipLeft}>
-            <Text style={styles.chipIcon}>👤</Text>
-            <View>
+            <View style={styles.chipAvatar}>
+              <Ionicons name="person" size={18} color={APP_C.indigo} />
+            </View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.chipName}>{selectedPatient.name}</Text>
-              <Text style={styles.chipId} numberOfLines={1}>{selectedPatient.id}</Text>
             </View>
           </View>
-          <TouchableOpacity onPress={handleClear} style={styles.clearBtn}>
-            <Text style={styles.clearText}>✕</Text>
+          <TouchableOpacity onPress={handleClear} style={styles.clearBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close-circle" size={22} color={APP_C.textMuted} />
           </TouchableOpacity>
         </View>
       ) : (
-        // Search input
         <View style={[styles.inputWrap, error && styles.inputError]}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Ionicons name="search" size={18} color={APP_C.textMuted} style={styles.searchIcon} />
           <TextInput
             style={styles.input}
             value={query}
             onChangeText={search}
             placeholder="Search by name or phone..."
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={APP_C.textMuted}
             autoCapitalize="none"
             autoCorrect={false}
           />
-          {searching && <ActivityIndicator size="small" color={colors.primary} style={styles.spinner} />}
+          {searching ? <ActivityIndicator size="small" color={APP_C.indigo} style={styles.spinner} /> : null}
         </View>
       )}
 
@@ -111,7 +112,7 @@ export default function PatientSearchInput({ label = 'Patient *', selectedPatien
               </View>
               <View style={styles.dropInfo}>
                 <Text style={styles.dropName}>{p.first_name} {p.last_name}</Text>
-                <Text style={styles.dropPhone}>📞 {p.phone}</Text>
+                <Text style={styles.dropPhone}>{p.phone}</Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -128,49 +129,51 @@ export default function PatientSearchInput({ label = 'Patient *', selectedPatien
 }
 
 const styles = StyleSheet.create({
-  wrapper: { marginBottom: spacing.md },
-  label: { fontSize: typography.sm, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
+  wrapper: { marginBottom: 0 },
+  label: { fontSize: 13, fontWeight: '600', color: APP_C.textSub, marginBottom: 6 },
   inputWrap: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.background, borderWidth: 1.5, borderColor: colors.border,
-    borderRadius: radius.md, paddingHorizontal: spacing.md, minHeight: 50,
+    backgroundColor: APP_C.bg, borderWidth: 1, borderColor: APP_C.border,
+    borderRadius: 12, paddingHorizontal: 12, minHeight: 48,
   },
-  inputError: { borderColor: colors.danger },
-  searchIcon: { fontSize: 16, marginRight: spacing.sm },
-  input: { flex: 1, fontSize: typography.base, color: colors.text, paddingVertical: spacing.sm },
+  inputError: { borderColor: APP_C.red },
+  searchIcon: { marginRight: spacing.sm },
+  input: { flex: 1, fontSize: typography.base, color: APP_C.text, paddingVertical: spacing.sm },
   spinner: { marginLeft: spacing.sm },
   selectedChip: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: colors.primaryLight, borderWidth: 1.5, borderColor: colors.primary,
-    borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    minHeight: 50,
+    backgroundColor: APP_C.indigoLight, borderWidth: 1, borderColor: '#c7d2fe',
+    borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,
+    minHeight: 48,
   },
-  chipError: { borderColor: colors.danger, backgroundColor: colors.dangerLight },
-  chipLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
-  chipIcon: { fontSize: 18 },
-  chipName: { fontSize: typography.base, fontWeight: '600', color: colors.primary },
-  chipId: { fontSize: typography.xs, color: colors.textMuted, maxWidth: 220 },
-  clearBtn: { padding: spacing.xs },
-  clearText: { fontSize: 14, color: colors.primary, fontWeight: '700' },
-  errorText: { fontSize: typography.xs, color: colors.danger, marginTop: spacing.xs, fontWeight: '500' },
+  chipError: { borderColor: APP_C.red, backgroundColor: APP_C.redLight },
+  chipLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  chipAvatar: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: APP_C.surface, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#c7d2fe',
+  },
+  chipName: { fontSize: 15, fontWeight: '700', color: APP_C.indigo },
+  clearBtn: { padding: 2 },
+  errorText: { fontSize: 12, color: APP_C.red, marginTop: 4, fontWeight: '500' },
   dropdown: {
-    backgroundColor: colors.surface, borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.border,
+    backgroundColor: APP_C.surface, borderRadius: 12,
+    borderWidth: 1, borderColor: APP_C.border,
     marginTop: spacing.xs, overflow: 'hidden', ...shadow.sm,
   },
   dropItem: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.md,
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
-    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+    borderBottomWidth: 1, borderBottomColor: APP_C.divider,
   },
   dropAvatar: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: APP_C.indigoLight, alignItems: 'center', justifyContent: 'center',
   },
-  dropAvatarText: { fontSize: typography.sm, fontWeight: '700', color: colors.primary },
+  dropAvatarText: { fontSize: typography.sm, fontWeight: '700', color: APP_C.indigo },
   dropInfo: { flex: 1 },
-  dropName: { fontSize: typography.base, fontWeight: '600', color: colors.text },
-  dropPhone: { fontSize: typography.xs, color: colors.textSecondary, marginTop: 1 },
+  dropName: { fontSize: typography.base, fontWeight: '600', color: APP_C.text },
+  dropPhone: { fontSize: typography.xs, color: APP_C.textSub, marginTop: 1 },
   noResults: { padding: spacing.md, alignItems: 'center' },
-  noResultsText: { fontSize: typography.sm, color: colors.textMuted },
+  noResultsText: { fontSize: typography.sm, color: APP_C.textMuted },
 });

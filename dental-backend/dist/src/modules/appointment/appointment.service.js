@@ -48,6 +48,15 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
         this.reviewTrigger = reviewTrigger;
         this.staffNotificationService = staffNotificationService;
     }
+    resolveAppointmentListOrder(query) {
+        const isToday = !!query.date;
+        const isUpcomingRange = !!query.start_date && !!query.end_date && !query.status;
+        const chronological = query.sort === 'asc' ||
+            (query.sort !== 'desc' && (isToday || isUpcomingRange));
+        return chronological
+            ? [{ appointment_date: 'asc' }, { start_time: 'asc' }]
+            : [{ appointment_date: 'desc' }, { start_time: 'desc' }];
+    }
     async create(clinicId, dto) {
         if (dto.start_time >= dto.end_time) {
             throw new common_1.BadRequestException('start_time must be before end_time');
@@ -204,10 +213,11 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
         }
         const page = query.page ?? 1;
         const limit = query.limit ?? 20;
+        const orderBy = this.resolveAppointmentListOrder(query);
         const [data, total] = await Promise.all([
             this.prisma.appointment.findMany({
                 where,
-                orderBy: [{ appointment_date: 'asc' }, { start_time: 'asc' }],
+                orderBy,
                 include: { patient: true, dentist: true, branch: true, room: { select: { id: true, name: true, room_type: true } } },
                 skip: (page - 1) * limit,
                 take: limit,
