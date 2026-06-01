@@ -1,6 +1,7 @@
 import { PrismaService } from '../../database/prisma.service.js';
 declare class ListReviewsQuery {
     status?: string;
+    sort?: string;
     page?: number;
     limit?: number;
 }
@@ -11,6 +12,13 @@ export declare class ClinicReviewsController {
         data: {
             id: string;
             created_at: Date;
+            patient: {
+                id: string;
+                phone: string;
+                first_name: string;
+                last_name: string;
+            } | null;
+            source: string;
             comment: string | null;
             doctor: {
                 id: string;

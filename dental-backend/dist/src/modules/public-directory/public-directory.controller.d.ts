@@ -220,8 +220,8 @@ export declare class PublicDirectoryController {
     getReviewToken(token: string): Promise<{
         clinic_name: string;
         clinic_city: string | null;
-        clinic_logo_url: string | null;
         doctor_name: string | null;
+        patient_name: string | null;
     }>;
     submitReview(token: string, dto: SubmitReviewDto): Promise<{
         success: boolean;

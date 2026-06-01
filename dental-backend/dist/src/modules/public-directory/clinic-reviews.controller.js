@@ -26,6 +26,7 @@ const index_js_1 = require("../user/dto/index.js");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 class ListReviewsQuery {
     status;
+    sort;
     page;
     limit;
 }
@@ -35,6 +36,12 @@ __decorate([
     (0, class_validator_1.IsIn)(['submitted', 'approved', 'rejected', 'pending']),
     __metadata("design:type", String)
 ], ListReviewsQuery.prototype, "status", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ enum: ['newest', 'oldest', 'highest', 'lowest'] }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['newest', 'oldest', 'highest', 'lowest']),
+    __metadata("design:type", String)
+], ListReviewsQuery.prototype, "sort", void 0);
 __decorate([
     (0, swagger_2.ApiPropertyOptional)({ default: 1 }),
     (0, class_validator_1.IsOptional)(),
@@ -58,9 +65,13 @@ let ClinicReviewsController = class ClinicReviewsController {
         this.prisma = prisma;
     }
     async listReviews(clinicId, query) {
-        const { status = 'submitted', page = 1, limit = 20 } = query;
+        const { status = 'submitted', sort = 'newest', page = 1, limit = 20 } = query;
         const skip = (page - 1) * limit;
         const where = { clinic_id: clinicId, approval_status: status };
+        const orderBy = sort === 'oldest' ? { created_at: 'asc' }
+            : sort === 'highest' ? { overall_rating: 'desc' }
+                : sort === 'lowest' ? { overall_rating: 'asc' }
+                    : { created_at: 'desc' };
         const [data, total] = await Promise.all([
             this.prisma.clinicDirectoryReview.findMany({
                 where,
@@ -74,13 +85,15 @@ let ClinicReviewsController = class ClinicReviewsController {
                     value_rating: true,
                     comment: true,
                     approval_status: true,
+                    source: true,
                     is_visible: true,
                     is_verified: true,
                     created_at: true,
                     token_used_at: true,
                     doctor: { select: { id: true, name: true } },
+                    patient: { select: { id: true, first_name: true, last_name: true, phone: true } },
                 },
-                orderBy: { created_at: 'desc' },
+                orderBy,
                 skip,
                 take: limit,
             }),

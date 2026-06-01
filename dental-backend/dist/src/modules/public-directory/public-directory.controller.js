@@ -907,19 +907,23 @@ let PublicDirectoryController = class PublicDirectoryController {
             select: {
                 id: true,
                 token_used_at: true,
-                clinic: { select: { id: true, name: true, logo_url: true, city: true } },
+                clinic: { select: { id: true, name: true, city: true } },
                 doctor: { select: { name: true } },
+                patient: { select: { first_name: true, last_name: true } },
             },
         });
         if (!review)
             throw new common_1.NotFoundException('Review link not found or expired');
         if (review.token_used_at)
             throw new common_1.BadRequestException('This review link has already been used');
+        const patientName = review.patient
+            ? `${review.patient.first_name} ${review.patient.last_name ?? ''}`.trim()
+            : null;
         return {
             clinic_name: review.clinic.name,
-            clinic_city: review.clinic.city,
-            clinic_logo_url: review.clinic.logo_url ?? null,
+            clinic_city: review.clinic.city ?? null,
             doctor_name: review.doctor?.name ?? null,
+            patient_name: patientName,
         };
     }
     async submitReview(token, dto) {

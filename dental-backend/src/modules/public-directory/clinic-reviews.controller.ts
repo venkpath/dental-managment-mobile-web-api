@@ -24,6 +24,11 @@ class ListReviewsQuery {
   @IsIn(['submitted', 'approved', 'rejected', 'pending'])
   status?: string;
 
+  @ApiPropertyOptional({ enum: ['newest', 'oldest', 'highest', 'lowest'] })
+  @IsOptional()
+  @IsIn(['newest', 'oldest', 'highest', 'lowest'])
+  sort?: string;
+
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
   @Type(() => Number)
@@ -52,10 +57,16 @@ export class ClinicReviewsController {
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'List directory reviews for this clinic, filtered by approval status' })
   async listReviews(@CurrentClinic() clinicId: string, @Query() query: ListReviewsQuery) {
-    const { status = 'submitted', page = 1, limit = 20 } = query;
+    const { status = 'submitted', sort = 'newest', page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
 
     const where = { clinic_id: clinicId, approval_status: status };
+
+    const orderBy =
+      sort === 'oldest'  ? { created_at: 'asc' as const }
+      : sort === 'highest' ? { overall_rating: 'desc' as const }
+      : sort === 'lowest'  ? { overall_rating: 'asc' as const }
+      : { created_at: 'desc' as const };
 
     const [data, total] = await Promise.all([
       this.prisma.clinicDirectoryReview.findMany({
@@ -70,13 +81,15 @@ export class ClinicReviewsController {
           value_rating: true,
           comment: true,
           approval_status: true,
+          source: true,
           is_visible: true,
           is_verified: true,
           created_at: true,
           token_used_at: true,
           doctor: { select: { id: true, name: true } },
+          patient: { select: { id: true, first_name: true, last_name: true, phone: true } },
         },
-        orderBy: { created_at: 'desc' },
+        orderBy,
         skip,
         take: limit,
       }),
