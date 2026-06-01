@@ -1235,10 +1235,23 @@ export class CommunicationService {
     switch (channel) {
       case 'email': return patient.email;
       case 'whatsapp': {
-        // Normalize to 91XXXXXXXXXX for consistent grouping with inbound messages
-        const digits = patient.phone.replace(/[^0-9]/g, '');
-        const last10 = digits.slice(-10);
-        return `91${last10}`;
+        const phone = patient.phone?.trim();
+        if (!phone) return null;
+
+        // Already E.164 (starts with +): return as-is — WhatsApp provider strips the +
+        if (phone.startsWith('+')) return phone;
+
+        const digits = phone.replace(/[^0-9]/g, '');
+        if (!digits) return null;
+
+        // 10-digit bare number → assume India (legacy Indian clinic behaviour)
+        if (digits.length === 10) return `+91${digits}`;
+
+        // 11-digit starting with 0 → strip leading 0, assume India (e.g. 09876543210)
+        if (digits.length === 11 && digits.startsWith('0')) return `+91${digits.slice(1)}`;
+
+        // Anything else already has a country code → trust it
+        return `+${digits}`;
       }
       case 'sms': return patient.phone;
       case 'in_app': return patient.phone;
@@ -2565,11 +2578,11 @@ export class CommunicationService {
   }
 
   async sendInboxReply(clinicId: string, phone: string, body: string) {
-    // Normalize phone to 91XXXXXXXXXX format for consistent storage
     const digitsOnly = phone.replace(/[^0-9]/g, '');
     const last10 = digitsOnly.slice(-10);
-    const normalizedPhone = `91${last10}`;
-    const phoneVariants = [...new Set([normalizedPhone, last10, `+91${last10}`, phone])];
+    // Preserve original number for sending; variants used only for patient lookup
+    const normalizedPhone = phone.startsWith('+') ? phone : (digitsOnly.length === 10 ? `+91${digitsOnly}` : `+${digitsOnly}`);
+    const phoneVariants = [...new Set([normalizedPhone, last10, `+91${last10}`, phone, digitsOnly])];
 
     // Find patient by phone
     const patient = await this.prisma.patient.findFirst({

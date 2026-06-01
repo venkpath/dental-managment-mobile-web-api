@@ -907,9 +907,19 @@ let CommunicationService = class CommunicationService {
         switch (channel) {
             case 'email': return patient.email;
             case 'whatsapp': {
-                const digits = patient.phone.replace(/[^0-9]/g, '');
-                const last10 = digits.slice(-10);
-                return `91${last10}`;
+                const phone = patient.phone?.trim();
+                if (!phone)
+                    return null;
+                if (phone.startsWith('+'))
+                    return phone;
+                const digits = phone.replace(/[^0-9]/g, '');
+                if (!digits)
+                    return null;
+                if (digits.length === 10)
+                    return `+91${digits}`;
+                if (digits.length === 11 && digits.startsWith('0'))
+                    return `+91${digits.slice(1)}`;
+                return `+${digits}`;
             }
             case 'sms': return patient.phone;
             case 'in_app': return patient.phone;
@@ -1916,8 +1926,8 @@ let CommunicationService = class CommunicationService {
     async sendInboxReply(clinicId, phone, body) {
         const digitsOnly = phone.replace(/[^0-9]/g, '');
         const last10 = digitsOnly.slice(-10);
-        const normalizedPhone = `91${last10}`;
-        const phoneVariants = [...new Set([normalizedPhone, last10, `+91${last10}`, phone])];
+        const normalizedPhone = phone.startsWith('+') ? phone : (digitsOnly.length === 10 ? `+91${digitsOnly}` : `+${digitsOnly}`);
+        const phoneVariants = [...new Set([normalizedPhone, last10, `+91${last10}`, phone, digitsOnly])];
         const patient = await this.prisma.patient.findFirst({
             where: {
                 clinic_id: clinicId,

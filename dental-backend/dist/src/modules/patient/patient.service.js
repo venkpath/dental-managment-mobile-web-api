@@ -452,7 +452,7 @@ Important:
                 extracted: patients.map((p) => ({
                     first_name: p.first_name || '',
                     last_name: p.last_name || '-',
-                    phone: p.phone ? String(p.phone).replace(/[^0-9]/g, '') : '',
+                    phone: p.phone ? String(p.phone).trim() : '',
                     email: p.email || undefined,
                     gender: this.normalizeGender(p.gender),
                     age: p.age ? Number(p.age) : undefined,
