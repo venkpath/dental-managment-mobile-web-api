@@ -354,6 +354,23 @@ export declare class SuperAdminController {
         is_directory_only: boolean;
         directory_contact_name: string | null;
     }[]>;
+    getWhatsAppConnectRequests(status?: 'pending' | 'all'): Promise<{
+        id: string;
+        email: string;
+        name: string;
+        created_at: Date;
+        plan: {
+            name: string;
+        } | null;
+        phone: string | null;
+        city: string | null;
+        state: string | null;
+        country: string | null;
+        has_own_waba: boolean;
+        whatsapp_connect_approved: boolean;
+        whatsapp_connect_requested_at: Date | null;
+        whatsapp_connect_approved_at: Date | null;
+    }[]>;
     getClinicDetail(id: string): Promise<{
         plan: ({
             plan_features: ({
@@ -726,7 +743,7 @@ export declare class SuperAdminController {
     }): Promise<{
         message: string;
     }>;
-    triggerDailySummary(body?: {
+    triggerWeeklySummary(body?: {
         channels?: ('email' | 'whatsapp')[];
     }): Promise<{
         message: string;

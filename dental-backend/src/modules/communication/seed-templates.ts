@@ -826,12 +826,38 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
     variables: { body: ['recipient_name', 'clinic_name', 'date', 'stats', 'finance', 'insight'], buttons: [] },
     language: 'en',
     sampleValues: {
-      recipient_name: 'Dr. Sharma',
+      recipient_name: 'Sharma',
       clinic_name: 'Smile Dental Clinic',
       date: '4 May 2026',
       stats: 'Yesterday: 12 appointments, ₹8,500 revenue | Today: 9 scheduled',
       finance: 'Outstanding: ₹22,000 · Month revenue: ₹1,10,000 · Expenses: ₹28,000 · Net profit: ₹82,000',
       insight: 'Revenue ↑18% vs 7-day avg. 3 invoices pending — follow up to recover dues. ⚠️ AI estimate.',
+    },
+  },
+
+  // ── 27b. Weekly Clinic Summary (sent to clinic Admin/SuperAdmin) ──
+  // Utility template — business-initiated digest sent every Monday 8 AM IST,
+  // recapping the previous week (Mon–Sun) plus month-to-date financials.
+  // The body prefixes "Dr." itself, so {{1}} should be the first name only.
+  // Numbered placeholders:
+  //   {{1}} = recipient first name, {{2}} = clinic name, {{3}} = week range (e.g. "26 May – 1 Jun 2026")
+  //   {{4}} = stats line  (last week appointments/revenue + this week scheduled)
+  //   {{5}} = finance line (outstanding, month revenue, expenses, net profit)
+  //   {{6}} = AI insight  (≤220 chars, ends with "⚠️ AI estimate.")
+  {
+    channel: 'whatsapp',
+    category: 'utility',
+    template_name: 'weekly_clinic_summary',
+    body: 'Good morning Dr. {{1}}! 📊 Here is the weekly report for *{{2}}* ({{3}}).\n\n📈 {{4}}\n\n💰 {{5}}\n\n🤖 {{6}}',
+    variables: { body: ['recipient_name', 'clinic_name', 'week_range', 'stats', 'finance', 'insight'], buttons: [] },
+    language: 'en',
+    sampleValues: {
+      recipient_name: 'Sharma',
+      clinic_name: 'Smile Dental Clinic',
+      week_range: '26 May – 1 Jun 2026',
+      stats: 'Last week: 48 appointments, ₹62,000 revenue | This week: 31 scheduled',
+      finance: 'Outstanding: ₹22,000 · Month revenue: ₹1,10,000 · Expenses: ₹28,000 · Net profit: ₹82,000',
+      insight: 'Revenue ↑18% vs the week before. 3 invoices pending — follow up to recover dues. ⚠️ AI estimate.',
     },
   },
 

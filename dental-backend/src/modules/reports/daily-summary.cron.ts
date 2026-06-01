@@ -8,11 +8,19 @@ import { EmailProvider } from '../communication/providers/email.provider.js';
 import { CommunicationService } from '../communication/communication.service.js';
 
 const PLATFORM_CLINIC_ID = '__platform__';
-export const DAILY_SUMMARY_WA_TEMPLATE = 'daily_clinic_summary';
+export const WEEKLY_SUMMARY_WA_TEMPLATE = 'weekly_clinic_summary';
 
-// A clinic with less than 7 days of history gets a welcome message instead of comparisons.
+// A clinic with less than a full week of history gets a welcome message
+// instead of week-over-week comparisons.
 const NEW_CLINIC_DAYS = 7;
 
+/**
+ * Weekly clinic summary digest.
+ * Runs every Monday 08:00 IST and sends each clinic's Admin/SuperAdmin users a
+ * recap of the *previous* calendar week (Mon–Sun) plus month-to-date financials,
+ * over email and WhatsApp. Despite the file/class name (kept for import
+ * stability), this is a WEEKLY job — see the @Cron expression below.
+ */
 @Injectable()
 export class DailySummaryCronService {
   private readonly logger = new Logger(DailySummaryCronService.name);
@@ -51,27 +59,43 @@ export class DailySummaryCronService {
     return false;
   }
 
-  @Cron('0 0 8 * * *', { timeZone: 'Asia/Kolkata' })
-  async sendDailySummaries(channels: ('email' | 'whatsapp')[] = ['email', 'whatsapp']): Promise<void> {
-    this.logger.log(`Starting daily summary cron... channels: ${channels.join(', ')}`);
+  /**
+   * Derive a clean first name for greetings.
+   * - Falls back to "Doctor" when the name is null/blank (the `??` operator
+   *   alone let empty strings through, producing "Hello Dr.," / "Good morning, !").
+   * - Strips a leading "Dr."/"Doctor" honorific so a stored "Dr. Jane Smith"
+   *   becomes "Jane" — the WhatsApp template already prefixes "Dr.".
+   */
+  private firstName(name?: string | null): string {
+    const cleaned = (name ?? '').trim();
+    if (!cleaned) return 'Doctor';
+    const withoutTitle = cleaned.replace(/^(dr\.?|doctor)\s+/i, '').trim();
+    const first = (withoutTitle || cleaned).split(/\s+/)[0];
+    return first || 'Doctor';
+  }
+
+  // Runs every Monday at 08:00 IST. Cron fields: sec min hour dom month dow (1 = Monday).
+  @Cron('0 0 8 * * 1', { timeZone: 'Asia/Kolkata' })
+  async sendWeeklySummaries(channels: ('email' | 'whatsapp')[] = ['email', 'whatsapp']): Promise<void> {
+    this.logger.log(`Starting weekly summary cron... channels: ${channels.join(', ')}`);
     const sendEmail = channels.includes('email');
     const sendWhatsApp = channels.includes('whatsapp');
     const emailReady = sendEmail && this.ensureEmailConfigured();
 
     const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
 
-    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const todayStr = `${todayDate.getFullYear()}-${pad(todayDate.getMonth() + 1)}-${pad(todayDate.getDate())}`;
-    const tomorrowStr = `${tomorrowDate.getFullYear()}-${pad(tomorrowDate.getMonth() + 1)}-${pad(tomorrowDate.getDate())}`;
-    const yesterdayLabel = yesterday.toLocaleDateString('en-IN', {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-    });
-    const yesterdayShort = yesterday.toLocaleDateString('en-IN', {
-      day: 'numeric', month: 'long', year: 'numeric',
-    });
+    // Anchor to the most recent Monday 00:00 (local). When run on the scheduled
+    // Monday this is "today"; computing daysSinceMonday keeps manual off-day
+    // runs correct too.
+    const daysSinceMonday = (now.getDay() + 6) % 7; // Mon -> 0, Sun -> 6
+    const thisWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday);
+    const lastWeekStart = new Date(thisWeekStart.getFullYear(), thisWeekStart.getMonth(), thisWeekStart.getDate() - 7);
+    const lastWeekEnd = thisWeekStart; // exclusive upper bound
+    const priorWeekStart = new Date(lastWeekStart.getFullYear(), lastWeekStart.getMonth(), lastWeekStart.getDate() - 7);
+    const nextWeekStart = new Date(thisWeekStart.getFullYear(), thisWeekStart.getMonth(), thisWeekStart.getDate() + 7);
+
+    const lastWeekEndInclusive = new Date(lastWeekEnd.getFullYear(), lastWeekEnd.getMonth(), lastWeekEnd.getDate() - 1);
+    const weekRange = `${lastWeekStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${lastWeekEndInclusive.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
     let emailSent = 0;
     let waSent = 0;
@@ -97,36 +121,54 @@ export class DailySummaryCronService {
 
         try {
           // Clinics registered within the past NEW_CLINIC_DAYS days get a
-          // welcome tone — they have no history to compare against.
+          // welcome tone — they have no full prior week to compare against.
           const clinicAgeDays = Math.floor(
             (now.getTime() - new Date(clinic.created_at).getTime()) / (1000 * 60 * 60 * 24),
           );
           const isNewClinic = clinicAgeDays < NEW_CLINIC_DAYS;
 
+          // Month-to-date financials (outstanding, month revenue/expenses, net profit).
           const summary = await this.reportsService.getDashboardSummary(
-            clinic.id, undefined, undefined, yesterday,
+            clinic.id, undefined, undefined, now,
           );
 
-          const [todayAppointments, sevenDayAvg] = await Promise.all([
-            this.prisma.appointment.count({
-              where: {
-                clinic_id: clinic.id,
-                appointment_date: { gte: new Date(todayStr), lt: new Date(tomorrowStr) },
-                status: { not: 'cancelled' },
-              },
-            }),
-            isNewClinic ? Promise.resolve(null) : this.getSevenDayAverage(clinic.id, yesterday),
-          ]);
+          // Week totals + prior-week comparison + the week ahead.
+          const [weekAppointments, weekRevenueAgg, priorWeekAppointments, priorWeekRevenueAgg, thisWeekScheduled] =
+            await Promise.all([
+              this.prisma.appointment.count({
+                where: { clinic_id: clinic.id, appointment_date: { gte: lastWeekStart, lt: lastWeekEnd }, status: { not: 'cancelled' } },
+              }),
+              this.prisma.payment.aggregate({
+                _sum: { amount: true },
+                where: { invoice: { clinic_id: clinic.id }, paid_at: { gte: lastWeekStart, lt: lastWeekEnd } },
+              }),
+              isNewClinic ? Promise.resolve(0) : this.prisma.appointment.count({
+                where: { clinic_id: clinic.id, appointment_date: { gte: priorWeekStart, lt: lastWeekStart }, status: { not: 'cancelled' } },
+              }),
+              isNewClinic ? Promise.resolve({ _sum: { amount: null } }) : this.prisma.payment.aggregate({
+                _sum: { amount: true },
+                where: { invoice: { clinic_id: clinic.id }, paid_at: { gte: priorWeekStart, lt: lastWeekStart } },
+              }),
+              this.prisma.appointment.count({
+                where: { clinic_id: clinic.id, appointment_date: { gte: thisWeekStart, lt: nextWeekStart }, status: { not: 'cancelled' } },
+              }),
+            ]);
+
+          const weekRevenue = Number(weekRevenueAgg._sum.amount ?? 0);
+          const priorWeekRevenue = Number(priorWeekRevenueAgg._sum.amount ?? 0);
+
+          const week = { appointments: weekAppointments, revenue: weekRevenue, scheduledThisWeek: thisWeekScheduled };
+          const prior = { appointments: priorWeekAppointments, revenue: priorWeekRevenue };
 
           const aiInsight = await this.generateAiInsight(
-            clinic.name, yesterday, summary, sevenDayAvg, todayAppointments, clinicAgeDays,
+            clinic.name, weekRange, summary, week, prior, clinicAgeDays,
           );
 
           const currency = (n: number) =>
             `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
           // WhatsApp variable lines — clear labels
-          const statsLine = `Yesterday: ${summary.today_appointments} appointments, ${currency(summary.today_revenue)} revenue | Today: ${todayAppointments} scheduled`;
+          const statsLine = `Last week: ${week.appointments} appointments, ${currency(week.revenue)} revenue | This week: ${week.scheduledThisWeek} scheduled`;
           const financeLine = `Outstanding: ${currency(summary.outstanding_amount)} · Month revenue: ${currency(summary.this_month_revenue)} · Expenses: ${currency(summary.this_month_expenses)} · Net profit: ${currency(summary.net_profit)}`;
 
           // Deduplicate by phone for WhatsApp — same number on SuperAdmin + Admin
@@ -136,17 +178,14 @@ export class DailySummaryCronService {
             if (sendEmail && emailReady && recipient.email) {
               try {
                 const html = this.buildEmailHtml(
-                  clinic.name, recipient.name, summary, todayAppointments,
-                  yesterdayLabel, aiInsight, clinicAgeDays,
+                  clinic.name, recipient.name, summary, week, weekRange, aiInsight, clinicAgeDays,
                 );
                 await this.emailProvider.send({
                   clinicId: PLATFORM_CLINIC_ID,
                   to: recipient.email,
-                  subject: clinicAgeDays === 0
+                  subject: clinicAgeDays < NEW_CLINIC_DAYS
                     ? `🎉 Welcome to Smart Dental Desk — ${clinic.name}`
-                    : clinicAgeDays < NEW_CLINIC_DAYS
-                    ? `📈 Building your baseline — ${clinic.name} | Day ${clinicAgeDays + 1}`
-                    : `☀️ Good morning — ${clinic.name} | ${yesterdayLabel}`,
+                    : `📊 Your weekly report — ${clinic.name} | ${weekRange}`,
                   body: '',
                   html,
                 });
@@ -159,22 +198,22 @@ export class DailySummaryCronService {
             if (sendWhatsApp && recipient.phone && !seenPhones.has(recipient.phone)) {
               seenPhones.add(recipient.phone);
 
-              // Skip if the last 3 daily_summary WhatsApp sends to this number all failed —
+              // Skip if the last 3 weekly_summary WhatsApp sends to this number all failed —
               // the number almost certainly has no WhatsApp. Continuing would damage quality rating.
               const lastTen = recipient.phone.replace(/\D/g, '').slice(-10);
               const recentFailures = await this.prisma.communicationMessage.count({
                 where: {
                   clinic_id: clinic.id,
                   channel: 'whatsapp',
-                  category: 'daily_summary',
+                  category: 'weekly_summary',
                   status: 'failed',
                   recipient: { endsWith: lastTen },
-                  created_at: { gte: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) },
+                  created_at: { gte: new Date(Date.now() - 28 * 24 * 60 * 60 * 1000) },
                 },
               });
               if (recentFailures >= 3) {
                 this.logger.warn(
-                  `Suppressing daily_summary WhatsApp to ${recipient.phone} (clinic ${clinic.name}) — ${recentFailures} recent failures`,
+                  `Suppressing weekly_summary WhatsApp to ${recipient.phone} (clinic ${clinic.name}) — ${recentFailures} recent failures`,
                 );
                 continue;
               }
@@ -184,19 +223,19 @@ export class DailySummaryCronService {
                   clinicId: clinic.id,
                   channel: 'whatsapp',
                   to: recipient.phone,
-                  category: 'daily_summary',
-                  templateId: DAILY_SUMMARY_WA_TEMPLATE,
+                  category: 'weekly_summary',
+                  templateId: WEEKLY_SUMMARY_WA_TEMPLATE,
                   language: 'en',
                   variables: {
-                    '1': (recipient.name ?? 'Doctor').split(' ')[0],
+                    '1': this.firstName(recipient.name),
                     '2': clinic.name,
-                    '3': yesterdayShort,
+                    '3': weekRange,
                     '4': statsLine,
                     '5': financeLine,
                     '6': aiInsight,
                   },
-                  metadata: { type: 'daily_summary' },
-                  jobOptions: { attempts: 1 }, // no retries — stale daily data should not fire the next day
+                  metadata: { type: 'weekly_summary' },
+                  jobOptions: { attempts: 1 }, // no retries — stale weekly data should not fire later
                 });
                 waSent++;
               } catch (err) {
@@ -210,98 +249,44 @@ export class DailySummaryCronService {
         }
       }
     } catch (err) {
-      this.logger.error(`Daily summary cron failed: ${(err as Error).message}`, (err as Error).stack);
+      this.logger.error(`Weekly summary cron failed: ${(err as Error).message}`, (err as Error).stack);
     }
 
     this.logger.log(`Done. Email: ${emailSent}, WhatsApp: ${waSent}, Skipped: ${skipped}`);
-  }
-
-  // ── 7-day average ─────────────────────────────────────────────────────────
-
-  private async getSevenDayAverage(clinicId: string, yesterday: Date) {
-    // Build all 7 day-ranges upfront, then fire all 14 queries in parallel
-    // instead of sequentially (was 14 round-trips, now 1 round-trip).
-    const ranges = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate() - (i + 1));
-      const next = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate() - i);
-      return { d, next, label: d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) };
-    });
-
-    const days = await Promise.all(
-      ranges.map(({ d, next, label }) =>
-        Promise.all([
-          this.prisma.appointment.count({
-            where: { clinic_id: clinicId, appointment_date: { gte: d, lt: next }, status: { not: 'cancelled' } },
-          }),
-          this.prisma.payment.aggregate({
-            _sum: { amount: true },
-            where: { invoice: { clinic_id: clinicId }, paid_at: { gte: d, lt: next } },
-          }),
-        ]).then(([appts, rev]) => ({
-          date: label,
-          appointments: appts,
-          revenue: Number(rev._sum.amount ?? 0),
-        })),
-      ),
-    );
-
-    return {
-      avgAppointments: days.reduce((s, d) => s + d.appointments, 0) / days.length,
-      avgRevenue: days.reduce((s, d) => s + d.revenue, 0) / days.length,
-      bestDay: days.reduce((best, d) => d.revenue > best.revenue ? d : best, days[0]),
-    };
   }
 
   // ── AI insight ────────────────────────────────────────────────────────────
 
   private async generateAiInsight(
     clinicName: string,
-    yesterday: Date,
+    weekRange: string,
     summary: Awaited<ReturnType<ReportsService['getDashboardSummary']>>,
-    avg: { avgAppointments: number; avgRevenue: number; bestDay: { date: string; revenue: number } } | null,
-    todayAppointments: number,
+    week: { appointments: number; revenue: number; scheduledThisWeek: number },
+    prior: { appointments: number; revenue: number },
     clinicAgeDays: number,
   ): Promise<string> {
-    // Day 1 — full excited welcome, no data context needed
-    if (clinicAgeDays === 0) {
-      const fallback = `Welcome to Smart Dental Desk! 🎉 You're all set up. Every morning you'll receive insights like this to help your clinic grow. ${todayAppointments > 0 ? `${todayAppointments} appointments today — great start!` : 'Your journey begins today!'}`;
+    // Brand-new clinic — warm welcome, no comparison data yet
+    if (clinicAgeDays < NEW_CLINIC_DAYS) {
+      const fallback = `Welcome to Smart Dental Desk! 🎉 You're all set up. Every Monday you'll receive a weekly recap like this to help your clinic grow. ${week.scheduledThisWeek > 0 ? `${week.scheduledThisWeek} appointments scheduled this week — great start!` : 'Your journey begins this week!'}`;
       if (!this.openai) return fallback;
       try {
-        const prompt = `You are a warm onboarding coach for Smart Dental Desk (dental clinic software). A new clinic "${clinicName}" just joined today. Write a 2-sentence excited welcome for their first morning digest. Mention daily insights, make them feel thrilled. ${todayAppointments > 0 ? `They have ${todayAppointments} appointments today.` : ''} Plain text only, end with an emoji, under 200 characters.`;
+        const prompt = `You are a warm onboarding coach for Smart Dental Desk (dental clinic software). A new clinic "${clinicName}" just joined. Write a 2-sentence excited welcome for their first weekly digest. Mention they'll get a recap every Monday, make them feel thrilled. ${week.scheduledThisWeek > 0 ? `They have ${week.scheduledThisWeek} appointments scheduled this week.` : ''} Plain text only, end with an emoji, under 220 characters.`;
         const r = await this.openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.7,
-          max_tokens: 80,
+          max_tokens: 90,
         });
         return r.choices[0]?.message?.content?.trim() || fallback;
       } catch { return fallback; }
     }
 
-    // Days 1–6 — building baseline, encouraging but honest
-    if (clinicAgeDays < NEW_CLINIC_DAYS) {
-      const daysLeft = NEW_CLINIC_DAYS - clinicAgeDays;
-      const totalAppts = summary.today_appointments;
-      const fallback = `Still building your baseline — ${daysLeft} more day${daysLeft > 1 ? 's' : ''} until trend insights unlock. ${totalAppts > 0 ? `${totalAppts} appointments seen so far, keep it up!` : 'Every appointment adds to your story.'} 📈`;
-      if (!this.openai) return fallback;
-      try {
-        const prompt = `You are a friendly coach for Smart Dental Desk. Clinic "${clinicName}" is on day ${clinicAgeDays + 1} of 7 before full trend insights unlock. Write 2 encouraging sentences: acknowledge they're building their baseline (${daysLeft} days left), mention their progress (${totalAppts} appointments so far), keep them excited. Plain text only, end with 📈, under 200 characters.`;
-        const r = await this.openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.6,
-          max_tokens: 80,
-        });
-        return r.choices[0]?.message?.content?.trim() || fallback;
-      } catch { return fallback; }
-    }
-
-    // Established clinic — trend comparison + tip
+    // Established clinic — week-over-week comparison + tip
     const pct = (v: number, a: number) =>
-      a > 0 ? `${v >= a ? '+' : ''}${(((v - a) / a) * 100).toFixed(0)}%` : 'n/a';
+      a > 0 ? `${v >= a ? '↑' : '↓'}${Math.abs(((v - a) / a) * 100).toFixed(0)}%` : 'n/a';
 
     const fallback = [
-      `Revenue ${pct(summary.today_revenue, avg!.avgRevenue)} vs 7-day avg.`,
+      `Revenue ${pct(week.revenue, prior.revenue)} vs the week before.`,
       summary.pending_invoices > 0
         ? `${summary.pending_invoices} invoice${summary.pending_invoices > 1 ? 's' : ''} pending — follow up to recover dues.`
         : 'All invoices cleared — great job!',
@@ -311,20 +296,19 @@ export class DailySummaryCronService {
     if (!this.openai) return fallback;
 
     try {
-      const dayName = yesterday.toLocaleDateString('en-IN', { weekday: 'long' });
-      const prompt = `You are a friendly dental clinic advisor. Write a short morning insight for the clinic owner.
+      const prompt = `You are a friendly dental clinic advisor. Write a short weekly insight for the clinic owner.
 
-Data for ${dayName} at ${clinicName}:
-- Yesterday: ${summary.today_appointments} appointments, ₹${summary.today_revenue.toFixed(0)} revenue
-- 7-day average: ${avg!.avgAppointments.toFixed(1)} appointments/day, ₹${avg!.avgRevenue.toFixed(0)} revenue/day
+Data for the week ${weekRange} at ${clinicName}:
+- Last week: ${week.appointments} appointments, ₹${week.revenue.toFixed(0)} revenue
+- Week before: ${prior.appointments} appointments, ₹${prior.revenue.toFixed(0)} revenue
+- Scheduled this coming week: ${week.scheduledThisWeek} appointments
 - Pending invoices: ${summary.pending_invoices}, Outstanding: ₹${summary.outstanding_amount.toFixed(0)}
-- Best revenue day last week: ${avg!.bestDay?.date} (₹${avg!.bestDay?.revenue?.toFixed(0) ?? '0'})
 
 Rules:
-- Max 2 sentences, under 200 characters total
+- Max 2 sentences, under 220 characters total
 - Friendly and encouraging tone
-- Use ↑/↓ for trends
-- One specific actionable tip
+- Use ↑/↓ for week-over-week trends
+- One specific actionable tip for the week ahead
 - Plain text only, no asterisks or underscores
 - End with: ⚠️ AI estimate.`;
 
@@ -332,7 +316,7 @@ Rules:
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.6,
-        max_tokens: 100,
+        max_tokens: 110,
       });
 
       const text = response.choices[0]?.message?.content?.trim();
@@ -350,15 +334,15 @@ Rules:
     clinicName: string,
     recipientName: string | null,
     summary: Awaited<ReturnType<ReportsService['getDashboardSummary']>>,
-    todayAppointments: number,
-    yesterdayLabel: string,
+    week: { appointments: number; revenue: number; scheduledThisWeek: number },
+    weekRange: string,
     aiInsight: string,
     clinicAgeDays: number,
   ): string {
     const isNewClinic = clinicAgeDays < NEW_CLINIC_DAYS;
     const currency = (n: number) =>
       `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-    const firstName = (recipientName ?? 'Doctor').split(' ')[0];
+    const firstName = this.firstName(recipientName);
 
     const insightText = aiInsight.replace(' ⚠️ AI estimate.', '').replace('⚠️ AI estimate.', '').trim();
     const showDisclaimer = !isNewClinic;
@@ -372,14 +356,14 @@ Rules:
     const insightTitleColor = isNewClinic ? '#15803d' : '#7c3aed';
 
     const statsSection = isNewClinic
-      ? `<!-- Welcome stats — minimal, just today -->
+      ? `<!-- Welcome stats — minimal, just the week ahead -->
         <tr><td style="padding:0 0 20px">
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td style="background:#eff6ff;border-radius:10px;padding:16px;text-align:center">
-                <p style="margin:0;font-size:12px;color:#6b7280;text-transform:uppercase;font-weight:600">Today's Schedule</p>
-                <p style="margin:8px 0 2px;font-size:28px;font-weight:700;color:#1d4ed8">${todayAppointments}</p>
-                <p style="margin:0;font-size:13px;color:#6b7280">appointments waiting</p>
+                <p style="margin:0;font-size:12px;color:#6b7280;text-transform:uppercase;font-weight:600">This Week's Schedule</p>
+                <p style="margin:8px 0 2px;font-size:28px;font-weight:700;color:#1d4ed8">${week.scheduledThisWeek}</p>
+                <p style="margin:0;font-size:13px;color:#6b7280">appointments scheduled</p>
               </td>
             </tr>
           </table>
@@ -389,27 +373,27 @@ Rules:
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td width="31%" style="background:#eff6ff;border-radius:10px;padding:14px 12px;text-align:center">
-                <p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600">Yesterday</p>
-                <p style="margin:6px 0 2px;font-size:24px;font-weight:700;color:#1d4ed8">${summary.today_appointments}</p>
+                <p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600">Last Week</p>
+                <p style="margin:6px 0 2px;font-size:24px;font-weight:700;color:#1d4ed8">${week.appointments}</p>
                 <p style="margin:0;font-size:12px;color:#6b7280">appointments</p>
               </td>
               <td width="3%"></td>
               <td width="31%" style="background:#f0fdf4;border-radius:10px;padding:14px 12px;text-align:center">
                 <p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600">Revenue</p>
-                <p style="margin:6px 0 2px;font-size:20px;font-weight:700;color:#15803d">${currency(summary.today_revenue)}</p>
+                <p style="margin:6px 0 2px;font-size:20px;font-weight:700;color:#15803d">${currency(week.revenue)}</p>
                 <p style="margin:0;font-size:12px;color:#6b7280">collected</p>
               </td>
               <td width="3%"></td>
               <td width="31%" style="background:#faf5ff;border-radius:10px;padding:14px 12px;text-align:center">
-                <p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600">Today</p>
-                <p style="margin:6px 0 2px;font-size:24px;font-weight:700;color:#7c3aed">${todayAppointments}</p>
+                <p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600">This Week</p>
+                <p style="margin:6px 0 2px;font-size:24px;font-weight:700;color:#7c3aed">${week.scheduledThisWeek}</p>
                 <p style="margin:0;font-size:12px;color:#6b7280">scheduled</p>
               </td>
             </tr>
           </table>
         </td></tr>
 
-        <!-- Finance strip -->
+        <!-- Finance strip (month to date) -->
         <tr><td style="padding:0 0 20px">
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:10px">
             <tr>
@@ -443,9 +427,9 @@ Rules:
 
         <tr>
           <td style="background:linear-gradient(135deg,#1e40af 0%,#3b82f6 100%);padding:24px 28px">
-            <p style="margin:0;color:#bfdbfe;font-size:13px">${clinicAgeDays === 0 ? '🎉 Welcome aboard!' : clinicAgeDays < NEW_CLINIC_DAYS ? `📈 Day ${clinicAgeDays + 1} of 7 — building your baseline` : '☀️ Good morning, ' + firstName + '!'}</p>
+            <p style="margin:0;color:#bfdbfe;font-size:13px">${isNewClinic ? '🎉 Welcome aboard, ' + firstName + '!' : '📊 Good morning, ' + firstName + '!'}</p>
             <h1 style="margin:4px 0 0;color:#ffffff;font-size:20px;font-weight:700">${clinicName}</h1>
-            <p style="margin:4px 0 0;color:#bfdbfe;font-size:13px">${isNewClinic ? 'Your Smart Dental Desk journey starts now' : yesterdayLabel}</p>
+            <p style="margin:4px 0 0;color:#bfdbfe;font-size:13px">${isNewClinic ? 'Your Smart Dental Desk journey starts now' : 'Your week in review · ' + weekRange}</p>
           </td>
         </tr>
 
@@ -468,7 +452,7 @@ Rules:
 
         <tr>
           <td style="padding:16px 28px;border-top:1px solid #e5e7eb;text-align:center">
-            <p style="margin:0;font-size:12px;color:#9ca3af">Have a great day! — <strong>Smart Dental Desk</strong></p>
+            <p style="margin:0;font-size:12px;color:#9ca3af">Have a great week! — <strong>Smart Dental Desk</strong></p>
           </td>
         </tr>
 

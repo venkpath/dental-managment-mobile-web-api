@@ -620,6 +620,30 @@ export class SuperAdminService {
   }
 
   /**
+   * List clinics that have requested (or been granted) the ability to connect
+   * their own WhatsApp Business Account. `pending` = requested but not yet
+   * approved; `all` also includes already-approved clinics.
+   */
+  async getWhatsAppConnectRequests(status: 'pending' | 'all' = 'pending') {
+    return this.prisma.clinic.findMany({
+      where: status === 'pending'
+        ? { whatsapp_connect_requested_at: { not: null }, whatsapp_connect_approved: false }
+        : { OR: [{ whatsapp_connect_requested_at: { not: null } }, { whatsapp_connect_approved: true }] },
+      select: {
+        id: true, name: true, email: true, phone: true,
+        city: true, state: true, country: true,
+        whatsapp_connect_approved: true,
+        whatsapp_connect_requested_at: true,
+        whatsapp_connect_approved_at: true,
+        has_own_waba: true,
+        plan: { select: { name: true } },
+        created_at: true,
+      },
+      orderBy: { whatsapp_connect_requested_at: 'asc' },
+    });
+  }
+
+  /**
    * Enable or disable a clinic's ability to self-connect its own WhatsApp
    * Business Account via Embedded Signup. Clinics cannot connect on their own;
    * a super-admin flips this on after verifying the business.

@@ -121,6 +121,13 @@ export class SuperAdminController {
     return this.superAdminService.getDirectoryApprovals(status ?? 'pending');
   }
 
+  @Get('super-admins/clinics/whatsapp-requests')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'List clinics that requested to connect their own WhatsApp Business Account' })
+  async getWhatsAppConnectRequests(@Query('status') status?: 'pending' | 'all') {
+    return this.superAdminService.getWhatsAppConnectRequests(status ?? 'pending');
+  }
+
   @Get('super-admins/clinics/:id')
   @SuperAdmin()
   @ApiOperation({ summary: 'Get detailed clinic info (users, branches, stats)' })
@@ -335,19 +342,19 @@ export class SuperAdminController {
     return this.superAdminService.changePassword(admin.id, dto.current_password, dto.new_password);
   }
 
-  // ─── Daily Summary Manual Trigger ───
+  // ─── Weekly Summary Manual Trigger ───
 
   @Post('super-admins/daily-summary/trigger')
   @SuperAdmin()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Manually trigger daily summary emails/WhatsApp (for testing)' })
-  @ApiOkResponse({ description: 'Daily summary dispatch started' })
-  async triggerDailySummary(@Body() body?: { channels?: ('email' | 'whatsapp')[] }) {
+  @ApiOperation({ summary: 'Manually trigger the weekly clinic summary emails/WhatsApp (for testing)' })
+  @ApiOkResponse({ description: 'Weekly summary dispatch started' })
+  async triggerWeeklySummary(@Body() body?: { channels?: ('email' | 'whatsapp')[] }) {
     const channels = body?.channels?.length ? body.channels : (['email', 'whatsapp'] as ('email' | 'whatsapp')[]);
-    this.dailySummaryCron.sendDailySummaries(channels).catch((e: Error) =>
-      this.logger.error(`Daily summary trigger failed: ${e.message}`),
+    this.dailySummaryCron.sendWeeklySummaries(channels).catch((e: Error) =>
+      this.logger.error(`Weekly summary trigger failed: ${e.message}`),
     );
-    return { message: `Daily summary dispatch started (${channels.join(' + ')}). Check server logs for delivery status.` };
+    return { message: `Weekly summary dispatch started (${channels.join(' + ')}). Check server logs for delivery status.` };
   }
 
   // ─── Platform Message Logs ───

@@ -506,6 +506,24 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
         });
         return { rejected: true, clinic_name: clinic.name };
     }
+    async getWhatsAppConnectRequests(status = 'pending') {
+        return this.prisma.clinic.findMany({
+            where: status === 'pending'
+                ? { whatsapp_connect_requested_at: { not: null }, whatsapp_connect_approved: false }
+                : { OR: [{ whatsapp_connect_requested_at: { not: null } }, { whatsapp_connect_approved: true }] },
+            select: {
+                id: true, name: true, email: true, phone: true,
+                city: true, state: true, country: true,
+                whatsapp_connect_approved: true,
+                whatsapp_connect_requested_at: true,
+                whatsapp_connect_approved_at: true,
+                has_own_waba: true,
+                plan: { select: { name: true } },
+                created_at: true,
+            },
+            orderBy: { whatsapp_connect_requested_at: 'asc' },
+        });
+    }
     async setWhatsAppConnectAccess(id, approved) {
         const clinic = await this.prisma.clinic.findUnique({
             where: { id },

@@ -533,6 +533,23 @@ export declare class SuperAdminService {
         rejected: boolean;
         clinic_name: string;
     }>;
+    getWhatsAppConnectRequests(status?: 'pending' | 'all'): Promise<{
+        id: string;
+        email: string;
+        name: string;
+        created_at: Date;
+        plan: {
+            name: string;
+        } | null;
+        phone: string | null;
+        city: string | null;
+        state: string | null;
+        country: string | null;
+        has_own_waba: boolean;
+        whatsapp_connect_approved: boolean;
+        whatsapp_connect_requested_at: Date | null;
+        whatsapp_connect_approved_at: Date | null;
+    }[]>;
     setWhatsAppConnectAccess(id: string, approved: boolean): Promise<{
         whatsapp_connect_approved: boolean;
         clinic_name: string;

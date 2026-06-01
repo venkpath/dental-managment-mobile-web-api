@@ -92,6 +92,9 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     async getDirectoryApprovals(status) {
         return this.superAdminService.getDirectoryApprovals(status ?? 'pending');
     }
+    async getWhatsAppConnectRequests(status) {
+        return this.superAdminService.getWhatsAppConnectRequests(status ?? 'pending');
+    }
     async getClinicDetail(id) {
         return this.superAdminService.getClinicDetail(id);
     }
@@ -170,10 +173,10 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     async changePassword(admin, dto) {
         return this.superAdminService.changePassword(admin.id, dto.current_password, dto.new_password);
     }
-    async triggerDailySummary(body) {
+    async triggerWeeklySummary(body) {
         const channels = body?.channels?.length ? body.channels : ['email', 'whatsapp'];
-        this.dailySummaryCron.sendDailySummaries(channels).catch((e) => this.logger.error(`Daily summary trigger failed: ${e.message}`));
-        return { message: `Daily summary dispatch started (${channels.join(' + ')}). Check server logs for delivery status.` };
+        this.dailySummaryCron.sendWeeklySummaries(channels).catch((e) => this.logger.error(`Weekly summary trigger failed: ${e.message}`));
+        return { message: `Weekly summary dispatch started (${channels.join(' + ')}). Check server logs for delivery status.` };
     }
     async listMessages(channel, status, clinicId, from, toDate, page = 1, limit = 50) {
         return this.superAdminService.listMessages({ channel, status, clinicId, from, toDate, page, limit });
@@ -383,6 +386,16 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "getDirectoryApprovals", null);
+__decorate([
+    (0, common_1.Get)('super-admins/clinics/whatsapp-requests'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List clinics that requested to connect their own WhatsApp Business Account' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Query)('status')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getWhatsAppConnectRequests", null);
 __decorate([
     (0, common_1.Get)('super-admins/clinics/:id'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),
@@ -599,14 +612,14 @@ __decorate([
     (0, common_1.Post)('super-admins/daily-summary/trigger'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
-    (0, swagger_1.ApiOperation)({ summary: 'Manually trigger daily summary emails/WhatsApp (for testing)' }),
-    (0, swagger_1.ApiOkResponse)({ description: 'Daily summary dispatch started' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Manually trigger the weekly clinic summary emails/WhatsApp (for testing)' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Weekly summary dispatch started' }),
     openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
-], SuperAdminController.prototype, "triggerDailySummary", null);
+], SuperAdminController.prototype, "triggerWeeklySummary", null);
 __decorate([
     (0, common_1.Get)('super-admins/messages'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),

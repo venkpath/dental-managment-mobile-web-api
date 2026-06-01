@@ -13,7 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 var DailySummaryCronService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DailySummaryCronService = exports.DAILY_SUMMARY_WA_TEMPLATE = void 0;
+exports.DailySummaryCronService = exports.WEEKLY_SUMMARY_WA_TEMPLATE = void 0;
 const common_1 = require("@nestjs/common");
 const schedule_1 = require("@nestjs/schedule");
 const config_1 = require("@nestjs/config");
@@ -23,7 +23,7 @@ const reports_service_js_1 = require("./reports.service.js");
 const email_provider_js_1 = require("../communication/providers/email.provider.js");
 const communication_service_js_1 = require("../communication/communication.service.js");
 const PLATFORM_CLINIC_ID = '__platform__';
-exports.DAILY_SUMMARY_WA_TEMPLATE = 'daily_clinic_summary';
+exports.WEEKLY_SUMMARY_WA_TEMPLATE = 'weekly_clinic_summary';
 const NEW_CLINIC_DAYS = 7;
 let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCronService {
     prisma;
@@ -60,24 +60,28 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
         }
         return false;
     }
-    async sendDailySummaries(channels = ['email', 'whatsapp']) {
-        this.logger.log(`Starting daily summary cron... channels: ${channels.join(', ')}`);
+    firstName(name) {
+        const cleaned = (name ?? '').trim();
+        if (!cleaned)
+            return 'Doctor';
+        const withoutTitle = cleaned.replace(/^(dr\.?|doctor)\s+/i, '').trim();
+        const first = (withoutTitle || cleaned).split(/\s+/)[0];
+        return first || 'Doctor';
+    }
+    async sendWeeklySummaries(channels = ['email', 'whatsapp']) {
+        this.logger.log(`Starting weekly summary cron... channels: ${channels.join(', ')}`);
         const sendEmail = channels.includes('email');
         const sendWhatsApp = channels.includes('whatsapp');
         const emailReady = sendEmail && this.ensureEmailConfigured();
         const now = new Date();
-        const pad = (n) => String(n).padStart(2, '0');
-        const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-        const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const tomorrowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-        const todayStr = `${todayDate.getFullYear()}-${pad(todayDate.getMonth() + 1)}-${pad(todayDate.getDate())}`;
-        const tomorrowStr = `${tomorrowDate.getFullYear()}-${pad(tomorrowDate.getMonth() + 1)}-${pad(tomorrowDate.getDate())}`;
-        const yesterdayLabel = yesterday.toLocaleDateString('en-IN', {
-            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-        });
-        const yesterdayShort = yesterday.toLocaleDateString('en-IN', {
-            day: 'numeric', month: 'long', year: 'numeric',
-        });
+        const daysSinceMonday = (now.getDay() + 6) % 7;
+        const thisWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday);
+        const lastWeekStart = new Date(thisWeekStart.getFullYear(), thisWeekStart.getMonth(), thisWeekStart.getDate() - 7);
+        const lastWeekEnd = thisWeekStart;
+        const priorWeekStart = new Date(lastWeekStart.getFullYear(), lastWeekStart.getMonth(), lastWeekStart.getDate() - 7);
+        const nextWeekStart = new Date(thisWeekStart.getFullYear(), thisWeekStart.getMonth(), thisWeekStart.getDate() + 7);
+        const lastWeekEndInclusive = new Date(lastWeekEnd.getFullYear(), lastWeekEnd.getMonth(), lastWeekEnd.getDate() - 1);
+        const weekRange = `${lastWeekStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${lastWeekEndInclusive.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
         let emailSent = 0;
         let waSent = 0;
         let skipped = 0;
@@ -103,34 +107,45 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
                 try {
                     const clinicAgeDays = Math.floor((now.getTime() - new Date(clinic.created_at).getTime()) / (1000 * 60 * 60 * 24));
                     const isNewClinic = clinicAgeDays < NEW_CLINIC_DAYS;
-                    const summary = await this.reportsService.getDashboardSummary(clinic.id, undefined, undefined, yesterday);
-                    const [todayAppointments, sevenDayAvg] = await Promise.all([
+                    const summary = await this.reportsService.getDashboardSummary(clinic.id, undefined, undefined, now);
+                    const [weekAppointments, weekRevenueAgg, priorWeekAppointments, priorWeekRevenueAgg, thisWeekScheduled] = await Promise.all([
                         this.prisma.appointment.count({
-                            where: {
-                                clinic_id: clinic.id,
-                                appointment_date: { gte: new Date(todayStr), lt: new Date(tomorrowStr) },
-                                status: { not: 'cancelled' },
-                            },
+                            where: { clinic_id: clinic.id, appointment_date: { gte: lastWeekStart, lt: lastWeekEnd }, status: { not: 'cancelled' } },
                         }),
-                        isNewClinic ? Promise.resolve(null) : this.getSevenDayAverage(clinic.id, yesterday),
+                        this.prisma.payment.aggregate({
+                            _sum: { amount: true },
+                            where: { invoice: { clinic_id: clinic.id }, paid_at: { gte: lastWeekStart, lt: lastWeekEnd } },
+                        }),
+                        isNewClinic ? Promise.resolve(0) : this.prisma.appointment.count({
+                            where: { clinic_id: clinic.id, appointment_date: { gte: priorWeekStart, lt: lastWeekStart }, status: { not: 'cancelled' } },
+                        }),
+                        isNewClinic ? Promise.resolve({ _sum: { amount: null } }) : this.prisma.payment.aggregate({
+                            _sum: { amount: true },
+                            where: { invoice: { clinic_id: clinic.id }, paid_at: { gte: priorWeekStart, lt: lastWeekStart } },
+                        }),
+                        this.prisma.appointment.count({
+                            where: { clinic_id: clinic.id, appointment_date: { gte: thisWeekStart, lt: nextWeekStart }, status: { not: 'cancelled' } },
+                        }),
                     ]);
-                    const aiInsight = await this.generateAiInsight(clinic.name, yesterday, summary, sevenDayAvg, todayAppointments, clinicAgeDays);
+                    const weekRevenue = Number(weekRevenueAgg._sum.amount ?? 0);
+                    const priorWeekRevenue = Number(priorWeekRevenueAgg._sum.amount ?? 0);
+                    const week = { appointments: weekAppointments, revenue: weekRevenue, scheduledThisWeek: thisWeekScheduled };
+                    const prior = { appointments: priorWeekAppointments, revenue: priorWeekRevenue };
+                    const aiInsight = await this.generateAiInsight(clinic.name, weekRange, summary, week, prior, clinicAgeDays);
                     const currency = (n) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-                    const statsLine = `Yesterday: ${summary.today_appointments} appointments, ${currency(summary.today_revenue)} revenue | Today: ${todayAppointments} scheduled`;
+                    const statsLine = `Last week: ${week.appointments} appointments, ${currency(week.revenue)} revenue | This week: ${week.scheduledThisWeek} scheduled`;
                     const financeLine = `Outstanding: ${currency(summary.outstanding_amount)} · Month revenue: ${currency(summary.this_month_revenue)} · Expenses: ${currency(summary.this_month_expenses)} · Net profit: ${currency(summary.net_profit)}`;
                     const seenPhones = new Set();
                     for (const recipient of recipients) {
                         if (sendEmail && emailReady && recipient.email) {
                             try {
-                                const html = this.buildEmailHtml(clinic.name, recipient.name, summary, todayAppointments, yesterdayLabel, aiInsight, clinicAgeDays);
+                                const html = this.buildEmailHtml(clinic.name, recipient.name, summary, week, weekRange, aiInsight, clinicAgeDays);
                                 await this.emailProvider.send({
                                     clinicId: PLATFORM_CLINIC_ID,
                                     to: recipient.email,
-                                    subject: clinicAgeDays === 0
+                                    subject: clinicAgeDays < NEW_CLINIC_DAYS
                                         ? `🎉 Welcome to Smart Dental Desk — ${clinic.name}`
-                                        : clinicAgeDays < NEW_CLINIC_DAYS
-                                            ? `📈 Building your baseline — ${clinic.name} | Day ${clinicAgeDays + 1}`
-                                            : `☀️ Good morning — ${clinic.name} | ${yesterdayLabel}`,
+                                        : `📊 Your weekly report — ${clinic.name} | ${weekRange}`,
                                     body: '',
                                     html,
                                 });
@@ -147,14 +162,14 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
                                 where: {
                                     clinic_id: clinic.id,
                                     channel: 'whatsapp',
-                                    category: 'daily_summary',
+                                    category: 'weekly_summary',
                                     status: 'failed',
                                     recipient: { endsWith: lastTen },
-                                    created_at: { gte: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) },
+                                    created_at: { gte: new Date(Date.now() - 28 * 24 * 60 * 60 * 1000) },
                                 },
                             });
                             if (recentFailures >= 3) {
-                                this.logger.warn(`Suppressing daily_summary WhatsApp to ${recipient.phone} (clinic ${clinic.name}) — ${recentFailures} recent failures`);
+                                this.logger.warn(`Suppressing weekly_summary WhatsApp to ${recipient.phone} (clinic ${clinic.name}) — ${recentFailures} recent failures`);
                                 continue;
                             }
                             try {
@@ -162,18 +177,18 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
                                     clinicId: clinic.id,
                                     channel: 'whatsapp',
                                     to: recipient.phone,
-                                    category: 'daily_summary',
-                                    templateId: exports.DAILY_SUMMARY_WA_TEMPLATE,
+                                    category: 'weekly_summary',
+                                    templateId: exports.WEEKLY_SUMMARY_WA_TEMPLATE,
                                     language: 'en',
                                     variables: {
-                                        '1': (recipient.name ?? 'Doctor').split(' ')[0],
+                                        '1': this.firstName(recipient.name),
                                         '2': clinic.name,
-                                        '3': yesterdayShort,
+                                        '3': weekRange,
                                         '4': statsLine,
                                         '5': financeLine,
                                         '6': aiInsight,
                                     },
-                                    metadata: { type: 'daily_summary' },
+                                    metadata: { type: 'weekly_summary' },
                                     jobOptions: { attempts: 1 },
                                 });
                                 waSent++;
@@ -191,47 +206,22 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
             }
         }
         catch (err) {
-            this.logger.error(`Daily summary cron failed: ${err.message}`, err.stack);
+            this.logger.error(`Weekly summary cron failed: ${err.message}`, err.stack);
         }
         this.logger.log(`Done. Email: ${emailSent}, WhatsApp: ${waSent}, Skipped: ${skipped}`);
     }
-    async getSevenDayAverage(clinicId, yesterday) {
-        const ranges = Array.from({ length: 7 }, (_, i) => {
-            const d = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate() - (i + 1));
-            const next = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate() - i);
-            return { d, next, label: d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) };
-        });
-        const days = await Promise.all(ranges.map(({ d, next, label }) => Promise.all([
-            this.prisma.appointment.count({
-                where: { clinic_id: clinicId, appointment_date: { gte: d, lt: next }, status: { not: 'cancelled' } },
-            }),
-            this.prisma.payment.aggregate({
-                _sum: { amount: true },
-                where: { invoice: { clinic_id: clinicId }, paid_at: { gte: d, lt: next } },
-            }),
-        ]).then(([appts, rev]) => ({
-            date: label,
-            appointments: appts,
-            revenue: Number(rev._sum.amount ?? 0),
-        }))));
-        return {
-            avgAppointments: days.reduce((s, d) => s + d.appointments, 0) / days.length,
-            avgRevenue: days.reduce((s, d) => s + d.revenue, 0) / days.length,
-            bestDay: days.reduce((best, d) => d.revenue > best.revenue ? d : best, days[0]),
-        };
-    }
-    async generateAiInsight(clinicName, yesterday, summary, avg, todayAppointments, clinicAgeDays) {
-        if (clinicAgeDays === 0) {
-            const fallback = `Welcome to Smart Dental Desk! 🎉 You're all set up. Every morning you'll receive insights like this to help your clinic grow. ${todayAppointments > 0 ? `${todayAppointments} appointments today — great start!` : 'Your journey begins today!'}`;
+    async generateAiInsight(clinicName, weekRange, summary, week, prior, clinicAgeDays) {
+        if (clinicAgeDays < NEW_CLINIC_DAYS) {
+            const fallback = `Welcome to Smart Dental Desk! 🎉 You're all set up. Every Monday you'll receive a weekly recap like this to help your clinic grow. ${week.scheduledThisWeek > 0 ? `${week.scheduledThisWeek} appointments scheduled this week — great start!` : 'Your journey begins this week!'}`;
             if (!this.openai)
                 return fallback;
             try {
-                const prompt = `You are a warm onboarding coach for Smart Dental Desk (dental clinic software). A new clinic "${clinicName}" just joined today. Write a 2-sentence excited welcome for their first morning digest. Mention daily insights, make them feel thrilled. ${todayAppointments > 0 ? `They have ${todayAppointments} appointments today.` : ''} Plain text only, end with an emoji, under 200 characters.`;
+                const prompt = `You are a warm onboarding coach for Smart Dental Desk (dental clinic software). A new clinic "${clinicName}" just joined. Write a 2-sentence excited welcome for their first weekly digest. Mention they'll get a recap every Monday, make them feel thrilled. ${week.scheduledThisWeek > 0 ? `They have ${week.scheduledThisWeek} appointments scheduled this week.` : ''} Plain text only, end with an emoji, under 220 characters.`;
                 const r = await this.openai.chat.completions.create({
                     model: 'gpt-4o-mini',
                     messages: [{ role: 'user', content: prompt }],
                     temperature: 0.7,
-                    max_tokens: 80,
+                    max_tokens: 90,
                 });
                 return r.choices[0]?.message?.content?.trim() || fallback;
             }
@@ -239,29 +229,9 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
                 return fallback;
             }
         }
-        if (clinicAgeDays < NEW_CLINIC_DAYS) {
-            const daysLeft = NEW_CLINIC_DAYS - clinicAgeDays;
-            const totalAppts = summary.today_appointments;
-            const fallback = `Still building your baseline — ${daysLeft} more day${daysLeft > 1 ? 's' : ''} until trend insights unlock. ${totalAppts > 0 ? `${totalAppts} appointments seen so far, keep it up!` : 'Every appointment adds to your story.'} 📈`;
-            if (!this.openai)
-                return fallback;
-            try {
-                const prompt = `You are a friendly coach for Smart Dental Desk. Clinic "${clinicName}" is on day ${clinicAgeDays + 1} of 7 before full trend insights unlock. Write 2 encouraging sentences: acknowledge they're building their baseline (${daysLeft} days left), mention their progress (${totalAppts} appointments so far), keep them excited. Plain text only, end with 📈, under 200 characters.`;
-                const r = await this.openai.chat.completions.create({
-                    model: 'gpt-4o-mini',
-                    messages: [{ role: 'user', content: prompt }],
-                    temperature: 0.6,
-                    max_tokens: 80,
-                });
-                return r.choices[0]?.message?.content?.trim() || fallback;
-            }
-            catch {
-                return fallback;
-            }
-        }
-        const pct = (v, a) => a > 0 ? `${v >= a ? '+' : ''}${(((v - a) / a) * 100).toFixed(0)}%` : 'n/a';
+        const pct = (v, a) => a > 0 ? `${v >= a ? '↑' : '↓'}${Math.abs(((v - a) / a) * 100).toFixed(0)}%` : 'n/a';
         const fallback = [
-            `Revenue ${pct(summary.today_revenue, avg.avgRevenue)} vs 7-day avg.`,
+            `Revenue ${pct(week.revenue, prior.revenue)} vs the week before.`,
             summary.pending_invoices > 0
                 ? `${summary.pending_invoices} invoice${summary.pending_invoices > 1 ? 's' : ''} pending — follow up to recover dues.`
                 : 'All invoices cleared — great job!',
@@ -270,27 +240,26 @@ let DailySummaryCronService = DailySummaryCronService_1 = class DailySummaryCron
         if (!this.openai)
             return fallback;
         try {
-            const dayName = yesterday.toLocaleDateString('en-IN', { weekday: 'long' });
-            const prompt = `You are a friendly dental clinic advisor. Write a short morning insight for the clinic owner.
+            const prompt = `You are a friendly dental clinic advisor. Write a short weekly insight for the clinic owner.
 
-Data for ${dayName} at ${clinicName}:
-- Yesterday: ${summary.today_appointments} appointments, ₹${summary.today_revenue.toFixed(0)} revenue
-- 7-day average: ${avg.avgAppointments.toFixed(1)} appointments/day, ₹${avg.avgRevenue.toFixed(0)} revenue/day
+Data for the week ${weekRange} at ${clinicName}:
+- Last week: ${week.appointments} appointments, ₹${week.revenue.toFixed(0)} revenue
+- Week before: ${prior.appointments} appointments, ₹${prior.revenue.toFixed(0)} revenue
+- Scheduled this coming week: ${week.scheduledThisWeek} appointments
 - Pending invoices: ${summary.pending_invoices}, Outstanding: ₹${summary.outstanding_amount.toFixed(0)}
-- Best revenue day last week: ${avg.bestDay?.date} (₹${avg.bestDay?.revenue?.toFixed(0) ?? '0'})
 
 Rules:
-- Max 2 sentences, under 200 characters total
+- Max 2 sentences, under 220 characters total
 - Friendly and encouraging tone
-- Use ↑/↓ for trends
-- One specific actionable tip
+- Use ↑/↓ for week-over-week trends
+- One specific actionable tip for the week ahead
 - Plain text only, no asterisks or underscores
 - End with: ⚠️ AI estimate.`;
             const response = await this.openai.chat.completions.create({
                 model: 'gpt-4o-mini',
                 messages: [{ role: 'user', content: prompt }],
                 temperature: 0.6,
-                max_tokens: 100,
+                max_tokens: 110,
             });
             const text = response.choices[0]?.message?.content?.trim();
             if (!text)
@@ -302,10 +271,10 @@ Rules:
             return fallback;
         }
     }
-    buildEmailHtml(clinicName, recipientName, summary, todayAppointments, yesterdayLabel, aiInsight, clinicAgeDays) {
+    buildEmailHtml(clinicName, recipientName, summary, week, weekRange, aiInsight, clinicAgeDays) {
         const isNewClinic = clinicAgeDays < NEW_CLINIC_DAYS;
         const currency = (n) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-        const firstName = (recipientName ?? 'Doctor').split(' ')[0];
+        const firstName = this.firstName(recipientName);
         const insightText = aiInsight.replace(' ⚠️ AI estimate.', '').replace('⚠️ AI estimate.', '').trim();
         const showDisclaimer = !isNewClinic;
         const insightHeader = isNewClinic
@@ -315,14 +284,14 @@ Rules:
         const insightBorder = isNewClinic ? '#22c55e' : '#7c3aed';
         const insightTitleColor = isNewClinic ? '#15803d' : '#7c3aed';
         const statsSection = isNewClinic
-            ? `<!-- Welcome stats — minimal, just today -->
+            ? `<!-- Welcome stats — minimal, just the week ahead -->
         <tr><td style="padding:0 0 20px">
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td style="background:#eff6ff;border-radius:10px;padding:16px;text-align:center">
-                <p style="margin:0;font-size:12px;color:#6b7280;text-transform:uppercase;font-weight:600">Today's Schedule</p>
-                <p style="margin:8px 0 2px;font-size:28px;font-weight:700;color:#1d4ed8">${todayAppointments}</p>
-                <p style="margin:0;font-size:13px;color:#6b7280">appointments waiting</p>
+                <p style="margin:0;font-size:12px;color:#6b7280;text-transform:uppercase;font-weight:600">This Week's Schedule</p>
+                <p style="margin:8px 0 2px;font-size:28px;font-weight:700;color:#1d4ed8">${week.scheduledThisWeek}</p>
+                <p style="margin:0;font-size:13px;color:#6b7280">appointments scheduled</p>
               </td>
             </tr>
           </table>
@@ -332,27 +301,27 @@ Rules:
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td width="31%" style="background:#eff6ff;border-radius:10px;padding:14px 12px;text-align:center">
-                <p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600">Yesterday</p>
-                <p style="margin:6px 0 2px;font-size:24px;font-weight:700;color:#1d4ed8">${summary.today_appointments}</p>
+                <p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600">Last Week</p>
+                <p style="margin:6px 0 2px;font-size:24px;font-weight:700;color:#1d4ed8">${week.appointments}</p>
                 <p style="margin:0;font-size:12px;color:#6b7280">appointments</p>
               </td>
               <td width="3%"></td>
               <td width="31%" style="background:#f0fdf4;border-radius:10px;padding:14px 12px;text-align:center">
                 <p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600">Revenue</p>
-                <p style="margin:6px 0 2px;font-size:20px;font-weight:700;color:#15803d">${currency(summary.today_revenue)}</p>
+                <p style="margin:6px 0 2px;font-size:20px;font-weight:700;color:#15803d">${currency(week.revenue)}</p>
                 <p style="margin:0;font-size:12px;color:#6b7280">collected</p>
               </td>
               <td width="3%"></td>
               <td width="31%" style="background:#faf5ff;border-radius:10px;padding:14px 12px;text-align:center">
-                <p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600">Today</p>
-                <p style="margin:6px 0 2px;font-size:24px;font-weight:700;color:#7c3aed">${todayAppointments}</p>
+                <p style="margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600">This Week</p>
+                <p style="margin:6px 0 2px;font-size:24px;font-weight:700;color:#7c3aed">${week.scheduledThisWeek}</p>
                 <p style="margin:0;font-size:12px;color:#6b7280">scheduled</p>
               </td>
             </tr>
           </table>
         </td></tr>
 
-        <!-- Finance strip -->
+        <!-- Finance strip (month to date) -->
         <tr><td style="padding:0 0 20px">
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:10px">
             <tr>
@@ -385,9 +354,9 @@ Rules:
 
         <tr>
           <td style="background:linear-gradient(135deg,#1e40af 0%,#3b82f6 100%);padding:24px 28px">
-            <p style="margin:0;color:#bfdbfe;font-size:13px">${clinicAgeDays === 0 ? '🎉 Welcome aboard!' : clinicAgeDays < NEW_CLINIC_DAYS ? `📈 Day ${clinicAgeDays + 1} of 7 — building your baseline` : '☀️ Good morning, ' + firstName + '!'}</p>
+            <p style="margin:0;color:#bfdbfe;font-size:13px">${isNewClinic ? '🎉 Welcome aboard, ' + firstName + '!' : '📊 Good morning, ' + firstName + '!'}</p>
             <h1 style="margin:4px 0 0;color:#ffffff;font-size:20px;font-weight:700">${clinicName}</h1>
-            <p style="margin:4px 0 0;color:#bfdbfe;font-size:13px">${isNewClinic ? 'Your Smart Dental Desk journey starts now' : yesterdayLabel}</p>
+            <p style="margin:4px 0 0;color:#bfdbfe;font-size:13px">${isNewClinic ? 'Your Smart Dental Desk journey starts now' : 'Your week in review · ' + weekRange}</p>
           </td>
         </tr>
 
@@ -410,7 +379,7 @@ Rules:
 
         <tr>
           <td style="padding:16px 28px;border-top:1px solid #e5e7eb;text-align:center">
-            <p style="margin:0;font-size:12px;color:#9ca3af">Have a great day! — <strong>Smart Dental Desk</strong></p>
+            <p style="margin:0;font-size:12px;color:#9ca3af">Have a great week! — <strong>Smart Dental Desk</strong></p>
           </td>
         </tr>
 
@@ -423,11 +392,11 @@ Rules:
 };
 exports.DailySummaryCronService = DailySummaryCronService;
 __decorate([
-    (0, schedule_1.Cron)('0 0 8 * * *', { timeZone: 'Asia/Kolkata' }),
+    (0, schedule_1.Cron)('0 0 8 * * 1', { timeZone: 'Asia/Kolkata' }),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Array]),
     __metadata("design:returntype", Promise)
-], DailySummaryCronService.prototype, "sendDailySummaries", null);
+], DailySummaryCronService.prototype, "sendWeeklySummaries", null);
 exports.DailySummaryCronService = DailySummaryCronService = DailySummaryCronService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
