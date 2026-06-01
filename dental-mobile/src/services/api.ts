@@ -79,7 +79,11 @@ api.interceptors.response.use(
     }
 
     if (apiError?.error) {
+      const details = apiError.error.details;
       const msg = apiError.error.message || 'Something went wrong';
+      if (msg === 'Invalid request payload' && Array.isArray(details) && details.length > 0) {
+        return Promise.reject(new Error(String(details[0])));
+      }
       return Promise.reject(new Error(msg));
     }
     return Promise.reject(error);

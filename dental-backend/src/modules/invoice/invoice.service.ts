@@ -957,7 +957,7 @@ export class InvoiceService {
         }
       : undefined;
 
-    const commMessage = await this.communicationService.sendMessage(clinicId, {
+    await this.communicationService.sendMessage(clinicId, {
       patient_id: invoice.patient_id,
       channel: channel as any,
       category: MessageCategory.TRANSACTIONAL,
@@ -973,16 +973,6 @@ export class InvoiceService {
         ...(headerMedia ? { whatsapp_header_media: headerMedia } : {}),
       },
     });
-
-    this.communicationService.throwIfMessageSkipped(commMessage);
-
-    const delivery = await this.communicationService.waitForWhatsAppDelivery(commMessage.id);
-    if (delivery.status === 'failed') {
-      throw new BadRequestException(
-        delivery.error_message ||
-          'WhatsApp could not deliver the invoice. Check Communication → Message logs for details.',
-      );
-    }
 
     return { message: 'Invoice sent via WhatsApp' };
   }

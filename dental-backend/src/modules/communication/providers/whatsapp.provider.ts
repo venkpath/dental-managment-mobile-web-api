@@ -577,9 +577,10 @@ export class WhatsAppProvider implements ChannelProvider {
     if (headerMedia?.id || headerMedia?.url) {
       const param: Record<string, unknown> = { type: headerMedia.type };
       if (headerMedia.type === 'document') {
+        // Meta accepts `filename` only with `link`, not with uploaded `id`.
         param.document = headerMedia.id
-          ? { id: headerMedia.id, filename: headerMedia.filename || 'document.pdf' }
-          : { link: headerMedia.url, filename: headerMedia.filename || 'document.pdf' };
+          ? { id: headerMedia.id }
+          : { link: headerMedia.url!, filename: headerMedia.filename || 'document.pdf' };
       } else if (headerMedia.type === 'image') {
         param.image = headerMedia.id ? { id: headerMedia.id } : { link: headerMedia.url };
       } else if (headerMedia.type === 'video') {

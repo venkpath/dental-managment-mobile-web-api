@@ -394,7 +394,7 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             const param = { type: headerMedia.type };
             if (headerMedia.type === 'document') {
                 param.document = headerMedia.id
-                    ? { id: headerMedia.id, filename: headerMedia.filename || 'document.pdf' }
+                    ? { id: headerMedia.id }
                     : { link: headerMedia.url, filename: headerMedia.filename || 'document.pdf' };
             }
             else if (headerMedia.type === 'image') {
