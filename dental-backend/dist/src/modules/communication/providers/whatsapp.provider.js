@@ -88,7 +88,16 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             }
             else if (options.templateId) {
                 const buttonParams = options.metadata?.['whatsapp_button_params'];
-                const headerMedia = options.metadata?.['whatsapp_header_media'];
+                let headerMedia = options.metadata?.['whatsapp_header_media'];
+                if (headerMedia?.type === 'document' && headerMedia.url && !headerMedia.id) {
+                    const mediaId = await this.uploadDocumentFromUrl(clinicId, headerMedia.url, headerMedia.filename || 'document.pdf');
+                    if (mediaId) {
+                        headerMedia = { type: 'document', id: mediaId, filename: headerMedia.filename };
+                    }
+                    else {
+                        this.logger.warn(`[WhatsApp] Meta media upload failed for template header; falling back to link (may fail delivery)`);
+                    }
+                }
                 messagePayload = this.buildTemplatePayload(destination, options.templateId, options.variables, options.language, buttonParams, headerMedia);
             }
             else {
@@ -330,6 +339,46 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
             return `{{${idx + 1}}}`;
         });
     }
+    async uploadDocumentFromUrl(clinicId, documentUrl, filename) {
+        const ctx = this.clinicConfigs.get(clinicId);
+        if (!ctx)
+            return null;
+        try {
+            const download = await fetch(documentUrl, { signal: AbortSignal.timeout(45_000) });
+            if (!download.ok) {
+                this.logger.warn(`[WhatsApp] Document download failed: HTTP ${download.status}`);
+                return null;
+            }
+            const buffer = Buffer.from(await download.arrayBuffer());
+            if (buffer.length === 0) {
+                this.logger.warn('[WhatsApp] Document download returned empty body');
+                return null;
+            }
+            const form = new FormData();
+            form.append('messaging_product', 'whatsapp');
+            form.append('type', 'application/pdf');
+            const blob = new Blob([new Uint8Array(buffer)], { type: 'application/pdf' });
+            form.append('file', blob, filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
+            const res = await fetch(`${META_GRAPH_API}/${ctx.config.phoneNumberId}/media`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${ctx.config.accessToken}` },
+                body: form,
+                signal: AbortSignal.timeout(60_000),
+            });
+            const data = (await res.json());
+            if (!res.ok || !data.id) {
+                const err = data.error;
+                this.logger.warn(`[WhatsApp] Meta document upload failed: ${err?.['message'] || JSON.stringify(data).slice(0, 200)}`);
+                return null;
+            }
+            this.logger.log(`[WhatsApp] Uploaded document to Meta: ${data.id} (${buffer.length} bytes)`);
+            return data.id;
+        }
+        catch (error) {
+            this.logger.error(`[WhatsApp] Meta document upload exception: ${error instanceof Error ? error.message : String(error)}`);
+            return null;
+        }
+    }
     buildTextPayload(destination, body) {
         return {
             messaging_product: 'whatsapp',
@@ -341,16 +390,18 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
     }
     buildTemplatePayload(destination, templateName, variables, language, buttonParams, headerMedia) {
         const components = [];
-        if (headerMedia?.url) {
+        if (headerMedia?.id || headerMedia?.url) {
             const param = { type: headerMedia.type };
             if (headerMedia.type === 'document') {
-                param.document = { link: headerMedia.url, filename: headerMedia.filename || 'document.pdf' };
+                param.document = headerMedia.id
+                    ? { id: headerMedia.id, filename: headerMedia.filename || 'document.pdf' }
+                    : { link: headerMedia.url, filename: headerMedia.filename || 'document.pdf' };
             }
             else if (headerMedia.type === 'image') {
-                param.image = { link: headerMedia.url };
+                param.image = headerMedia.id ? { id: headerMedia.id } : { link: headerMedia.url };
             }
             else if (headerMedia.type === 'video') {
-                param.video = { link: headerMedia.url };
+                param.video = headerMedia.id ? { id: headerMedia.id } : { link: headerMedia.url };
             }
             components.push({
                 type: 'header',
@@ -359,6 +410,7 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
         }
         if (variables && Object.keys(variables).length > 0) {
             const sortedValues = Object.entries(variables)
+                .filter(([k]) => /^\d+$/.test(k))
                 .sort(([a], [b]) => Number(a) - Number(b))
                 .map(([, value]) => value);
             this.logger.debug(`[WhatsApp Template] ${templateName}: ${sortedValues.length} body params, lang=${language || 'en'}`);

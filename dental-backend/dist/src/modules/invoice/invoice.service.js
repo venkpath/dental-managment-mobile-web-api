@@ -715,7 +715,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                 filename: `Invoice-${invoice.invoice_number}.pdf`,
             }
             : undefined;
-        await this.communicationService.sendMessage(clinicId, {
+        const commMessage = await this.communicationService.sendMessage(clinicId, {
             patient_id: invoice.patient_id,
             channel: channel,
             category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
@@ -731,6 +731,12 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                 ...(headerMedia ? { whatsapp_header_media: headerMedia } : {}),
             },
         });
+        this.communicationService.throwIfMessageSkipped(commMessage);
+        const delivery = await this.communicationService.waitForWhatsAppDelivery(commMessage.id);
+        if (delivery.status === 'failed') {
+            throw new common_1.BadRequestException(delivery.error_message ||
+                'WhatsApp could not deliver the invoice. Check Communication → Message logs for details.');
+        }
         return { message: 'Invoice sent via WhatsApp' };
     }
     async generateInvoiceNumber(clinicId, tx = this.prisma) {

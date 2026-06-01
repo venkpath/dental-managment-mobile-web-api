@@ -10,14 +10,16 @@ import Input from '../../components/Input';
 import FormScreenLayout, { FormCard, formInputWrap } from '../../components/FormScreenLayout';
 import SelectSheet from '../../components/SelectSheet';
 import { SelectField } from '../../components/FormSection';
+import ProcedureSelectFields from '../../components/ProcedureSelectFields';
 import Badge from '../../components/Badge';
 import { formUi } from '../../theme/appChrome';
+import {
+  procedureCustomText,
+  procedureSelectValue,
+  resolveProcedureForSave,
+  validateProcedureSelection,
+} from '../../constants/treatmentProcedures';
 import type { Treatment, PatientStackParamList } from '../../types';
-
-const PROCEDURES = [
-  'RCT', 'Extraction', 'Filling', 'Crown', 'Bridge',
-  'Scaling', 'Implant', 'Orthodontics', 'Denture', 'Teeth Whitening', 'Other',
-];
 
 type Route = RouteProp<PatientStackParamList, 'EditTreatment'>;
 type Nav = NativeStackNavigationProp<PatientStackParamList>;
@@ -39,11 +41,12 @@ export default function EditTreatmentScreen() {
   const [fetching, setFetching] = useState(true);
   const [loading, setLoading] = useState(false);
   const [dentists, setDentists] = useState<StaffUser[]>([]);
-  const [procedureSheet, setProcedureSheet] = useState(false);
+  const [procedureChoice, setProcedureChoice] = useState('');
+  const [procedureCustom, setProcedureCustom] = useState('');
   const [dentistSheet, setDentistSheet] = useState(false);
   const [form, setForm] = useState({
     dentist_id: '',
-    tooth_number: '', diagnosis: '', procedure: '',
+    tooth_number: '', diagnosis: '',
     status: 'planned' as Status, cost: '', notes: '',
   });
 
@@ -59,11 +62,12 @@ export default function EditTreatmentScreen() {
       .then(([t, staff]) => {
         setTreatment(t);
         setDentists(staff);
+        setProcedureChoice(procedureSelectValue(t.procedure));
+        setProcedureCustom(procedureCustomText(t.procedure));
         setForm({
           dentist_id: t.dentist?.id ?? '',
           tooth_number: t.tooth_number ?? '',
           diagnosis: t.diagnosis,
-          procedure: t.procedure,
           status: (t.status?.toLowerCase() === 'in_progress' ? 'in_progress'
             : t.status?.toLowerCase() === 'completed' ? 'completed' : 'planned') as Status,
           cost: String(t.cost),
@@ -78,7 +82,8 @@ export default function EditTreatmentScreen() {
 
   const handleSave = async () => {
     if (!form.diagnosis.trim()) { Alert.alert('Error', 'Diagnosis is required'); return; }
-    if (!form.procedure) { Alert.alert('Error', 'Procedure is required'); return; }
+    const procErr = validateProcedureSelection(procedureChoice, procedureCustom);
+    if (procErr) { Alert.alert('Error', procErr); return; }
     if (!form.dentist_id) { Alert.alert('Error', 'Dentist is required'); return; }
     setLoading(true);
     try {
@@ -86,7 +91,7 @@ export default function EditTreatmentScreen() {
         dentist_id: form.dentist_id,
         tooth_number: form.tooth_number.trim() || undefined,
         diagnosis: form.diagnosis.trim(),
-        procedure: form.procedure,
+        procedure: resolveProcedureForSave(procedureChoice, procedureCustom),
         status: form.status,
         cost: parseFloat(form.cost) || 0,
         notes: form.notes.trim() || undefined,
@@ -141,11 +146,11 @@ export default function EditTreatmentScreen() {
           </FormCard>
 
           <FormCard title="Treatment details">
-            <SelectField
-              label="Procedure *"
-              value={form.procedure}
-              placeholder="Select procedure"
-              onPress={() => setProcedureSheet(true)}
+            <ProcedureSelectFields
+              procedureChoice={procedureChoice}
+              procedureCustom={procedureCustom}
+              onProcedureChoiceChange={setProcedureChoice}
+              onProcedureCustomChange={setProcedureCustom}
             />
             <SelectField
               label="Dentist *"
@@ -171,14 +176,6 @@ export default function EditTreatmentScreen() {
             />
           </FormCard>
 
-          <SelectSheet
-            visible={procedureSheet}
-            title="Procedure"
-            options={PROCEDURES.map((p) => ({ value: p, label: p }))}
-            selectedValue={form.procedure}
-            onSelect={(v) => set('procedure', v)}
-            onClose={() => setProcedureSheet(false)}
-          />
           <SelectSheet
             visible={dentistSheet}
             title="Dentist"

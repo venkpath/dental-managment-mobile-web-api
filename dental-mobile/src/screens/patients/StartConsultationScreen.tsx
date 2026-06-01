@@ -25,17 +25,34 @@ import { useAuthStore } from '../../store/auth.store';
 import { useBottomInset } from '../../hooks/useBottomInset';
 import { formatCurrency, getCurrencySymbol } from '../../utils/format';
 import type { PatientStackParamList, Patient } from '../../types';
+import {
+  ADDITIONAL_TREATMENT_PROCEDURES,
+  FREQUENT_TREATMENT_PROCEDURES,
+  OTHER_PROCEDURE,
+  isKnownTreatmentProcedure,
+} from '../../constants/treatmentProcedures';
 
 type Route = RouteProp<PatientStackParamList, 'StartConsultation'>;
 type Nav = NativeStackNavigationProp<PatientStackParamList>;
 
-// ─── Web-parity option lists ─────────────────────────────────────────────────
-const PROCEDURES = [
-  'Root Canal Treatment', 'Extraction', 'Filling', 'Crown', 'Bridge',
-  'Scaling', 'Implant', 'Orthodontics', 'Denture', 'Teeth Whitening',
-  'Periapical Surgery', 'Pulpectomy', 'Pulpotomy', 'Restoration',
-  'Veneer', 'Inlay', 'Onlay', 'Other',
-];
+function consultProcedurePickerValue(item: PlanItemForm): string {
+  if (!item.procedure.trim()) return '';
+  if (item.procedure === OTHER_PROCEDURE) return OTHER_PROCEDURE;
+  return isKnownTreatmentProcedure(item.procedure) ? item.procedure : OTHER_PROCEDURE;
+}
+
+function consultProcedureLabel(item: PlanItemForm): string {
+  if (!item.procedure.trim()) return '';
+  if (item.procedure === OTHER_PROCEDURE) {
+    return item.procedure_custom.trim() || OTHER_PROCEDURE;
+  }
+  return item.procedure;
+}
+
+function resolveConsultProcedureForSave(choice: string, custom: string): string {
+  if (choice === OTHER_PROCEDURE) return custom.trim();
+  return choice.trim();
+}
 
 const URGENCIES = [
   { key: 'immediate', label: 'Immediate', bg: '#FEE2E2', text: '#DC2626' },
@@ -47,6 +64,7 @@ const URGENCIES = [
 // ─── Plan item form shape ────────────────────────────────────────────────────
 interface PlanItemForm {
   procedure: string;
+  procedure_custom: string;
   tooth_number: string;
   estimated_cost: string;
   tooth_diagnosis: string;
@@ -57,7 +75,7 @@ interface PlanItemForm {
 
 function blankItem(): PlanItemForm {
   return {
-    procedure: '', tooth_number: '', estimated_cost: '',
+    procedure: '', procedure_custom: '', tooth_number: '', estimated_cost: '',
     tooth_diagnosis: '', urgency: 'medium', phase: '',
     notes: '',
   };
@@ -65,11 +83,27 @@ function blankItem(): PlanItemForm {
 
 // ─── Picker modal (reused pattern) ───────────────────────────────────────────
 function PickerModal({
-  visible, title, options, value, onSelect, onClose,
+  visible, title, options, sections, value, onSelect, onClose,
 }: {
-  visible: boolean; title: string; options: string[];
-  value: string; onSelect: (v: string) => void; onClose: () => void;
+  visible: boolean;
+  title: string;
+  options?: string[];
+  sections?: { label: string; options: readonly string[] }[];
+  value: string;
+  onSelect: (v: string) => void;
+  onClose: () => void;
 }) {
+  const renderOption = (opt: string) => (
+    <TouchableOpacity
+      key={opt}
+      style={[s.modalItem, value === opt && s.modalItemActive]}
+      onPress={() => { onSelect(opt); onClose(); }}
+    >
+      <Text style={[s.modalItemTxt, value === opt && s.modalItemTxtActive]}>{opt}</Text>
+      {value === opt && <Ionicons name="checkmark" size={16} color="#4361EE" />}
+    </TouchableOpacity>
+  );
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={s.modalBackdrop} onPress={onClose}>
@@ -81,16 +115,14 @@ function PickerModal({
             </TouchableOpacity>
           </View>
           <ScrollView style={{ maxHeight: 380 }}>
-            {options.map((opt) => (
-              <TouchableOpacity
-                key={opt}
-                style={[s.modalItem, value === opt && s.modalItemActive]}
-                onPress={() => { onSelect(opt); onClose(); }}
-              >
-                <Text style={[s.modalItemTxt, value === opt && s.modalItemTxtActive]}>{opt}</Text>
-                {value === opt && <Ionicons name="checkmark" size={16} color="#4361EE" />}
-              </TouchableOpacity>
-            ))}
+            {sections
+              ? sections.map((sec) => (
+                  <View key={sec.label || 'other'}>
+                    {sec.label ? <Text style={s.modalSectionLabel}>{sec.label}</Text> : null}
+                    {sec.options.map(renderOption)}
+                  </View>
+                ))
+              : (options ?? []).map(renderOption)}
           </ScrollView>
         </Pressable>
       </Pressable>
@@ -216,7 +248,11 @@ export default function StartConsultationScreen() {
 
   // Compute summary
   const totalEstCost = planItems.reduce((sum, it) => sum + (parseFloat(it.estimated_cost) || 0), 0);
-  const validItems = planItems.filter((it) => it.procedure.trim().length > 0).length;
+  const validItems = planItems.filter((it) => {
+    if (!it.procedure.trim()) return false;
+    if (it.procedure === OTHER_PROCEDURE) return it.procedure_custom.trim().length > 0;
+    return true;
+  }).length;
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (alsoWritePrescription: boolean) => {
@@ -227,7 +263,7 @@ export default function StartConsultationScreen() {
     const cleanItems = planItems
       .map((it) => ({
         ...it,
-        procedure: it.procedure.trim(),
+        procedure: resolveConsultProcedureForSave(it.procedure.trim(), it.procedure_custom),
         tooth_number: it.tooth_number.trim(),
         tooth_diagnosis: it.tooth_diagnosis.trim(),
         notes: it.notes.trim(),
@@ -502,11 +538,24 @@ export default function StartConsultationScreen() {
 
                 <Text style={s.label}>Procedure *</Text>
                 <TouchableOpacity style={s.field} onPress={() => setActiveProcIdx(idx)}>
-                  <Text style={[s.fieldTxt, !it.procedure && s.fieldPlaceholder]}>
-                    {it.procedure || 'Pick a procedure'}
+                  <Text style={[s.fieldTxt, !consultProcedureLabel(it) && s.fieldPlaceholder]}>
+                    {consultProcedureLabel(it) || 'Pick a procedure'}
                   </Text>
                   <Ionicons name="chevron-down" size={14} color="#94a3b8" />
                 </TouchableOpacity>
+
+                {it.procedure === OTHER_PROCEDURE ? (
+                  <>
+                    <Text style={[s.label, { marginTop: 8 }]}>Procedure name *</Text>
+                    <TextInput
+                      value={it.procedure_custom}
+                      onChangeText={(v) => updateItem(idx, 'procedure_custom', v)}
+                      placeholder="e.g. Sinus lift, Bone graft"
+                      placeholderTextColor="#94a3b8"
+                      style={s.inputBox}
+                    />
+                  </>
+                ) : null}
 
                 <View style={s.row2}>
                   <View style={{ flex: 1 }}>
@@ -662,9 +711,17 @@ export default function StartConsultationScreen() {
       <PickerModal
         visible={activeProcIdx !== null}
         title="Procedure"
-        options={PROCEDURES}
-        value={activeProcIdx !== null ? planItems[activeProcIdx].procedure : ''}
-        onSelect={(v) => { if (activeProcIdx !== null) updateItem(activeProcIdx, 'procedure', v); }}
+        sections={[
+          { label: 'Common', options: FREQUENT_TREATMENT_PROCEDURES },
+          { label: 'More procedures', options: ADDITIONAL_TREATMENT_PROCEDURES },
+          { label: '', options: [OTHER_PROCEDURE] },
+        ]}
+        value={activeProcIdx !== null ? consultProcedurePickerValue(planItems[activeProcIdx]) : ''}
+        onSelect={(v) => {
+          if (activeProcIdx === null) return;
+          updateItem(activeProcIdx, 'procedure', v);
+          if (v !== OTHER_PROCEDURE) updateItem(activeProcIdx, 'procedure_custom', '');
+        }}
         onClose={() => setActiveProcIdx(null)}
       />
     </KeyboardAvoidingView>
@@ -905,4 +962,14 @@ const s = StyleSheet.create({
   modalItemActive: { backgroundColor: '#EEF2FF' },
   modalItemTxt: { fontSize: 14, color: '#0f172a' },
   modalItemTxtActive: { color: '#4361EE', fontWeight: '700' },
+  modalSectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    paddingHorizontal: 4,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
 });

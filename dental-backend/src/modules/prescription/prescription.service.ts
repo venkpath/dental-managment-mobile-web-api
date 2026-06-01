@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { resolve as pathResolve } from 'path';
 import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
@@ -356,7 +356,7 @@ export class PrescriptionService {
         }
       : undefined;
 
-    await this.communicationService.sendMessage(clinicId, {
+    const commMessage = await this.communicationService.sendMessage(clinicId, {
       patient_id: prescription.patient_id,
       channel: channel as any,
       category: 'transactional' as any,
@@ -373,6 +373,16 @@ export class PrescriptionService {
         ...(headerMedia ? { whatsapp_header_media: headerMedia } : {}),
       },
     });
+
+    this.communicationService.throwIfMessageSkipped(commMessage);
+
+    const delivery = await this.communicationService.waitForWhatsAppDelivery(commMessage.id);
+    if (delivery.status === 'failed') {
+      throw new BadRequestException(
+        delivery.error_message ||
+          'WhatsApp could not deliver the prescription. Check Communication → Message logs for details.',
+      );
+    }
 
     return { message: 'Prescription sent' };
   }

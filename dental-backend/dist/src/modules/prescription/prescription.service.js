@@ -291,7 +291,7 @@ let PrescriptionService = class PrescriptionService {
                 filename: `Prescription-${patient.first_name}-${patient.last_name}.pdf`.replace(/\s+/g, '-'),
             }
             : undefined;
-        await this.communicationService.sendMessage(clinicId, {
+        const commMessage = await this.communicationService.sendMessage(clinicId, {
             patient_id: prescription.patient_id,
             channel: channel,
             category: 'transactional',
@@ -307,6 +307,12 @@ let PrescriptionService = class PrescriptionService {
                 ...(headerMedia ? { whatsapp_header_media: headerMedia } : {}),
             },
         });
+        this.communicationService.throwIfMessageSkipped(commMessage);
+        const delivery = await this.communicationService.waitForWhatsAppDelivery(commMessage.id);
+        if (delivery.status === 'failed') {
+            throw new common_1.BadRequestException(delivery.error_message ||
+                'WhatsApp could not deliver the prescription. Check Communication → Message logs for details.');
+        }
         return { message: 'Prescription sent' };
     }
     async findByPatient(clinicId, patientId) {

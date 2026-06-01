@@ -286,6 +286,57 @@ let CommunicationService = class CommunicationService {
         this.logger.debug(`Message ${message.id} queued via ${dto.channel} to ${recipient}`);
         return message;
     }
+    throwIfMessageSkipped(message) {
+        if (message.status !== 'skipped')
+            return;
+        throw new common_1.BadRequestException(this.formatSkipReason(message.skip_reason));
+    }
+    formatSkipReason(reason) {
+        const map = {
+            channel_disabled_clinic: 'WhatsApp is disabled in clinic communication settings.',
+            patient_whatsapp_disabled: 'Patient has opted out of WhatsApp messages.',
+            patient_reminders_disabled: 'Patient has disabled reminder messages.',
+            no_recipient_info: 'Patient has no valid phone number on file.',
+            whatsapp_quota_exceeded: 'Clinic WhatsApp monthly quota has been exceeded.',
+            daily_limit_exceeded: 'Clinic daily message limit has been reached.',
+            circuit_breaker_open: 'WhatsApp sending is temporarily paused due to recent failures.',
+            dedup_duplicate: 'This message was already sent recently (duplicate blocked).',
+        };
+        if (reason && map[reason])
+            return map[reason];
+        if (reason)
+            return `Message not sent (${reason.replace(/_/g, ' ')}).`;
+        return 'Message was not sent — check communication settings and patient phone.';
+    }
+    async waitForWhatsAppDelivery(messageId, timeoutMs = 15_000) {
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+            const [msg, log] = await Promise.all([
+                this.prisma.communicationMessage.findUnique({
+                    where: { id: messageId },
+                    select: { status: true },
+                }),
+                this.prisma.communicationLog.findFirst({
+                    where: { message_id: messageId, channel: 'whatsapp' },
+                    orderBy: { created_at: 'desc' },
+                    select: { status: true, error_message: true },
+                }),
+            ]);
+            const status = log?.status ?? msg?.status ?? 'queued';
+            if (status === 'delivered' || status === 'read') {
+                return { status };
+            }
+            if (status === 'failed') {
+                return { status, error_message: log?.error_message ?? undefined };
+            }
+            await new Promise((r) => setTimeout(r, 600));
+        }
+        const msg = await this.prisma.communicationMessage.findUnique({
+            where: { id: messageId },
+            select: { status: true },
+        });
+        return { status: msg?.status ?? 'sent' };
+    }
     async findAllMessages(clinicId, query) {
         const page = query.page ?? 1;
         const limit = query.limit ?? 20;
@@ -1519,8 +1570,16 @@ let CommunicationService = class CommunicationService {
             if (internalStatus === 'failed') {
                 updateData['failed_at'] = new Date();
                 const errors = status['errors'];
-                const errorMsg = errors?.[0]?.['title'] || 'Delivery failed';
+                const err0 = errors?.[0];
+                const errorMsg = err0?.['message'] ||
+                    err0?.['title'] ||
+                    err0?.['error_data']?.details ||
+                    'Delivery failed';
+                const errorCode = err0?.['code'];
                 updateData['error_message'] = errorMsg;
+                this.logger.warn(`WhatsApp delivery failed for ${recipientId} (wamid=${providerMessageId}): ` +
+                    `[${errorCode ?? '?'}] ${errorMsg}` +
+                    (errors?.length ? ` — ${JSON.stringify(errors).slice(0, 400)}` : ''));
             }
             await this.prisma.communicationLog.update({
                 where: { id: log.id },

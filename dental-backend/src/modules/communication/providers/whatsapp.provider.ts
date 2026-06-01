@@ -134,7 +134,26 @@ export class WhatsAppProvider implements ChannelProvider {
         messagePayload = this.buildInteractivePayload(destination, options.body, interactiveButtons);
       } else if (options.templateId) {
         const buttonParams = options.metadata?.['whatsapp_button_params'] as Array<{ type: string; index: number; parameters: string[] }> | undefined;
-        const headerMedia = options.metadata?.['whatsapp_header_media'] as { type: 'document' | 'image' | 'video'; url: string; filename?: string } | undefined;
+        let headerMedia = options.metadata?.['whatsapp_header_media'] as
+          | { type: 'document' | 'image' | 'video'; url?: string; id?: string; filename?: string }
+          | undefined;
+
+        // Meta often fails to fetch PDFs from S3 signed URLs — upload to Meta media API first.
+        if (headerMedia?.type === 'document' && headerMedia.url && !headerMedia.id) {
+          const mediaId = await this.uploadDocumentFromUrl(
+            clinicId,
+            headerMedia.url,
+            headerMedia.filename || 'document.pdf',
+          );
+          if (mediaId) {
+            headerMedia = { type: 'document', id: mediaId, filename: headerMedia.filename };
+          } else {
+            this.logger.warn(
+              `[WhatsApp] Meta media upload failed for template header; falling back to link (may fail delivery)`,
+            );
+          }
+        }
+
         messagePayload = this.buildTemplatePayload(destination, options.templateId, options.variables, options.language, buttonParams, headerMedia);
       } else {
         // Session/Text Message — check if session window is open
@@ -478,6 +497,60 @@ export class WhatsAppProvider implements ChannelProvider {
 
   // ─── Private Payload Builders (Meta Cloud API format) ───
 
+  /** Upload a PDF from a URL (e.g. S3 signed) to Meta; returns media id for template headers. */
+  private async uploadDocumentFromUrl(
+    clinicId: string,
+    documentUrl: string,
+    filename: string,
+  ): Promise<string | null> {
+    const ctx = this.clinicConfigs.get(clinicId);
+    if (!ctx) return null;
+
+    try {
+      const download = await fetch(documentUrl, { signal: AbortSignal.timeout(45_000) });
+      if (!download.ok) {
+        this.logger.warn(`[WhatsApp] Document download failed: HTTP ${download.status}`);
+        return null;
+      }
+
+      const buffer = Buffer.from(await download.arrayBuffer());
+      if (buffer.length === 0) {
+        this.logger.warn('[WhatsApp] Document download returned empty body');
+        return null;
+      }
+
+      const form = new FormData();
+      form.append('messaging_product', 'whatsapp');
+      form.append('type', 'application/pdf');
+      const blob = new Blob([new Uint8Array(buffer)], { type: 'application/pdf' });
+      form.append('file', blob, filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
+
+      const res = await fetch(`${META_GRAPH_API}/${ctx.config.phoneNumberId}/media`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${ctx.config.accessToken}` },
+        body: form,
+        signal: AbortSignal.timeout(60_000),
+      });
+
+      const data = (await res.json()) as Record<string, unknown>;
+      if (!res.ok || !data.id) {
+        const err = data.error as Record<string, unknown> | undefined;
+        this.logger.warn(
+          `[WhatsApp] Meta document upload failed: ${(err?.['message'] as string) || JSON.stringify(data).slice(0, 200)}`,
+        );
+        return null;
+      }
+
+      this.logger.log(`[WhatsApp] Uploaded document to Meta: ${data.id as string} (${buffer.length} bytes)`);
+      return data.id as string;
+    } catch (error) {
+      this.logger.error(
+        `[WhatsApp] Meta document upload exception: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
+  }
+
   private buildTextPayload(destination: string, body: string): Record<string, unknown> {
     return {
       messaging_product: 'whatsapp',
@@ -496,19 +569,21 @@ export class WhatsAppProvider implements ChannelProvider {
     buttonParams?: Array<{ type: string; index: number; parameters: string[] }>,
     /** Optional header media — set when the approved template has an
      *  IMAGE / VIDEO / DOCUMENT header component. */
-    headerMedia?: { type: 'document' | 'image' | 'video'; url: string; filename?: string },
+    headerMedia?: { type: 'document' | 'image' | 'video'; url?: string; id?: string; filename?: string },
   ): Record<string, unknown> {
     const components: Array<Record<string, unknown>> = [];
 
     // Header media (e.g. PDF document for prescription / invoice templates)
-    if (headerMedia?.url) {
+    if (headerMedia?.id || headerMedia?.url) {
       const param: Record<string, unknown> = { type: headerMedia.type };
       if (headerMedia.type === 'document') {
-        param.document = { link: headerMedia.url, filename: headerMedia.filename || 'document.pdf' };
+        param.document = headerMedia.id
+          ? { id: headerMedia.id, filename: headerMedia.filename || 'document.pdf' }
+          : { link: headerMedia.url, filename: headerMedia.filename || 'document.pdf' };
       } else if (headerMedia.type === 'image') {
-        param.image = { link: headerMedia.url };
+        param.image = headerMedia.id ? { id: headerMedia.id } : { link: headerMedia.url };
       } else if (headerMedia.type === 'video') {
-        param.video = { link: headerMedia.url };
+        param.video = headerMedia.id ? { id: headerMedia.id } : { link: headerMedia.url };
       }
       components.push({
         type: 'header',
@@ -517,8 +592,9 @@ export class WhatsAppProvider implements ChannelProvider {
     }
 
     if (variables && Object.keys(variables).length > 0) {
-      // Sort by numeric key to guarantee order: "1","2","3",...
+      // Only numbered template slots ({{1}}, {{2}}, …) — ignore named alias keys.
       const sortedValues = Object.entries(variables)
+        .filter(([k]) => /^\d+$/.test(k))
         .sort(([a], [b]) => Number(a) - Number(b))
         .map(([, value]) => value);
 

@@ -11,16 +11,16 @@ import Input from '../../components/Input';
 import FormScreenLayout, { FormCard, formInputWrap } from '../../components/FormScreenLayout';
 import SelectSheet from '../../components/SelectSheet';
 import { SelectField } from '../../components/FormSection';
+import ProcedureSelectFields from '../../components/ProcedureSelectFields';
 import { formUi } from '../../theme/appChrome';
+import {
+  resolveProcedureForSave,
+  validateProcedureSelection,
+} from '../../constants/treatmentProcedures';
 import type { PatientStackParamList } from '../../types';
 
 type Route = RouteProp<PatientStackParamList, 'AddTreatment'>;
 type Nav = NativeStackNavigationProp<PatientStackParamList>;
-
-const PROCEDURES = [
-  'RCT', 'Extraction', 'Filling', 'Crown', 'Bridge',
-  'Scaling', 'Implant', 'Orthodontics', 'Denture', 'Teeth Whitening', 'Other',
-];
 
 const STATUSES = [
   { value: 'planned', label: 'Planned' },
@@ -37,18 +37,18 @@ export default function AddTreatmentScreen() {
   const { branchId, user } = useAuthStore();
 
   const [dentists, setDentists] = useState<StaffUser[]>([]);
+  const [procedureChoice, setProcedureChoice] = useState('');
+  const [procedureCustom, setProcedureCustom] = useState('');
   const [form, setForm] = useState({
     dentist_id: user?.id ?? '',
     tooth_number: '',
     diagnosis: '',
-    procedure: '',
     status: 'planned' as Status,
     cost: '',
     notes: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-  const [procedureSheet, setProcedureSheet] = useState(false);
   const [dentistSheet, setDentistSheet] = useState(false);
 
   useFocusEffect(useCallback(() => {
@@ -63,7 +63,8 @@ export default function AddTreatmentScreen() {
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.diagnosis.trim()) e.diagnosis = 'Required';
-    if (!form.procedure) e.procedure = 'Select a procedure';
+    const procErr = validateProcedureSelection(procedureChoice, procedureCustom);
+    if (procErr) e.procedure = procErr;
     if (!form.dentist_id) e.dentist_id = 'Select a dentist';
     if (!form.cost || isNaN(Number(form.cost)) || Number(form.cost) < 0) e.cost = 'Enter valid amount';
     setErrors(e);
@@ -81,7 +82,7 @@ export default function AddTreatmentScreen() {
         dentist_id: form.dentist_id,
         tooth_number: form.tooth_number.trim() || undefined,
         diagnosis: form.diagnosis.trim(),
-        procedure: form.procedure,
+        procedure: resolveProcedureForSave(procedureChoice, procedureCustom),
         status: form.status,
         cost: parseFloat(form.cost) || 0,
         notes: form.notes.trim() || undefined,
@@ -106,12 +107,18 @@ export default function AddTreatmentScreen() {
       primaryAction={{ label: 'Save treatment', onPress: handleSave, loading }}
     >
       <FormCard title="Procedure">
-        <SelectField
-          label="Procedure *"
-          value={form.procedure}
-          placeholder="Select procedure"
-          error={errors.procedure}
-          onPress={() => setProcedureSheet(true)}
+        <ProcedureSelectFields
+          procedureChoice={procedureChoice}
+          procedureCustom={procedureCustom}
+          onProcedureChoiceChange={(v) => {
+            setProcedureChoice(v);
+            setErrors((p) => ({ ...p, procedure: '' }));
+          }}
+          onProcedureCustomChange={(v) => {
+            setProcedureCustom(v);
+            setErrors((p) => ({ ...p, procedure: '' }));
+          }}
+          procedureError={errors.procedure}
         />
         <SelectField
           label="Dentist *"
@@ -164,14 +171,6 @@ export default function AddTreatmentScreen() {
         />
       </FormCard>
 
-      <SelectSheet
-        visible={procedureSheet}
-        title="Procedure"
-        options={PROCEDURES.map((p) => ({ value: p, label: p }))}
-        selectedValue={form.procedure}
-        onSelect={(v) => set('procedure', v)}
-        onClose={() => setProcedureSheet(false)}
-      />
       <SelectSheet
         visible={dentistSheet}
         title="Dentist"

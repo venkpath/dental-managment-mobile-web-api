@@ -27,7 +27,7 @@ OUTPUT FORMAT (JSON):
         {
           "tooth": "36",
           "condition": "Irreversible pulpitis",
-          "procedure": "Root Canal Treatment",
+          "procedure": "RCT",
           "urgency": "immediate",
           "estimated_sessions": 2,
           "rationale": "Severe pain and infection risk — must be addressed first",

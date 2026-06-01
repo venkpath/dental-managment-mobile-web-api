@@ -43,6 +43,15 @@ export declare class CommunicationService {
         wa_category: string | null;
         sent_at: Date | null;
     }>;
+    throwIfMessageSkipped(message: {
+        status: string;
+        skip_reason?: string | null;
+    }): void;
+    formatSkipReason(reason?: string | null): string;
+    waitForWhatsAppDelivery(messageId: string, timeoutMs?: number): Promise<{
+        status: string;
+        error_message?: string;
+    }>;
     findAllMessages(clinicId: string, query: QueryMessageDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         patient: {
             email: string | null;
