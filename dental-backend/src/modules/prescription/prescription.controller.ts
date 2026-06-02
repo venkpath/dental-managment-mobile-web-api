@@ -125,6 +125,16 @@ export class PrescriptionController {
     return this.prescriptionService.sendWhatsApp(clinicId, id);
   }
 
+  @Post('prescriptions/:id/send-email')
+  @ApiOperation({ summary: 'Email the prescription PDF to the patient' })
+  @ApiOkResponse({ description: 'Prescription emailed' })
+  async sendEmail(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.prescriptionService.sendEmail(clinicId, id);
+  }
+
   @Get('patients/:patientId/prescriptions')
   @ApiOperation({ summary: 'Get all prescriptions for a patient' })
   @ApiOkResponse({ description: 'List of prescriptions for the patient' })

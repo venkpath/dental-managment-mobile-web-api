@@ -125,6 +125,9 @@ export declare class InvoiceService {
     sendWhatsApp(clinicId: string, invoiceId: string): Promise<{
         message: string;
     }>;
+    sendEmail(clinicId: string, invoiceId: string): Promise<{
+        message: string;
+    }>;
     private generateInvoiceNumber;
     private sendPaymentConfirmation;
 }

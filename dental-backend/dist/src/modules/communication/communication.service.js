@@ -238,6 +238,9 @@ let CommunicationService = class CommunicationService {
                 metadata: dto.metadata ? JSON.parse(JSON.stringify(dto.metadata)) : undefined,
             },
         });
+        const emailAttachments = dto.channel === 'email'
+            ? dto.metadata?.['email_attachments']
+            : undefined;
         await this.producer.enqueue({
             messageId: message.id,
             clinicId,
@@ -246,6 +249,7 @@ let CommunicationService = class CommunicationService {
             subject,
             body,
             html,
+            attachments: emailAttachments,
             templateId: dto.channel === 'whatsapp' ? whatsappTemplateName : dltTemplateId,
             variables: dto.channel === 'whatsapp' && whatsappOrderedVars
                 ? Object.fromEntries(whatsappOrderedVars.map((v, i) => [String(i + 1), v]))

@@ -7,6 +7,11 @@ export interface CommunicationJobData {
     subject?: string;
     body: string;
     html?: string;
+    attachments?: Array<{
+        filename: string;
+        path: string;
+        contentType?: string;
+    }>;
     templateId?: string;
     variables?: Record<string, string>;
     language?: string;

@@ -377,6 +377,60 @@ export class PrescriptionService {
     return { message: 'Prescription sent' };
   }
 
+  /**
+   * Email the prescription to the patient with the PDF attached as a real
+   * file (not just a link). Mirrors sendWhatsApp but always uses the email
+   * channel and carries content + PDF.
+   */
+  async sendEmail(clinicId: string, id: string): Promise<{ message: string }> {
+    const prescription = await this.findOne(clinicId, id);
+    const patient = (prescription as any).patient;
+    const dentist = (prescription as any).dentist;
+
+    if (!patient?.email) {
+      throw new NotFoundException('Patient has no email address on file.');
+    }
+
+    // Refresh the PDF and grab a signed URL — attached to the email as a file.
+    const { url: pdfUrl } = await this.getPdfUrl(clinicId, id);
+
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { name: true, phone: true },
+    });
+
+    const patientName = `${patient.first_name} ${patient.last_name}`;
+    const clinicName = clinic?.name ?? 'your clinic';
+    const clinicPhone = clinic?.phone ?? '';
+    const doctorName = dentist?.name ? formatDoctorName(dentist.name) : 'your doctor';
+
+    const subject = `Your prescription from ${clinicName}`;
+    const body =
+      `Hello ${patientName},\n\n` +
+      `Please find your prescription attached as a PDF, issued by ${doctorName} at ${clinicName}.\n\n` +
+      `Kindly follow the dosage and instructions exactly as advised. If you have any ` +
+      `questions about your medication, reach us at ${clinicPhone} during clinic hours.\n\n` +
+      `Wishing you a speedy recovery,\n${clinicName}`;
+
+    const filename = `Prescription-${patient.first_name}-${patient.last_name}.pdf`.replace(/\s+/g, '-');
+
+    const message = await this.communicationService.sendMessage(clinicId, {
+      patient_id: prescription.patient_id,
+      channel: 'email' as any,
+      category: 'transactional' as any,
+      subject,
+      body,
+      metadata: {
+        automation: 'prescription_ready',
+        prescription_id: id,
+        email_attachments: [{ filename, path: pdfUrl, contentType: 'application/pdf' }],
+      },
+    });
+
+    this.communicationService.throwIfMessageSkipped(message);
+    return { message: 'Prescription emailed' };
+  }
+
   async findByPatient(clinicId: string, patientId: string): Promise<Prescription[]> {
     const patient = await this.prisma.patient.findUnique({ where: { id: patientId } });
     if (!patient || patient.clinic_id !== clinicId) {

@@ -214,4 +214,15 @@ export class InvoiceController {
   ) {
     return this.invoiceService.sendWhatsApp(clinicId, id);
   }
+
+  @Post('invoices/:id/send-email')
+  @ApiOperation({ summary: 'Email the invoice PDF to the patient' })
+  @ApiOkResponse({ description: 'Invoice emailed' })
+  @ApiNotFoundResponse({ description: 'Invoice not found' })
+  async sendEmail(
+    @CurrentClinic() clinicId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.invoiceService.sendEmail(clinicId, id);
+  }
 }

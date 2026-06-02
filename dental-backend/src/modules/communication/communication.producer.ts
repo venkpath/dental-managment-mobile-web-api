@@ -11,6 +11,8 @@ export interface CommunicationJobData {
   subject?: string;
   body: string;
   html?: string;
+  /** Email file attachments (e.g. prescription/invoice PDF). `path` may be an S3 signed URL. */
+  attachments?: Array<{ filename: string; path: string; contentType?: string }>;
   templateId?: string; // provider-specific (DLT/HSM)
   /** WhatsApp template variables — ordered values for Meta template components */
   variables?: Record<string, string>;

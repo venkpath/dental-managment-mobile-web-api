@@ -97,6 +97,9 @@ let InvoiceController = class InvoiceController {
     async sendWhatsApp(clinicId, id) {
         return this.invoiceService.sendWhatsApp(clinicId, id);
     }
+    async sendEmail(clinicId, id) {
+        return this.invoiceService.sendEmail(clinicId, id);
+    }
 };
 exports.InvoiceController = InvoiceController;
 __decorate([
@@ -257,6 +260,18 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], InvoiceController.prototype, "sendWhatsApp", null);
+__decorate([
+    (0, common_1.Post)('invoices/:id/send-email'),
+    (0, swagger_1.ApiOperation)({ summary: 'Email the invoice PDF to the patient' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Invoice emailed' }),
+    (0, swagger_1.ApiNotFoundResponse)({ description: 'Invoice not found' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], InvoiceController.prototype, "sendEmail", null);
 exports.InvoiceController = InvoiceController = __decorate([
     (0, swagger_1.ApiTags)('Invoices & Payments'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true, description: 'Clinic UUID for tenant scoping' }),

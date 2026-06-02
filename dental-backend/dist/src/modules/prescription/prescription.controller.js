@@ -74,6 +74,9 @@ let PrescriptionController = class PrescriptionController {
     async sendWhatsApp(clinicId, id) {
         return this.prescriptionService.sendWhatsApp(clinicId, id);
     }
+    async sendEmail(clinicId, id) {
+        return this.prescriptionService.sendEmail(clinicId, id);
+    }
     async findByPatient(clinicId, patientId) {
         return this.prescriptionService.findByPatient(clinicId, patientId);
     }
@@ -153,6 +156,17 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], PrescriptionController.prototype, "sendWhatsApp", null);
+__decorate([
+    (0, common_1.Post)('prescriptions/:id/send-email'),
+    (0, swagger_1.ApiOperation)({ summary: 'Email the prescription PDF to the patient' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Prescription emailed' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], PrescriptionController.prototype, "sendEmail", null);
 __decorate([
     (0, common_1.Get)('patients/:patientId/prescriptions'),
     (0, swagger_1.ApiOperation)({ summary: 'Get all prescriptions for a patient' }),

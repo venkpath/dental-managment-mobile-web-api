@@ -736,6 +736,58 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         });
         return { message: 'Invoice sent via WhatsApp' };
     }
+    async sendEmail(clinicId, invoiceId) {
+        const invoice = await this.findOne(clinicId, invoiceId);
+        if (invoice.lifecycle_status === 'draft') {
+            throw new common_1.BadRequestException('Cannot send a draft invoice. Issue it first.');
+        }
+        if (invoice.lifecycle_status === 'cancelled') {
+            throw new common_1.BadRequestException('Cannot send a cancelled invoice.');
+        }
+        const [patient, clinic] = await Promise.all([
+            this.prisma.patient.findUnique({
+                where: { id: invoice.patient_id },
+                select: { first_name: true, last_name: true, email: true },
+            }),
+            this.prisma.clinic.findUnique({
+                where: { id: clinicId },
+                select: { name: true, phone: true, currency_code: true },
+            }),
+        ]);
+        if (!patient)
+            throw new Error('Patient not found');
+        if (!patient.email) {
+            throw new common_1.BadRequestException('Patient has no email address on file.');
+        }
+        const { url: pdfUrl, filename } = await this.getPdfUrl(clinicId, invoiceId);
+        const currencyCode = clinic?.currency_code ?? 'INR';
+        const patientName = `${patient.first_name} ${patient.last_name}`;
+        const netAmount = Number(invoice.net_amount).toLocaleString((0, currency_util_js_1.getCurrencyLocale)(currencyCode), { minimumFractionDigits: 2 });
+        const netAmountFormatted = `${(0, currency_util_js_1.getCurrencySymbol)(currencyCode)} ${netAmount}`;
+        const clinicName = clinic?.name ?? 'your clinic';
+        const clinicPhone = clinic?.phone ?? '';
+        const subject = `Invoice ${invoice.invoice_number} from ${clinicName}`;
+        const body = `Hello ${patientName},\n\n` +
+            `Thank you for choosing ${clinicName}. Your invoice is attached as a PDF.\n\n` +
+            `Invoice No: ${invoice.invoice_number}\n` +
+            `Amount: ${netAmountFormatted}\n\n` +
+            `For any questions or to make a payment, reach us at ${clinicPhone} during ` +
+            `clinic hours.\n\nWarm regards,\n${clinicName}`;
+        const message = await this.communicationService.sendMessage(clinicId, {
+            patient_id: invoice.patient_id,
+            channel: 'email',
+            category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
+            subject,
+            body,
+            metadata: {
+                automation: 'invoice_ready',
+                invoice_id: invoiceId,
+                email_attachments: [{ filename, path: pdfUrl, contentType: 'application/pdf' }],
+            },
+        });
+        this.communicationService.throwIfMessageSkipped(message);
+        return { message: 'Invoice emailed' };
+    }
     async generateInvoiceNumber(clinicId, tx = this.prisma) {
         const today = new Date();
         const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');

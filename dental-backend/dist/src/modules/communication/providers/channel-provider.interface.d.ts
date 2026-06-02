@@ -1,8 +1,14 @@
+export interface EmailAttachment {
+    filename: string;
+    path: string;
+    contentType?: string;
+}
 export interface SendMessageOptions {
     to: string;
     subject?: string;
     body: string;
     html?: string;
+    attachments?: EmailAttachment[];
     mediaUrl?: string;
     templateId?: string;
     variables?: Record<string, string>;

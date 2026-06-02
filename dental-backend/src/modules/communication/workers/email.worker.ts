@@ -18,7 +18,7 @@ export class EmailWorker extends WorkerHost {
   }
 
   async process(job: Job<CommunicationJobData>): Promise<void> {
-    const { messageId, clinicId, to, subject, body, html } = job.data;
+    const { messageId, clinicId, to, subject, body, html, attachments } = job.data;
 
     this.logger.debug(`Processing email job: ${messageId} → ${to}`);
 
@@ -31,6 +31,7 @@ export class EmailWorker extends WorkerHost {
         subject,
         body,
         html,
+        attachments,
         clinicId,
       });
 

@@ -1,8 +1,17 @@
+/** A file attached to an outgoing email. `path` may be a local path, a URL
+ * (e.g. an S3 signed URL — nodemailer streams it), or a data URI. */
+export interface EmailAttachment {
+  filename: string;
+  path: string;
+  contentType?: string;
+}
+
 export interface SendMessageOptions {
   to: string; // email address or phone number
   subject?: string; // for email
   body: string; // rendered message body
   html?: string; // HTML body for email
+  attachments?: EmailAttachment[]; // for email file attachments (e.g. PDF)
   mediaUrl?: string; // for WhatsApp media messages
   templateId?: string; // provider-specific template ID (DLT for SMS, HSM for WhatsApp)
   variables?: Record<string, string>; // template variables for provider-managed templates

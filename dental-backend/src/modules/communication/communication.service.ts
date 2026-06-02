@@ -337,6 +337,15 @@ export class CommunicationService {
       },
     });
 
+    // Email file attachments (e.g. prescription/invoice PDF) are passed by
+    // callers via metadata.email_attachments — forward them to the email job.
+    const emailAttachments =
+      dto.channel === 'email'
+        ? (dto.metadata?.['email_attachments'] as
+            | Array<{ filename: string; path: string; contentType?: string }>
+            | undefined)
+        : undefined;
+
     // 10. Queue for delivery
     await this.producer.enqueue({
       messageId: message.id,
@@ -346,6 +355,7 @@ export class CommunicationService {
       subject,
       body,
       html,
+      attachments: emailAttachments,
       // For SMS: DLT template ID; for WhatsApp: Meta-approved template name
       templateId: dto.channel === 'whatsapp' ? whatsappTemplateName : dltTemplateId,
       // For WhatsApp template messages: pass ordered variable values matching Meta's {{1}}, {{2}}, ...

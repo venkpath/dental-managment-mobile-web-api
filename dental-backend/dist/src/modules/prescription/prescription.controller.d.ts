@@ -90,6 +90,9 @@ export declare class PrescriptionController {
     sendWhatsApp(clinicId: string, id: string): Promise<{
         message: string;
     }>;
+    sendEmail(clinicId: string, id: string): Promise<{
+        message: string;
+    }>;
     findByPatient(clinicId: string, patientId: string): Promise<{
         id: string;
         created_at: Date;

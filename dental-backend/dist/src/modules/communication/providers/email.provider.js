@@ -108,6 +108,15 @@ let EmailProvider = EmailProvider_1 = class EmailProvider {
                 subject: options.subject || 'Notification',
                 text: options.body,
                 html: options.html || options.body,
+                ...(options.attachments?.length
+                    ? {
+                        attachments: options.attachments.map((a) => ({
+                            filename: a.filename,
+                            path: a.path,
+                            ...(a.contentType ? { contentType: a.contentType } : {}),
+                        })),
+                    }
+                    : {}),
             });
             this.logger.debug(`Email sent to ${options.to}: ${info.messageId}`);
             return {

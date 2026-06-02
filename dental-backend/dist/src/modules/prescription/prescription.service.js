@@ -309,6 +309,44 @@ let PrescriptionService = class PrescriptionService {
         });
         return { message: 'Prescription sent' };
     }
+    async sendEmail(clinicId, id) {
+        const prescription = await this.findOne(clinicId, id);
+        const patient = prescription.patient;
+        const dentist = prescription.dentist;
+        if (!patient?.email) {
+            throw new common_1.NotFoundException('Patient has no email address on file.');
+        }
+        const { url: pdfUrl } = await this.getPdfUrl(clinicId, id);
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: { name: true, phone: true },
+        });
+        const patientName = `${patient.first_name} ${patient.last_name}`;
+        const clinicName = clinic?.name ?? 'your clinic';
+        const clinicPhone = clinic?.phone ?? '';
+        const doctorName = dentist?.name ? (0, name_util_js_1.formatDoctorName)(dentist.name) : 'your doctor';
+        const subject = `Your prescription from ${clinicName}`;
+        const body = `Hello ${patientName},\n\n` +
+            `Please find your prescription attached as a PDF, issued by ${doctorName} at ${clinicName}.\n\n` +
+            `Kindly follow the dosage and instructions exactly as advised. If you have any ` +
+            `questions about your medication, reach us at ${clinicPhone} during clinic hours.\n\n` +
+            `Wishing you a speedy recovery,\n${clinicName}`;
+        const filename = `Prescription-${patient.first_name}-${patient.last_name}.pdf`.replace(/\s+/g, '-');
+        const message = await this.communicationService.sendMessage(clinicId, {
+            patient_id: prescription.patient_id,
+            channel: 'email',
+            category: 'transactional',
+            subject,
+            body,
+            metadata: {
+                automation: 'prescription_ready',
+                prescription_id: id,
+                email_attachments: [{ filename, path: pdfUrl, contentType: 'application/pdf' }],
+            },
+        });
+        this.communicationService.throwIfMessageSkipped(message);
+        return { message: 'Prescription emailed' };
+    }
     async findByPatient(clinicId, patientId) {
         const patient = await this.prisma.patient.findUnique({ where: { id: patientId } });
         if (!patient || patient.clinic_id !== clinicId) {

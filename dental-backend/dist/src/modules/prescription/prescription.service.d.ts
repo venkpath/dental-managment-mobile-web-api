@@ -27,5 +27,8 @@ export declare class PrescriptionService {
     sendWhatsApp(clinicId: string, id: string): Promise<{
         message: string;
     }>;
+    sendEmail(clinicId: string, id: string): Promise<{
+        message: string;
+    }>;
     findByPatient(clinicId: string, patientId: string): Promise<Prescription[]>;
 }

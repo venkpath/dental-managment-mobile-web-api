@@ -598,4 +598,7 @@ export declare class InvoiceController {
     sendWhatsApp(clinicId: string, id: string): Promise<{
         message: string;
     }>;
+    sendEmail(clinicId: string, id: string): Promise<{
+        message: string;
+    }>;
 }
