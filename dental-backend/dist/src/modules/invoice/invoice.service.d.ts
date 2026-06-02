@@ -120,6 +120,7 @@ export declare class InvoiceService {
     }>;
     getPdfUrl(clinicId: string, invoiceId: string): Promise<{
         url: string;
+        filename: string;
     }>;
     sendWhatsApp(clinicId: string, invoiceId: string): Promise<{
         message: string;

@@ -22,13 +22,13 @@ export declare class InvoiceController {
         branch_id: string;
         patient_id: string;
         dentist_id: string | null;
+        net_amount: import("@prisma/client-runtime-utils").Decimal;
         created_by_user_id: string | null;
         treatment_date: Date | null;
         invoice_number: string;
         total_amount: import("@prisma/client-runtime-utils").Decimal;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
-        net_amount: import("@prisma/client-runtime-utils").Decimal;
         gst_number: string | null;
         tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
         lifecycle_status: string;
@@ -50,13 +50,13 @@ export declare class InvoiceController {
         branch_id: string;
         patient_id: string;
         dentist_id: string | null;
+        net_amount: import("@prisma/client-runtime-utils").Decimal;
         created_by_user_id: string | null;
         treatment_date: Date | null;
         invoice_number: string;
         total_amount: import("@prisma/client-runtime-utils").Decimal;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
-        net_amount: import("@prisma/client-runtime-utils").Decimal;
         gst_number: string | null;
         tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
         lifecycle_status: string;
@@ -445,13 +445,13 @@ export declare class InvoiceController {
         branch_id: string;
         patient_id: string;
         dentist_id: string | null;
+        net_amount: import("@prisma/client-runtime-utils").Decimal;
         created_by_user_id: string | null;
         treatment_date: Date | null;
         invoice_number: string;
         total_amount: import("@prisma/client-runtime-utils").Decimal;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
-        net_amount: import("@prisma/client-runtime-utils").Decimal;
         gst_number: string | null;
         tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
         lifecycle_status: string;
@@ -473,13 +473,13 @@ export declare class InvoiceController {
         branch_id: string;
         patient_id: string;
         dentist_id: string | null;
+        net_amount: import("@prisma/client-runtime-utils").Decimal;
         created_by_user_id: string | null;
         treatment_date: Date | null;
         invoice_number: string;
         total_amount: import("@prisma/client-runtime-utils").Decimal;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
-        net_amount: import("@prisma/client-runtime-utils").Decimal;
         gst_number: string | null;
         tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
         lifecycle_status: string;
@@ -501,13 +501,13 @@ export declare class InvoiceController {
         branch_id: string;
         patient_id: string;
         dentist_id: string | null;
+        net_amount: import("@prisma/client-runtime-utils").Decimal;
         created_by_user_id: string | null;
         treatment_date: Date | null;
         invoice_number: string;
         total_amount: import("@prisma/client-runtime-utils").Decimal;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
-        net_amount: import("@prisma/client-runtime-utils").Decimal;
         gst_number: string | null;
         tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
         lifecycle_status: string;
@@ -529,13 +529,13 @@ export declare class InvoiceController {
         branch_id: string;
         patient_id: string;
         dentist_id: string | null;
+        net_amount: import("@prisma/client-runtime-utils").Decimal;
         created_by_user_id: string | null;
         treatment_date: Date | null;
         invoice_number: string;
         total_amount: import("@prisma/client-runtime-utils").Decimal;
         tax_amount: import("@prisma/client-runtime-utils").Decimal;
         discount_amount: import("@prisma/client-runtime-utils").Decimal;
-        net_amount: import("@prisma/client-runtime-utils").Decimal;
         gst_number: string | null;
         tax_breakdown: import("@prisma/client/runtime/client").JsonValue | null;
         lifecycle_status: string;
@@ -593,6 +593,7 @@ export declare class InvoiceController {
     }>;
     getPdfUrl(clinicId: string, id: string): Promise<{
         url: string;
+        filename: string;
     }>;
     sendWhatsApp(clinicId: string, id: string): Promise<{
         message: string;

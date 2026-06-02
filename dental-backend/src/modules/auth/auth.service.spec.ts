@@ -46,7 +46,11 @@ const mockJwtService = {
 const mockPrismaService = {
   user: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     update: jest.fn(),
+  },
+  clinic: {
+    findUnique: jest.fn().mockResolvedValue({ is_suspended: false, subscription_status: 'active' }),
   },
 };
 

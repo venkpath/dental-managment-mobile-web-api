@@ -9,18 +9,32 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { whatsappService, WaConversation } from '../../services/whatsapp.service';
-import { colors, spacing, typography, radius } from '../../theme';
 import { getLocale } from '../../utils/format';
+import EmptyState from '../../components/EmptyState';
+import { useDrawer } from '../../components/DrawerMenu';
+import { useBottomInset } from '../../hooks/useBottomInset';
+import { shadow } from '../../theme';
 import type { WhatsAppStackParamList } from '../../types';
 
 type Nav = NativeStackNavigationProp<WhatsAppStackParamList>;
 
-const WA_GREEN = '#25D366';
-const WA_DARK = '#075E54';
+const C = {
+  indigo: '#4361EE',
+  indigoLight: '#EEF2FF',
+  wa: '#25D366',
+  waLight: '#DCFCE7',
+  bg: '#F8FAFC',
+  surface: '#ffffff',
+  text: '#0f172a',
+  textSub: '#475569',
+  textMuted: '#94a3b8',
+  border: '#E2E8F0',
+};
 
 function getInitials(name: string) {
   return name
@@ -44,6 +58,9 @@ function formatTime(iso: string) {
 
 export default function ConversationListScreen() {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
+  const bottomInset = useBottomInset();
+  const { open: openDrawer } = useDrawer();
   const [conversations, setConversations] = useState<WaConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -53,7 +70,6 @@ export default function ConversationListScreen() {
   const load = useCallback(async (refresh = false) => {
     refresh ? setRefreshing(true) : setLoading(true);
     try {
-      // Check settings first
       const settings = await whatsappService.getSettings();
       const cfg = settings.whatsapp_config as Record<string, string> | undefined;
       const connected = !!(cfg?.connectionMethod === 'embedded_signup' && cfg?.phoneNumberId);
@@ -74,7 +90,6 @@ export default function ConversationListScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
-      // Poll every 15s
       const interval = setInterval(() => {
         if (isConnected) {
           whatsappService
@@ -95,53 +110,9 @@ export default function ConversationListScreen() {
 
   const totalUnread = conversations.reduce((s, c) => s + c.unread_count, 0);
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={WA_GREEN} />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Not configured
-  if (!isConnected) {
-    return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>WhatsApp Inbox</Text>
-        </View>
-        <View style={styles.notConfigured}>
-          <View style={styles.notConfiguredIcon}>
-            <Text style={{ fontSize: 48 }}>💬</Text>
-          </View>
-          <Text style={styles.notConfiguredTitle}>WhatsApp Not Configured</Text>
-          <Text style={styles.notConfiguredDesc}>
-            Connect your clinic's WhatsApp Business number from the web dashboard
-            (Communication → Settings) to start sending and receiving messages.
-          </Text>
-          <View style={styles.featureList}>
-            {[
-              'Receive patient replies in real-time',
-              'Send appointment reminders',
-              'Your clinic number — patients recognise you',
-              'Enterprise plan with own WABA required',
-            ].map((text) => (
-              <View key={text} style={styles.featureRow}>
-                <Text style={styles.featureCheck}>✓</Text>
-                <Text style={styles.featureText}>{text}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   const renderItem = ({ item }: { item: WaConversation }) => (
     <TouchableOpacity
-      style={styles.convItem}
+      style={s.convItem}
       activeOpacity={0.7}
       onPress={() =>
         navigation.navigate('ChatThread', {
@@ -151,36 +122,33 @@ export default function ConversationListScreen() {
         })
       }
     >
-      {/* Avatar */}
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{getInitials(item.patient_name)}</Text>
+      <View style={s.avatar}>
+        <Text style={s.avatarText}>{getInitials(item.patient_name)}</Text>
       </View>
 
-      <View style={styles.convInfo}>
-        {/* Name + time */}
-        <View style={styles.convTopRow}>
-          <Text style={styles.convName} numberOfLines={1}>
+      <View style={s.convInfo}>
+        <View style={s.convTopRow}>
+          <Text style={s.convName} numberOfLines={1}>
             {item.patient_name}
           </Text>
           <Text
             style={[
-              styles.convTime,
-              item.unread_count > 0 && { color: WA_GREEN, fontWeight: '700' },
+              s.convTime,
+              item.unread_count > 0 && { color: C.wa, fontWeight: '700' },
             ]}
           >
             {formatTime(item.last_at)}
           </Text>
         </View>
 
-        {/* Message + badge */}
-        <View style={styles.convBottomRow}>
-          <Text style={styles.convPreview} numberOfLines={1}>
+        <View style={s.convBottomRow}>
+          <Text style={s.convPreview} numberOfLines={1}>
             {item.last_direction === 'outbound' ? '↗ ' : ''}
             {item.last_message}
           </Text>
           {item.unread_count > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
+            <View style={s.badge}>
+              <Text style={s.badgeText}>
                 {item.unread_count > 99 ? '99+' : item.unread_count}
               </Text>
             </View>
@@ -190,148 +158,210 @@ export default function ConversationListScreen() {
     </TouchableOpacity>
   );
 
+  if (loading) {
+    return (
+      <View style={[s.screen, { paddingTop: insets.top }]}>
+        <View style={s.center}>
+          <ActivityIndicator size="large" color={C.indigo} />
+        </View>
+      </View>
+    );
+  }
+
+  if (!isConnected) {
+    return (
+      <View style={[s.screen, { paddingTop: insets.top }]}>
+        <View style={s.topbar}>
+          <TouchableOpacity onPress={openDrawer} style={s.iconBtn} activeOpacity={0.7}>
+            <Ionicons name="menu" size={22} color={C.text} />
+          </TouchableOpacity>
+          <View style={s.titleBlock}>
+            <Text style={s.title}>Inbox</Text>
+            <Text style={s.subtitle}>WhatsApp conversations</Text>
+          </View>
+        </View>
+        <View style={s.notConfigured}>
+          <View style={s.notConfiguredIcon}>
+            <Ionicons name="logo-whatsapp" size={40} color={C.wa} />
+          </View>
+          <Text style={s.notConfiguredTitle}>WhatsApp not connected</Text>
+          <Text style={s.notConfiguredDesc}>
+            Connect your clinic WhatsApp Business number from the web dashboard
+            (Communication → Settings) to send and receive patient messages here.
+          </Text>
+          {[
+            'Receive patient replies in real time',
+            'Send appointment reminders',
+            'Your clinic number — patients recognise you',
+          ].map((text) => (
+            <View key={text} style={s.featureRow}>
+              <Ionicons name="checkmark-circle" size={18} color={C.wa} />
+              <Text style={s.featureText}>{text}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* WhatsApp-style header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>WhatsApp Inbox</Text>
-          {totalUnread > 0 && (
-            <Text style={styles.headerSub}>
-              {totalUnread} unread message{totalUnread !== 1 ? 's' : ''}
-            </Text>
-          )}
+    <View style={[s.screen, { paddingTop: insets.top }]}>
+      <View style={s.topbar}>
+        <TouchableOpacity onPress={openDrawer} style={s.iconBtn} activeOpacity={0.7}>
+          <Ionicons name="menu" size={22} color={C.text} />
+        </TouchableOpacity>
+        <View style={s.titleBlock}>
+          <Text style={s.title}>Inbox</Text>
+          <Text style={s.subtitle}>
+            {totalUnread > 0
+              ? `${totalUnread} unread message${totalUnread !== 1 ? 's' : ''}`
+              : 'WhatsApp conversations'}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={s.newBtn}
+          onPress={() => navigation.navigate('NewConversation')}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="create-outline" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={s.searchWrap}>
+        <View style={s.searchBox}>
+          <Ionicons name="search" size={16} color={C.textMuted} />
+          <TextInput
+            style={s.searchInput}
+            placeholder="Search by name or phone"
+            placeholderTextColor={C.textMuted}
+            value={search}
+            onChangeText={setSearch}
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
         </View>
       </View>
 
-      {/* Search */}
-      <View style={styles.searchWrap}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search conversations"
-          placeholderTextColor={colors.textMuted}
-          value={search}
-          onChangeText={setSearch}
-        />
-      </View>
-
-      {/* Conversation list */}
       <FlatList
         data={filtered}
         renderItem={renderItem}
         keyExtractor={(item) => item.phone}
-        contentContainerStyle={filtered.length === 0 ? styles.emptyContainer : undefined}
+        contentContainerStyle={[
+          filtered.length === 0 ? s.emptyContainer : s.listPad,
+          { paddingBottom: 88 + bottomInset },
+        ]}
         ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <Text style={{ fontSize: 40, opacity: 0.3 }}>💬</Text>
-            <Text style={styles.emptyText}>
-              {search
-                ? 'No conversations match.'
-                : 'No conversations yet.\nConversations appear here when patients reply to your messages.'}
-            </Text>
-          </View>
+          <EmptyState
+            title={search ? 'No matches' : 'No conversations yet'}
+            subtitle={
+              search
+                ? 'Try a different name or phone number'
+                : 'Conversations appear when patients reply to your clinic messages.'
+            }
+            icon="chatbubbles-outline"
+          />
         }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => load(true)}
-            tintColor={WA_GREEN}
-            colors={[WA_GREEN]}
+            tintColor={C.indigo}
+            colors={[C.indigo]}
           />
         }
+        showsVerticalScrollIndicator={false}
       />
 
-      {/* New Conversation FAB */}
       <TouchableOpacity
-        style={styles.fab}
-        activeOpacity={0.8}
+        style={[s.fab, { bottom: 16 + bottomInset }]}
+        activeOpacity={0.85}
         onPress={() => navigation.navigate('NewConversation')}
       >
-        <Text style={styles.fabIcon}>+</Text>
+        <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
-    </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.surface },
-  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+const s = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: C.bg },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  header: {
-    backgroundColor: WA_DARK,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
-    paddingTop: spacing.sm,
+  topbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 10,
+    backgroundColor: C.bg,
   },
-  headerTitle: {
-    color: '#fff',
-    fontSize: typography.xl,
-    fontWeight: '700',
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: C.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadow.sm,
   },
-  headerSub: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: typography.xs,
-    marginTop: 2,
+  titleBlock: { flex: 1 },
+  title: { fontSize: 18, fontWeight: '800', color: C.text },
+  subtitle: { fontSize: 11, color: C.textSub, marginTop: 1 },
+  newBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: C.wa,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadow.sm,
   },
 
-  searchWrap: {
-    backgroundColor: '#f0f2f5',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+  searchWrap: { paddingHorizontal: 16, paddingBottom: 10 },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: C.surface,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 42,
+    borderWidth: 1,
+    borderColor: C.border,
   },
-  searchInput: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    fontSize: typography.sm,
-    color: colors.text,
-  },
+  searchInput: { flex: 1, fontSize: 13, color: C.text, paddingVertical: 0 },
 
+  listPad: { paddingTop: 4 },
   convItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-    gap: spacing.md,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 14,
+    backgroundColor: C.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.border,
+    gap: 12,
+    ...shadow.sm,
   },
   avatar: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: '#DFE5E7',
+    borderRadius: 14,
+    backgroundColor: C.waLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: {
-    fontSize: typography.sm,
-    fontWeight: '700',
-    color: '#6B7C85',
-  },
+  avatarText: { fontSize: 14, fontWeight: '700', color: C.wa },
   convInfo: { flex: 1, gap: 4 },
   convTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  convName: {
-    fontSize: typography.base,
-    fontWeight: '600',
-    color: colors.text,
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  convTime: {
-    fontSize: typography.xs,
-    color: colors.textMuted,
-  },
+  convName: { fontSize: 15, fontWeight: '800', color: C.text, flex: 1, marginRight: 8 },
+  convTime: { fontSize: 11, color: C.textMuted },
   convBottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  convPreview: {
-    fontSize: typography.sm,
-    color: colors.textSecondary,
-    flex: 1,
-    marginRight: spacing.sm,
-  },
+  convPreview: { fontSize: 13, color: C.textSub, flex: 1, marginRight: 8 },
   badge: {
-    backgroundColor: WA_GREEN,
+    backgroundColor: C.wa,
     borderRadius: 12,
     minWidth: 22,
     height: 22,
@@ -339,75 +369,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '800',
-  },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
 
-  emptyContainer: { flex: 1 },
-  emptyWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing['2xl'],
-    gap: spacing.md,
-  },
-  emptyText: {
-    fontSize: typography.sm,
-    color: colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+  emptyContainer: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24 },
 
-  // Not configured
   notConfigured: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing['2xl'],
-    gap: spacing.lg,
+    paddingHorizontal: 28,
+    gap: 14,
   },
   notConfiguredIcon: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: '#dcfce7',
+    width: 88,
+    height: 88,
+    borderRadius: 24,
+    backgroundColor: C.waLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  notConfiguredTitle: {
-    fontSize: typography.xl,
-    fontWeight: '700',
-    color: colors.text,
-  },
+  notConfiguredTitle: { fontSize: 18, fontWeight: '800', color: C.text },
   notConfiguredDesc: {
-    fontSize: typography.sm,
-    color: colors.textSecondary,
+    fontSize: 14,
+    color: C.textSub,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 21,
   },
-  featureList: { gap: spacing.sm, alignSelf: 'stretch', paddingHorizontal: spacing.base },
-  featureRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  featureCheck: { color: WA_GREEN, fontSize: typography.base, fontWeight: '700' },
-  featureText: { fontSize: typography.sm, color: colors.textSecondary },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'stretch' },
+  featureText: { fontSize: 13, color: C.textSub, flex: 1 },
 
-  // FAB
   fab: {
     position: 'absolute',
-    right: spacing.lg,
-    bottom: spacing.lg,
+    right: 20,
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: WA_GREEN,
+    backgroundColor: C.wa,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    ...shadow.md,
   },
-  fabIcon: { color: '#fff', fontSize: 28, fontWeight: '600', lineHeight: 30 },
 });

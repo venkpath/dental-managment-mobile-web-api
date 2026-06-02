@@ -24,7 +24,10 @@
       "package": "com.smartdentaldesk.staff",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "permissions": ["RECEIVE_BOOT_COMPLETED", "VIBRATE"]
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -40,6 +43,13 @@
         "expo-notifications",
         {
           "defaultChannel": "appointments"
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Smart Dental Desk to use Face ID to unlock the app."
         }
       ]
     ]

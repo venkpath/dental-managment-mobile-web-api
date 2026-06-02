@@ -253,9 +253,12 @@ export class AppointmentService {
     if (query.date) {
       where.appointment_date = new Date(query.date);
     } else if (query.start_date && query.end_date) {
+      // Inclusive range: dates stored as midnight UTC for the calendar day.
+      const rangeEnd = new Date(query.end_date + 'T00:00:00.000Z');
+      rangeEnd.setUTCDate(rangeEnd.getUTCDate() + 1);
       where.appointment_date = {
-        gte: new Date(query.start_date),
-        lte: new Date(query.end_date),
+        gte: new Date(query.start_date + 'T00:00:00.000Z'),
+        lt: rangeEnd,
       };
     }
     if (query.status) {

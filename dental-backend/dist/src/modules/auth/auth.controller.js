@@ -56,6 +56,18 @@ let AuthController = class AuthController {
         });
         return result;
     }
+    async refresh(dto, res) {
+        const result = await this.authService.refresh(dto.refresh_token);
+        const isProduction = process.env['NODE_ENV'] === 'production';
+        res.cookie('access_token', result.access_token, {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: 'strict',
+            path: '/',
+            maxAge: 24 * 60 * 60 * 1000,
+        });
+        return result;
+    }
     async changePassword(user, dto) {
         return this.authService.changePassword(user.sub, dto);
     }
@@ -161,6 +173,21 @@ __decorate([
     __metadata("design:paramtypes", [index_js_1.LoginByPhoneDto, Object, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "loginByPhone", null);
+__decorate([
+    (0, public_decorator_js_1.Public)(),
+    (0, throttler_1.Throttle)({ default: { ttl: 60000, limit: 10 } }),
+    (0, common_1.Post)('refresh'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Exchange a refresh token for a new access token' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'New access and refresh tokens' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid or expired refresh token' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.OK, type: Object }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Res)({ passthrough: true })),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [index_js_1.RefreshTokenDto, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "refresh", null);
 __decorate([
     (0, common_1.Post)('change-password'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),

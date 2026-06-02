@@ -45,8 +45,16 @@ export class S3Service {
     return key;
   }
 
-  async getSignedUrl(key: string): Promise<string> {
-    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+  async getSignedUrl(key: string, downloadFilename?: string): Promise<string> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ...(downloadFilename
+        ? {
+            ResponseContentDisposition: `attachment; filename="${downloadFilename.replace(/"/g, '')}"`,
+          }
+        : {}),
+    });
     return getSignedUrl(this.client, command, { expiresIn: this.expiresIn });
   }
 

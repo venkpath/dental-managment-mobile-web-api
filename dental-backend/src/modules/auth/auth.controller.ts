@@ -6,7 +6,7 @@ import { Public } from '../../common/decorators/public.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 import { AuthService } from './auth.service.js';
-import { LoginDto, LookupDto, LookupByPhoneDto, LoginByPhoneDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
+import { LoginDto, LookupDto, LookupByPhoneDto, LoginByPhoneDto, RegisterClinicDto, ChangePasswordDto, RefreshTokenDto } from './dto/index.js';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -74,6 +74,29 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.loginByPhone(dto.phone, dto.password, dto.clinic_id, req);
+    const isProduction = process.env['NODE_ENV'] === 'production';
+    res.cookie('access_token', result.access_token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+    return result;
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Exchange a refresh token for a new access token' })
+  @ApiResponse({ status: 200, description: 'New access and refresh tokens' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
+  async refresh(
+    @Body() dto: RefreshTokenDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.refresh(dto.refresh_token);
     const isProduction = process.env['NODE_ENV'] === 'production';
     res.cookie('access_token', result.access_token, {
       httpOnly: true,

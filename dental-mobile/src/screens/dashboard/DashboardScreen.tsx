@@ -25,12 +25,13 @@ import { shadow } from '../../theme';
 import type { DashboardSummary, Appointment, PaymentBreakdown, SparklineDay } from '../../types';
 import { useBottomInset } from '../../hooks/useBottomInset';
 import { useDrawer } from '../../components/DrawerMenu';
+import UserAvatar from '../../components/UserAvatar';
+import { refreshUserProfile } from '../../utils/refreshUserProfile';
 import { useNotificationStore } from '../../store/notification.store';
+import { getClinicGreeting, getClinicTodayDateString } from '../../utils/clinicTime';
 
 const SW = Dimensions.get('window').width;
 const CHART_H = 80;
-const _d = new Date();
-const TODAY = `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`;
 const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -97,7 +98,7 @@ function BarChart({ data, period }: { data: SparklineDay[]; period: '7' | '30' }
   }
 
   const max = Math.max(...pts, 1);
-  const todayStr = TODAY;
+  const todayStr = getClinicTodayDateString();
 
   return (
     <View>
@@ -164,7 +165,7 @@ function BarChart({ data, period }: { data: SparklineDay[]; period: '7' | '30' }
 }
 
 export default function DashboardScreen() {
-  const { user } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
   const navigation = useNavigation<
     CompositeNavigationProp<
       BottomTabNavigationProp<TabParamList, 'Dashboard'>,
@@ -172,16 +173,39 @@ export default function DashboardScreen() {
     >
   >();
 
+  const goToTab = (
+    tab: keyof TabParamList,
+    screen?: string,
+    params?: object,
+  ) => {
+    if (screen) {
+      navigation.navigate(tab, { screen, params } as never);
+    } else {
+      navigation.navigate(tab);
+    }
+  };
+
   const onQuickAction = (label: string) => {
-    const nav = navigation as { navigate: (name: string, params?: object) => void };
     if (label.includes('Appointment')) {
-      nav.navigate('Appointments', { screen: 'BookAppointment' });
+      goToTab('Appointments', 'BookAppointment');
     } else if (label.includes('Patient')) {
-      nav.navigate('Patients', { screen: 'AddPatient' });
+      goToTab('Patients', 'AddPatient');
     } else if (label.includes('Invoice')) {
-      nav.navigate('Billing', { screen: 'QuickInvoice', params: {} });
+      goToTab('Billing', 'QuickInvoice', {});
     } else if (label.includes('Reports')) {
-      nav.navigate('Billing', { screen: 'Reports' });
+      goToTab('Billing', 'Reports');
+    }
+  };
+
+  const onOverviewCard = (label: string) => {
+    if (label.includes('Appointment')) {
+      goToTab('Appointments', 'AppointmentList');
+    } else if (label.includes('Patient')) {
+      goToTab('Patients', 'PatientList');
+    } else if (label.includes('Collection')) {
+      goToTab('Billing', 'InvoiceList');
+    } else if (label.includes('Outstanding')) {
+      goToTab('Billing', 'InvoiceList');
     }
   };
   const bottomInset = useBottomInset();
@@ -204,7 +228,7 @@ export default function DashboardScreen() {
       setLoadError(false);
       const [summaryRes, apptsRes, pmts, sparklines, insightsRes] = await Promise.all([
         dashboardService.getSummary(),
-        appointmentService.list({ date: TODAY, limit: 20 }),
+        appointmentService.list({ date: getClinicTodayDateString(), limit: 20 }),
         dashboardService.getPaymentBreakdown().catch(() => null),
         dashboardService.getSparklines(period === '7' ? 7 : 30).catch(() => ({ daily: [] as SparklineDay[] })),
         insightsService.getSummary().catch(() => null),
@@ -228,6 +252,7 @@ export default function DashboardScreen() {
   useFocusEffect(useCallback(() => {
     loadData();
     refreshUnreadCount();
+    refreshUserProfile();
   }, [loadData, refreshUnreadCount]));
 
   const onRefresh = () => { setRefreshing(true); loadData(); };
@@ -239,21 +264,20 @@ export default function DashboardScreen() {
     setChartData(sparklines.daily);
   };
 
-  const greeting = () => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
-
   const rawName   = user?.name ?? 'Doctor';
   const cleanName = rawName.replace(/^Dr\.?\s*/i, '').trim();
   const firstName = cleanName.split(' ')[0] || 'Doctor';
 
+  /** Same total as Cash+Card+UPI breakdown (IST calendar day on server). */
+  const todayCollection =
+    payments != null
+      ? payments.total
+      : (summary?.today_revenue ?? 0);
+
   const overviewCards: Array<{ label: string; icon: IoniconsName; value: string | null }> = [
     { label: 'Appointments',        icon: 'calendar',     value: loading ? null : String(todayAppts.length) },
     { label: 'New Patients\nThis Month', icon: 'people',  value: loading ? null : String(summary?.new_patients_this_month ?? 0) },
-    { label: "Today's\nCollection", icon: 'cash',         value: loading ? null : formatCurrency(summary?.today_revenue ?? 0) },
+    { label: "Today's\nCollection", icon: 'cash',         value: loading ? null : formatCurrency(todayCollection) },
     { label: 'Outstanding',         icon: 'alert-circle', value: loading ? null : formatCurrency(summary?.outstanding_amount ?? 0) },
   ];
 
@@ -269,7 +293,7 @@ export default function DashboardScreen() {
             <Ionicons name="menu" size={22} color="#0f172a" />
           </TouchableOpacity>
           <View style={s.greetBlock}>
-            <Text style={s.greetSub}>{greeting()},</Text>
+            <Text style={s.greetSub}>{getClinicGreeting()},</Text>
             <Text style={s.greetName}>Dr. {firstName} 👋</Text>
           </View>
           <View style={s.headerRight}>
@@ -285,10 +309,8 @@ export default function DashboardScreen() {
                 </View>
               )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={s.avatarWrap}>
-              <LinearGradient colors={['#4361EE', '#7C3AED']} style={s.avatarGrad}>
-                <Ionicons name="medical" size={18} color="#fff" />
-              </LinearGradient>
+            <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={s.avatarWrap} activeOpacity={0.8}>
+              <UserAvatar name={user?.name} photoUrl={user?.profile_photo_url} size="sm" />
               <View style={s.onlineDot} />
             </TouchableOpacity>
           </View>
@@ -313,14 +335,23 @@ export default function DashboardScreen() {
           <LinearGradient colors={['#4361EE', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.overviewCard}>
             <View style={s.overviewHeader}>
               <Text style={s.overviewTitle}>Overview</Text>
-              <TouchableOpacity style={s.viewAllBtn}>
+              <TouchableOpacity
+                style={s.viewAllBtn}
+                onPress={() => goToTab('Billing', 'Reports')}
+                activeOpacity={0.7}
+              >
                 <Text style={s.viewAllTxt}>View all</Text>
                 <Ionicons name="chevron-forward" size={13} color="rgba(255,255,255,0.8)" />
               </TouchableOpacity>
             </View>
             <View style={s.overviewGrid}>
               {overviewCards.map((c) => (
-                <View key={c.label} style={s.overviewItem}>
+                <TouchableOpacity
+                  key={c.label}
+                  style={s.overviewItem}
+                  activeOpacity={0.8}
+                  onPress={() => onOverviewCard(c.label)}
+                >
                   <View style={s.overviewIconBox}>
                     <Ionicons name={c.icon} size={20} color="#fff" />
                   </View>
@@ -329,7 +360,7 @@ export default function DashboardScreen() {
                     : <Text style={s.overviewValue} numberOfLines={1} adjustsFontSizeToFit>{c.value}</Text>
                   }
                   <Text style={s.overviewLabel} numberOfLines={2}>{c.label}</Text>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           </LinearGradient>
@@ -347,7 +378,8 @@ export default function DashboardScreen() {
               </View>
               <TouchableOpacity
                 style={s.aiViewAllBtn}
-                onPress={() => navigation.navigate('Billing', { screen: 'AIInsights' } as never)}
+                onPress={() => goToTab('Billing', 'AIInsights')}
+                activeOpacity={0.7}
               >
                 <Text style={s.aiViewAllTxt}>View all insights</Text>
                 <Ionicons name="arrow-forward" size={13} color="#4361EE" />
@@ -399,11 +431,19 @@ export default function DashboardScreen() {
 
             {/* Action buttons */}
             <View style={s.aiActions}>
-              <TouchableOpacity style={s.aiOutlineBtn}>
+              <TouchableOpacity
+                style={s.aiOutlineBtn}
+                onPress={() => goToTab('Billing', 'AIInsights')}
+                activeOpacity={0.7}
+              >
                 <Ionicons name="people-outline" size={15} color="#4361EE" />
                 <Text style={s.aiOutlineBtnTxt}>Review Patients</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={s.aiSolidBtnWrap}>
+              <TouchableOpacity
+                style={s.aiSolidBtnWrap}
+                onPress={() => goToTab('Billing', 'CampaignList')}
+                activeOpacity={0.8}
+              >
                 <LinearGradient colors={['#4361EE', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.aiSolidBtn}>
                   <Ionicons name="send" size={14} color="#fff" />
                   <Text style={s.aiSolidBtnTxt}>Send Reminders</Text>
@@ -423,7 +463,11 @@ export default function DashboardScreen() {
                 </View>
                 <Text style={s.cardTitle}>Today's Schedule</Text>
               </View>
-              <TouchableOpacity style={s.cardLinkBtn}>
+              <TouchableOpacity
+                style={s.cardLinkBtn}
+                onPress={() => goToTab('Appointments', 'AppointmentList', { view: 'calendar' })}
+                activeOpacity={0.7}
+              >
                 <Text style={s.cardLink}>View calendar</Text>
                 <Ionicons name="chevron-forward" size={13} color="#4361EE" />
               </TouchableOpacity>
@@ -440,7 +484,14 @@ export default function DashboardScreen() {
               todayAppts.map((appt, idx) => {
                 const st = APPT_STATUS[appt.status] ?? APPT_STATUS.scheduled;
                 return (
-                  <View key={appt.id} style={s.apptRow}>
+                  <TouchableOpacity
+                    key={appt.id}
+                    style={s.apptRow}
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      goToTab('Appointments', 'AppointmentDetail', { appointmentId: appt.id })
+                    }
+                  >
                     <Text style={s.apptTime}>{appt.start_time}</Text>
                     <View style={s.tlCol}>
                       <View style={[s.tlDot, { backgroundColor: st.color }]} />
@@ -457,7 +508,7 @@ export default function DashboardScreen() {
                         </View>
                       </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })
             )}
@@ -481,7 +532,15 @@ export default function DashboardScreen() {
 
         {/* ── Today's Collection Breakdown ── */}
         <View style={s.pad}>
-          <Text style={s.sectionTitle}>{"Today's Collection"}</Text>
+          <View style={s.collectionHeader}>
+            <Text style={s.sectionTitle}>{"Today's Collection"}</Text>
+            {!loading && payments != null && (
+              <Text style={s.collectionTotal}>{formatCurrency(payments.total)}</Text>
+            )}
+          </View>
+          <Text style={s.collectionHint}>
+            Money received today (India time) — includes payments on older invoices, not only new invoices.
+          </Text>
           <View style={s.breakdownRow}>
             {[
               { label: 'Cash',  icon: 'cash'         as IoniconsName, color: '#059669', bg: '#d1fae5', value: payments?.cash },
@@ -499,6 +558,27 @@ export default function DashboardScreen() {
               </View>
             ))}
           </View>
+          {!loading && payments != null && payments.total === 0 && (
+            <Text style={s.collectionEmpty}>No payments recorded for {payments.clinic_date ?? 'today'}.</Text>
+          )}
+          {!loading && (payments?.payments?.length ?? 0) > 0 && (
+            <View style={s.paymentLines}>
+              {payments!.payments!.map((p, idx) => (
+                <View key={`${p.invoice_number}-${idx}`} style={s.paymentLine}>
+                  <Text style={s.paymentLineInv} numberOfLines={1}>{p.invoice_number}</Text>
+                  <Text style={s.paymentLineMeta}>
+                    {p.method.toUpperCase()} · {new Date(p.paid_at).toLocaleTimeString('en-IN', {
+                      timeZone: 'Asia/Kolkata',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true,
+                    })}
+                  </Text>
+                  <Text style={s.paymentLineAmt}>{formatCurrency(p.amount)}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* ── Monthly Overview ── */}
@@ -585,9 +665,8 @@ const s = StyleSheet.create({
   bellBtn:     { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F0F4FF', alignItems: 'center', justifyContent: 'center' },
   bellBadge:   { position: 'absolute', top: 6, right: 6, width: 16, height: 16, borderRadius: 8, backgroundColor: '#ef4444', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff' },
   bellBadgeTxt:{ fontSize: 9, fontWeight: '700', color: '#fff' },
-  avatarWrap:  { width: 42, height: 42, borderRadius: 21, overflow: 'hidden', ...shadow.sm },
-  avatarGrad:  { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  onlineDot:   { position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: 6, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#fff' },
+  avatarWrap:  { width: 42, height: 42, borderRadius: 21, overflow: 'visible', ...shadow.sm },
+  onlineDot:   { position: 'absolute', bottom: 0, right: 0, width: 11, height: 11, borderRadius: 6, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#fff' },
 
   // Error
   errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fee2e2', marginHorizontal: 16, marginTop: 8, borderRadius: 10, padding: 12 },
@@ -632,7 +711,14 @@ const s = StyleSheet.create({
   emptyTxt:       { fontSize: 13, color: '#94a3b8' },
 
   // Section title
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginBottom: 0 },
+  collectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  collectionTotal: { fontSize: 18, fontWeight: '800', color: '#4361EE' },
 
   // AI Clinic Insights
   aiCard:         { backgroundColor: '#F5F3FF', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#DDD6FE', ...shadow.sm },
@@ -668,6 +754,13 @@ const s = StyleSheet.create({
   breakdownIcon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   breakdownValue:{ fontSize: 13, fontWeight: '800', color: '#0f172a' },
   breakdownLabel:{ fontSize: 11, color: '#64748b', fontWeight: '500' },
+  collectionHint: { fontSize: 11, color: '#64748b', lineHeight: 16, marginBottom: 10 },
+  collectionEmpty: { fontSize: 12, color: '#94a3b8', marginTop: 10 },
+  paymentLines: { marginTop: 12, backgroundColor: '#fff', borderRadius: 14, padding: 10, ...shadow.sm },
+  paymentLine: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  paymentLineInv: { flex: 1, fontSize: 13, fontWeight: '600', color: '#0f172a' },
+  paymentLineMeta: { fontSize: 11, color: '#64748b' },
+  paymentLineAmt: { fontSize: 13, fontWeight: '700', color: '#059669' },
 
   // Monthly overview rows
   monthlyRow:       { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },

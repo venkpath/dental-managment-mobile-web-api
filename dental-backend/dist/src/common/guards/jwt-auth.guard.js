@@ -36,6 +36,9 @@ let JwtAuthGuard = class JwtAuthGuard {
         }
         try {
             const payload = await this.jwtService.verifyAsync(token);
+            if (payload.type === 'refresh') {
+                throw new common_1.UnauthorizedException('Invalid token type');
+            }
             if (payload.type === 'super_admin') {
                 request.superAdmin = { id: payload.sub };
             }

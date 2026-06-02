@@ -12,8 +12,16 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
+import AppointmentCalendar from '../../components/AppointmentCalendar';
+import {
+  monthEnd,
+  monthStart,
+  normalizeAppointmentDate,
+  toDateStr,
+} from '../../utils/appointmentCalendar';
 import { appointmentService } from '../../services/appointment.service';
 import { getLocale } from '../../utils/format';
 import EmptyState from '../../components/EmptyState';
@@ -29,6 +37,7 @@ import { useDrawer } from '../../components/DrawerMenu';
 import type { Appointment, AppointmentStatus, AppointmentStackParamList } from '../../types';
 
 type Nav = NativeStackNavigationProp<AppointmentStackParamList>;
+type ListRoute = RouteProp<AppointmentStackParamList, 'AppointmentList'>;
 
 // ─── Design tokens (shared with billing / patient lists) ─────────────────────
 const C = {
@@ -110,9 +119,16 @@ const fmtTime = (t?: string) => {
 // ─── Screen ──────────────────────────────────────────────────────────────────
 export default function AppointmentListScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<ListRoute>();
   const insets = useSafeAreaInsets();
   const bottomInset = useBottomInset();
   const { open: openDrawer } = useDrawer();
+
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [calendarMonth, setCalendarMonth] = useState(() => monthStart(new Date()));
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(toDateStr(new Date()));
+  const [calendarAppointments, setCalendarAppointments] = useState<Appointment[]>([]);
+  const [calendarLoading, setCalendarLoading] = useState(false);
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -173,10 +189,80 @@ export default function AppointmentListScreen() {
     }
   }, []);
 
+  const loadCalendarMonth = useCallback(async (month: Date) => {
+    setCalendarLoading(true);
+    try {
+      const start = toDateStr(monthStart(month));
+      const end = toDateStr(monthEnd(month));
+      const all: Appointment[] = [];
+      let page = 1;
+      let totalPages = 1;
+      const limit = 100;
+      do {
+        const res = await appointmentService.list({
+          start_date: start,
+          end_date: end,
+          page,
+          limit,
+          sort: 'asc',
+        });
+        all.push(...(res.data ?? []));
+        totalPages = Math.max(1, res.meta?.totalPages ?? 1);
+        page += 1;
+      } while (page <= totalPages);
+      setCalendarAppointments(all);
+      setLoadError(false);
+    } catch {
+      setCalendarAppointments([]);
+      setLoadError(true);
+    } finally {
+      setCalendarLoading(false);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      loadAppointments(pageRef.current, filterRef.current, pageSizeRef.current);
-    }, [loadAppointments])
+      let mode: 'list' | 'calendar' = viewMode;
+      if (route.params?.view === 'calendar') {
+        mode = 'calendar';
+        setViewMode('calendar');
+        navigation.setParams({ view: undefined });
+      }
+      if (mode === 'calendar') {
+        loadCalendarMonth(calendarMonth);
+      } else {
+        loadAppointments(pageRef.current, filterRef.current, pageSizeRef.current);
+      }
+    }, [loadAppointments, loadCalendarMonth, viewMode, calendarMonth, route.params?.view, navigation]),
+  );
+
+  const switchViewMode = (mode: 'list' | 'calendar') => {
+    setViewMode(mode);
+    if (mode === 'calendar') {
+      loadCalendarMonth(calendarMonth);
+    } else {
+      loadAppointments(page, filter, pageSize);
+    }
+  };
+
+  const calendarCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const a of calendarAppointments) {
+      const day = normalizeAppointmentDate(a.appointment_date);
+      if (!day) continue;
+      m[day] = (m[day] ?? 0) + 1;
+    }
+    return m;
+  }, [calendarAppointments]);
+
+  const selectedDayAppointments = useMemo(
+    () =>
+      calendarAppointments
+        .filter(
+          (a) => normalizeAppointmentDate(a.appointment_date) === selectedCalendarDate,
+        )
+        .sort((a, b) => (a.start_time ?? '').localeCompare(b.start_time ?? '')),
+    [calendarAppointments, selectedCalendarDate],
   );
 
   const handleFilterChange = (f: FilterKey) => {
@@ -268,6 +354,22 @@ export default function AppointmentListScreen() {
           <Text style={s.title}>Appointments</Text>
           <Text style={s.subtitle}>Manage patient appointments</Text>
         </View>
+        <View style={s.viewToggle}>
+          <TouchableOpacity
+            style={[s.viewToggleBtn, viewMode === 'list' && s.viewToggleBtnActive]}
+            onPress={() => switchViewMode('list')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="list" size={18} color={viewMode === 'list' ? '#fff' : C.textSub} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.viewToggleBtn, viewMode === 'calendar' && s.viewToggleBtnActive]}
+            onPress={() => switchViewMode('calendar')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="calendar" size={18} color={viewMode === 'calendar' ? '#fff' : C.textSub} />
+          </TouchableOpacity>
+        </View>
         <TouchableOpacity
           style={s.addBtn}
           onPress={() => navigation.navigate('BookAppointment', {})}
@@ -278,7 +380,7 @@ export default function AppointmentListScreen() {
       </View>
 
       {/* Search */}
-      <View style={s.searchWrap}>
+      {viewMode === 'list' && <View style={s.searchWrap}>
         <View style={s.searchBox}>
           <Ionicons name="search" size={16} color={C.textMuted} />
           <TextInput
@@ -293,10 +395,10 @@ export default function AppointmentListScreen() {
             autoCapitalize="none"
           />
         </View>
-      </View>
+      </View>}
 
       {/* Filter tabs */}
-      <ScrollView
+      {viewMode === 'list' && <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={s.filtersRow}
@@ -316,10 +418,54 @@ export default function AppointmentListScreen() {
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </ScrollView>}
 
-      {/* List */}
-      {initialLoading ? (
+      {viewMode === 'calendar' ? (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={[s.list, { paddingBottom: 12 + bottomInset }]}
+          refreshControl={
+            <RefreshControl
+              refreshing={calendarLoading}
+              onRefresh={() => loadCalendarMonth(calendarMonth)}
+              colors={[C.indigo]}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          <AppointmentCalendar
+            month={calendarMonth}
+            selectedDate={selectedCalendarDate}
+            countsByDate={calendarCounts}
+            onMonthChange={(next) => {
+              const m = monthStart(next);
+              setCalendarMonth(m);
+              loadCalendarMonth(m);
+            }}
+            onSelectDate={setSelectedCalendarDate}
+          />
+          <Text style={s.calDayTitle}>
+            {new Date(selectedCalendarDate + 'T12:00:00').toLocaleDateString(getLocale(), {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+            })}
+          </Text>
+          {calendarLoading && selectedDayAppointments.length === 0 ? (
+            <ActivityIndicator color={C.indigo} style={{ marginTop: 24 }} />
+          ) : selectedDayAppointments.length === 0 ? (
+            <EmptyState
+              title="No appointments"
+              subtitle="Nothing scheduled for this day"
+              icon="calendar-outline"
+            />
+          ) : (
+            selectedDayAppointments.map((item) => (
+              <View key={item.id}>{renderItem({ item })}</View>
+            ))
+          )}
+        </ScrollView>
+      ) : initialLoading ? (
         <View style={s.center}>
           <ActivityIndicator size="large" color={C.indigo} />
         </View>
@@ -355,7 +501,7 @@ export default function AppointmentListScreen() {
       )}
 
       {/* Pagination */}
-      {!initialLoading && total > 0 && (
+      {viewMode === 'list' && !initialLoading && total > 0 && (
         <View
           style={[s.pagFooter, { paddingBottom: Math.max(6, bottomInset) }]}
           pointerEvents={pageTransition ? 'none' : 'auto'}
@@ -390,7 +536,11 @@ const s = StyleSheet.create({
   titleBlock: { flex: 1 },
   title: { fontSize: 18, fontWeight: '800', color: C.text },
   subtitle: { fontSize: 11, color: C.textSub, marginTop: 1 },
+  viewToggle: { flexDirection: 'row', backgroundColor: C.surface, borderRadius: 10, padding: 3, borderWidth: 1, borderColor: C.border },
+  viewToggleBtn: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  viewToggleBtnActive: { backgroundColor: C.indigo },
   addBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.indigo, alignItems: 'center', justifyContent: 'center', shadowColor: C.indigo, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  calDayTitle: { fontSize: 15, fontWeight: '800', color: C.text, marginTop: 16, marginBottom: 8 },
 
   searchWrap: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 10, gap: 10, backgroundColor: C.bg },
   searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surface, borderRadius: 12, paddingHorizontal: 12, height: 42, borderWidth: 1, borderColor: C.border },

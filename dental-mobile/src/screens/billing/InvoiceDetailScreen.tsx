@@ -106,8 +106,8 @@ export default function InvoiceDetailScreen() {
     setMenuOpen(false);
     setDownloading(true);
     try {
-      const url = await invoiceService.getPdfUrl(invoiceId);
-      const target = FileSystem.documentDirectory + `invoice_${invoice?.invoice_number ?? invoiceId}.pdf`;
+      const { url, filename } = await invoiceService.getPdfUrl(invoiceId);
+      const target = FileSystem.documentDirectory + filename;
       const { uri } = await FileSystem.downloadAsync(url, target);
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Invoice PDF', UTI: 'com.adobe.pdf' });
@@ -125,8 +125,8 @@ export default function InvoiceDetailScreen() {
     setMenuOpen(false);
     setPrinting(true);
     try {
-      const url = await invoiceService.getPdfUrl(invoiceId);
-      const target = FileSystem.cacheDirectory + `invoice_print_${invoiceId}.pdf`;
+      const { url, filename } = await invoiceService.getPdfUrl(invoiceId);
+      const target = FileSystem.cacheDirectory + filename;
       const { uri } = await FileSystem.downloadAsync(url, target);
       await Print.printAsync({ uri });
     } catch (err: unknown) {

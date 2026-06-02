@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
+import { View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import { useAuthStore, loadAuthFromStorage } from '../store/auth.store';
+import { useDeviceLockStore } from '../store/deviceLock.store';
 import { loadCurrencyFromStorage } from '../store/currency.store';
 import LoadingScreen from '../components/LoadingScreen';
+import AppLockProvider from '../components/AppLockProvider';
+import AppLockOverlay from '../components/AppLockOverlay';
 
 import { DrawerProvider, DrawerMenu } from '../components/DrawerMenu';
 import AuthNavigator from './AuthNavigator';
@@ -69,11 +73,16 @@ import CampaignListScreen from '../screens/campaigns/CampaignListScreen';
 import CampaignDetailScreen from '../screens/campaigns/CampaignDetailScreen';
 import CreateCampaignScreen from '../screens/campaigns/CreateCampaignScreen';
 import AIInsightsScreen from '../screens/insights/AIInsightsScreen';
-import BillingGuideScreen from '../screens/billing/BillingGuideScreen';
+import ClinicBillingScreen from '../screens/billing/ClinicBillingScreen';
+import PlatformInvoiceListScreen from '../screens/billing/PlatformInvoiceListScreen';
+import TrialUpgradeBanner from '../components/TrialUpgradeBanner';
+import { refreshSubscription } from '../store/subscription.store';
+import { refreshUserProfile } from '../utils/refreshUserProfile';
 import SettingsGuideScreen from '../screens/settings/SettingsGuideScreen';
 import MoreMenuScreen from '../screens/more/MoreMenuScreen';
 import { navigationRef } from './navigationRef';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import { refreshClinicBranding } from '../utils/refreshClinicBranding';
 
 import type {
   RootStackParamList,
@@ -93,7 +102,7 @@ const WAStack = createNativeStackNavigator<WhatsAppStackParamList>();
 
 function PatientsNavigator() {
   return (
-    <PatientStack.Navigator screenOptions={{ headerShown: false }}>
+    <PatientStack.Navigator initialRouteName="PatientList" screenOptions={{ headerShown: false }}>
       <PatientStack.Screen name="PatientList" component={PatientListScreen} />
       <PatientStack.Screen name="PatientDetail" component={PatientDetailScreen} />
       <PatientStack.Screen name="AddPatient" component={AddPatientScreen} />
@@ -117,7 +126,7 @@ function PatientsNavigator() {
 
 function AppointmentsNavigator() {
   return (
-    <ApptStack.Navigator screenOptions={{ headerShown: false }}>
+    <ApptStack.Navigator initialRouteName="AppointmentList" screenOptions={{ headerShown: false }}>
       <ApptStack.Screen name="AppointmentList" component={AppointmentListScreen} />
       <ApptStack.Screen name="AppointmentDetail" component={AppointmentDetailScreen} />
       <ApptStack.Screen name="BookAppointment" component={BookAppointmentScreen} />
@@ -170,7 +179,9 @@ function BillingNavigator() {
       <BillingStack.Screen name="CampaignDetail" component={CampaignDetailScreen} />
       <BillingStack.Screen name="CreateCampaign" component={CreateCampaignScreen} />
       <BillingStack.Screen name="AIInsights" component={AIInsightsScreen} />
-      <BillingStack.Screen name="BillingGuide" component={BillingGuideScreen} />
+      <BillingStack.Screen name="ClinicBilling" component={ClinicBillingScreen} />
+      <BillingStack.Screen name="PlatformInvoices" component={PlatformInvoiceListScreen} />
+      <BillingStack.Screen name="BillingGuide" component={ClinicBillingScreen} />
       <BillingStack.Screen name="SettingsGuide" component={SettingsGuideScreen} />
     </BillingStack.Navigator>
   );
@@ -188,13 +199,34 @@ function WhatsAppNavigator() {
 
 function AppTabs() {
   return (
-    <Tab.Navigator
-      tabBar={(props) => <MainTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
-    >
+    <View style={{ flex: 1 }}>
+      <TrialUpgradeBanner />
+      <Tab.Navigator
+        tabBar={(props) => <MainTabBar {...props} />}
+        screenOptions={{ headerShown: false }}
+        style={{ flex: 1 }}
+      >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Patients" component={PatientsNavigator} />
-      <Tab.Screen name="Appointments" component={AppointmentsNavigator} />
+      <Tab.Screen
+        name="Patients"
+        component={PatientsNavigator}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.navigate('Patients', { screen: 'PatientList' });
+          },
+        })}
+      />
+      <Tab.Screen
+        name="Appointments"
+        component={AppointmentsNavigator}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.navigate('Appointments', { screen: 'AppointmentList' });
+          },
+        })}
+      />
       <Tab.Screen name="WhatsApp" component={WhatsAppNavigator} />
       <Tab.Screen
         name="Billing"
@@ -206,42 +238,76 @@ function AppTabs() {
           },
         })}
       />
-    </Tab.Navigator>
+      </Tab.Navigator>
+    </View>
   );
 }
 
 function PushNotificationBootstrap() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  usePushNotifications(isAuthenticated);
+  const isLocked = useDeviceLockStore((s) => s.isLocked);
+  const needsSetup = useDeviceLockStore((s) => s.needsSetup);
+  const active = isAuthenticated && !isLocked && !needsSetup;
+  usePushNotifications(active);
   return null;
 }
 
 export default function AppNavigator() {
   const { isAuthenticated } = useAuthStore();
+  const { isReady: lockReady, isLocked, needsSetup, bootstrap: bootstrapLock } = useDeviceLockStore();
   const [bootstrapping, setBootstrapping] = useState(true);
 
   useEffect(() => {
-    loadAuthFromStorage().then(() => loadCurrencyFromStorage()).finally(() => setBootstrapping(false));
-  }, []);
+    let sessionRestored = false;
+    loadAuthFromStorage()
+      .then((ok) => {
+        sessionRestored = ok;
+        if (ok) {
+          return Promise.all([refreshClinicBranding(), refreshSubscription(), refreshUserProfile()]);
+        }
+      })
+      .then(() => loadCurrencyFromStorage())
+      .then(() => bootstrapLock(sessionRestored))
+      .finally(() => setBootstrapping(false));
+  }, [bootstrapLock]);
 
-  if (bootstrapping) return <LoadingScreen message="Loading..." />;
+  if (bootstrapping || (isAuthenticated && !lockReady)) {
+    return <LoadingScreen message="Loading..." />;
+  }
+
+  /** App tabs visible once signed in (PIN setup may still be required on top). */
+  const showAppShell = isAuthenticated;
+  const showUnlockedMain = isAuthenticated && !needsSetup && !isLocked;
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer
+      ref={navigationRef}
+      onStateChange={() => {
+        const auth = useAuthStore.getState();
+        const lock = useDeviceLockStore.getState();
+        if (auth.isAuthenticated && !lock.isLocked && !lock.needsSetup) {
+          void lock.recordActivity();
+        }
+      }}
+    >
+      {showUnlockedMain ? <AppLockProvider /> : null}
       <PushNotificationBootstrap />
       <DrawerProvider>
-        <Root.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
-          {isAuthenticated ? (
-            <>
-              <Root.Screen name="App" component={AppTabs} />
-              <Root.Screen name="Profile" component={ProfileScreen} options={{ animation: 'slide_from_bottom' }} />
-              <Root.Screen name="Notifications" component={NotificationListScreen} options={{ animation: 'slide_from_right' }} />
-            </>
-          ) : (
-            <Root.Screen name="Auth" component={AuthNavigator} options={{ animation: 'fade' }} />
-          )}
-        </Root.Navigator>
-        {isAuthenticated && <DrawerMenu />}
+        <View style={{ flex: 1 }}>
+          <Root.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+            {!isAuthenticated ? (
+              <Root.Screen name="Auth" component={AuthNavigator} options={{ animation: 'fade' }} />
+            ) : (
+              <>
+                <Root.Screen name="App" component={AppTabs} />
+                <Root.Screen name="Profile" component={ProfileScreen} options={{ animation: 'slide_from_bottom' }} />
+                <Root.Screen name="Notifications" component={NotificationListScreen} options={{ animation: 'slide_from_right' }} />
+              </>
+            )}
+          </Root.Navigator>
+          {showAppShell && <AppLockOverlay />}
+          {showUnlockedMain && <DrawerMenu />}
+        </View>
       </DrawerProvider>
     </NavigationContainer>
   );

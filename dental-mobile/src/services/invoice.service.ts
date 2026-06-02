@@ -78,9 +78,12 @@ export const invoiceService = {
     await api.delete(`/invoices/${invoiceId}/installment-plan`);
   },
 
-  getPdfUrl: async (invoiceId: string): Promise<string> => {
-    const { data } = await api.get<{ url: string }>(`/invoices/${invoiceId}/pdf`);
-    return data.url;
+  getPdfUrl: async (invoiceId: string): Promise<{ url: string; filename: string }> => {
+    const { data } = await api.get<{ url: string; filename: string }>(`/invoices/${invoiceId}/pdf`);
+    return {
+      url: data.url,
+      filename: data.filename || 'invoice.pdf',
+    };
   },
 
   sendWhatsApp: async (invoiceId: string): Promise<void> => {

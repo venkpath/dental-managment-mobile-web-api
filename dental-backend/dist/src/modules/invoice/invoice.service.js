@@ -20,6 +20,7 @@ const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js"
 const client_1 = require("@prisma/client");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
 const invoice_pdf_service_js_1 = require("./invoice-pdf.service.js");
+const invoice_pdf_filename_util_js_1 = require("./invoice-pdf-filename.util.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
 const currency_util_js_1 = require("../../common/utils/currency.util.js");
 const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
@@ -655,8 +656,9 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         };
         const pdfBuffer = await this.invoicePdfService.generate(pdfData);
         await this.s3Service.upload(s3Key, pdfBuffer, 'application/pdf');
-        const url = await this.s3Service.getSignedUrl(s3Key);
-        return { url };
+        const filename = (0, invoice_pdf_filename_util_js_1.clinicInvoicePdfFilename)(invoice.invoice_number, (0, invoice_pdf_filename_util_js_1.clinicInvoicePdfVariant)(invoice.status));
+        const url = await this.s3Service.getSignedUrl(s3Key, filename);
+        return { url, filename };
     }
     async sendWhatsApp(clinicId, invoiceId) {
         const invoice = await this.findOne(clinicId, invoiceId);
@@ -708,11 +710,12 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         };
         const templateName = rule?.template?.template_name || '';
         const isPdfTemplate = /_pdf$/i.test(templateName);
+        const whatsappFilename = (0, invoice_pdf_filename_util_js_1.clinicInvoicePdfFilename)(invoice.invoice_number, (0, invoice_pdf_filename_util_js_1.clinicInvoicePdfVariant)(invoice.status));
         const headerMedia = isPdfTemplate
             ? {
                 type: 'document',
                 url: pdfUrl,
-                filename: `Invoice-${invoice.invoice_number}.pdf`,
+                filename: whatsappFilename,
             }
             : undefined;
         await this.communicationService.sendMessage(clinicId, {
@@ -810,7 +813,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
             ? {
                 type: 'document',
                 url: pdfUrl,
-                filename: `Receipt-${invoiceNumber}.pdf`,
+                filename: (0, invoice_pdf_filename_util_js_1.clinicInvoicePdfFilename)(invoiceNumber, 'receipt'),
             }
             : undefined;
         await this.communicationService.sendMessage(clinicId, {

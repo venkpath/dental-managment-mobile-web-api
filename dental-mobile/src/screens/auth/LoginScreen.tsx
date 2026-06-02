@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -20,10 +20,14 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { authService, type ClinicOption } from '../../services/auth.service';
 import { useAuthStore } from '../../store/auth.store';
+import { useDeviceLockStore } from '../../store/deviceLock.store';
+import { refreshClinicBranding } from '../../utils/refreshClinicBranding';
+import { refreshSubscription } from '../../store/subscription.store';
+import { refreshUserProfile } from '../../utils/refreshUserProfile';
 import { colors, spacing, typography, radius } from '../../theme';
 import {
   isPhoneLoginIdentifier,
@@ -58,13 +62,16 @@ const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
 };
 
 type LoginNav = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
+type LoginRoute = RouteProp<AuthStackParamList, 'Login'>;
 
 export default function LoginScreen() {
   const navigation = useNavigation<LoginNav>();
+  const route = useRoute<LoginRoute>();
   const { login, setClinicId } = useAuthStore();
+  const onLoginSuccess = useDeviceLockStore((s) => s.onLoginSuccess);
 
   const [step, setStep]                         = useState<Step>('credentials');
-  const [identifier, setIdentifier]             = useState('');
+  const [identifier, setIdentifier]             = useState(route.params?.identifier ?? '');
   const [password, setPassword]                 = useState('');
   const [pendingAuth, setPendingAuth]           = useState<PendingAuth | null>(null);
   const [showPassword, setShowPassword]         = useState(false);
@@ -76,6 +83,12 @@ export default function LoginScreen() {
   const [selectedClinicName, setSelectedClinicName] = useState('');
   const [confirming, setConfirming]             = useState(false);
   const passwordRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (route.params?.identifier) return;
+    const saved = useDeviceLockStore.getState().loginIdentifier;
+    if (saved) setIdentifier(saved);
+  }, [route.params?.identifier]);
 
   const dismissKeyboard = () => Keyboard.dismiss();
 
@@ -142,7 +155,14 @@ export default function LoginScreen() {
         result.user.clinic_id || clinicId,
         result.user.branch_id ?? undefined,
         clinicName,
+        result.refresh_token,
       );
+      await Promise.all([refreshClinicBranding(), refreshSubscription(), refreshUserProfile()]);
+      await onLoginSuccess({
+        identifier: auth.identifier,
+        identifierType: auth.isPhone ? 'phone' : 'email',
+        displayName: (result.user as User).name,
+      });
     } catch (err: unknown) {
       Alert.alert('Login Failed', err instanceof Error ? err.message : 'Login failed.');
       setStep('credentials');

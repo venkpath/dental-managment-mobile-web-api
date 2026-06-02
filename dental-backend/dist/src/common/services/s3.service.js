@@ -43,8 +43,16 @@ let S3Service = S3Service_1 = class S3Service {
         this.logger.log(`Uploaded to S3: ${key}`);
         return key;
     }
-    async getSignedUrl(key) {
-        const command = new client_s3_1.GetObjectCommand({ Bucket: this.bucket, Key: key });
+    async getSignedUrl(key, downloadFilename) {
+        const command = new client_s3_1.GetObjectCommand({
+            Bucket: this.bucket,
+            Key: key,
+            ...(downloadFilename
+                ? {
+                    ResponseContentDisposition: `attachment; filename="${downloadFilename.replace(/"/g, '')}"`,
+                }
+                : {}),
+        });
         return (0, s3_request_presigner_1.getSignedUrl)(this.client, command, { expiresIn: this.expiresIn });
     }
     async objectExists(key) {

@@ -194,9 +194,11 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
             where.appointment_date = new Date(query.date);
         }
         else if (query.start_date && query.end_date) {
+            const rangeEnd = new Date(query.end_date + 'T00:00:00.000Z');
+            rangeEnd.setUTCDate(rangeEnd.getUTCDate() + 1);
             where.appointment_date = {
-                gte: new Date(query.start_date),
-                lte: new Date(query.end_date),
+                gte: new Date(query.start_date + 'T00:00:00.000Z'),
+                lt: rangeEnd,
             };
         }
         if (query.status) {

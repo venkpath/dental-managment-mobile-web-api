@@ -13,6 +13,7 @@ exports.ReportsService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
+const clinic_timezone_util_js_1 = require("../../common/utils/clinic-timezone.util.js");
 let ReportsService = class ReportsService {
     prisma;
     constructor(prisma) {
@@ -25,18 +26,16 @@ let ReportsService = class ReportsService {
         if (cached && Date.now() < cached.expiresAt)
             return cached.data;
         const now = referenceDate ?? new Date();
-        const pad = (n) => String(n).padStart(2, '0');
-        const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-        const tomorrowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-        const tomorrowStr = `${tomorrowDate.getFullYear()}-${pad(tomorrowDate.getMonth() + 1)}-${pad(tomorrowDate.getDate())}`;
-        const today = new Date(todayStr);
-        const tomorrow = new Date(tomorrowStr);
+        const todayStr = (0, clinic_timezone_util_js_1.getClinicTodayDateString)(now);
+        const tomorrowStr = (0, clinic_timezone_util_js_1.addDaysToDateString)(todayStr, 1);
+        const today = (0, clinic_timezone_util_js_1.clinicDateToUtcMidnight)(todayStr);
+        const tomorrow = (0, clinic_timezone_util_js_1.clinicDateToUtcMidnight)(tomorrowStr);
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
         const branchFilter = branchId || null;
         const dentistFilter = dentistId || null;
         const invoiceDentistFilter = dentistFilter ? { dentist_id: dentistFilter } : {};
-        const [todayAppointments, todayRevenue, pendingInvoices, pendingInvoicesAgg, partiallyPaidAgg, partiallyPaidPaymentsAgg, lowInventoryItems, monthExpenses, monthRevenue, monthRefunds, newPatientsThisMonth] = await Promise.all([
+        const [todayAppointments, todayRevenueRows, pendingInvoices, pendingInvoicesAgg, partiallyPaidAgg, partiallyPaidPaymentsAgg, lowInventoryItems, monthExpenses, monthRevenue, monthRefunds, newPatientsThisMonth] = await Promise.all([
             this.prisma.appointment.count({
                 where: {
                     clinic_id: clinicId,
@@ -46,17 +45,15 @@ let ReportsService = class ReportsService {
                     ...(dentistFilter && { dentist_id: dentistFilter }),
                 },
             }),
-            this.prisma.payment.aggregate({
-                _sum: { amount: true },
-                where: {
-                    invoice: {
-                        clinic_id: clinicId,
-                        ...(branchFilter && { branch_id: branchFilter }),
-                        ...invoiceDentistFilter,
-                    },
-                    paid_at: { gte: today, lt: tomorrow },
-                },
-            }),
+            this.prisma.$queryRaw `
+          SELECT COALESCE(SUM(p.amount), 0)::float AS total
+          FROM payments p
+          JOIN invoices i ON p.invoice_id = i.id
+          WHERE i.clinic_id = ${clinicId}::uuid
+            AND ${client_1.Prisma.raw((0, clinic_timezone_util_js_1.clinicPaymentLocalDateExpr)('p.paid_at'))} = ${todayStr}::date
+            ${branchFilter ? client_1.Prisma.sql `AND i.branch_id = ${branchFilter}::uuid` : client_1.Prisma.empty}
+            ${dentistFilter ? client_1.Prisma.sql `AND i.dentist_id = ${dentistFilter}::uuid` : client_1.Prisma.empty}
+        `,
             this.prisma.invoice.count({
                 where: {
                     clinic_id: clinicId,
@@ -148,7 +145,7 @@ let ReportsService = class ReportsService {
         const outstandingAmount = Math.max(0, pendingNet + (partiallyPaidNet - partiallyPaidCollected));
         const result = {
             today_appointments: todayAppointments,
-            today_revenue: Number(todayRevenue._sum.amount ?? 0),
+            today_revenue: Number(todayRevenueRows[0]?.total ?? 0),
             pending_invoices: pendingInvoices,
             outstanding_amount: outstandingAmount,
             low_inventory_count: Number(lowInventoryItems[0]?.count ?? 0),
@@ -162,12 +159,8 @@ let ReportsService = class ReportsService {
         return result;
     }
     async getDashboardBootstrap(clinicId, branchId, dentistId, days = 7) {
-        const todayStr = (() => {
-            const d = new Date();
-            const pad = (n) => String(n).padStart(2, '0');
-            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-        })();
-        const todayDate = new Date(todayStr);
+        const todayStr = (0, clinic_timezone_util_js_1.getClinicTodayDateString)();
+        const todayDate = (0, clinic_timezone_util_js_1.clinicDateToUtcMidnight)(todayStr);
         const [summary, sparklines, todayAppointments] = await Promise.all([
             this.getDashboardSummary(clinicId, branchId, dentistId),
             this.getDashboardSparklines(clinicId, branchId, dentistId, days),
@@ -198,22 +191,29 @@ let ReportsService = class ReportsService {
         };
     }
     async getTodayPaymentBreakdown(clinicId, branchId, dentistId) {
-        const now = new Date();
-        const pad = (n) => String(n).padStart(2, '0');
-        const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        const todayStr = (0, clinic_timezone_util_js_1.getClinicTodayDateString)();
+        const paidOn = client_1.Prisma.raw((0, clinic_timezone_util_js_1.clinicPaymentLocalDateExpr)('p.paid_at'));
         const rows = await this.prisma.$queryRaw `
-      SELECT p.method, SUM(p.amount)::float as total
+      SELECT i.invoice_number, p.method, p.amount::float AS amount, p.paid_at
       FROM payments p
       JOIN invoices i ON p.invoice_id = i.id
       WHERE i.clinic_id = ${clinicId}::uuid
-        AND DATE(p.paid_at) = ${todayStr}::date
+        AND ${paidOn} = ${todayStr}::date
         ${branchId ? client_1.Prisma.sql `AND i.branch_id = ${branchId}::uuid` : client_1.Prisma.empty}
         ${dentistId ? client_1.Prisma.sql `AND i.dentist_id = ${dentistId}::uuid` : client_1.Prisma.empty}
-      GROUP BY p.method
+      ORDER BY p.paid_at DESC
     `;
-        const out = { cash: 0, card: 0, upi: 0, other: 0, total: 0 };
+        const out = {
+            cash: 0,
+            card: 0,
+            upi: 0,
+            other: 0,
+            total: 0,
+            clinic_date: todayStr,
+            payments: [],
+        };
         for (const r of rows) {
-            const v = Number(r.total) || 0;
+            const v = Number(r.amount) || 0;
             out.total += v;
             if (r.method === 'cash')
                 out.cash += v;
@@ -223,6 +223,12 @@ let ReportsService = class ReportsService {
                 out.upi += v;
             else
                 out.other += v;
+            out.payments.push({
+                invoice_number: r.invoice_number,
+                method: r.method,
+                amount: v,
+                paid_at: r.paid_at instanceof Date ? r.paid_at.toISOString() : String(r.paid_at),
+            });
         }
         return out;
     }

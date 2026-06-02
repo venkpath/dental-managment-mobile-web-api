@@ -195,6 +195,13 @@ export declare class ReportsService {
         upi: number;
         other: number;
         total: number;
+        clinic_date: string;
+        payments: Array<{
+            invoice_number: string;
+            method: string;
+            amount: number;
+            paid_at: string;
+        }>;
     }>;
     getDashboardSparklines(clinicId: string, branchId?: string, dentistId?: string, days?: number): Promise<{
         daily: Array<{

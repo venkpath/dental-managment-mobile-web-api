@@ -14,6 +14,7 @@ exports.PatientInsightsService = void 0;
 const common_1 = require("@nestjs/common");
 const schedule_1 = require("@nestjs/schedule");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
+const clinic_timezone_util_js_1 = require("../../common/utils/clinic-timezone.util.js");
 const RECALL_INTERVALS = [
     { keywords: ['scaling', 'polishing', 'cleaning', 'prophylaxis'], days: 180 },
     { keywords: ['root canal', 'rct', 'endodontic'], days: 365 },
@@ -132,7 +133,7 @@ let PatientInsightsService = PatientInsightsService_1 = class PatientInsightsSer
                     return this.prisma.patientInsightScore.upsert({
                         where: { clinic_id_patient_id: { clinic_id: clinicId, patient_id: patient.id } },
                         create: { clinic_id: clinicId, branch_id: patient.branch_id, patient_id: patient.id, batch_id: batch.id, ...score },
-                        update: { batch_id: batch.id, computed_at: now, ...score },
+                        update: { branch_id: patient.branch_id, batch_id: batch.id, computed_at: now, ...score },
                     });
                 }));
             }
@@ -156,6 +157,7 @@ let PatientInsightsService = PatientInsightsService_1 = class PatientInsightsSer
         const future = patient.appointments.filter((a) => new Date(a.appointment_date) >= now && a.status !== 'cancelled');
         const noShowCount = past.filter((a) => a.status === 'no_show').length;
         const cancelCount = past.filter((a) => a.status === 'cancelled').length;
+        const completedVisits = past.filter((a) => a.status === 'completed');
         const recentNoShow = past
             .filter((a) => a.status === 'no_show')
             .some((a) => (now.getTime() - new Date(a.appointment_date).getTime()) / msPerDay < 90);
@@ -177,8 +179,9 @@ let PatientInsightsService = PatientInsightsService_1 = class PatientInsightsSer
         let recallDueDays = null;
         let recallTreatment = null;
         let recallLastDate = null;
-        if (patient.treatments.length > 0) {
-            const lastTreatment = patient.treatments[0];
+        const completedTreatments = patient.treatments.filter((t) => t.status === 'completed');
+        if (completedTreatments.length > 0) {
+            const lastTreatment = completedTreatments[0];
             const interval = getRecallDays(lastTreatment.procedure);
             const lastDate = new Date(lastTreatment.created_at);
             const dueDate = new Date(lastDate.getTime() + interval * msPerDay);
@@ -190,17 +193,14 @@ let PatientInsightsService = PatientInsightsService_1 = class PatientInsightsSer
                 recallDueDays = -daysUntilDue;
             }
         }
-        const lastVisitDate = past.length > 0
-            ? new Date(Math.max(...past.map((a) => new Date(a.appointment_date).getTime())))
+        const lastVisitDate = completedVisits.length > 0
+            ? new Date(Math.max(...completedVisits.map((a) => new Date(a.appointment_date).getTime())))
             : null;
         const daysSinceVisit = lastVisitDate
             ? Math.round((now.getTime() - lastVisitDate.getTime()) / msPerDay)
-            : 9999;
+            : null;
         let churnScore = 0;
-        if (future.length > 0) {
-            churnScore = 0;
-        }
-        else {
+        if (lastVisitDate && future.length === 0) {
             if (daysSinceVisit > 365)
                 churnScore += 70;
             else if (daysSinceVisit > 180)
@@ -218,7 +218,7 @@ let PatientInsightsService = PatientInsightsService_1 = class PatientInsightsSer
             const plan = patient.treatment_plans[0];
             const ageDays = Math.round((now.getTime() - new Date(plan.created_at).getTime()) / msPerDay);
             conversionScore = ageDays > 30 ? 75 : ageDays > 14 ? 60 : 40;
-            conversionValue = Number(plan.total_estimated_cost);
+            conversionValue = Number(plan.total_estimated_cost) || 0;
             const firstItem = plan.items[0];
             conversionInterest = firstItem
                 ? firstItem.procedure.split(' ').slice(0, 3).join(' ')
@@ -243,8 +243,8 @@ let PatientInsightsService = PatientInsightsService_1 = class PatientInsightsSer
             recall_last_date: recallLastDate,
             churn_score: churnScore,
             churn_risk: riskLevel(churnScore),
-            days_since_visit: daysSinceVisit < 9999 ? daysSinceVisit : null,
-            churn_factors: { days_since_visit: daysSinceVisit < 9999 ? daysSinceVisit : null, has_future_appt: future.length > 0 },
+            days_since_visit: daysSinceVisit,
+            churn_factors: { days_since_visit: daysSinceVisit, has_future_appt: future.length > 0 },
             conversion_score: conversionScore,
             conversion_interest: conversionInterest,
             conversion_value: conversionValue,
@@ -318,7 +318,10 @@ let PatientInsightsService = PatientInsightsService_1 = class PatientInsightsSer
                             phone: true,
                             profile_photo_url: true,
                             appointments: {
-                                where: { appointment_date: { gte: new Date() } },
+                                where: {
+                                    appointment_date: { gte: (0, clinic_timezone_util_js_1.clinicDateToUtcMidnight)((0, clinic_timezone_util_js_1.getClinicTodayDateString)()) },
+                                    status: { not: 'cancelled' },
+                                },
                                 orderBy: { appointment_date: 'asc' },
                                 take: 1,
                                 select: { appointment_date: true, start_time: true },

@@ -52,6 +52,11 @@ let AuthService = class AuthService {
         this.smsProvider = smsProvider;
         this.emailProvider = emailProvider;
     }
+    async signRefreshToken(userId, clinicId) {
+        const payload = { sub: userId, type: 'refresh', clinic_id: clinicId };
+        const expiresIn = this.configService.get('app.jwtRefreshExpiresIn', '90d');
+        return this.jwtService.signAsync(payload, { expiresIn });
+    }
     async lookup(dto) {
         const users = await this.prisma.user.findMany({
             where: { email: dto.email, status: 'active' },
@@ -118,6 +123,7 @@ let AuthService = class AuthService {
         const requiresVerification = !user.email_verified && !user.phone_verified;
         const result = {
             access_token: await this.jwtService.signAsync(payload),
+            refresh_token: await this.signRefreshToken(user.id, user.clinic_id),
             user: {
                 id: user.id,
                 clinic_id: user.clinic_id,
@@ -211,6 +217,7 @@ let AuthService = class AuthService {
         const requiresVerification = !user.email_verified && !user.phone_verified;
         const result = {
             access_token: await this.jwtService.signAsync(payload),
+            refresh_token: await this.signRefreshToken(user.id, user.clinic_id),
             user: {
                 id: user.id,
                 clinic_id: user.clinic_id,
@@ -238,6 +245,45 @@ let AuthService = class AuthService {
         })
             .catch(() => { });
         return result;
+    }
+    async refresh(refreshToken) {
+        let payload;
+        try {
+            payload = await this.jwtService.verifyAsync(refreshToken);
+        }
+        catch {
+            throw new common_1.UnauthorizedException('Invalid or expired refresh token');
+        }
+        if (payload.type !== 'refresh') {
+            throw new common_1.UnauthorizedException('Invalid refresh token');
+        }
+        const user = await this.prisma.user.findFirst({
+            where: { id: payload.sub, clinic_id: payload.clinic_id },
+        });
+        if (!user || user.status !== 'active') {
+            throw new common_1.UnauthorizedException('Account is no longer active');
+        }
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: user.clinic_id },
+            select: { is_suspended: true },
+        });
+        if (clinic?.is_suspended) {
+            throw new common_1.ForbiddenException({
+                code: 'ACCOUNT_SUSPENDED',
+                message: 'Your account has been suspended. Please contact Smart Dental Desk support to reactivate.',
+            });
+        }
+        const accessPayload = {
+            sub: user.id,
+            type: 'user',
+            clinic_id: user.clinic_id,
+            role: user.role,
+            branch_id: user.branch_id,
+        };
+        return {
+            access_token: await this.jwtService.signAsync(accessPayload),
+            refresh_token: await this.signRefreshToken(user.id, user.clinic_id),
+        };
     }
     async changePassword(userId, dto) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });

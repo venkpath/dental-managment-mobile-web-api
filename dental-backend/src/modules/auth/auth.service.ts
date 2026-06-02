@@ -11,15 +11,22 @@ import { CommunicationService } from '../communication/communication.service.js'
 import { SmsProvider } from '../communication/providers/sms.provider.js';
 import { EmailProvider } from '../communication/providers/email.provider.js';
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
-import { JwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
+import { JwtPayload, RefreshJwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
+import type { StringValue } from 'ms';
 import { decodeHtmlEntities } from '../../common/utils/name.util.js';
 import { LoginDto, LookupDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
 
 /** Synthetic clinic ID used to configure the platform-level SMTP transporter */
 const PLATFORM_CLINIC_ID = '__platform__';
 
+export interface RefreshResponse {
+  access_token: string;
+  refresh_token: string;
+}
+
 export interface LoginResponse {
   access_token: string;
+  refresh_token: string;
   user: {
     id: string;
     clinic_id: string;
@@ -60,6 +67,13 @@ export class AuthService {
     private readonly smsProvider: SmsProvider,
     private readonly emailProvider: EmailProvider,
   ) {}
+
+  /** Long-lived token that can only be exchanged for a new access token at /auth/refresh. */
+  private async signRefreshToken(userId: string, clinicId: string): Promise<string> {
+    const payload: RefreshJwtPayload = { sub: userId, type: 'refresh', clinic_id: clinicId };
+    const expiresIn = this.configService.get<string>('app.jwtRefreshExpiresIn', '90d') as StringValue;
+    return this.jwtService.signAsync(payload, { expiresIn });
+  }
 
   async lookup(dto: LookupDto) {
     // Find all users with this email across all clinics
@@ -143,6 +157,7 @@ export class AuthService {
 
     const result = {
       access_token: await this.jwtService.signAsync(payload),
+      refresh_token: await this.signRefreshToken(user.id, user.clinic_id),
       user: {
         id: user.id,
         clinic_id: user.clinic_id,
@@ -252,6 +267,7 @@ export class AuthService {
 
     const result: LoginResponse = {
       access_token: await this.jwtService.signAsync(payload),
+      refresh_token: await this.signRefreshToken(user.id, user.clinic_id),
       user: {
         id: user.id,
         clinic_id: user.clinic_id,
@@ -281,6 +297,55 @@ export class AuthService {
       .catch(() => {});
 
     return result;
+  }
+
+  /**
+   * Exchange a valid refresh token for a fresh access token (and a rotated
+   * refresh token). Lets the mobile app restore a working session after a
+   * PIN / biometric unlock without re-collecting the password.
+   */
+  async refresh(refreshToken: string): Promise<RefreshResponse> {
+    let payload: RefreshJwtPayload;
+    try {
+      payload = await this.jwtService.verifyAsync<RefreshJwtPayload>(refreshToken);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    if (payload.type !== 'refresh') {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: { id: payload.sub, clinic_id: payload.clinic_id },
+    });
+    if (!user || user.status !== 'active') {
+      throw new UnauthorizedException('Account is no longer active');
+    }
+
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: user.clinic_id },
+      select: { is_suspended: true },
+    });
+    if (clinic?.is_suspended) {
+      throw new ForbiddenException({
+        code: 'ACCOUNT_SUSPENDED',
+        message: 'Your account has been suspended. Please contact Smart Dental Desk support to reactivate.',
+      });
+    }
+
+    const accessPayload: JwtPayload = {
+      sub: user.id,
+      type: 'user',
+      clinic_id: user.clinic_id,
+      role: user.role,
+      branch_id: user.branch_id,
+    };
+
+    return {
+      access_token: await this.jwtService.signAsync(accessPayload),
+      refresh_token: await this.signRefreshToken(user.id, user.clinic_id),
+    };
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto): Promise<{ message: string }> {

@@ -1,8 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReportsService } from './reports.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { clinicPaymentLocalDateExpr } from '../../common/utils/clinic-timezone.util.js';
 
 const clinicId = '123e4567-e89b-12d3-a456-426614174000';
+
+function prismaQuerySql(query: unknown): string {
+  if (typeof query === 'object' && query && 'strings' in query) {
+    return (query as { strings: string[] }).strings.join('');
+  }
+  return String(query ?? '');
+}
 
 const mockPrismaService = {
   appointment: { count: jest.fn() },
@@ -35,6 +43,7 @@ describe('ReportsService', () => {
 
   describe('getDashboardSummary', () => {
     beforeEach(() => {
+      (service as unknown as { _summaryCache: Map<string, unknown> })._summaryCache.clear();
       mockPrismaService.appointment.count.mockResolvedValue(5);
       mockPrismaService.payment.aggregate.mockResolvedValue({
         _sum: { amount: 15000.5 },
@@ -49,7 +58,12 @@ describe('ReportsService', () => {
       mockPrismaService.refund.aggregate.mockResolvedValue({
         _sum: { amount: null },
       });
-      mockPrismaService.$queryRaw.mockResolvedValue([{ count: BigInt(2) }]);
+      mockPrismaService.patient.count.mockResolvedValue(0);
+      mockPrismaService.$queryRaw.mockImplementation(async (query: unknown) => {
+        const sql = prismaQuerySql(query);
+        if (sql.includes('SUM(p.amount)')) return [{ total: 15000.5 }];
+        return [{ count: BigInt(2) }];
+      });
     });
 
     it('should return dashboard summary with all metrics', async () => {
@@ -64,6 +78,7 @@ describe('ReportsService', () => {
         this_month_expenses: 5000,
         this_month_revenue: 15000.5,
         this_month_refunds: 0,
+        new_patients_this_month: 0,
         net_profit: 15000.5 - 5000,
       });
     });
@@ -84,21 +99,15 @@ describe('ReportsService', () => {
       );
     });
 
-    it('should filter payments by clinic_id and today date', async () => {
+    it('should sum today payments in clinic timezone via raw SQL', async () => {
+      expect(clinicPaymentLocalDateExpr('p.paid_at')).toContain("AT TIME ZONE 'UTC'");
+      expect(clinicPaymentLocalDateExpr('p.paid_at')).toContain('Asia/Kolkata');
+
       await service.getDashboardSummary(clinicId);
 
-      expect(mockPrismaService.payment.aggregate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          _sum: { amount: true },
-          where: expect.objectContaining({
-            invoice: expect.objectContaining({ clinic_id: clinicId }),
-            paid_at: {
-              gte: expect.any(Date),
-              lt: expect.any(Date),
-            },
-          }),
-        }),
-      );
+      expect(mockPrismaService.$queryRaw).toHaveBeenCalled();
+      const sql = prismaQuerySql(mockPrismaService.$queryRaw.mock.calls[0]?.[0]);
+      expect(sql).toContain('SUM(p.amount)');
     });
 
     it('should filter pending invoices by clinic_id', async () => {
@@ -119,8 +128,11 @@ describe('ReportsService', () => {
     });
 
     it('should return 0 revenue when no payments exist today', async () => {
-      mockPrismaService.payment.aggregate.mockResolvedValue({
-        _sum: { amount: null },
+      mockPrismaService.$queryRaw.mockReset();
+      mockPrismaService.$queryRaw.mockImplementation(async (query: unknown) => {
+        const sql = prismaQuerySql(query);
+        if (sql.includes('SUM(p.amount)')) return [{ total: 0 }];
+        return [{ count: BigInt(0) }];
       });
 
       const result = await service.getDashboardSummary(clinicId);
@@ -129,7 +141,11 @@ describe('ReportsService', () => {
     });
 
     it('should return 0 low inventory when query returns empty', async () => {
-      mockPrismaService.$queryRaw.mockResolvedValue([{ count: BigInt(0) }]);
+      mockPrismaService.$queryRaw.mockImplementation(async (query: unknown) => {
+        const sql = prismaQuerySql(query);
+        if (sql.includes('SUM(p.amount)')) return [{ total: 15000.5 }];
+        return [{ count: BigInt(0) }];
+      });
 
       const result = await service.getDashboardSummary(clinicId);
 
@@ -143,9 +159,16 @@ describe('ReportsService', () => {
       mockPrismaService.invoice.aggregate.mockResolvedValue({ _sum: { net_amount: null } });
       mockPrismaService.expense.aggregate.mockResolvedValue({ _sum: { amount: null } });
       mockPrismaService.refund.aggregate.mockResolvedValue({ _sum: { amount: null } });
-      mockPrismaService.$queryRaw.mockResolvedValue([{ count: BigInt(0) }]);
+      mockPrismaService.patient.count.mockResolvedValue(0);
+      mockPrismaService.$queryRaw.mockReset();
+      mockPrismaService.$queryRaw.mockImplementation(async (query: unknown) => {
+        const sql = prismaQuerySql(query);
+        if (sql.includes('SUM(p.amount)')) return [{ total: 0 }];
+        return [{ count: BigInt(0) }];
+      });
 
-      const result = await service.getDashboardSummary(clinicId);
+      const zeroClinicId = `${clinicId}-all-zero`;
+      const result = await service.getDashboardSummary(zeroClinicId);
 
       expect(result).toEqual({
         today_appointments: 0,
@@ -156,6 +179,7 @@ describe('ReportsService', () => {
         this_month_expenses: 0,
         this_month_revenue: 0,
         this_month_refunds: 0,
+        new_patients_this_month: 0,
         net_profit: 0,
       });
     });

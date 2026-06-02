@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useDrawer } from './DrawerContext';
+import ClinicBrandMark from '../ClinicBrandMark';
 import { useAuthStore } from '../../store/auth.store';
 import { useNotificationStore } from '../../store/notification.store';
 import type { RootStackParamList, TabParamList, BillingStackParamList } from '../../types';
@@ -41,15 +42,6 @@ interface MenuItem {
   tab?: keyof TabParamList;
   /** Screen inside the More/Billing tab stack (keeps bottom tab bar visible) */
   billingScreen?: keyof BillingStackParamList;
-}
-
-// Brand mark — small tooth logo
-function BrandMark() {
-  return (
-    <View style={styles.brandMark}>
-      <Ionicons name="medical" size={20} color="#4361EE" />
-    </View>
-  );
 }
 
 function MenuRow({
@@ -195,10 +187,21 @@ export function DrawerMenu() {
   const navigateTab = (tab: keyof TabParamList) => {
     setActiveKey(tab as string);
     close();
-    // Reach into the App tab navigator
+    const nestedScreen: string | undefined =
+      tab === 'Patients'
+        ? 'PatientList'
+        : tab === 'Appointments'
+          ? 'AppointmentList'
+          : tab === 'Billing'
+            ? 'MoreMenu'
+            : undefined;
     requestAnimationFrame(() => {
-      // @ts-expect-error nested navigator typing
-      navigation.navigate('App', { screen: tab });
+      if (nestedScreen) {
+        // @ts-expect-error nested tab stack screen param
+        navigation.navigate('App', { screen: tab, params: { screen: nestedScreen } });
+      } else {
+        navigation.navigate('App', { screen: tab });
+      }
     });
   };
 
@@ -266,7 +269,7 @@ export function DrawerMenu() {
     { label: 'Staff', icon: 'people-circle', hasChevron: true, billingScreen: 'StaffList' },
     { label: 'Branches', icon: 'business', hasChevron: true, billingScreen: 'BranchList' },
     { label: 'WhatsApp Inbox', icon: 'logo-whatsapp', tab: 'WhatsApp' },
-    { label: 'Billing', icon: 'card', billingScreen: 'BillingGuide' },
+    { label: 'Billing', icon: 'card', billingScreen: 'ClinicBilling' },
     { label: 'Settings', icon: 'settings', billingScreen: 'SettingsGuide' },
   ];
 
@@ -301,7 +304,7 @@ export function DrawerMenu() {
         <View style={[styles.drawerInner, { paddingTop: insets.top }]}>
           {/* ── Top: clinic header ── */}
           <View style={styles.clinicHeader}>
-            <BrandMark />
+            <ClinicBrandMark size={36} />
             <View style={{ flex: 1 }}>
               <Text style={styles.clinicName} numberOfLines={1}>
                 {displayClinic}
@@ -411,14 +414,6 @@ const styles = StyleSheet.create({
     gap: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
-  },
-  brandMark: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#EEF2FF',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   clinicName: { fontSize: 15, fontWeight: '700', color: '#0f172a' },
   clinicSub: { fontSize: 12, color: '#64748b', marginTop: 1 },

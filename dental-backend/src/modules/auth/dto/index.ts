@@ -4,3 +4,4 @@ export { LookupByPhoneDto } from './lookup-by-phone.dto.js';
 export { LoginByPhoneDto } from './login-by-phone.dto.js';
 export { RegisterClinicDto } from './register.dto.js';
 export { ChangePasswordDto } from './change-password.dto.js';
+export { RefreshTokenDto } from './refresh-token.dto.js';

@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LegalNotice } from '../../components/LegalText';
 import type { AuthStackParamList } from '../../types';
+import { useDeviceLockStore } from '../../store/deviceLock.store';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const HERO_H = Math.round(SH * 0.48);
@@ -67,6 +68,8 @@ export default function WelcomeScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const panelBottomPad = Math.max(insets.bottom, 12) + 16;
+  const savedId = useDeviceLockStore((s) => s.loginIdentifier);
+  const savedName = useDeviceLockStore((s) => s.displayName);
 
   return (
     <View style={s.screen}>
@@ -137,7 +140,9 @@ export default function WelcomeScreen() {
           <TouchableOpacity
             style={s.primaryWrap}
             activeOpacity={0.88}
-            onPress={() => navigation.navigate('Login')}
+            onPress={() =>
+              navigation.navigate('Login', savedId ? { identifier: savedId } : undefined)
+            }
           >
             <LinearGradient
               colors={[PURPLE, '#7C3AED']}
@@ -145,7 +150,9 @@ export default function WelcomeScreen() {
               end={{ x: 1, y: 0 }}
               style={s.primaryBtn}
             >
-              <Text style={s.primaryTxt}>Sign in</Text>
+              <Text style={s.primaryTxt}>
+                {savedName ? `Continue as ${savedName.split(' ')[0]}` : 'Sign in'}
+              </Text>
               <Ionicons name="arrow-forward" size={20} color="#fff" />
             </LinearGradient>
           </TouchableOpacity>

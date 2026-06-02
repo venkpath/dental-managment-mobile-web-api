@@ -53,6 +53,14 @@ export default function MainTabBar({ state, descriptors, navigation }: BottomTab
             navigation.navigate('Billing', { screen: 'MoreMenu' });
             return;
           }
+          if (route.name === 'Patients') {
+            navigation.navigate('Patients', { screen: 'PatientList' });
+            return;
+          }
+          if (route.name === 'Appointments') {
+            navigation.navigate('Appointments', { screen: 'AppointmentList' });
+            return;
+          }
           if (!focused) {
             navigation.navigate(route.name);
           }

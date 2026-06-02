@@ -154,6 +154,13 @@ export declare class ReportsController {
         upi: number;
         other: number;
         total: number;
+        clinic_date: string;
+        payments: Array<{
+            invoice_number: string;
+            method: string;
+            amount: number;
+            paid_at: string;
+        }>;
     }>;
     getRevenueReport(clinicId: string, user: JwtPayload, query: RevenueQueryDto): Promise<import("./reports.service.js").RevenueReport>;
     getAppointmentAnalytics(clinicId: string, user: JwtPayload, query: AppointmentAnalyticsQueryDto): Promise<import("./reports.service.js").AppointmentAnalytics>;

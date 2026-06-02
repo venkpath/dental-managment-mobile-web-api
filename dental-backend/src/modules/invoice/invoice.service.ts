@@ -9,6 +9,10 @@ import { UpdateInvoiceDto } from './dto/update-invoice.dto.js';
 import { Invoice, Payment, Refund, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
 import { InvoicePdfService } from './invoice-pdf.service.js';
+import {
+  clinicInvoicePdfFilename,
+  clinicInvoicePdfVariant,
+} from './invoice-pdf-filename.util.js';
 import { S3Service } from '../../common/services/s3.service.js';
 import { getCurrencySymbol, getCurrencyLocale } from '../../common/utils/currency.util.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
@@ -770,7 +774,7 @@ export class InvoiceService {
     return { message: 'Installment plan deleted' };
   }
 
-  async getPdfUrl(clinicId: string, invoiceId: string): Promise<{ url: string }> {
+  async getPdfUrl(clinicId: string, invoiceId: string): Promise<{ url: string; filename: string }> {
     const invoice = await this.findOne(clinicId, invoiceId);
 
     const s3Key = `invoices/${clinicId}/${invoice.invoice_number}.pdf`;
@@ -874,9 +878,13 @@ export class InvoiceService {
 
     const pdfBuffer = await this.invoicePdfService.generate(pdfData);
     await this.s3Service.upload(s3Key, pdfBuffer, 'application/pdf');
-    const url = await this.s3Service.getSignedUrl(s3Key);
+    const filename = clinicInvoicePdfFilename(
+      invoice.invoice_number,
+      clinicInvoicePdfVariant(invoice.status),
+    );
+    const url = await this.s3Service.getSignedUrl(s3Key, filename);
 
-    return { url };
+    return { url, filename };
   }
 
   async sendWhatsApp(clinicId: string, invoiceId: string): Promise<{ message: string }> {
@@ -949,11 +957,15 @@ export class InvoiceService {
     // approved Meta body has a PDF header (we key off `_pdf` suffix).
     const templateName = rule?.template?.template_name || '';
     const isPdfTemplate = /_pdf$/i.test(templateName);
+    const whatsappFilename = clinicInvoicePdfFilename(
+      invoice.invoice_number,
+      clinicInvoicePdfVariant(invoice.status),
+    );
     const headerMedia = isPdfTemplate
       ? {
           type: 'document' as const,
           url: pdfUrl,
-          filename: `Invoice-${invoice.invoice_number}.pdf`,
+          filename: whatsappFilename,
         }
       : undefined;
 
@@ -1075,7 +1087,7 @@ export class InvoiceService {
       ? {
           type: 'document' as const,
           url: pdfUrl,
-          filename: `Receipt-${invoiceNumber}.pdf`,
+          filename: clinicInvoicePdfFilename(invoiceNumber, 'receipt'),
         }
       : undefined;
 

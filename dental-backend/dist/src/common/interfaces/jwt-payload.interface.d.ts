@@ -9,3 +9,8 @@ export interface SuperAdminJwtPayload {
     sub: string;
     type: 'super_admin';
 }
+export interface RefreshJwtPayload {
+    sub: string;
+    type: 'refresh';
+    clinic_id: string;
+}

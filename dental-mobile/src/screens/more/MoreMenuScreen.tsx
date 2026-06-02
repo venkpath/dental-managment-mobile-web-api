@@ -11,6 +11,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useAuthStore } from '../../store/auth.store';
 import { useNotificationStore } from '../../store/notification.store';
 import { useDrawer } from '../../components/DrawerMenu';
+import ClinicBrandMark from '../../components/ClinicBrandMark';
 import { useBottomInset } from '../../hooks/useBottomInset';
 import { LegalLinkList } from '../../components/LegalText';
 import { openSupportEmail } from '../../utils/openLegalUrl';
@@ -98,7 +99,7 @@ export default function MoreMenuScreen() {
       items: [
         { label: 'Notifications', sub: unreadCount > 0 ? `${unreadCount} unread` : 'Alerts & reminders', icon: 'notifications', iconBg: '#FEE2E2', iconColor: '#DC2626', rootScreen: 'Notifications' },
         { label: 'My profile', sub: 'Password & sign out', icon: 'person-circle', iconBg: '#EEF2FF', iconColor: C.indigo, rootScreen: 'Profile' },
-        { label: 'Subscription', sub: 'Plan & billing (web)', icon: 'card', iconBg: '#FEF3C7', iconColor: '#B45309', screen: 'BillingGuide' },
+        { label: 'Subscription', sub: 'Plan, trial & platform invoices', icon: 'card', iconBg: '#FEF3C7', iconColor: '#B45309', screen: 'ClinicBilling' },
         { label: 'Settings', sub: 'Clinic config (web)', icon: 'settings', iconBg: '#F1F5F9', iconColor: '#64748b', screen: 'SettingsGuide' },
       ],
     },
@@ -126,7 +127,8 @@ export default function MoreMenuScreen() {
         <TouchableOpacity onPress={openDrawer} style={s.iconBtn} activeOpacity={0.7}>
           <Ionicons name="menu" size={22} color={C.text} />
         </TouchableOpacity>
-        <View style={{ flex: 1 }}>
+        <ClinicBrandMark size={32} />
+        <View style={{ flex: 1, marginLeft: 10 }}>
           <Text style={s.title}>More</Text>
           <Text style={s.subtitle} numberOfLines={1}>{clinicName ?? 'Smart Dental Desk'}</Text>
         </View>

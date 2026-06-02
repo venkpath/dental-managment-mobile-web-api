@@ -14,6 +14,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { whatsappService, WaMessage, WaTemplate } from '../../services/whatsapp.service';
@@ -231,7 +232,7 @@ export default function ChatThreadScreen() {
             style={styles.backBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Text style={styles.backArrow}>‹</Text>
+            <Ionicons name="chevron-back" size={22} color="#0f172a" />
           </TouchableOpacity>
 
           <View style={styles.headerAvatar}>
@@ -415,47 +416,44 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
-    backgroundColor: WA_DARK,
+    backgroundColor: '#F8FAFC',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
   backBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 10,
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  backArrow: {
-    fontSize: 28,
-    color: '#fff',
-    fontWeight: '700',
-    lineHeight: 30,
   },
   headerAvatar: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 12,
+    backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerAvatarText: {
-    color: '#fff',
+    color: WA_GREEN,
     fontSize: typography.sm,
     fontWeight: '700',
   },
   headerInfo: { flex: 1 },
   headerName: {
-    color: '#fff',
+    color: '#0f172a',
     fontSize: typography.base,
-    fontWeight: '600',
+    fontWeight: '800',
   },
   headerPhone: {
-    color: 'rgba(255,255,255,0.7)',
+    color: '#64748b',
     fontSize: typography.xs,
   },
 

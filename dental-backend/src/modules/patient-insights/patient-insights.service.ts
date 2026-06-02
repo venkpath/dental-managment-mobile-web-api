@@ -2,6 +2,10 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../database/prisma.service.js';
 import { QueryInsightsDto } from './dto/query-insights.dto.js';
+import {
+  clinicDateToUtcMidnight,
+  getClinicTodayDateString,
+} from '../../common/utils/clinic-timezone.util.js';
 
 // Recall interval in days by procedure keyword
 const RECALL_INTERVALS: { keywords: string[]; days: number }[] = [
@@ -133,7 +137,7 @@ export class PatientInsightsService {
             return this.prisma.patientInsightScore.upsert({
               where: { clinic_id_patient_id: { clinic_id: clinicId, patient_id: patient.id } },
               create: { clinic_id: clinicId, branch_id: patient.branch_id, patient_id: patient.id, batch_id: batch.id, ...score },
-              update: { batch_id: batch.id, computed_at: now, ...score },
+              update: { branch_id: patient.branch_id, batch_id: batch.id, computed_at: now, ...score },
             });
           }),
         );
@@ -173,6 +177,9 @@ export class PatientInsightsService {
     );
     const noShowCount = past.filter((a) => a.status === 'no_show').length;
     const cancelCount = past.filter((a) => a.status === 'cancelled').length;
+    // A "visit" is only a completed appointment. No-shows and cancellations
+    // must not count as visits (they'd make churn look better than it is).
+    const completedVisits = past.filter((a) => a.status === 'completed');
 
     // ── No-show score ──
     // Only meaningful when the patient actually has an upcoming appointment.
@@ -198,8 +205,11 @@ export class PatientInsightsService {
     let recallTreatment: string | null = null;
     let recallLastDate: Date | null = null;
 
-    if (patient.treatments.length > 0) {
-      const lastTreatment = patient.treatments[0]!;
+    // Only completed treatments drive a recall — a planned or cancelled
+    // procedure was never actually performed, so it can't be "due" again.
+    const completedTreatments = patient.treatments.filter((t) => t.status === 'completed');
+    if (completedTreatments.length > 0) {
+      const lastTreatment = completedTreatments[0]!;
       const interval = getRecallDays(lastTreatment.procedure);
       const lastDate = new Date(lastTreatment.created_at);
       const dueDate = new Date(lastDate.getTime() + interval * msPerDay);
@@ -216,20 +226,21 @@ export class PatientInsightsService {
 
     // ── Churn score ──
     const lastVisitDate =
-      past.length > 0
-        ? new Date(Math.max(...past.map((a) => new Date(a.appointment_date).getTime())))
+      completedVisits.length > 0
+        ? new Date(Math.max(...completedVisits.map((a) => new Date(a.appointment_date).getTime())))
         : null;
     const daysSinceVisit = lastVisitDate
       ? Math.round((now.getTime() - lastVisitDate.getTime()) / msPerDay)
-      : 9999;
+      : null;
 
+    // Churn only applies to patients who have actually visited before and have
+    // no upcoming appointment. A brand-new patient with no completed visit yet
+    // is a lead, not a churn risk — never flag them here.
     let churnScore = 0;
-    if (future.length > 0) {
-      churnScore = 0;
-    } else {
-      if (daysSinceVisit > 365) churnScore += 70;
-      else if (daysSinceVisit > 180) churnScore += 50;
-      else if (daysSinceVisit > 90) churnScore += 30;
+    if (lastVisitDate && future.length === 0) {
+      if (daysSinceVisit! > 365) churnScore += 70;
+      else if (daysSinceVisit! > 180) churnScore += 50;
+      else if (daysSinceVisit! > 90) churnScore += 30;
       if (patient.invoices.length === 0) churnScore += 10;
     }
     churnScore = Math.min(churnScore, 100);
@@ -243,7 +254,7 @@ export class PatientInsightsService {
       const plan = patient.treatment_plans[0]!;
       const ageDays = Math.round((now.getTime() - new Date(plan.created_at).getTime()) / msPerDay);
       conversionScore = ageDays > 30 ? 75 : ageDays > 14 ? 60 : 40;
-      conversionValue = Number(plan.total_estimated_cost);
+      conversionValue = Number(plan.total_estimated_cost) || 0;
       const firstItem = plan.items[0];
       conversionInterest = firstItem
         ? firstItem.procedure.split(' ').slice(0, 3).join(' ')
@@ -267,8 +278,8 @@ export class PatientInsightsService {
       recall_last_date: recallLastDate,
       churn_score: churnScore,
       churn_risk: riskLevel(churnScore),
-      days_since_visit: daysSinceVisit < 9999 ? daysSinceVisit : null,
-      churn_factors: { days_since_visit: daysSinceVisit < 9999 ? daysSinceVisit : null, has_future_appt: future.length > 0 },
+      days_since_visit: daysSinceVisit,
+      churn_factors: { days_since_visit: daysSinceVisit, has_future_appt: future.length > 0 },
       conversion_score: conversionScore,
       conversion_interest: conversionInterest,
       conversion_value: conversionValue,
@@ -353,8 +364,13 @@ export class PatientInsightsService {
               last_name: true,
               phone: true,
               profile_photo_url: true,
+              // Only today's and upcoming (non-cancelled) appointments — past
+              // history is for scoring/AI analysis, never surfaced in the list.
               appointments: {
-                where: { appointment_date: { gte: new Date() } },
+                where: {
+                  appointment_date: { gte: clinicDateToUtcMidnight(getClinicTodayDateString()) },
+                  status: { not: 'cancelled' },
+                },
                 orderBy: { appointment_date: 'asc' },
                 take: 1,
                 select: { appointment_date: true, start_time: true },

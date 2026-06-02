@@ -2,21 +2,35 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'ADMIN' | 'DENTIST' | 'RECEPTIONIST' | 'STAFF' | 'CONSULTANT';
+  /** Backend values: SuperAdmin, Admin, Dentist, Receptionist, Staff, Consultant */
+  role: string;
   branch_id?: string;
   clinic_id: string;
+  /** Signed S3 URL from GET /users/:id — not returned on login */
+  profile_photo_url?: string | null;
 }
 
 export interface AuthState {
   token: string | null;
+  /** Long-lived token used to silently mint a new access token after PIN/biometric unlock. */
+  refreshToken: string | null;
   user: User | null;
   clinicId: string | null;
   clinicName: string | null;
+  /** Resolved URL for clinic-uploaded logo; null = use app default mark */
+  clinicLogoUrl: string | null;
   branchId: string | null;
   isAuthenticated: boolean;
   setClinicId: (clinicId: string) => void;
-  login: (token: string, user: User, clinicId: string, branchId?: string, clinicName?: string) => void;
+  patchUser: (partial: Partial<User>) => void;
+  login: (token: string, user: User, clinicId: string, branchId?: string, clinicName?: string, refreshToken?: string) => void;
+  /** Replace access (+ refresh) tokens after a silent refresh; keeps the session otherwise intact. */
+  setTokens: (token: string, refreshToken?: string | null) => Promise<void>;
+  updateBranding: (clinicName: string, clinicLogoUrl: string | null) => Promise<void>;
+  /** Ends session; PIN / face unlock stay on this device. */
   logout: () => void;
+  /** Removes PIN and saved login hint on this device. */
+  logoutAndForgetDevice: () => void;
 }
 
 export interface Patient {
@@ -238,12 +252,21 @@ export interface DashboardSummary {
   new_patients_this_month: number;
 }
 
+export interface TodayPaymentLine {
+  invoice_number: string;
+  method: string;
+  amount: number;
+  paid_at: string;
+}
+
 export interface PaymentBreakdown {
   cash: number;
   card: number;
   upi: number;
   other: number;
   total: number;
+  clinic_date?: string;
+  payments?: TodayPaymentLine[];
 }
 
 export interface SparklineDay {
@@ -292,12 +315,14 @@ export interface AppNotification {
 
 export type AuthStackParamList = {
   Welcome: undefined;
-  Login: undefined;
+  Login: { identifier?: string } | undefined;
   Register: undefined;
 };
 
 export type RootStackParamList = {
   Auth: undefined;
+  Lock: undefined;
+  SetupLock: undefined;
   App: undefined;
   Profile: undefined;
   Notifications: undefined;
@@ -370,7 +395,7 @@ export type PatientStackParamList = {
 };
 
 export type AppointmentStackParamList = {
-  AppointmentList: undefined;
+  AppointmentList: { view?: 'list' | 'calendar' } | undefined;
   AppointmentDetail: { appointmentId: string };
   BookAppointment: { patientId?: string };
 };
@@ -478,6 +503,9 @@ export type BillingStackParamList = {
   CampaignDetail: { campaignId: string };
   CreateCampaign: undefined;
   AIInsights: undefined;
+  ClinicBilling: undefined;
+  PlatformInvoices: undefined;
+  /** @deprecated Use ClinicBilling */
   BillingGuide: undefined;
   SettingsGuide: undefined;
 };

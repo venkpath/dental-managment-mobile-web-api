@@ -9,8 +9,13 @@ import { CommunicationService } from '../communication/communication.service.js'
 import { SmsProvider } from '../communication/providers/sms.provider.js';
 import { EmailProvider } from '../communication/providers/email.provider.js';
 import { LoginDto, LookupDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
+export interface RefreshResponse {
+    access_token: string;
+    refresh_token: string;
+}
 export interface LoginResponse {
     access_token: string;
+    refresh_token: string;
     user: {
         id: string;
         clinic_id: string;
@@ -41,6 +46,7 @@ export declare class AuthService {
     private readonly regOtpSendTracker;
     private static readonly META_GRAPH_API;
     constructor(userService: UserService, passwordService: PasswordService, jwtService: JwtService, configService: ConfigService, prisma: PrismaService, auditLogService: AuditLogService, communicationService: CommunicationService, smsProvider: SmsProvider, emailProvider: EmailProvider);
+    private signRefreshToken;
     lookup(dto: LookupDto): Promise<{
         clinics: {
             clinic_id: string;
@@ -63,6 +69,7 @@ export declare class AuthService {
         requires_clinic_selection: boolean;
     }>;
     loginByPhone(phone: string, password: string, clinicId: string, req?: Request): Promise<LoginResponse>;
+    refresh(refreshToken: string): Promise<RefreshResponse>;
     changePassword(userId: string, dto: ChangePasswordDto): Promise<{
         message: string;
     }>;

@@ -5,6 +5,7 @@ export default registerAs('app', () => ({
   nodeEnv: process.env['NODE_ENV'] || 'development',
   jwtSecret: process.env['JWT_SECRET'] || 'change-me-to-a-strong-secret-in-production',
   jwtExpiresIn: process.env['JWT_EXPIRES_IN'] || '1d',
+  jwtRefreshExpiresIn: process.env['JWT_REFRESH_EXPIRES_IN'] || '90d',
   frontendUrl: process.env['FRONTEND_URL'] || 'http://localhost:3001',
   sentryDsn: process.env['SENTRY_DSN'] || '',
   smtp: {

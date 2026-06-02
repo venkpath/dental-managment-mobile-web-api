@@ -37,6 +37,11 @@ export class JwtAuthGuard implements CanActivate {
     try {
       const payload = await this.jwtService.verifyAsync<JwtPayload | SuperAdminJwtPayload>(token);
 
+      // Refresh tokens are only valid at POST /auth/refresh, never as access tokens.
+      if ((payload as { type?: string }).type === 'refresh') {
+        throw new UnauthorizedException('Invalid token type');
+      }
+
       if (payload.type === 'super_admin') {
         request.superAdmin = { id: payload.sub };
       } else {

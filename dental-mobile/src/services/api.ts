@@ -8,6 +8,43 @@ const BASE_URL = 'https://api.smartdentaldesk.com/api/v1';
 
 export const API_BASE_URL = BASE_URL;
 
+/**
+ * Exchange the stored refresh token for a fresh access token. Uses a bare axios
+ * call (not the `api` instance) so it never recurses through this interceptor.
+ * Single-flight: concurrent 401s share one in-flight refresh.
+ */
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const { refreshToken } = useAuthStore.getState();
+  if (!refreshToken) return null;
+  try {
+    const res = await axios.post(
+      `${BASE_URL}/auth/refresh`,
+      { refresh_token: refreshToken },
+      { headers: { 'Content-Type': 'application/json' }, timeout: 15000 },
+    );
+    // Backend wraps success responses as { success, data }
+    const data = res.data?.data ?? res.data;
+    const newAccess: string | undefined = data?.access_token;
+    if (!newAccess) return null;
+    await useAuthStore.getState().setTokens(newAccess, data?.refresh_token ?? refreshToken);
+    return newAccess;
+  } catch {
+    return null;
+  }
+}
+
+function getFreshAccessToken(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = refreshAccessToken();
+    void refreshPromise.finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
+
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
@@ -39,11 +76,26 @@ api.interceptors.response.use(
     }
     return response;
   },
-  (error) => {
+  async (error) => {
     const reqUrl: string = error.config?.url ?? '';
-    const isAuthEndpoint = reqUrl.includes('/auth/lookup') || reqUrl.includes('/auth/login');
+    const isAuthEndpoint =
+      reqUrl.includes('/auth/lookup') ||
+      reqUrl.includes('/auth/login') ||
+      reqUrl.includes('/auth/refresh');
 
     if (error.response?.status === 401 && !isAuthEndpoint) {
+      const original = error.config;
+      // Try a silent token refresh once before treating the session as dead.
+      if (original && !original._retry) {
+        original._retry = true;
+        const newToken = await getFreshAccessToken();
+        if (newToken) {
+          original.headers = original.headers ?? {};
+          original.headers.Authorization = `Bearer ${newToken}`;
+          return api(original);
+        }
+      }
+      // Refresh unavailable or failed → session truly expired.
       if (!isShowingSessionExpiredAlert) {
         isShowingSessionExpiredAlert = true;
         Alert.alert(
