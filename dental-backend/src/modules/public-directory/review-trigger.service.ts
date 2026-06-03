@@ -179,10 +179,17 @@ export class ReviewTriggerService {
         category: MessageCategory.TRANSACTIONAL,
         template_id: template.id,
         variables: {
+          // Named keys (for internal template rendering)
           patient_name: patient.first_name,
           clinic_name: clinic.name,
           review_url: reviewUrl,
           clinic_phone: clinicPhone,
+          // Numbered keys — {{1}} patient {{2}} clinic {{3}} review_url {{4}} phone
+          // Required by Meta API for positional template parameters
+          '1': patient.first_name,
+          '2': clinic.name,
+          '3': reviewUrl,
+          '4': clinicPhone,
         },
         metadata: { automation: 'post_visit_review', source, appointment_id: appointmentId ?? undefined },
       });

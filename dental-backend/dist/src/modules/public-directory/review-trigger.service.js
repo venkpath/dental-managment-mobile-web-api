@@ -141,6 +141,10 @@ let ReviewTriggerService = ReviewTriggerService_1 = class ReviewTriggerService {
                     clinic_name: clinic.name,
                     review_url: reviewUrl,
                     clinic_phone: clinicPhone,
+                    '1': patient.first_name,
+                    '2': clinic.name,
+                    '3': reviewUrl,
+                    '4': clinicPhone,
                 },
                 metadata: { automation: 'post_visit_review', source, appointment_id: appointmentId ?? undefined },
             });
