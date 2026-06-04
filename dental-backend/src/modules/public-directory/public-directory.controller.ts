@@ -672,6 +672,23 @@ export class PublicDirectoryController {
     };
   }
 
+  // ── GET /public/directory/sitemap — lightweight clinic list for sitemap.xml ──
+  // Declared before :clinicId so the static "sitemap" segment matches first.
+  // Returns every directory-listed clinic (no page-size cap, cheap select) so
+  // the frontend sitemap can include all clinic profile URLs.
+  @Get('sitemap')
+  @Public()
+  @ApiOperation({ summary: 'List all directory-listed clinics (id + updated_at) for sitemap generation' })
+  async listForSitemap(@Res({ passthrough: true }) res: Response) {
+    res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+    const clinics = await this.prisma.clinic.findMany({
+      where: { listed_in_directory: true, is_suspended: false },
+      select: { id: true, updated_at: true },
+      orderBy: { created_at: 'desc' },
+    });
+    return { data: clinics };
+  }
+
   // ── GET /public/directory/:clinicId — full clinic detail ──
   @Get(':clinicId')
   @Public()
