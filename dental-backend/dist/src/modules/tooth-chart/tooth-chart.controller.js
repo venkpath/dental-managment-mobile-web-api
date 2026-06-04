@@ -34,6 +34,9 @@ let ToothChartController = class ToothChartController {
     async getPatientToothChart(clinicId, patientId) {
         return this.toothChartService.getPatientToothChart(clinicId, patientId);
     }
+    async getChartPdfUrl(clinicId, patientId) {
+        return this.toothChartService.getChartPdfUrl(clinicId, patientId);
+    }
     async createCondition(clinicId, dto) {
         return this.toothChartService.createCondition(clinicId, dto);
     }
@@ -72,6 +75,18 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], ToothChartController.prototype, "getPatientToothChart", null);
+__decorate([
+    (0, common_1.Get)('patients/:patientId/dental-chart/pdf'),
+    (0, swagger_1.ApiOperation)({ summary: 'Generate a standalone dental-chart PDF and return a signed S3 URL' }),
+    (0, swagger_1.ApiOkResponse)({ description: 'Signed URL to the dental-chart PDF' }),
+    (0, swagger_1.ApiNotFoundResponse)({ description: 'Patient not found in this clinic' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('patientId', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], ToothChartController.prototype, "getChartPdfUrl", null);
 __decorate([
     (0, common_1.Post)('patient-tooth-condition'),
     (0, swagger_1.ApiOperation)({ summary: 'Add a tooth condition for a patient' }),

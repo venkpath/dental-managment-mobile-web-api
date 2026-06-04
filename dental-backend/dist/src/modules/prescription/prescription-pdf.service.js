@@ -13,6 +13,7 @@ exports.PrescriptionPdfService = void 0;
 const common_1 = require("@nestjs/common");
 const pdfkit_1 = __importDefault(require("pdfkit"));
 const name_util_js_1 = require("../../common/utils/name.util.js");
+const dental_chart_pdf_util_js_1 = require("../tooth-chart/dental-chart-pdf.util.js");
 const ACCENT = '#0d6efd';
 const TEXT_HEAD = '#0d1b2a';
 const TEXT_BODY = '#1f2937';
@@ -372,6 +373,7 @@ let PrescriptionPdfService = class PrescriptionPdfService {
             if (email) {
                 doc.text(email, M + colWf * 2, footerY, { width: colWf, align: 'right' });
             }
+            this.appendDentalChartPage(doc, data);
             doc.end();
         });
     }
@@ -652,7 +654,21 @@ let PrescriptionPdfService = class PrescriptionPdfService {
                         .text(`Reg No. ${data.dentist.license_number}`, bodyX, cursorY, { width: bodyW, align: 'right' });
                 }
             }
+            this.appendDentalChartPage(doc, data);
             doc.end();
+        });
+    }
+    appendDentalChartPage(doc, data) {
+        const chart = data.dental_chart;
+        if (!chart || !chart.png)
+            return;
+        doc.addPage({ size: 'A4', margin: 0 });
+        (0, dental_chart_pdf_util_js_1.drawDentalChartPage)(doc, {
+            clinicName: data.clinic.name,
+            patientName: `${data.patient.first_name} ${data.patient.last_name}`,
+            png: chart.png,
+            conditions: chart.conditions,
+            generatedAt: new Date(chart.generated_at ?? data.created_at),
         });
     }
 };

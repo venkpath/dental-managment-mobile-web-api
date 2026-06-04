@@ -99,9 +99,22 @@ export interface PrescriptionPdfData {
         imageBuffer: Buffer;
         withBackground: boolean;
     };
+    dental_chart?: {
+        png: Buffer;
+        conditions: Array<{
+            fdi: number;
+            tooth_name?: string | null;
+            condition: string;
+            surface?: string | null;
+            severity?: string | null;
+            notes?: string | null;
+        }>;
+        generated_at?: Date;
+    };
 }
 export declare class PrescriptionPdfService {
     generate(data: PrescriptionPdfData): Promise<Buffer>;
     private generateDefault;
     private generateCustomTemplate;
+    private appendDentalChartPage;
 }

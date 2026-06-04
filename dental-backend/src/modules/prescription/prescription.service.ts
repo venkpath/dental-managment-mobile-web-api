@@ -12,6 +12,7 @@ import {
   PrescriptionPdfService,
   type PrescriptionTemplateConfig,
 } from './prescription-pdf.service.js';
+import { renderToothChartPng, type ChartCondition } from '../tooth-chart/dental-chart-svg.util.js';
 import { S3Service } from '../../common/services/s3.service.js';
 import { formatDoctorName } from '../../common/utils/name.util.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
@@ -163,13 +164,15 @@ export class PrescriptionService {
   async getPdfUrl(
     clinicId: string,
     id: string,
-    options: { withBackground?: boolean } = {},
+    options: { withBackground?: boolean; withDentalChart?: boolean } = {},
   ): Promise<{ url: string }> {
     // `withBackground` only matters for clinics on a custom notepad template.
     // - true  (default): render letterhead image + text → for digital sharing (WhatsApp, email)
     // - false: render text only → for clinics feeding their physical pre-printed pad
     //          through the printer (don't double-print the letterhead).
     const withBackground = options.withBackground !== false;
+    // `withDentalChart` appends the patient's dental chart as an extra page.
+    const withDentalChart = options.withDentalChart === true;
     const prescription = await this.findOne(clinicId, id);
     const clinic = await this.prisma.clinic.findUnique({
       where: { id: clinicId },
@@ -225,6 +228,13 @@ export class PrescriptionService {
       }
     }
 
+    // When requested, pull the patient's tooth conditions and pre-rasterise the
+    // dental chart so the PDF service can append it as a page synchronously.
+    let dentalChart: Awaited<ReturnType<PrescriptionService['buildDentalChartPayload']>> | undefined;
+    if (withDentalChart) {
+      dentalChart = await this.buildDentalChartPayload(clinicId, prescription.patient_id);
+    }
+
     const pdfBuffer = await this.pdfService.generate({
       id: prescription.id,
       created_at: prescription.created_at,
@@ -273,6 +283,7 @@ export class PrescriptionService {
       items: (prescription as any).items ?? [],
       treatments: visitTreatments,
       template: templatePayload,
+      dental_chart: dentalChart,
     });
 
     // Key the S3 object by the bg mode AND whether a template is in use, so
@@ -281,10 +292,47 @@ export class PrescriptionService {
     const variant = templatePayload
       ? (withBackground ? 'tmpl-bg' : 'tmpl-nobg')
       : 'default';
-    const key = `clinics/${clinicId}/prescriptions/${id}/prescription-${variant}.pdf`;
+    // Chart-inclusive PDFs get their own cache key so they never collide with
+    // the plain prescription PDF. They're also never cached stale across chart
+    // edits because we re-upload on each request (overwrites the same key).
+    const chartSuffix = withDentalChart ? '-chart' : '';
+    const key = `clinics/${clinicId}/prescriptions/${id}/prescription-${variant}${chartSuffix}.pdf`;
     await this.s3Service.upload(key, pdfBuffer, 'application/pdf');
     const url = await this.s3Service.getSignedUrl(key);
     return { url };
+  }
+
+  /**
+   * Fetch a patient's tooth conditions and rasterise the dental chart, returning
+   * the payload consumed by the PDF service to append a chart page.
+   */
+  private async buildDentalChartPayload(clinicId: string, patientId: string) {
+    const conditions = await this.prisma.patientToothCondition.findMany({
+      where: { clinic_id: clinicId, patient_id: patientId },
+      include: { tooth: true, surface: true },
+      orderBy: { created_at: 'desc' },
+    });
+
+    const chartConditions: ChartCondition[] = conditions.map((c) => ({
+      fdi: (c as any).tooth?.fdi_number,
+      condition: c.condition,
+      surface: (c as any).surface?.name ?? null,
+    }));
+
+    const png = await renderToothChartPng(chartConditions);
+
+    return {
+      png,
+      generated_at: new Date(),
+      conditions: conditions.map((c) => ({
+        fdi: (c as any).tooth?.fdi_number,
+        tooth_name: (c as any).tooth?.name ?? null,
+        condition: c.condition,
+        surface: (c as any).surface?.name ?? null,
+        severity: c.severity ?? null,
+        notes: c.notes ?? null,
+      })),
+    };
   }
 
   async sendWhatsApp(clinicId: string, id: string): Promise<{ message: string }> {

@@ -1,9 +1,14 @@
 import { PrismaService } from '../../database/prisma.service.js';
+import { S3Service } from '../../common/services/s3.service.js';
 import { CreateToothConditionDto, UpdateToothConditionDto } from './dto/index.js';
 import { PatientToothCondition } from '@prisma/client';
 export declare class ToothChartService {
     private readonly prisma;
-    constructor(prisma: PrismaService);
+    private readonly s3Service;
+    constructor(prisma: PrismaService, s3Service: S3Service);
+    getChartPdfUrl(clinicId: string, patientId: string): Promise<{
+        url: string;
+    }>;
     getTeeth(): Promise<{
         id: string;
         name: string;
@@ -55,10 +60,10 @@ export declare class ToothChartService {
             clinic_id: string;
             branch_id: string;
             notes: string | null;
-            patient_id: string;
-            clinical_visit_id: string | null;
             condition: string;
             severity: string | null;
+            patient_id: string;
+            clinical_visit_id: string | null;
             tooth_id: string;
             surface_id: string | null;
             diagnosed_by: string;

@@ -189,6 +189,12 @@ let AutomationService = AutomationService_1 = class AutomationService {
                 config: {},
             },
             {
+                rule_type: 'followup_reminder',
+                is_enabled: false,
+                channel: 'preferred',
+                config: { advance_days: 3, remind_on_day: true },
+            },
+            {
                 rule_type: 'appointment_confirmation_dentist',
                 is_enabled: true,
                 channel: 'whatsapp',
@@ -228,7 +234,7 @@ let AutomationService = AutomationService_1 = class AutomationService {
             'payment_reminder', 'feedback_collection', 'appointment_reminder_patient',
             'appointment_confirmation', 'appointment_cancellation', 'appointment_rescheduled',
             'payment_confirmation', 'invoice_ready', 'payment_overdue',
-            'prescription_ready',
+            'prescription_ready', 'followup_reminder',
         ];
     }
 };

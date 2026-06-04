@@ -21,9 +21,11 @@ export declare class PrescriptionService {
     update(clinicId: string, id: string, dto: UpdatePrescriptionDto): Promise<Prescription>;
     getPdfUrl(clinicId: string, id: string, options?: {
         withBackground?: boolean;
+        withDentalChart?: boolean;
     }): Promise<{
         url: string;
     }>;
+    private buildDentalChartPayload;
     sendWhatsApp(clinicId: string, id: string): Promise<{
         message: string;
     }>;

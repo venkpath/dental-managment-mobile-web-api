@@ -86,10 +86,10 @@ export declare class ClinicalVisitService {
             clinic_id: string;
             branch_id: string;
             notes: string | null;
-            patient_id: string;
-            clinical_visit_id: string | null;
             condition: string;
             severity: string | null;
+            patient_id: string;
+            clinical_visit_id: string | null;
             tooth_id: string;
             surface_id: string | null;
             diagnosed_by: string;
@@ -239,10 +239,10 @@ export declare class ClinicalVisitService {
         history_of_present_illness: string | null;
         medical_history_notes: string | null;
         examination_notes: string | null;
-        review_after_date: Date | null;
-        diagnosis_summary: string | null;
         vital_signs: Prisma.JsonValue | null;
+        diagnosis_summary: string | null;
         soap_notes: Prisma.JsonValue | null;
+        review_after_date: Date | null;
         finalized_at: Date | null;
     }>;
     findByPatient(clinicId: string, patientId: string): Promise<ClinicalVisit[]>;
@@ -380,10 +380,10 @@ export declare class ClinicalVisitService {
             history_of_present_illness: string | null;
             medical_history_notes: string | null;
             examination_notes: string | null;
-            review_after_date: Date | null;
-            diagnosis_summary: string | null;
             vital_signs: Prisma.JsonValue | null;
+            diagnosis_summary: string | null;
             soap_notes: Prisma.JsonValue | null;
+            review_after_date: Date | null;
             finalized_at: Date | null;
         } | null;
     } & {

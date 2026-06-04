@@ -10,13 +10,14 @@ exports.ToothChartModule = void 0;
 const common_1 = require("@nestjs/common");
 const tooth_chart_controller_js_1 = require("./tooth-chart.controller.js");
 const tooth_chart_service_js_1 = require("./tooth-chart.service.js");
+const s3_service_js_1 = require("../../common/services/s3.service.js");
 let ToothChartModule = class ToothChartModule {
 };
 exports.ToothChartModule = ToothChartModule;
 exports.ToothChartModule = ToothChartModule = __decorate([
     (0, common_1.Module)({
         controllers: [tooth_chart_controller_js_1.ToothChartController],
-        providers: [tooth_chart_service_js_1.ToothChartService],
+        providers: [tooth_chart_service_js_1.ToothChartService, s3_service_js_1.S3Service],
         exports: [tooth_chart_service_js_1.ToothChartService],
     })
 ], ToothChartModule);

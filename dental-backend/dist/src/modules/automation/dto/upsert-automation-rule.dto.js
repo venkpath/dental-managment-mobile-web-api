@@ -62,6 +62,7 @@ exports.AUTOMATION_RULE_TYPES = [
     'appointment_reminder_patient',
     'anniversary_greeting',
     'prescription_refill',
+    'followup_reminder',
     'appointment_confirmation',
     'appointment_cancellation',
     'appointment_rescheduled',

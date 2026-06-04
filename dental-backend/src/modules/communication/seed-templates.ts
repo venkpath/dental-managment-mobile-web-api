@@ -213,6 +213,18 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
     variables: ['patient_name', 'prescription_date', 'medicine_name', 'clinic_name', 'clinic_phone'],
     language: 'en',
   },
+  {
+    // Consultation follow-up reminder — used by the `followup_reminder`
+    // automation for both touchpoints (advance nudge + day-of). The copy
+    // references {{review_date}} so it reads correctly for either timing.
+    channel: 'all',
+    category: 'follow_up',
+    template_name: 'Follow-Up Reminder',
+    subject: 'Your follow-up visit at {{clinic_name}}',
+    body: 'Hi {{patient_name}}, this is a reminder from {{clinic_name}} about your dental follow-up on {{review_date}}. Please book your next appointment here: {{booking_url}}. For any assistance, call us at {{clinic_phone}}.',
+    variables: ['patient_name', 'clinic_name', 'review_date', 'booking_url', 'clinic_phone'],
+    language: 'en',
+  },
 
   // ─── Reactivation ───
   {
@@ -573,6 +585,29 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
     variables: { body: ['patient_name', 'clinic_name', 'phone'], buttons: [] },
     language: 'en',
     sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic', phone: '9876543210' },
+  },
+
+  // ── 6b. Follow-Up Reminder (consultation review date) ──
+  // Sent by the `followup_reminder` automation for both touchpoints — an
+  // advance nudge (default 3 days before) and one on the review date itself.
+  // The booking link is inline in the body (same pattern as
+  // review_request_post_visit), so no URL button is required.
+  //
+  // Meta registration:
+  //   Template name : followup_reminder
+  //   Category      : UTILITY
+  //   Language      : English (en)
+  //   Header (text) : Follow-up Reminder
+  //   Variables     : {{1}} patient_name · {{2}} clinic_name · {{3}} review_date · {{4}} booking_url · {{5}} phone
+  {
+    channel: 'whatsapp',
+    category: 'utility',
+    template_name: 'followup_reminder',
+    subject: 'Follow-up Reminder', // WhatsApp text header
+    body: 'Hi {{patient_name}},\n\nThis is a reminder from *{{clinic_name}}* that your dental follow-up is due on *{{review_date}}*.\n\nNeed help? Call us at *{{phone}}*.\n\nBook your appointment here:\n{{booking_url}}\n\nThank you!',
+    variables: { body: ['patient_name', 'clinic_name', 'review_date', 'phone', 'booking_url'], buttons: [] },
+    language: 'en',
+    sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic', review_date: '20 Jun 2026', phone: '9876543210', booking_url: 'https://www.smartdentaldesk.com/booking/clinic-id/branch-id' },
   },
 
   // ── 7. Treatment Reminder ──

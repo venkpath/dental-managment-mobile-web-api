@@ -6,6 +6,7 @@ import { MessageChannel, MessageCategory } from '../communication/dto/send-messa
 import { AutomationService } from './automation.service.js';
 import { ClinicEventsService } from '../clinic-events/clinic-events.service.js';
 import { formatDoctorName } from '../../common/utils/name.util.js';
+import { getBookingUrl } from '../../common/utils/booking-url.util.js';
 
 @Injectable()
 export class AutomationCronService {
@@ -1015,7 +1016,157 @@ export class AutomationCronService {
     this.logger.log(`Prescription refill reminder automation completed. Total sent: ${totalSent}`);
   }
 
+  // ─── Follow-up Reminders (review_after_date on consultation) — Daily at 9:15 AM ───
+
+  @Cron('0 15 9 * * *')
+  async followUpReminders(): Promise<void> {
+    this.logger.log('Running follow-up reminder automation...');
+    let totalSent = 0;
+
+    try {
+      const clinics = await this.getActiveClinics();
+
+      for (const clinic of clinics) {
+        try {
+          const rule = await this.automationService.getRuleConfig(clinic.id, 'followup_reminder');
+          if (!rule?.is_enabled) continue;
+
+          const config = (rule.config as Record<string, unknown>) || {};
+          const advanceDays = typeof config.advance_days === 'number' ? config.advance_days : 3;
+          const remindOnDay = config.remind_on_day !== false;
+
+          // Build the set of (window, kind) pairs to check today. The advance
+          // nudge fires `advanceDays` before the review date; the day-of fires
+          // on the date itself. Skip the advance window when it would coincide
+          // with the day-of window to avoid double-sending.
+          const windows: { kind: 'advance' | 'day_of'; offset: number }[] = [];
+          if (advanceDays > 0) windows.push({ kind: 'advance', offset: advanceDays });
+          if (remindOnDay) windows.push({ kind: 'day_of', offset: 0 });
+          if (windows.length === 0) continue;
+
+          // Resolve the per-channel templates once per clinic. We always try to
+          // send on BOTH WhatsApp and Email — the dedicated WhatsApp template is
+          // required for delivery outside the 24h session window.
+          const [waTemplate, emailTemplate] = await Promise.all([
+            this.findSystemOrClinicTemplate(clinic.id, 'followup_reminder', 'whatsapp'),
+            this.findSystemOrClinicTemplate(clinic.id, 'Follow-Up Reminder', 'all'),
+          ]);
+
+          for (const { kind, offset } of windows) {
+            const start = new Date();
+            start.setHours(0, 0, 0, 0);
+            start.setDate(start.getDate() + offset);
+            const end = new Date(start);
+            end.setDate(end.getDate() + 1);
+
+            const visits = await this.prisma.clinicalVisit.findMany({
+              where: {
+                clinic_id: clinic.id,
+                status: { in: ['in_progress', 'finalized'] },
+                review_after_date: { gte: start, lt: end },
+              },
+              include: {
+                patient: { select: { id: true, first_name: true, last_name: true, phone: true, email: true } },
+                branch: { select: { book_now_url: true } },
+              },
+            });
+
+            for (const visit of visits) {
+              const bookingUrl = getBookingUrl(clinic.id, visit.branch_id, visit.branch?.book_now_url);
+              const reviewDate = this.formatDate(visit.review_after_date as Date);
+              const clinicPhone = clinic.phone || '';
+              const patientName = `${visit.patient.first_name} ${visit.patient.last_name}`;
+
+              // Shared variable map — named keys feed the email template render,
+              // numbered keys {{1}}–{{5}} feed the Meta WhatsApp template.
+              const variables: Record<string, string> = {
+                patient_name: patientName,
+                patient_first_name: visit.patient.first_name,
+                clinic_name: clinic.name,
+                review_date: reviewDate,
+                booking_url: bookingUrl,
+                link: bookingUrl,
+                phone: clinicPhone,
+                clinic_phone: clinicPhone,
+                // {{1}} patient · {{2}} clinic · {{3}} review_date · {{4}} booking_url · {{5}} phone
+                '1': patientName,
+                '2': clinic.name,
+                '3': reviewDate,
+                '4': bookingUrl,
+                '5': clinicPhone,
+              };
+
+              const fallbackBody = `Hi ${visit.patient.first_name}, this is a reminder from ${clinic.name} that your dental follow-up is due on ${reviewDate}. Please book your next appointment here: ${bookingUrl}. For any assistance, call us at ${clinicPhone}.`;
+              const metadata = { automation: 'followup_reminder', clinical_visit_id: visit.id, kind };
+
+              // ── WhatsApp (if patient has a phone) ──
+              if (visit.patient.phone) {
+                try {
+                  await this.communicationService.sendMessage(clinic.id, {
+                    patient_id: visit.patient_id,
+                    channel: MessageChannel.WHATSAPP,
+                    category: MessageCategory.TRANSACTIONAL,
+                    template_id: waTemplate?.id ?? undefined,
+                    body: waTemplate ? undefined : fallbackBody,
+                    variables,
+                    metadata,
+                  });
+                  totalSent++;
+                } catch (e) {
+                  this.logger.warn(`Follow-up WhatsApp failed for visit ${visit.id}: ${(e as Error).message}`);
+                }
+              }
+
+              // ── Email (only if the patient has an email on file) ──
+              if (visit.patient.email) {
+                try {
+                  await this.communicationService.sendMessage(clinic.id, {
+                    patient_id: visit.patient_id,
+                    channel: MessageChannel.EMAIL,
+                    category: MessageCategory.TRANSACTIONAL,
+                    template_id: emailTemplate?.id ?? undefined,
+                    subject: emailTemplate ? undefined : `Your follow-up visit at ${clinic.name}`,
+                    body: emailTemplate ? undefined : fallbackBody,
+                    variables,
+                    metadata,
+                  });
+                  totalSent++;
+                } catch (e) {
+                  this.logger.warn(`Follow-up email failed for visit ${visit.id}: ${(e as Error).message}`);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          this.logger.error(`Follow-up reminder error for clinic ${clinic.id}: ${(e as Error).message}`);
+        }
+      }
+    } catch (e) {
+      this.logger.error(`Follow-up reminder cron failed: ${(e as Error).message}`, (e as Error).stack);
+    }
+
+    this.logger.log(`Follow-up reminder automation completed. Total sent: ${totalSent}`);
+  }
+
   // ─── Helpers ───
+
+  /**
+   * Find a message template by name + channel for a clinic, preferring a
+   * clinic-specific override over the shared system template (clinic_id null).
+   * Returns null when neither exists (e.g. the seed hasn't been run, or the
+   * WhatsApp template isn't approved yet).
+   */
+  private async findSystemOrClinicTemplate(clinicId: string, templateName: string, channel: string) {
+    const rows = await this.prisma.messageTemplate.findMany({
+      where: {
+        template_name: templateName,
+        channel,
+        is_active: true,
+        OR: [{ clinic_id: clinicId }, { clinic_id: null }],
+      },
+    });
+    return rows.find((t) => t.clinic_id === clinicId) ?? rows.find((t) => t.clinic_id === null) ?? null;
+  }
 
   private async getActiveClinics() {
     return this.prisma.clinic.findMany({
