@@ -556,6 +556,7 @@ export class SuperAdminService {
       subject: `Your Smart Dental Desk account for "${clinic.name}" is approved`,
       body: `Your clinic ${clinic.name} has been approved. Sign in at ${loginUrl}`,
       html,
+      clinicId: PLATFORM_CLINIC_ID,
     });
   }
 
@@ -563,6 +564,7 @@ export class SuperAdminService {
     if (!this.ensureEmailConfigured()) return;
     await this.emailProvider.send({
       to,
+      clinicId: PLATFORM_CLINIC_ID,
       subject: `Update on your Smart Dental Desk application — ${clinicName}`,
       body: `We were unable to approve your application for ${clinicName}. Reason: ${reason}. Contact support@smartdentaldesk.com for assistance.`,
       html: `
@@ -707,6 +709,7 @@ export class SuperAdminService {
       subject: `Your clinic "${clinic.name}" is now live on Smart Dental Desk`,
       body: `Your clinic "${clinic.name}" is now live on Smart Dental Desk. View your profile or activate your free trial at ${claimUrl}`,
       html,
+      clinicId: PLATFORM_CLINIC_ID,
     });
   }
 

@@ -1,6 +1,6 @@
 import type { Request } from 'express';
 import { PlatformBillingService } from './platform-billing.service.js';
-import { CancelInvoiceDto, CreateManualInvoiceDto, MarkPaidOfflineDto } from './dto/create-manual-invoice.dto.js';
+import { CancelPlatformInvoiceDto, CreateManualInvoiceDto, MarkPaidOfflineDto } from './dto/create-manual-invoice.dto.js';
 declare class ListAllInvoicesQueryDto {
     status?: string;
     clinic_id?: string;
@@ -139,7 +139,7 @@ export declare class PlatformBillingSuperAdminController {
         invoiceId: string;
         payLinkUrl: string | null;
     }>;
-    cancel(id: string, dto: CancelInvoiceDto): Promise<{
+    cancel(id: string, dto: CancelPlatformInvoiceDto): Promise<{
         id: string;
         status: string;
         created_at: Date;

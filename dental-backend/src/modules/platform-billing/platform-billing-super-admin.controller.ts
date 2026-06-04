@@ -6,7 +6,7 @@ import { IsIn, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-valid
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { SuperAdmin } from '../../common/decorators/super-admin.decorator.js';
 import { PlatformBillingService } from './platform-billing.service.js';
-import { CancelInvoiceDto, CreateManualInvoiceDto, MarkPaidOfflineDto } from './dto/create-manual-invoice.dto.js';
+import { CancelPlatformInvoiceDto, CreateManualInvoiceDto, MarkPaidOfflineDto } from './dto/create-manual-invoice.dto.js';
 
 class ListAllInvoicesQueryDto {
   @ApiPropertyOptional({ enum: ['draft', 'due', 'overdue', 'paid', 'failed', 'cancelled', 'refunded'] })
@@ -120,7 +120,7 @@ export class PlatformBillingSuperAdminController {
   @Post(':id/cancel')
   @SuperAdmin()
   @ApiOperation({ summary: 'Cancel a draft / due / overdue invoice (voids the Pay link)' })
-  cancel(@Param('id') id: string, @Body() dto: CancelInvoiceDto) {
+  cancel(@Param('id') id: string, @Body() dto: CancelPlatformInvoiceDto) {
     return this.billing.cancelInvoice(id, { reason: dto.reason });
   }
 

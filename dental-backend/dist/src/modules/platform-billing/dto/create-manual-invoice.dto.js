@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MarkPaidOfflineDto = exports.CancelInvoiceDto = exports.CreateManualInvoiceDto = void 0;
+exports.MarkPaidOfflineDto = exports.CancelPlatformInvoiceDto = exports.CreateManualInvoiceDto = void 0;
 const openapi = require("@nestjs/swagger");
 const swagger_1 = require("@nestjs/swagger");
 const class_transformer_1 = require("class-transformer");
@@ -83,20 +83,20 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], CreateManualInvoiceDto.prototype, "send_immediately", void 0);
-class CancelInvoiceDto {
+class CancelPlatformInvoiceDto {
     reason;
     static _OPENAPI_METADATA_FACTORY() {
         return { reason: { required: false, type: () => String, maxLength: 500 } };
     }
 }
-exports.CancelInvoiceDto = CancelInvoiceDto;
+exports.CancelPlatformInvoiceDto = CancelPlatformInvoiceDto;
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Reason for cancellation (appended to invoice notes).' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(500),
     __metadata("design:type", String)
-], CancelInvoiceDto.prototype, "reason", void 0);
+], CancelPlatformInvoiceDto.prototype, "reason", void 0);
 class MarkPaidOfflineDto {
     payment_reference;
     note;

@@ -9,7 +9,7 @@ export declare class CreateManualInvoiceDto {
     notes?: string;
     send_immediately?: boolean;
 }
-export declare class CancelInvoiceDto {
+export declare class CancelPlatformInvoiceDto {
     reason?: string;
 }
 export declare class MarkPaidOfflineDto {

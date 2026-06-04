@@ -49,7 +49,7 @@ export class CreateManualInvoiceDto {
   send_immediately?: boolean;
 }
 
-export class CancelInvoiceDto {
+export class CancelPlatformInvoiceDto {
   @ApiPropertyOptional({ description: 'Reason for cancellation (appended to invoice notes).' })
   @IsOptional()
   @IsString()
