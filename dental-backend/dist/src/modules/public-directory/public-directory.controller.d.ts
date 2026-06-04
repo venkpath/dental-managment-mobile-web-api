@@ -118,11 +118,9 @@ export declare class PublicDirectoryController {
         };
     }>;
     listForSitemap(res: Response): Promise<{
-        data: {
-            id: string;
-            updated_at: Date;
-        }[];
-    }>;
+        id: string;
+        updated_at: Date;
+    }[]>;
     getClinicDetail(clinicId: string): Promise<{
         branches: {
             photo_url: string | null;
