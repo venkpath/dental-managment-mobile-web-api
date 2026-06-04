@@ -686,7 +686,9 @@ export class PublicDirectoryController {
       select: { id: true, updated_at: true },
       orderBy: { created_at: 'desc' },
     });
-    return { data: clinics };
+    // Return a bare array — the global response interceptor wraps it as
+    // { success, data: [...] }, so the consumer reads it at `data`.
+    return clinics;
   }
 
   // ── GET /public/directory/:clinicId — full clinic detail ──

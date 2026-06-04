@@ -715,7 +715,7 @@ let PublicDirectoryController = class PublicDirectoryController {
             select: { id: true, updated_at: true },
             orderBy: { created_at: 'desc' },
         });
-        return { data: clinics };
+        return clinics;
     }
     async getClinicDetail(clinicId) {
         const clinic = await this.prisma.clinic.findUnique({
