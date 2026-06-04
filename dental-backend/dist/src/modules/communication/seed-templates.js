@@ -188,6 +188,15 @@ const DEFAULT_TEMPLATES = [
     },
     {
         channel: 'all',
+        category: 'follow_up',
+        template_name: 'Follow-Up Reminder',
+        subject: 'Your follow-up visit at {{clinic_name}}',
+        body: 'Hi {{patient_name}}, this is a reminder from {{clinic_name}} about your dental follow-up on {{review_date}}. Please book your next appointment here: {{booking_url}}. For any assistance, call us at {{clinic_phone}}.',
+        variables: ['patient_name', 'clinic_name', 'review_date', 'booking_url', 'clinic_phone'],
+        language: 'en',
+    },
+    {
+        channel: 'all',
         category: 'campaign',
         template_name: 'Reactivation - Gentle Reminder',
         subject: 'We miss you at {{clinic_name}}!',
@@ -491,6 +500,16 @@ const DEFAULT_TEMPLATES = [
         variables: { body: ['patient_name', 'clinic_name', 'phone'], buttons: [] },
         language: 'en',
         sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic', phone: '9876543210' },
+    },
+    {
+        channel: 'whatsapp',
+        category: 'utility',
+        template_name: 'followup_reminder',
+        subject: 'Follow-up Reminder',
+        body: 'Hi {{patient_name}},\n\nThis is a reminder from *{{clinic_name}}* that your dental follow-up is due on *{{review_date}}*.\n\nNeed help? Call us at *{{phone}}*.\n\nBook your appointment here:\n{{booking_url}}\n\nThank you!',
+        variables: { body: ['patient_name', 'clinic_name', 'review_date', 'phone', 'booking_url'], buttons: [] },
+        language: 'en',
+        sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic', review_date: '20 Jun 2026', phone: '9876543210', booking_url: 'https://www.smartdentaldesk.com/booking/clinic-id/branch-id' },
     },
     {
         channel: 'whatsapp',

@@ -22,6 +22,8 @@ export declare class AutomationCronService {
     googleReviewSolicitation(): Promise<void>;
     patientAnniversaryGreeting(): Promise<void>;
     prescriptionRefillReminder(): Promise<void>;
+    followUpReminders(): Promise<void>;
+    private findSystemOrClinicTemplate;
     private getActiveClinics;
     private formatDate;
     private formatAmount;

@@ -103,16 +103,18 @@ export class PrescriptionController {
   @ApiOperation({
     summary: 'Generate prescription PDF and return a signed S3 URL',
     description:
-      'Pass `bg=0` to render text-only output for printing on a clinic\'s pre-printed physical notepad (no letterhead overlay). Default is `bg=1` (digital, with letterhead). Only affects branches with a custom template configured.',
+      'Pass `bg=0` to render text-only output for printing on a clinic\'s pre-printed physical notepad (no letterhead overlay). Default is `bg=1` (digital, with letterhead). Only affects branches with a custom template configured. Pass `chart=1` to append the patient\'s dental chart as an extra page.',
   })
   @ApiOkResponse({ description: 'Signed URL to prescription PDF' })
   async getPdfUrl(
     @CurrentClinic() clinicId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Query('bg') bg?: string,
+    @Query('chart') chart?: string,
   ) {
     const withBackground = bg !== '0' && bg !== 'false';
-    return this.prescriptionService.getPdfUrl(clinicId, id, { withBackground });
+    const withDentalChart = chart === '1' || chart === 'true';
+    return this.prescriptionService.getPdfUrl(clinicId, id, { withBackground, withDentalChart });
   }
 
   @Post('prescriptions/:id/send-whatsapp')

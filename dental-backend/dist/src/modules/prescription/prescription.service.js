@@ -19,6 +19,7 @@ const communication_service_js_1 = require("../communication/communication.servi
 const automation_service_js_1 = require("../automation/automation.service.js");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
 const prescription_pdf_service_js_1 = require("./prescription-pdf.service.js");
+const dental_chart_svg_util_js_1 = require("../tooth-chart/dental-chart-svg.util.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
 const name_util_js_1 = require("../../common/utils/name.util.js");
 const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
@@ -148,6 +149,7 @@ let PrescriptionService = class PrescriptionService {
     }
     async getPdfUrl(clinicId, id, options = {}) {
         const withBackground = options.withBackground !== false;
+        const withDentalChart = options.withDentalChart === true;
         const prescription = await this.findOne(clinicId, id);
         const clinic = await this.prisma.clinic.findUnique({
             where: { id: clinicId },
@@ -188,6 +190,10 @@ let PrescriptionService = class PrescriptionService {
                     withBackground,
                 };
             }
+        }
+        let dentalChart;
+        if (withDentalChart) {
+            dentalChart = await this.buildDentalChartPayload(clinicId, prescription.patient_id);
         }
         const pdfBuffer = await this.pdfService.generate({
             id: prescription.id,
@@ -237,14 +243,41 @@ let PrescriptionService = class PrescriptionService {
             items: prescription.items ?? [],
             treatments: visitTreatments,
             template: templatePayload,
+            dental_chart: dentalChart,
         });
         const variant = templatePayload
             ? (withBackground ? 'tmpl-bg' : 'tmpl-nobg')
             : 'default';
-        const key = `clinics/${clinicId}/prescriptions/${id}/prescription-${variant}.pdf`;
+        const chartSuffix = withDentalChart ? '-chart' : '';
+        const key = `clinics/${clinicId}/prescriptions/${id}/prescription-${variant}${chartSuffix}.pdf`;
         await this.s3Service.upload(key, pdfBuffer, 'application/pdf');
         const url = await this.s3Service.getSignedUrl(key);
         return { url };
+    }
+    async buildDentalChartPayload(clinicId, patientId) {
+        const conditions = await this.prisma.patientToothCondition.findMany({
+            where: { clinic_id: clinicId, patient_id: patientId },
+            include: { tooth: true, surface: true },
+            orderBy: { created_at: 'desc' },
+        });
+        const chartConditions = conditions.map((c) => ({
+            fdi: c.tooth?.fdi_number,
+            condition: c.condition,
+            surface: c.surface?.name ?? null,
+        }));
+        const png = await (0, dental_chart_svg_util_js_1.renderToothChartPng)(chartConditions);
+        return {
+            png,
+            generated_at: new Date(),
+            conditions: conditions.map((c) => ({
+                fdi: c.tooth?.fdi_number,
+                tooth_name: c.tooth?.name ?? null,
+                condition: c.condition,
+                surface: c.surface?.name ?? null,
+                severity: c.severity ?? null,
+                notes: c.notes ?? null,
+            })),
+        };
     }
     async sendWhatsApp(clinicId, id) {
         const prescription = await this.findOne(clinicId, id);

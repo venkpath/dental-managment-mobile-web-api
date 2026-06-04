@@ -54,10 +54,10 @@ export declare class ToothChartController {
             clinic_id: string;
             branch_id: string;
             notes: string | null;
-            patient_id: string;
-            clinical_visit_id: string | null;
             condition: string;
             severity: string | null;
+            patient_id: string;
+            clinical_visit_id: string | null;
             tooth_id: string;
             surface_id: string | null;
             diagnosed_by: string;
@@ -87,6 +87,9 @@ export declare class ToothChartController {
             diagnosis: string;
         })[];
     }>;
+    getChartPdfUrl(clinicId: string, patientId: string): Promise<{
+        url: string;
+    }>;
     createCondition(clinicId: string, dto: CreateToothConditionDto): Promise<{
         id: string;
         created_at: Date;
@@ -94,10 +97,10 @@ export declare class ToothChartController {
         clinic_id: string;
         branch_id: string;
         notes: string | null;
-        patient_id: string;
-        clinical_visit_id: string | null;
         condition: string;
         severity: string | null;
+        patient_id: string;
+        clinical_visit_id: string | null;
         tooth_id: string;
         surface_id: string | null;
         diagnosed_by: string;
@@ -109,10 +112,10 @@ export declare class ToothChartController {
         clinic_id: string;
         branch_id: string;
         notes: string | null;
-        patient_id: string;
-        clinical_visit_id: string | null;
         condition: string;
         severity: string | null;
+        patient_id: string;
+        clinical_visit_id: string | null;
         tooth_id: string;
         surface_id: string | null;
         diagnosed_by: string;

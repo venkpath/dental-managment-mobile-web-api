@@ -19,6 +19,7 @@ const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js"
 const automation_service_js_1 = require("./automation.service.js");
 const clinic_events_service_js_1 = require("../clinic-events/clinic-events.service.js");
 const name_util_js_1 = require("../../common/utils/name.util.js");
+const booking_url_util_js_1 = require("../../common/utils/booking-url.util.js");
 let AutomationCronService = AutomationCronService_1 = class AutomationCronService {
     prisma;
     communicationService;
@@ -889,6 +890,128 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
         }
         this.logger.log(`Prescription refill reminder automation completed. Total sent: ${totalSent}`);
     }
+    async followUpReminders() {
+        this.logger.log('Running follow-up reminder automation...');
+        let totalSent = 0;
+        try {
+            const clinics = await this.getActiveClinics();
+            for (const clinic of clinics) {
+                try {
+                    const rule = await this.automationService.getRuleConfig(clinic.id, 'followup_reminder');
+                    if (!rule?.is_enabled)
+                        continue;
+                    const config = rule.config || {};
+                    const advanceDays = typeof config.advance_days === 'number' ? config.advance_days : 3;
+                    const remindOnDay = config.remind_on_day !== false;
+                    const windows = [];
+                    if (advanceDays > 0)
+                        windows.push({ kind: 'advance', offset: advanceDays });
+                    if (remindOnDay)
+                        windows.push({ kind: 'day_of', offset: 0 });
+                    if (windows.length === 0)
+                        continue;
+                    const [waTemplate, emailTemplate] = await Promise.all([
+                        this.findSystemOrClinicTemplate(clinic.id, 'followup_reminder', 'whatsapp'),
+                        this.findSystemOrClinicTemplate(clinic.id, 'Follow-Up Reminder', 'all'),
+                    ]);
+                    for (const { kind, offset } of windows) {
+                        const start = new Date();
+                        start.setHours(0, 0, 0, 0);
+                        start.setDate(start.getDate() + offset);
+                        const end = new Date(start);
+                        end.setDate(end.getDate() + 1);
+                        const visits = await this.prisma.clinicalVisit.findMany({
+                            where: {
+                                clinic_id: clinic.id,
+                                status: { in: ['in_progress', 'finalized'] },
+                                review_after_date: { gte: start, lt: end },
+                            },
+                            include: {
+                                patient: { select: { id: true, first_name: true, last_name: true, phone: true, email: true } },
+                                branch: { select: { book_now_url: true } },
+                            },
+                        });
+                        for (const visit of visits) {
+                            const bookingUrl = (0, booking_url_util_js_1.getBookingUrl)(clinic.id, visit.branch_id, visit.branch?.book_now_url);
+                            const reviewDate = this.formatDate(visit.review_after_date);
+                            const clinicPhone = clinic.phone || '';
+                            const patientName = `${visit.patient.first_name} ${visit.patient.last_name}`;
+                            const variables = {
+                                patient_name: patientName,
+                                patient_first_name: visit.patient.first_name,
+                                clinic_name: clinic.name,
+                                review_date: reviewDate,
+                                booking_url: bookingUrl,
+                                link: bookingUrl,
+                                phone: clinicPhone,
+                                clinic_phone: clinicPhone,
+                                '1': patientName,
+                                '2': clinic.name,
+                                '3': reviewDate,
+                                '4': bookingUrl,
+                                '5': clinicPhone,
+                            };
+                            const fallbackBody = `Hi ${visit.patient.first_name}, this is a reminder from ${clinic.name} that your dental follow-up is due on ${reviewDate}. Please book your next appointment here: ${bookingUrl}. For any assistance, call us at ${clinicPhone}.`;
+                            const metadata = { automation: 'followup_reminder', clinical_visit_id: visit.id, kind };
+                            if (visit.patient.phone) {
+                                try {
+                                    await this.communicationService.sendMessage(clinic.id, {
+                                        patient_id: visit.patient_id,
+                                        channel: send_message_dto_js_1.MessageChannel.WHATSAPP,
+                                        category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
+                                        template_id: waTemplate?.id ?? undefined,
+                                        body: waTemplate ? undefined : fallbackBody,
+                                        variables,
+                                        metadata,
+                                    });
+                                    totalSent++;
+                                }
+                                catch (e) {
+                                    this.logger.warn(`Follow-up WhatsApp failed for visit ${visit.id}: ${e.message}`);
+                                }
+                            }
+                            if (visit.patient.email) {
+                                try {
+                                    await this.communicationService.sendMessage(clinic.id, {
+                                        patient_id: visit.patient_id,
+                                        channel: send_message_dto_js_1.MessageChannel.EMAIL,
+                                        category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
+                                        template_id: emailTemplate?.id ?? undefined,
+                                        subject: emailTemplate ? undefined : `Your follow-up visit at ${clinic.name}`,
+                                        body: emailTemplate ? undefined : fallbackBody,
+                                        variables,
+                                        metadata,
+                                    });
+                                    totalSent++;
+                                }
+                                catch (e) {
+                                    this.logger.warn(`Follow-up email failed for visit ${visit.id}: ${e.message}`);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (e) {
+                    this.logger.error(`Follow-up reminder error for clinic ${clinic.id}: ${e.message}`);
+                }
+            }
+        }
+        catch (e) {
+            this.logger.error(`Follow-up reminder cron failed: ${e.message}`, e.stack);
+        }
+        this.logger.log(`Follow-up reminder automation completed. Total sent: ${totalSent}`);
+    }
+    async findSystemOrClinicTemplate(clinicId, templateName, channel) {
+        const rows = await this.prisma.messageTemplate.findMany({
+            where: {
+                template_name: templateName,
+                channel,
+                is_active: true,
+                OR: [{ clinic_id: clinicId }, { clinic_id: null }],
+            },
+        });
+        return rows.find((t) => t.clinic_id === clinicId) ?? rows.find((t) => t.clinic_id === null) ?? null;
+    }
     async getActiveClinics() {
         return this.prisma.clinic.findMany({
             where: { subscription_status: { in: ['active', 'trial'] } },
@@ -1037,6 +1160,12 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], AutomationCronService.prototype, "prescriptionRefillReminder", null);
+__decorate([
+    (0, schedule_1.Cron)('0 15 9 * * *'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AutomationCronService.prototype, "followUpReminders", null);
 exports.AutomationCronService = AutomationCronService = AutomationCronService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,

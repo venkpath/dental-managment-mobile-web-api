@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import { formatDoctorName } from '../../common/utils/name.util.js';
+import { drawDentalChartPage } from '../tooth-chart/dental-chart-pdf.util.js';
 
 // Monochrome palette — single thin accent line, the rest is black on white
 // with hairlines and a tinted patient card. Mirrors the Medicover sample.
@@ -140,6 +141,21 @@ export interface PrescriptionPdfData {
     config: PrescriptionTemplateConfig;
     imageBuffer: Buffer;
     withBackground: boolean;
+  };
+  /** When set, a dental-chart page is appended to the prescription PDF. The
+   *  chart image is pre-rasterised (so this stays sync inside PDFKit) and the
+   *  condition list is printed as a table beneath it. */
+  dental_chart?: {
+    png: Buffer;
+    conditions: Array<{
+      fdi: number;
+      tooth_name?: string | null;
+      condition: string;
+      surface?: string | null;
+      severity?: string | null;
+      notes?: string | null;
+    }>;
+    generated_at?: Date;
   };
 }
 
@@ -613,6 +629,8 @@ export class PrescriptionPdfService {
         doc.text(email, M + colWf * 2, footerY, { width: colWf, align: 'right' });
       }
 
+      this.appendDentalChartPage(doc, data);
+
       doc.end();
     });
   }
@@ -955,7 +973,28 @@ export class PrescriptionPdfService {
         }
       }
 
+      this.appendDentalChartPage(doc, data);
+
       doc.end();
+    });
+  }
+
+  /**
+   * Append a dental-chart page to the prescription PDF. No-op when no chart
+   * data was supplied. The chart image is pre-rasterised by the caller; here
+   * we lay it out with a heading, colour legend, and a conditions table.
+   */
+  private appendDentalChartPage(doc: PDFKit.PDFDocument, data: PrescriptionPdfData): void {
+    const chart = data.dental_chart;
+    if (!chart || !chart.png) return;
+
+    doc.addPage({ size: 'A4', margin: 0 });
+    drawDentalChartPage(doc, {
+      clinicName: data.clinic.name,
+      patientName: `${data.patient.first_name} ${data.patient.last_name}`,
+      png: chart.png,
+      conditions: chart.conditions,
+      generatedAt: new Date(chart.generated_at ?? data.created_at),
     });
   }
 }

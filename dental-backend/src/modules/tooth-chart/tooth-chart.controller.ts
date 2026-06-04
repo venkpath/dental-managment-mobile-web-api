@@ -55,6 +55,17 @@ export class ToothChartController {
     return this.toothChartService.getPatientToothChart(clinicId, patientId);
   }
 
+  @Get('patients/:patientId/dental-chart/pdf')
+  @ApiOperation({ summary: 'Generate a standalone dental-chart PDF and return a signed S3 URL' })
+  @ApiOkResponse({ description: 'Signed URL to the dental-chart PDF' })
+  @ApiNotFoundResponse({ description: 'Patient not found in this clinic' })
+  async getChartPdfUrl(
+    @CurrentClinic() clinicId: string,
+    @Param('patientId', ParseUUIDPipe) patientId: string,
+  ) {
+    return this.toothChartService.getChartPdfUrl(clinicId, patientId);
+  }
+
   @Post('patient-tooth-condition')
   @ApiOperation({ summary: 'Add a tooth condition for a patient' })
   @ApiCreatedResponse({ description: 'Tooth condition created successfully' })

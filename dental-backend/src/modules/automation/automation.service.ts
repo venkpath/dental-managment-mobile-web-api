@@ -202,6 +202,16 @@ export class AutomationService {
         channel: 'whatsapp',
         config: {},
       },
+      {
+        // Follow-up reminder: nudges the patient to re-book around the
+        // review/follow-up date set on their consultation. Off by default —
+        // each clinic opts in from the Automation tab. Sends an advance
+        // reminder `advance_days` before the date AND one on the day itself.
+        rule_type: 'followup_reminder',
+        is_enabled: false,
+        channel: 'preferred',
+        config: { advance_days: 3, remind_on_day: true },
+      },
       // ── Dentist-side notifications ──
       {
         rule_type: 'appointment_confirmation_dentist',
@@ -254,7 +264,7 @@ export class AutomationService {
       'payment_reminder', 'feedback_collection', 'appointment_reminder_patient',
       'appointment_confirmation', 'appointment_cancellation', 'appointment_rescheduled',
       'payment_confirmation', 'invoice_ready', 'payment_overdue',
-      'prescription_ready',
+      'prescription_ready', 'followup_reminder',
     ];
   }
 }

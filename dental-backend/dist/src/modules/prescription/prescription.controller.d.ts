@@ -84,7 +84,7 @@ export declare class PrescriptionController {
         dietary_advice: string | null;
         post_procedure_instructions: string | null;
     }>;
-    getPdfUrl(clinicId: string, id: string, bg?: string): Promise<{
+    getPdfUrl(clinicId: string, id: string, bg?: string, chart?: string): Promise<{
         url: string;
     }>;
     sendWhatsApp(clinicId: string, id: string): Promise<{

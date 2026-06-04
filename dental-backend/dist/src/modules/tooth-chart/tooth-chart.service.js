@@ -8,10 +8,17 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ToothChartService = void 0;
 const common_1 = require("@nestjs/common");
+const pdfkit_1 = __importDefault(require("pdfkit"));
 const prisma_service_js_1 = require("../../database/prisma.service.js");
+const s3_service_js_1 = require("../../common/services/s3.service.js");
+const dental_chart_svg_util_js_1 = require("./dental-chart-svg.util.js");
+const dental_chart_pdf_util_js_1 = require("./dental-chart-pdf.util.js");
 const CONDITION_INCLUDE = {
     tooth: true,
     surface: true,
@@ -19,8 +26,64 @@ const CONDITION_INCLUDE = {
 };
 let ToothChartService = class ToothChartService {
     prisma;
-    constructor(prisma) {
+    s3Service;
+    constructor(prisma, s3Service) {
         this.prisma = prisma;
+        this.s3Service = s3Service;
+    }
+    async getChartPdfUrl(clinicId, patientId) {
+        const patient = await this.prisma.patient.findUnique({ where: { id: patientId } });
+        if (!patient || patient.clinic_id !== clinicId) {
+            throw new common_1.NotFoundException(`Patient with ID "${patientId}" not found in this clinic`);
+        }
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: { name: true },
+        });
+        const conditions = await this.prisma.patientToothCondition.findMany({
+            where: { clinic_id: clinicId, patient_id: patientId },
+            include: { tooth: true, surface: true },
+            orderBy: { created_at: 'desc' },
+        });
+        const chartConditions = conditions.map((c) => ({
+            fdi: c.tooth?.fdi_number,
+            condition: c.condition,
+            surface: c.surface?.name ?? null,
+        }));
+        const png = await (0, dental_chart_svg_util_js_1.renderToothChartPng)(chartConditions);
+        const pdfBuffer = await new Promise((resolve, reject) => {
+            const doc = new pdfkit_1.default({
+                size: 'A4',
+                margin: 0,
+                info: {
+                    Title: `Dental Chart — ${patient.first_name} ${patient.last_name}`,
+                    Author: clinic?.name ?? 'Clinic',
+                },
+            });
+            const chunks = [];
+            doc.on('data', (chunk) => chunks.push(chunk));
+            doc.on('end', () => resolve(Buffer.concat(chunks)));
+            doc.on('error', reject);
+            (0, dental_chart_pdf_util_js_1.drawDentalChartPage)(doc, {
+                clinicName: clinic?.name ?? 'Clinic',
+                patientName: `${patient.first_name} ${patient.last_name}`,
+                png,
+                generatedAt: new Date(),
+                conditions: conditions.map((c) => ({
+                    fdi: c.tooth?.fdi_number,
+                    tooth_name: c.tooth?.name ?? null,
+                    condition: c.condition,
+                    surface: c.surface?.name ?? null,
+                    severity: c.severity ?? null,
+                    notes: c.notes ?? null,
+                })),
+            });
+            doc.end();
+        });
+        const key = `clinics/${clinicId}/patients/${patientId}/dental-chart.pdf`;
+        await this.s3Service.upload(key, pdfBuffer, 'application/pdf');
+        const url = await this.s3Service.getSignedUrl(key);
+        return { url };
     }
     async getTeeth() {
         return this.prisma.tooth.findMany({ orderBy: { fdi_number: 'asc' } });
@@ -121,6 +184,7 @@ let ToothChartService = class ToothChartService {
 exports.ToothChartService = ToothChartService;
 exports.ToothChartService = ToothChartService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
+        s3_service_js_1.S3Service])
 ], ToothChartService);
 //# sourceMappingURL=tooth-chart.service.js.map
