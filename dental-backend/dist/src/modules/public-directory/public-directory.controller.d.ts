@@ -117,6 +117,12 @@ export declare class PublicDirectoryController {
             total_pages: number;
         };
     }>;
+    listForSitemap(res: Response): Promise<{
+        data: {
+            id: string;
+            updated_at: Date;
+        }[];
+    }>;
     getClinicDetail(clinicId: string): Promise<{
         branches: {
             photo_url: string | null;

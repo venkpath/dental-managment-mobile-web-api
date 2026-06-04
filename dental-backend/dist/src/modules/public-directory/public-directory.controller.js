@@ -708,6 +708,15 @@ let PublicDirectoryController = class PublicDirectoryController {
             meta: { total, page, limit, total_pages: Math.ceil(total / limit) },
         };
     }
+    async listForSitemap(res) {
+        res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+        const clinics = await this.prisma.clinic.findMany({
+            where: { listed_in_directory: true, is_suspended: false },
+            select: { id: true, updated_at: true },
+            orderBy: { created_at: 'desc' },
+        });
+        return { data: clinics };
+    }
     async getClinicDetail(clinicId) {
         const clinic = await this.prisma.clinic.findUnique({
             where: { id: clinicId, listed_in_directory: true, is_suspended: false },
@@ -1294,6 +1303,16 @@ __decorate([
     __metadata("design:paramtypes", [DirectorySearchQuery, Object]),
     __metadata("design:returntype", Promise)
 ], PublicDirectoryController.prototype, "searchClinics", null);
+__decorate([
+    (0, common_1.Get)('sitemap'),
+    (0, public_decorator_js_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List all directory-listed clinics (id + updated_at) for sitemap generation' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Res)({ passthrough: true })),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], PublicDirectoryController.prototype, "listForSitemap", null);
 __decorate([
     (0, common_1.Get)(':clinicId'),
     (0, public_decorator_js_1.Public)(),
