@@ -18,6 +18,11 @@ export const PLATFORM_TEMPLATE_NAMES = [
   'platform_subscription_renewal_reminder',
   'platform_subscription_expired',
   'platform_final_payment_reminder',
+  // Clinic-signup lifecycle — sent from the platform WABA to the clinic admin
+  // (and our internal alert number), never authored or submitted by a clinic.
+  'clinic_signup_received',
+  'clinic_signup_approved',
+  'clinic_signup_admin_alert',
   // Legacy placeholder names (kept here so any pre-existing seed rows in
   // dev/staging DBs remain hidden from clinic UI).
   'dental_subscription_trial_ending',

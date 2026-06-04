@@ -10,6 +10,7 @@ import { AuditLogService } from '../audit-log/audit-log.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { SmsProvider } from '../communication/providers/sms.provider.js';
 import { EmailProvider } from '../communication/providers/email.provider.js';
+import { WhatsAppProvider } from '../communication/providers/whatsapp.provider.js';
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
 import { JwtPayload, RefreshJwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 import type { StringValue } from 'ms';
@@ -66,6 +67,7 @@ export class AuthService {
     private readonly communicationService: CommunicationService,
     private readonly smsProvider: SmsProvider,
     private readonly emailProvider: EmailProvider,
+    private readonly whatsapp: WhatsAppProvider,
   ) {}
 
   /** Long-lived token that can only be exchanged for a new access token at /auth/refresh. */
@@ -533,6 +535,19 @@ export class AuthService {
       this.logger.warn(`Failed to send onboarding admin alert email: ${err.message}`),
     );
 
+    // Fire-and-forget signup WhatsApp (acknowledgement to admin + internal alert)
+    this.sendSignupReceivedWhatsApp(dto.admin_phone, result.admin.name, result.clinic.name).catch((err) =>
+      this.logger.warn(`Failed to send signup received WhatsApp: ${err.message}`),
+    );
+    this.sendSignupAdminAlertWhatsApp(
+      result.clinic.name,
+      result.admin.name,
+      result.admin.email,
+      dto.admin_phone,
+    ).catch((err) =>
+      this.logger.warn(`Failed to send signup admin alert WhatsApp: ${err.message}`),
+    );
+
     return {
       clinic: {
         id: result.clinic.id,
@@ -819,6 +834,52 @@ export class AuthService {
 
     this.logger.warn('SMTP not configured — onboarding emails will be skipped');
     return false;
+  }
+
+  /** Ensure the platform WhatsApp provider is configured from env vars */
+  private ensurePlatformWhatsAppConfigured(): boolean {
+    if (this.whatsapp.isConfigured(PLATFORM_CLINIC_ID)) return true;
+
+    const accessToken = this.configService.get<string>('app.whatsapp.accessToken');
+    const phoneNumberId = this.configService.get<string>('app.whatsapp.phoneNumberId');
+    if (accessToken && phoneNumberId) {
+      this.whatsapp.configure(PLATFORM_CLINIC_ID, {
+        accessToken,
+        phoneNumberId,
+        wabaId: this.configService.get<string>('app.whatsapp.wabaId') || '',
+      }, 'meta-cloud-env');
+      return true;
+    }
+
+    this.logger.warn('WhatsApp not configured — clinic-signup WhatsApp messages will be skipped');
+    return false;
+  }
+
+  /** WhatsApp: acknowledge a self-signup is received and under review */
+  private async sendSignupReceivedWhatsApp(phone: string | null, adminName: string, clinicName: string) {
+    if (!phone || !this.ensurePlatformWhatsAppConfigured()) return;
+    await this.whatsapp.send({
+      to: phone,
+      body: `Hi ${adminName}, thank you for signing up ${clinicName} on Smart Dental Desk! Your application is under review.`,
+      templateId: 'clinic_signup_received',
+      variables: { '1': adminName, '2': clinicName },
+      language: 'en',
+      clinicId: PLATFORM_CLINIC_ID,
+    });
+  }
+
+  /** WhatsApp: internal alert to the platform team about a new signup */
+  private async sendSignupAdminAlertWhatsApp(clinicName: string, adminName: string, email: string, phone: string | null) {
+    if (!this.ensurePlatformWhatsAppConfigured()) return;
+    const adminPhone = this.configService.get<string>('app.adminWhatsappPhone', '916366767512');
+    await this.whatsapp.send({
+      to: adminPhone,
+      body: `New clinic signup: ${clinicName} — ${adminName} (${email}, ${phone ?? 'no phone'})`,
+      templateId: 'clinic_signup_admin_alert',
+      variables: { '1': clinicName, '2': adminName, '3': email, '4': phone ?? 'Not provided' },
+      language: 'en',
+      clinicId: PLATFORM_CLINIC_ID,
+    });
   }
 
   // ─── Email Verification (13.1) ───

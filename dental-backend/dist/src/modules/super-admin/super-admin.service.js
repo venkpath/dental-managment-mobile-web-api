@@ -16,22 +16,67 @@ const config_1 = require("@nestjs/config");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const password_service_js_1 = require("../../common/services/password.service.js");
 const email_provider_js_1 = require("../communication/providers/email.provider.js");
+const whatsapp_provider_js_1 = require("../communication/providers/whatsapp.provider.js");
 const PLATFORM_CLINIC_ID = '__platform__';
 let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
     prisma;
     passwordService;
     emailProvider;
+    whatsapp;
     config;
     logger = new common_1.Logger(SuperAdminService_1.name);
     adminEmail;
+    adminPhone;
     frontendUrl;
-    constructor(prisma, passwordService, emailProvider, config) {
+    constructor(prisma, passwordService, emailProvider, whatsapp, config) {
         this.prisma = prisma;
         this.passwordService = passwordService;
         this.emailProvider = emailProvider;
+        this.whatsapp = whatsapp;
         this.config = config;
         this.adminEmail = this.config.get('app.adminEmail', 'prasanthshanmugam10@gmail.com');
+        this.adminPhone = this.config.get('app.adminWhatsappPhone', '916366767512');
         this.frontendUrl = this.config.get('app.frontendUrl', 'http://localhost:3001');
+    }
+    ensureWhatsAppConfigured() {
+        if (this.whatsapp.isConfigured(PLATFORM_CLINIC_ID))
+            return true;
+        const accessToken = this.config.get('app.whatsapp.accessToken');
+        const phoneNumberId = this.config.get('app.whatsapp.phoneNumberId');
+        if (accessToken && phoneNumberId) {
+            this.whatsapp.configure(PLATFORM_CLINIC_ID, {
+                accessToken,
+                phoneNumberId,
+                wabaId: this.config.get('app.whatsapp.wabaId') || '',
+            }, 'meta-cloud-env');
+            return true;
+        }
+        this.logger.warn('WhatsApp not configured — clinic-signup WhatsApp messages will be skipped');
+        return false;
+    }
+    async sendSignupApprovedWhatsApp(phone, adminName, clinicName) {
+        if (!phone || !this.ensureWhatsAppConfigured())
+            return;
+        await this.whatsapp.send({
+            to: phone,
+            body: `Your clinic ${clinicName} has been approved on Smart Dental Desk. Sign in at ${this.frontendUrl}/login`,
+            templateId: 'clinic_signup_approved',
+            variables: { '1': adminName, '2': clinicName },
+            language: 'en',
+            clinicId: PLATFORM_CLINIC_ID,
+        });
+    }
+    async sendSignupAdminAlertWhatsApp(clinicName, adminName, email, phone) {
+        if (!this.ensureWhatsAppConfigured())
+            return;
+        await this.whatsapp.send({
+            to: this.adminPhone,
+            body: `New clinic signup: ${clinicName} — ${adminName} (${email}, ${phone})`,
+            templateId: 'clinic_signup_admin_alert',
+            variables: { '1': clinicName, '2': adminName, '3': email, '4': phone || 'Not provided' },
+            language: 'en',
+            clinicId: PLATFORM_CLINIC_ID,
+        });
     }
     ensureEmailConfigured() {
         if (this.emailProvider.isConfigured(PLATFORM_CLINIC_ID))
@@ -242,6 +287,8 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
             admin_email: result.admin.email,
             created_at: result.clinic.created_at,
         }).catch((err) => this.logger.warn(`Failed to send onboarding admin alert email: ${err.message}`));
+        this.sendSignupApprovedWhatsApp(dto.admin_phone, result.admin.name, result.clinic.name).catch((err) => this.logger.warn(`Onboarding approval WhatsApp failed: ${err.message}`));
+        this.sendSignupAdminAlertWhatsApp(result.clinic.name, result.admin.name, result.admin.email, dto.admin_phone).catch((err) => this.logger.warn(`Onboarding admin alert WhatsApp failed: ${err.message}`));
         return result;
     }
     async sendOnboardingWelcomeEmail(data) {
@@ -370,7 +417,10 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
         });
     }
     async approveSignup(id, planKey) {
-        const clinic = await this.prisma.clinic.findUnique({ where: { id } });
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id },
+            include: { users: { where: { role: 'SuperAdmin' }, take: 1 } },
+        });
         if (!clinic)
             throw new common_1.NotFoundException('Clinic not found');
         if (clinic.subscription_status !== 'pending') {
@@ -400,6 +450,9 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
         if (clinic.email) {
             this.sendSignupApprovedEmail(clinic).catch((err) => this.logger.warn(`Signup approval email failed: ${err.message}`));
         }
+        const admin = clinic.users[0];
+        const adminPhone = admin?.phone ?? clinic.phone;
+        this.sendSignupApprovedWhatsApp(adminPhone, admin?.name ?? clinic.name, clinic.name).catch((err) => this.logger.warn(`Signup approval WhatsApp failed: ${err.message}`));
         return { approved: true, clinic_name: clinic.name, status: targetStatus };
     }
     async rejectSignup(id, reason) {
@@ -852,6 +905,7 @@ exports.SuperAdminService = SuperAdminService = SuperAdminService_1 = __decorate
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         password_service_js_1.PasswordService,
         email_provider_js_1.EmailProvider,
+        whatsapp_provider_js_1.WhatsAppProvider,
         config_1.ConfigService])
 ], SuperAdminService);
 //# sourceMappingURL=super-admin.service.js.map

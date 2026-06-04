@@ -22,6 +22,7 @@ const audit_log_service_js_1 = require("../audit-log/audit-log.service.js");
 const communication_service_js_1 = require("../communication/communication.service.js");
 const sms_provider_js_1 = require("../communication/providers/sms.provider.js");
 const email_provider_js_1 = require("../communication/providers/email.provider.js");
+const whatsapp_provider_js_1 = require("../communication/providers/whatsapp.provider.js");
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
 const name_util_js_1 = require("../../common/utils/name.util.js");
 const PLATFORM_CLINIC_ID = '__platform__';
@@ -36,12 +37,13 @@ let AuthService = class AuthService {
     communicationService;
     smsProvider;
     emailProvider;
+    whatsapp;
     logger = new common_1.Logger(AuthService_1.name);
     otpStore = new Map();
     regOtpStore = new Map();
     regOtpSendTracker = new Map();
     static META_GRAPH_API = 'https://graph.facebook.com/v21.0';
-    constructor(userService, passwordService, jwtService, configService, prisma, auditLogService, communicationService, smsProvider, emailProvider) {
+    constructor(userService, passwordService, jwtService, configService, prisma, auditLogService, communicationService, smsProvider, emailProvider, whatsapp) {
         this.userService = userService;
         this.passwordService = passwordService;
         this.jwtService = jwtService;
@@ -51,6 +53,7 @@ let AuthService = class AuthService {
         this.communicationService = communicationService;
         this.smsProvider = smsProvider;
         this.emailProvider = emailProvider;
+        this.whatsapp = whatsapp;
     }
     async signRefreshToken(userId, clinicId) {
         const payload = { sub: userId, type: 'refresh', clinic_id: clinicId };
@@ -433,6 +436,8 @@ let AuthService = class AuthService {
             admin_email: result.admin.email,
             created_at: result.clinic.created_at,
         }).catch((err) => this.logger.warn(`Failed to send onboarding admin alert email: ${err.message}`));
+        this.sendSignupReceivedWhatsApp(dto.admin_phone, result.admin.name, result.clinic.name).catch((err) => this.logger.warn(`Failed to send signup received WhatsApp: ${err.message}`));
+        this.sendSignupAdminAlertWhatsApp(result.clinic.name, result.admin.name, result.admin.email, dto.admin_phone).catch((err) => this.logger.warn(`Failed to send signup admin alert WhatsApp: ${err.message}`));
         return {
             clinic: {
                 id: result.clinic.id,
@@ -679,6 +684,47 @@ let AuthService = class AuthService {
         }
         this.logger.warn('SMTP not configured — onboarding emails will be skipped');
         return false;
+    }
+    ensurePlatformWhatsAppConfigured() {
+        if (this.whatsapp.isConfigured(PLATFORM_CLINIC_ID))
+            return true;
+        const accessToken = this.configService.get('app.whatsapp.accessToken');
+        const phoneNumberId = this.configService.get('app.whatsapp.phoneNumberId');
+        if (accessToken && phoneNumberId) {
+            this.whatsapp.configure(PLATFORM_CLINIC_ID, {
+                accessToken,
+                phoneNumberId,
+                wabaId: this.configService.get('app.whatsapp.wabaId') || '',
+            }, 'meta-cloud-env');
+            return true;
+        }
+        this.logger.warn('WhatsApp not configured — clinic-signup WhatsApp messages will be skipped');
+        return false;
+    }
+    async sendSignupReceivedWhatsApp(phone, adminName, clinicName) {
+        if (!phone || !this.ensurePlatformWhatsAppConfigured())
+            return;
+        await this.whatsapp.send({
+            to: phone,
+            body: `Hi ${adminName}, thank you for signing up ${clinicName} on Smart Dental Desk! Your application is under review.`,
+            templateId: 'clinic_signup_received',
+            variables: { '1': adminName, '2': clinicName },
+            language: 'en',
+            clinicId: PLATFORM_CLINIC_ID,
+        });
+    }
+    async sendSignupAdminAlertWhatsApp(clinicName, adminName, email, phone) {
+        if (!this.ensurePlatformWhatsAppConfigured())
+            return;
+        const adminPhone = this.configService.get('app.adminWhatsappPhone', '916366767512');
+        await this.whatsapp.send({
+            to: adminPhone,
+            body: `New clinic signup: ${clinicName} — ${adminName} (${email}, ${phone ?? 'no phone'})`,
+            templateId: 'clinic_signup_admin_alert',
+            variables: { '1': clinicName, '2': adminName, '3': email, '4': phone ?? 'Not provided' },
+            language: 'en',
+            clinicId: PLATFORM_CLINIC_ID,
+        });
     }
     async sendVerificationEmail(userId, clinicId) {
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -1176,6 +1222,7 @@ exports.AuthService = AuthService = AuthService_1 = __decorate([
         audit_log_service_js_1.AuditLogService,
         communication_service_js_1.CommunicationService,
         sms_provider_js_1.SmsProvider,
-        email_provider_js_1.EmailProvider])
+        email_provider_js_1.EmailProvider,
+        whatsapp_provider_js_1.WhatsAppProvider])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map
