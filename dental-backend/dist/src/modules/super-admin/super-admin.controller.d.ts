@@ -4,7 +4,7 @@ import { SuperAdminAuthService } from './super-admin-auth.service.js';
 import { SuperAdminWhatsAppService } from './super-admin-whatsapp.service.js';
 import { DailySummaryCronService } from '../reports/daily-summary.cron.js';
 import { InactivityCronService } from './inactivity.cron.js';
-import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto, UpdateClinicLimitsDto, UpdateClinicFeaturesDto, SetClinicCustomPriceDto } from './dto/index.js';
+import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto, UpdateClinicLimitsDto, UpdateClinicFeaturesDto, SetClinicCustomPriceDto, UpdateDirectoryFeaturedDto, ReorderFeaturedClinicsDto } from './dto/index.js';
 import { ClinicService } from '../clinic/clinic.service.js';
 import { ClinicFeatureService } from '../feature/clinic-feature.service.js';
 import { UpdateSubscriptionDto } from '../clinic/dto/index.js';
@@ -112,6 +112,10 @@ export declare class SuperAdminController {
             review_secret: string | null;
             is_directory_only: boolean;
             directory_contact_name: string | null;
+            directory_featured: boolean;
+            directory_featured_order: number | null;
+            directory_verification_document_url: string | null;
+            directory_verification_document_type: string | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -194,6 +198,10 @@ export declare class SuperAdminController {
             review_secret: string | null;
             is_directory_only: boolean;
             directory_contact_name: string | null;
+            directory_featured: boolean;
+            directory_featured_order: number | null;
+            directory_verification_document_url: string | null;
+            directory_verification_document_type: string | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -271,6 +279,10 @@ export declare class SuperAdminController {
             review_secret: string | null;
             is_directory_only: boolean;
             directory_contact_name: string | null;
+            directory_featured: boolean;
+            directory_featured_order: number | null;
+            directory_verification_document_url: string | null;
+            directory_verification_document_type: string | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -353,7 +365,35 @@ export declare class SuperAdminController {
         specialties: string | null;
         is_directory_only: boolean;
         directory_contact_name: string | null;
+        directory_verification_document_url: string | null;
+        directory_verification_document_type: string | null;
     }[]>;
+    getDirectoryVerificationDocument(id: string): Promise<{
+        clinic_id: string;
+        clinic_name: string;
+        document_type: string | null;
+        url: string;
+        content_type: string;
+        is_pdf: boolean;
+    }>;
+    listFeaturedDirectoryClinics(): Promise<{
+        id: string;
+        name: string;
+        city: string | null;
+        state: string | null;
+        listed_in_directory: boolean;
+        directory_featured_order: number | null;
+        is_suspended: boolean;
+    }[]>;
+    listFeaturedDirectoryCandidates(search?: string): Promise<{
+        id: string;
+        name: string;
+        city: string | null;
+        state: string | null;
+    }[]>;
+    reorderFeaturedDirectoryClinics(dto: ReorderFeaturedClinicsDto): Promise<{
+        reordered: number;
+    }>;
     getWhatsAppConnectRequests(status?: 'pending' | 'all'): Promise<{
         id: string;
         email: string;
@@ -505,6 +545,10 @@ export declare class SuperAdminController {
         review_secret: string | null;
         is_directory_only: boolean;
         directory_contact_name: string | null;
+        directory_featured: boolean;
+        directory_featured_order: number | null;
+        directory_verification_document_url: string | null;
+        directory_verification_document_type: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -574,6 +618,10 @@ export declare class SuperAdminController {
         review_secret: string | null;
         is_directory_only: boolean;
         directory_contact_name: string | null;
+        directory_featured: boolean;
+        directory_featured_order: number | null;
+        directory_verification_document_url: string | null;
+        directory_verification_document_type: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -635,6 +683,12 @@ export declare class SuperAdminController {
     }): Promise<{
         rejected: boolean;
         clinic_name: string;
+    }>;
+    updateDirectoryFeatured(id: string, dto: UpdateDirectoryFeaturedDto): Promise<{
+        id: string;
+        name: string;
+        directory_featured: boolean;
+        directory_featured_order: number | null;
     }>;
     setWhatsAppConnectAccess(id: string, body: {
         approved: boolean;

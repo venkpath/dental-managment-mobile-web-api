@@ -6,6 +6,7 @@ import { WhatsAppProvider } from '../communication/providers/whatsapp.provider.j
 import { CreateSuperAdminDto } from './dto/index.js';
 import { SuperAdmin } from '@prisma/client';
 import { AutomationService } from '../automation/automation.service.js';
+import { S3Service } from '../../common/services/s3.service.js';
 export declare class SuperAdminService {
     private readonly prisma;
     private readonly passwordService;
@@ -13,11 +14,12 @@ export declare class SuperAdminService {
     private readonly whatsapp;
     private readonly config;
     private readonly automationService;
+    private readonly s3;
     private readonly logger;
     private readonly adminEmail;
     private readonly adminPhone;
     private readonly frontendUrl;
-    constructor(prisma: PrismaService, passwordService: PasswordService, emailProvider: EmailProvider, whatsapp: WhatsAppProvider, config: ConfigService, automationService: AutomationService);
+    constructor(prisma: PrismaService, passwordService: PasswordService, emailProvider: EmailProvider, whatsapp: WhatsAppProvider, config: ConfigService, automationService: AutomationService, s3: S3Service);
     private ensureWhatsAppConfigured;
     private sendSignupApprovedWhatsApp;
     private sendSignupAdminAlertWhatsApp;
@@ -85,6 +87,10 @@ export declare class SuperAdminService {
             review_secret: string | null;
             is_directory_only: boolean;
             directory_contact_name: string | null;
+            directory_featured: boolean;
+            directory_featured_order: number | null;
+            directory_verification_document_url: string | null;
+            directory_verification_document_type: string | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -172,6 +178,10 @@ export declare class SuperAdminService {
             review_secret: string | null;
             is_directory_only: boolean;
             directory_contact_name: string | null;
+            directory_featured: boolean;
+            directory_featured_order: number | null;
+            directory_verification_document_url: string | null;
+            directory_verification_document_type: string | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -336,6 +346,10 @@ export declare class SuperAdminService {
         review_secret: string | null;
         is_directory_only: boolean;
         directory_contact_name: string | null;
+        directory_featured: boolean;
+        directory_featured_order: number | null;
+        directory_verification_document_url: string | null;
+        directory_verification_document_type: string | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -422,6 +436,10 @@ export declare class SuperAdminService {
             review_secret: string | null;
             is_directory_only: boolean;
             directory_contact_name: string | null;
+            directory_featured: boolean;
+            directory_featured_order: number | null;
+            directory_verification_document_url: string | null;
+            directory_verification_document_type: string | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -506,7 +524,17 @@ export declare class SuperAdminService {
         specialties: string | null;
         is_directory_only: boolean;
         directory_contact_name: string | null;
+        directory_verification_document_url: string | null;
+        directory_verification_document_type: string | null;
     }[]>;
+    getDirectoryVerificationDocumentUrl(clinicId: string): Promise<{
+        clinic_id: string;
+        clinic_name: string;
+        document_type: string | null;
+        url: string;
+        content_type: string;
+        is_pdf: boolean;
+    }>;
     getPendingSignups(): Promise<{
         id: string;
         email: string;
@@ -542,6 +570,30 @@ export declare class SuperAdminService {
     rejectDirectoryListing(id: string, reason: string): Promise<{
         rejected: boolean;
         clinic_name: string;
+    }>;
+    listFeaturedDirectoryClinics(): Promise<{
+        id: string;
+        name: string;
+        city: string | null;
+        state: string | null;
+        listed_in_directory: boolean;
+        directory_featured_order: number | null;
+        is_suspended: boolean;
+    }[]>;
+    listFeaturedDirectoryCandidates(search?: string): Promise<{
+        id: string;
+        name: string;
+        city: string | null;
+        state: string | null;
+    }[]>;
+    updateDirectoryFeatured(id: string, featured: boolean, order?: number): Promise<{
+        id: string;
+        name: string;
+        directory_featured: boolean;
+        directory_featured_order: number | null;
+    }>;
+    reorderFeaturedDirectoryClinics(clinicIds: string[]): Promise<{
+        reordered: number;
     }>;
     getWhatsAppConnectRequests(status?: 'pending' | 'all'): Promise<{
         id: string;

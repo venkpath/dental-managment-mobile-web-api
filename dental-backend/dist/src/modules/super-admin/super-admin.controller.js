@@ -92,6 +92,18 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     async getDirectoryApprovals(status) {
         return this.superAdminService.getDirectoryApprovals(status ?? 'pending');
     }
+    async getDirectoryVerificationDocument(id) {
+        return this.superAdminService.getDirectoryVerificationDocumentUrl(id);
+    }
+    async listFeaturedDirectoryClinics() {
+        return this.superAdminService.listFeaturedDirectoryClinics();
+    }
+    async listFeaturedDirectoryCandidates(search) {
+        return this.superAdminService.listFeaturedDirectoryCandidates(search);
+    }
+    async reorderFeaturedDirectoryClinics(dto) {
+        return this.superAdminService.reorderFeaturedDirectoryClinics(dto.clinic_ids);
+    }
     async getWhatsAppConnectRequests(status) {
         return this.superAdminService.getWhatsAppConnectRequests(status ?? 'pending');
     }
@@ -115,6 +127,9 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     }
     async rejectDirectoryListing(id, body) {
         return this.superAdminService.rejectDirectoryListing(id, body.reason);
+    }
+    async updateDirectoryFeatured(id, dto) {
+        return this.superAdminService.updateDirectoryFeatured(id, dto.featured, dto.order);
     }
     async setWhatsAppConnectAccess(id, body) {
         return this.superAdminService.setWhatsAppConnectAccess(id, body.approved === true);
@@ -387,6 +402,45 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "getDirectoryApprovals", null);
 __decorate([
+    (0, common_1.Get)('super-admins/clinics/:id/directory-verification-document'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get a signed URL for the listing verification document' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getDirectoryVerificationDocument", null);
+__decorate([
+    (0, common_1.Get)('super-admins/directory/featured'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List clinics featured on the patient homepage carousel' }),
+    openapi.ApiResponse({ status: 200 }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "listFeaturedDirectoryClinics", null);
+__decorate([
+    (0, common_1.Get)('super-admins/directory/featured/candidates'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List directory-listed clinics that can be added as featured' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Query)('search')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "listFeaturedDirectoryCandidates", null);
+__decorate([
+    (0, common_1.Put)('super-admins/directory/featured/reorder'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Reorder featured homepage clinics (first ID = position 1)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [index_js_1.ReorderFeaturedClinicsDto]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "reorderFeaturedDirectoryClinics", null);
+__decorate([
     (0, common_1.Get)('super-admins/clinics/whatsapp-requests'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),
     (0, swagger_1.ApiOperation)({ summary: 'List clinics that requested to connect their own WhatsApp Business Account' }),
@@ -469,6 +523,17 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "rejectDirectoryListing", null);
+__decorate([
+    (0, common_1.Patch)('super-admins/clinics/:id/directory-featured'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Toggle homepage featured status for a directory-listed clinic' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, index_js_1.UpdateDirectoryFeaturedDto]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "updateDirectoryFeatured", null);
 __decorate([
     (0, common_1.Patch)('super-admins/clinics/:id/whatsapp-access'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),

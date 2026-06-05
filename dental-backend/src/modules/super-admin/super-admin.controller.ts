@@ -11,7 +11,7 @@ import { SuperAdminAuthService } from './super-admin-auth.service.js';
 import { SuperAdminWhatsAppService } from './super-admin-whatsapp.service.js';
 import { DailySummaryCronService } from '../reports/daily-summary.cron.js';
 import { InactivityCronService } from './inactivity.cron.js';
-import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto, UpdateClinicLimitsDto, UpdateClinicFeaturesDto, SetClinicCustomPriceDto } from './dto/index.js';
+import { CreateSuperAdminDto, LoginSuperAdminDto, OnboardClinicDto, UpdateClinicLimitsDto, UpdateClinicFeaturesDto, SetClinicCustomPriceDto, UpdateDirectoryFeaturedDto, ReorderFeaturedClinicsDto } from './dto/index.js';
 import { ClinicService } from '../clinic/clinic.service.js';
 import { ClinicFeatureService } from '../feature/clinic-feature.service.js';
 import { UpdateSubscriptionDto } from '../clinic/dto/index.js';
@@ -121,6 +121,34 @@ export class SuperAdminController {
     return this.superAdminService.getDirectoryApprovals(status ?? 'pending');
   }
 
+  @Get('super-admins/clinics/:id/directory-verification-document')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Get a signed URL for the listing verification document' })
+  async getDirectoryVerificationDocument(@Param('id', ParseUUIDPipe) id: string) {
+    return this.superAdminService.getDirectoryVerificationDocumentUrl(id);
+  }
+
+  @Get('super-admins/directory/featured')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'List clinics featured on the patient homepage carousel' })
+  async listFeaturedDirectoryClinics() {
+    return this.superAdminService.listFeaturedDirectoryClinics();
+  }
+
+  @Get('super-admins/directory/featured/candidates')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'List directory-listed clinics that can be added as featured' })
+  async listFeaturedDirectoryCandidates(@Query('search') search?: string) {
+    return this.superAdminService.listFeaturedDirectoryCandidates(search);
+  }
+
+  @Put('super-admins/directory/featured/reorder')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Reorder featured homepage clinics (first ID = position 1)' })
+  async reorderFeaturedDirectoryClinics(@Body() dto: ReorderFeaturedClinicsDto) {
+    return this.superAdminService.reorderFeaturedDirectoryClinics(dto.clinic_ids);
+  }
+
   @Get('super-admins/clinics/whatsapp-requests')
   @SuperAdmin()
   @ApiOperation({ summary: 'List clinics that requested to connect their own WhatsApp Business Account' })
@@ -187,6 +215,16 @@ export class SuperAdminController {
     @Body() body: { reason: string },
   ) {
     return this.superAdminService.rejectDirectoryListing(id, body.reason);
+  }
+
+  @Patch('super-admins/clinics/:id/directory-featured')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Toggle homepage featured status for a directory-listed clinic' })
+  async updateDirectoryFeatured(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateDirectoryFeaturedDto,
+  ) {
+    return this.superAdminService.updateDirectoryFeatured(id, dto.featured, dto.order);
   }
 
   @Patch('super-admins/clinics/:id/whatsapp-access')
