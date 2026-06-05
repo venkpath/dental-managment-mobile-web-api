@@ -150,13 +150,14 @@ describe('SuperAdminService', () => {
       mockPrismaService.user.findFirst.mockResolvedValueOnce(null);
 
       const txBranch = { id: branchId, clinic_id: clinicId, name: 'Main Branch' };
+      const userCreate = jest.fn().mockResolvedValue({});
       mockPrismaService.$transaction.mockImplementation(async (fn: (tx: typeof mockPrismaService) => Promise<unknown>) => {
         const tx = {
           branch: {
             findFirst: jest.fn().mockResolvedValue(null),
             create: jest.fn().mockResolvedValue(txBranch),
           },
-          user: { create: jest.fn().mockResolvedValue({}) },
+          user: { create: userCreate, update: jest.fn().mockResolvedValue({}) },
           clinic: { update: jest.fn().mockResolvedValue({}) },
         };
         return fn(tx as never);
@@ -166,6 +167,15 @@ describe('SuperAdminService', () => {
 
       expect(result).toEqual({ approved: true, clinic_name: 'Sharma Dental', plan: 'Free' });
       expect(mockPasswordService.hash).toHaveBeenCalled();
+      expect(userCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            role: 'SuperAdmin',
+            is_doctor: true,
+            listed_in_directory: true,
+          }),
+        }),
+      );
       expect(mockAutomationService.seedClinicAutomationDefaults).toHaveBeenCalledWith(clinicId);
     });
 

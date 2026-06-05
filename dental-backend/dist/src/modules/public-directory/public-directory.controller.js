@@ -543,6 +543,10 @@ function computeClinicAvailability(branches, schemaDay, istMinutes, bookedToday)
         available_slots_today: availableSlots,
     };
 }
+const PUBLIC_DOCTOR_WHERE = {
+    status: 'active',
+    listed_in_directory: true,
+};
 let PublicDirectoryController = class PublicDirectoryController {
     prisma;
     s3;
@@ -618,15 +622,7 @@ let PublicDirectoryController = class PublicDirectoryController {
                     select: { overall_rating: true },
                 },
                 users: {
-                    where: {
-                        status: 'active',
-                        listed_in_directory: true,
-                        OR: [
-                            { is_doctor: true },
-                            { role: 'Dentist' },
-                            { role: 'Consultant' },
-                        ],
-                    },
+                    where: PUBLIC_DOCTOR_WHERE,
                     select: { id: true, name: true, specializations: true, years_experience: true, profile_photo_url: true },
                     take: 3,
                 },
@@ -764,15 +760,7 @@ let PublicDirectoryController = class PublicDirectoryController {
                     orderBy: { name: 'asc' },
                 },
                 users: {
-                    where: {
-                        status: 'active',
-                        listed_in_directory: true,
-                        OR: [
-                            { is_doctor: true },
-                            { role: 'Dentist' },
-                            { role: 'Consultant' },
-                        ],
-                    },
+                    where: PUBLIC_DOCTOR_WHERE,
                     select: {
                         id: true,
                         name: true,

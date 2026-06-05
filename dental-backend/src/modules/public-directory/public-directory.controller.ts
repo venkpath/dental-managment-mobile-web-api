@@ -461,6 +461,12 @@ function computeClinicAvailability(
   };
 }
 
+// Staff with listed_in_directory=true are shown publicly (UI only exposes this toggle for doctors).
+const PUBLIC_DOCTOR_WHERE = {
+  status: 'active',
+  listed_in_directory: true,
+} as const;
+
 // ─── Controller ─────────────────────────────────────────────────────────────
 
 @SkipThrottle()
@@ -562,15 +568,7 @@ export class PublicDirectoryController {
           select: { overall_rating: true },
         },
         users: {
-          where: {
-            status: 'active',
-            listed_in_directory: true,
-            OR: [
-              { is_doctor: true },
-              { role: 'Dentist' },
-              { role: 'Consultant' },
-            ],
-          },
+          where: PUBLIC_DOCTOR_WHERE,
           select: { id: true, name: true, specializations: true, years_experience: true, profile_photo_url: true },
           take: 3,
         },
@@ -744,15 +742,7 @@ export class PublicDirectoryController {
         },
         // Doctors
         users: {
-          where: {
-            status: 'active',
-            listed_in_directory: true,
-            OR: [
-              { is_doctor: true },
-              { role: 'Dentist' },
-              { role: 'Consultant' },
-            ],
-          },
+          where: PUBLIC_DOCTOR_WHERE,
           select: {
             id: true,
             name: true,

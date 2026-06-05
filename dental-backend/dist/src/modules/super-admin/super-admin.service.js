@@ -572,9 +572,20 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
                         email_verified: true,
                         phone_verified: !!clinic.phone,
                         must_change_password: true,
+                        is_doctor: true,
+                        listed_in_directory: true,
                     },
                 });
                 createdNewUser = true;
+            }
+            else if (existingUser?.role === 'SuperAdmin') {
+                await tx.user.update({
+                    where: { id: existingUser.id },
+                    data: {
+                        is_doctor: true,
+                        listed_in_directory: true,
+                    },
+                });
             }
             await tx.clinic.update({
                 where: { id },
