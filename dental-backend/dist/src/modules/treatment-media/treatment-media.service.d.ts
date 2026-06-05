@@ -27,15 +27,15 @@ export declare class TreatmentMediaService {
         patient_id: string;
         mime_type: string;
         caption: string | null;
-        file_name: string;
-        treatment_id: string;
-        visit_date: Date;
         file_url: string;
+        file_name: string;
         original_name: string;
+        uploaded_by: string;
+        treatment_id: string;
         media_type: string;
         original_size: number;
         stored_size: number;
-        uploaded_by: string;
+        visit_date: Date;
     }>;
     findByTreatment(clinicId: string, treatmentId: string): Promise<({
         uploader: {
@@ -51,15 +51,15 @@ export declare class TreatmentMediaService {
         patient_id: string;
         mime_type: string;
         caption: string | null;
-        file_name: string;
-        treatment_id: string;
-        visit_date: Date;
         file_url: string;
+        file_name: string;
         original_name: string;
+        uploaded_by: string;
+        treatment_id: string;
         media_type: string;
         original_size: number;
         stored_size: number;
-        uploaded_by: string;
+        visit_date: Date;
     })[]>;
     findByPatient(clinicId: string, patientId: string): Promise<({
         treatment: {
@@ -80,15 +80,15 @@ export declare class TreatmentMediaService {
         patient_id: string;
         mime_type: string;
         caption: string | null;
-        file_name: string;
-        treatment_id: string;
-        visit_date: Date;
         file_url: string;
+        file_name: string;
         original_name: string;
+        uploaded_by: string;
+        treatment_id: string;
         media_type: string;
         original_size: number;
         stored_size: number;
-        uploaded_by: string;
+        visit_date: Date;
     })[]>;
     findById(clinicId: string, id: string): Promise<{
         id: string;
@@ -98,15 +98,15 @@ export declare class TreatmentMediaService {
         patient_id: string;
         mime_type: string;
         caption: string | null;
-        file_name: string;
-        treatment_id: string;
-        visit_date: Date;
         file_url: string;
+        file_name: string;
         original_name: string;
+        uploaded_by: string;
+        treatment_id: string;
         media_type: string;
         original_size: number;
         stored_size: number;
-        uploaded_by: string;
+        visit_date: Date;
     }>;
     getSignedUrl(clinicId: string, id: string): Promise<string>;
     remove(clinicId: string, id: string): Promise<{

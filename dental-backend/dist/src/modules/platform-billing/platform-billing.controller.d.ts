@@ -16,15 +16,14 @@ export declare class PlatformBillingController {
             due_date: Date | null;
             currency: string;
             plan_name: string;
-            period_start: Date;
             invoice_number: string;
-            total_amount: import("@prisma/client-runtime-utils").Decimal;
-            tax_amount: import("@prisma/client-runtime-utils").Decimal;
-            issued_at: Date;
+            period_start: Date;
             paid_at: Date | null;
             period_end: Date;
             subtotal: import("@prisma/client-runtime-utils").Decimal;
             tax_rate: import("@prisma/client-runtime-utils").Decimal;
+            tax_amount: import("@prisma/client-runtime-utils").Decimal;
+            total_amount: import("@prisma/client-runtime-utils").Decimal;
             cgst_amount: import("@prisma/client-runtime-utils").Decimal;
             sgst_amount: import("@prisma/client-runtime-utils").Decimal;
             igst_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -37,6 +36,7 @@ export declare class PlatformBillingController {
             bill_to_pincode: string | null;
             payment_link_url: string | null;
             pdf_s3_key: string | null;
+            issued_at: Date;
         }[];
         total: number;
     }>;
@@ -48,15 +48,14 @@ export declare class PlatformBillingController {
         due_date: Date | null;
         currency: string;
         plan_name: string;
-        period_start: Date;
         invoice_number: string;
-        total_amount: import("@prisma/client-runtime-utils").Decimal;
-        tax_amount: import("@prisma/client-runtime-utils").Decimal;
-        issued_at: Date;
+        period_start: Date;
         paid_at: Date | null;
         period_end: Date;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
         tax_rate: import("@prisma/client-runtime-utils").Decimal;
+        tax_amount: import("@prisma/client-runtime-utils").Decimal;
+        total_amount: import("@prisma/client-runtime-utils").Decimal;
         cgst_amount: import("@prisma/client-runtime-utils").Decimal;
         sgst_amount: import("@prisma/client-runtime-utils").Decimal;
         igst_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -69,6 +68,7 @@ export declare class PlatformBillingController {
         bill_to_pincode: string | null;
         payment_link_url: string | null;
         pdf_s3_key: string | null;
+        issued_at: Date;
     }[]>;
     get(req: Request, id: string): Promise<{
         id: string;
@@ -79,15 +79,14 @@ export declare class PlatformBillingController {
         due_date: Date | null;
         currency: string;
         plan_name: string;
-        period_start: Date;
         invoice_number: string;
-        total_amount: import("@prisma/client-runtime-utils").Decimal;
-        tax_amount: import("@prisma/client-runtime-utils").Decimal;
-        issued_at: Date;
+        period_start: Date;
         paid_at: Date | null;
         period_end: Date;
         subtotal: import("@prisma/client-runtime-utils").Decimal;
         tax_rate: import("@prisma/client-runtime-utils").Decimal;
+        tax_amount: import("@prisma/client-runtime-utils").Decimal;
+        total_amount: import("@prisma/client-runtime-utils").Decimal;
         cgst_amount: import("@prisma/client-runtime-utils").Decimal;
         sgst_amount: import("@prisma/client-runtime-utils").Decimal;
         igst_amount: import("@prisma/client-runtime-utils").Decimal;
@@ -100,6 +99,7 @@ export declare class PlatformBillingController {
         bill_to_pincode: string | null;
         payment_link_url: string | null;
         pdf_s3_key: string | null;
+        issued_at: Date;
     }>;
     getPdf(req: Request, id: string): Promise<{
         url: string;

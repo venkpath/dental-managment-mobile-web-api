@@ -16,10 +16,10 @@ export declare class TreatmentController {
         procedure: string;
         tooth_number: string | null;
         cost: import("@prisma/client-runtime-utils").Decimal;
+        diagnosis: string;
         dentist_id: string;
         clinical_visit_id: string | null;
         treatment_plan_id: string | null;
-        diagnosis: string;
     }>;
     findAll(clinicId: string, user: JwtPayload, query: QueryTreatmentDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
         id: string;
@@ -33,10 +33,10 @@ export declare class TreatmentController {
         procedure: string;
         tooth_number: string | null;
         cost: import("@prisma/client-runtime-utils").Decimal;
+        diagnosis: string;
         dentist_id: string;
         clinical_visit_id: string | null;
         treatment_plan_id: string | null;
-        diagnosis: string;
     }>>;
     findByPatient(clinicId: string, patientId: string): Promise<{
         id: string;
@@ -50,10 +50,10 @@ export declare class TreatmentController {
         procedure: string;
         tooth_number: string | null;
         cost: import("@prisma/client-runtime-utils").Decimal;
+        diagnosis: string;
         dentist_id: string;
         clinical_visit_id: string | null;
         treatment_plan_id: string | null;
-        diagnosis: string;
     }[]>;
     findOne(clinicId: string, id: string): Promise<{
         id: string;
@@ -67,10 +67,10 @@ export declare class TreatmentController {
         procedure: string;
         tooth_number: string | null;
         cost: import("@prisma/client-runtime-utils").Decimal;
+        diagnosis: string;
         dentist_id: string;
         clinical_visit_id: string | null;
         treatment_plan_id: string | null;
-        diagnosis: string;
     }>;
     update(clinicId: string, id: string, dto: UpdateTreatmentDto): Promise<{
         id: string;
@@ -84,9 +84,9 @@ export declare class TreatmentController {
         procedure: string;
         tooth_number: string | null;
         cost: import("@prisma/client-runtime-utils").Decimal;
+        diagnosis: string;
         dentist_id: string;
         clinical_visit_id: string | null;
         treatment_plan_id: string | null;
-        diagnosis: string;
     }>;
 }

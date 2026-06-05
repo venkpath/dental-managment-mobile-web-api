@@ -79,10 +79,10 @@ export declare class InsuranceReimbursementService {
                     clinic_id: string;
                     currency: string;
                     notes: string | null;
-                    patient_insurance_id: string;
-                    invoice_id: string;
                     paid_at: Date | null;
                     approved_amount: import("@prisma/client-runtime-utils").Decimal | null;
+                    patient_insurance_id: string;
+                    invoice_id: string;
                     submission_method: string | null;
                     submission_ref: string | null;
                     submitted_at: Date | null;
@@ -196,10 +196,10 @@ export declare class InsuranceReimbursementService {
                 clinic_id: string;
                 currency: string;
                 notes: string | null;
-                patient_insurance_id: string;
-                invoice_id: string;
                 paid_at: Date | null;
                 approved_amount: import("@prisma/client-runtime-utils").Decimal | null;
+                patient_insurance_id: string;
+                invoice_id: string;
                 submission_method: string | null;
                 submission_ref: string | null;
                 submitted_at: Date | null;
@@ -312,10 +312,10 @@ export declare class InsuranceReimbursementService {
                 clinic_id: string;
                 currency: string;
                 notes: string | null;
-                patient_insurance_id: string;
-                invoice_id: string;
                 paid_at: Date | null;
                 approved_amount: import("@prisma/client-runtime-utils").Decimal | null;
+                patient_insurance_id: string;
+                invoice_id: string;
                 submission_method: string | null;
                 submission_ref: string | null;
                 submitted_at: Date | null;

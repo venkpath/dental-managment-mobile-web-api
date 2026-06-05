@@ -8,8 +8,8 @@ export declare class InsuranceClaimAttachmentController {
         description: string | null;
         type: string;
         mime_type: string;
-        file_name: string;
         file_url: string;
+        file_name: string;
         original_name: string;
         size_bytes: number | null;
         claim_id: string;
@@ -23,8 +23,8 @@ export declare class InsuranceClaimAttachmentController {
         description: string | null;
         type: string;
         mime_type: string;
-        file_name: string;
         file_url: string;
+        file_name: string;
         original_name: string;
         size_bytes: number | null;
         claim_id: string;

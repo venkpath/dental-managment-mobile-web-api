@@ -22,16 +22,16 @@ export declare class CampaignController {
         template_id: string | null;
         scheduled_at: Date | null;
         created_by: string;
-        estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
-        completed_at: Date | null;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
         started_at: Date | null;
+        completed_at: Date | null;
         total_recipients: number;
         sent_count: number;
         delivered_count: number;
         failed_count: number;
         read_count: number;
+        estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
         actual_cost: import("@prisma/client-runtime-utils").Decimal | null;
     }>;
     findAll(clinicId: string, query: QueryCampaignDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
@@ -50,16 +50,16 @@ export declare class CampaignController {
         template_id: string | null;
         scheduled_at: Date | null;
         created_by: string;
-        estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
-        completed_at: Date | null;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
         started_at: Date | null;
+        completed_at: Date | null;
         total_recipients: number;
         sent_count: number;
         delivered_count: number;
         failed_count: number;
         read_count: number;
+        estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
         actual_cost: import("@prisma/client-runtime-utils").Decimal | null;
     }>>;
     audiencePreview(clinicId: string, body: {
@@ -129,16 +129,16 @@ export declare class CampaignController {
             template_id: string | null;
             scheduled_at: Date | null;
             created_by: string;
-            estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
-            completed_at: Date | null;
             segment_type: string;
             segment_config: import("@prisma/client/runtime/client").JsonValue | null;
             started_at: Date | null;
+            completed_at: Date | null;
             total_recipients: number;
             sent_count: number;
             delivered_count: number;
             failed_count: number;
             read_count: number;
+            estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
             actual_cost: import("@prisma/client-runtime-utils").Decimal | null;
         };
         event_name: string;
@@ -175,16 +175,16 @@ export declare class CampaignController {
         template_id: string | null;
         scheduled_at: Date | null;
         created_by: string;
-        estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
-        completed_at: Date | null;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
         started_at: Date | null;
+        completed_at: Date | null;
         total_recipients: number;
         sent_count: number;
         delivered_count: number;
         failed_count: number;
         read_count: number;
+        estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
         actual_cost: import("@prisma/client-runtime-utils").Decimal | null;
     }>;
     update(clinicId: string, id: string, dto: UpdateCampaignDto): Promise<{
@@ -203,16 +203,16 @@ export declare class CampaignController {
         template_id: string | null;
         scheduled_at: Date | null;
         created_by: string;
-        estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
-        completed_at: Date | null;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
         started_at: Date | null;
+        completed_at: Date | null;
         total_recipients: number;
         sent_count: number;
         delivered_count: number;
         failed_count: number;
         read_count: number;
+        estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
         actual_cost: import("@prisma/client-runtime-utils").Decimal | null;
     }>;
     remove(clinicId: string, id: string): Promise<{
@@ -226,16 +226,16 @@ export declare class CampaignController {
         template_id: string | null;
         scheduled_at: Date | null;
         created_by: string;
-        estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
-        completed_at: Date | null;
         segment_type: string;
         segment_config: import("@prisma/client/runtime/client").JsonValue | null;
         started_at: Date | null;
+        completed_at: Date | null;
         total_recipients: number;
         sent_count: number;
         delivered_count: number;
         failed_count: number;
         read_count: number;
+        estimated_cost: import("@prisma/client-runtime-utils").Decimal | null;
         actual_cost: import("@prisma/client-runtime-utils").Decimal | null;
     }>;
     execute(clinicId: string, id: string): Promise<{

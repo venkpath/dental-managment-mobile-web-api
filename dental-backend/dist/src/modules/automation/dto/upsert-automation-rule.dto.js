@@ -57,6 +57,7 @@ exports.AUTOMATION_RULE_TYPES = [
     'no_show_followup',
     'dormant_reactivation',
     'treatment_plan_reminder',
+    'untreated_condition_reminder',
     'payment_reminder',
     'feedback_collection',
     'appointment_reminder_patient',

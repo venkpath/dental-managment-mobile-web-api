@@ -164,17 +164,17 @@ export declare class PublicDirectoryController {
             recent: {
                 id: string;
                 created_at: Date;
-                comment: string | null;
-                doctor: {
-                    name: string;
-                } | null;
                 reviewer_name: string;
+                comment: string | null;
                 overall_rating: number;
                 cleanliness_rating: number | null;
                 staff_rating: number | null;
                 wait_time_rating: number | null;
                 value_rating: number | null;
                 is_verified: boolean;
+                doctor: {
+                    name: string;
+                } | null;
             }[];
         };
         id: string;
@@ -202,17 +202,17 @@ export declare class PublicDirectoryController {
         data: {
             id: string;
             created_at: Date;
-            comment: string | null;
-            doctor: {
-                name: string;
-            } | null;
             reviewer_name: string;
+            comment: string | null;
             overall_rating: number;
             cleanliness_rating: number | null;
             staff_rating: number | null;
             wait_time_rating: number | null;
             value_rating: number | null;
             is_verified: boolean;
+            doctor: {
+                name: string;
+            } | null;
         }[];
         meta: {
             total: number;

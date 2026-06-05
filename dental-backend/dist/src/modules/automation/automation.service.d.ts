@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service.js';
 import type { UpsertAutomationRuleDto, AutomationRuleType } from './dto/index.js';
 export declare class AutomationService {
@@ -17,7 +18,7 @@ export declare class AutomationService {
         is_enabled: boolean;
         clinic_id: string;
         channel: string;
-        config: import("@prisma/client/runtime/client").JsonValue | null;
+        config: Prisma.JsonValue | null;
         template_id: string | null;
         rule_type: string;
     })[]>;
@@ -34,7 +35,7 @@ export declare class AutomationService {
         is_enabled: boolean;
         clinic_id: string;
         channel: string;
-        config: import("@prisma/client/runtime/client").JsonValue | null;
+        config: Prisma.JsonValue | null;
         template_id: string | null;
         rule_type: string;
     }>;
@@ -51,7 +52,7 @@ export declare class AutomationService {
         is_enabled: boolean;
         clinic_id: string;
         channel: string;
-        config: import("@prisma/client/runtime/client").JsonValue | null;
+        config: Prisma.JsonValue | null;
         template_id: string | null;
         rule_type: string;
     }>;
@@ -68,7 +69,7 @@ export declare class AutomationService {
             subject: string | null;
             footer: string | null;
             body: string;
-            variables: import("@prisma/client/runtime/client").JsonValue | null;
+            variables: Prisma.JsonValue | null;
             language: string;
             is_active: boolean;
             dlt_template_id: string | null;
@@ -82,10 +83,12 @@ export declare class AutomationService {
         is_enabled: boolean;
         clinic_id: string;
         channel: string;
-        config: import("@prisma/client/runtime/client").JsonValue | null;
+        config: Prisma.JsonValue | null;
         template_id: string | null;
         rule_type: string;
     }) | null>;
+    seedClinicAutomationDefaults(clinicId: string): Promise<void>;
     private seedDefaults;
-    private getDefaultRuleTypes;
+    private buildRuleRow;
+    private resolveSystemTemplateIds;
 }

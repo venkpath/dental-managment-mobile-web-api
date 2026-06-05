@@ -99,15 +99,15 @@ export declare class PatientInsightsService {
         id: string;
         status: string;
         error_message: string | null;
-        completed_at: Date | null;
         started_at: Date;
+        completed_at: Date | null;
         patient_count: number;
     }>;
     getLatestBatch(clinicId: string): Promise<{
         id: string;
         status: string;
-        completed_at: Date | null;
         started_at: Date;
+        completed_at: Date | null;
         patient_count: number;
     } | null>;
 }

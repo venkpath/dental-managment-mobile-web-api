@@ -20,15 +20,15 @@ export declare class TreatmentMediaController {
         patient_id: string;
         mime_type: string;
         caption: string | null;
-        file_name: string;
-        treatment_id: string;
-        visit_date: Date;
         file_url: string;
+        file_name: string;
         original_name: string;
+        uploaded_by: string;
+        treatment_id: string;
         media_type: string;
         original_size: number;
         stored_size: number;
-        uploaded_by: string;
+        visit_date: Date;
     }>;
     findByTreatment(clinicId: string, treatmentId: string): Promise<({
         uploader: {
@@ -44,15 +44,15 @@ export declare class TreatmentMediaController {
         patient_id: string;
         mime_type: string;
         caption: string | null;
-        file_name: string;
-        treatment_id: string;
-        visit_date: Date;
         file_url: string;
+        file_name: string;
         original_name: string;
+        uploaded_by: string;
+        treatment_id: string;
         media_type: string;
         original_size: number;
         stored_size: number;
-        uploaded_by: string;
+        visit_date: Date;
     })[]>;
     findByPatient(clinicId: string, patientId: string): Promise<({
         treatment: {
@@ -73,15 +73,15 @@ export declare class TreatmentMediaController {
         patient_id: string;
         mime_type: string;
         caption: string | null;
-        file_name: string;
-        treatment_id: string;
-        visit_date: Date;
         file_url: string;
+        file_name: string;
         original_name: string;
+        uploaded_by: string;
+        treatment_id: string;
         media_type: string;
         original_size: number;
         stored_size: number;
-        uploaded_by: string;
+        visit_date: Date;
     })[]>;
     serveFile(id: string, token: string, clinicId: string, res: Response): Promise<void>;
     remove(clinicId: string, id: string): Promise<{

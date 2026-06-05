@@ -29,11 +29,11 @@ export declare class AttachmentController {
         type: string;
         patient_id: string;
         mime_type: string;
-        file_name: string;
         file_url: string;
+        file_name: string;
         original_name: string;
-        uploaded_by: string;
         ai_analysis: import("@prisma/client/runtime/client").JsonValue | null;
+        uploaded_by: string;
     }>;
     findByPatient(clinicId: string, patientId: string): Promise<({
         branch: {
@@ -59,11 +59,11 @@ export declare class AttachmentController {
         type: string;
         patient_id: string;
         mime_type: string;
-        file_name: string;
         file_url: string;
+        file_name: string;
         original_name: string;
-        uploaded_by: string;
         ai_analysis: import("@prisma/client/runtime/client").JsonValue | null;
+        uploaded_by: string;
     })[]>;
     serveFile(id: string, token: string, clinicId: string, res: Response): Promise<void>;
     remove(clinicId: string, id: string): Promise<{

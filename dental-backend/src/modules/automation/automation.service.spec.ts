@@ -23,6 +23,9 @@ const mockPrisma = {
     upsert: jest.fn(),
     createMany: jest.fn(),
   },
+  messageTemplate: {
+    findMany: jest.fn().mockResolvedValue([]),
+  },
 };
 
 describe('AutomationService', () => {
@@ -57,9 +60,11 @@ describe('AutomationService', () => {
       const allDefaultTypes = [
         'birthday_greeting', 'festival_greeting', 'post_treatment_care',
         'no_show_followup', 'dormant_reactivation', 'treatment_plan_reminder',
-        'payment_reminder', 'feedback_collection', 'appointment_reminder_patient',
-        'appointment_confirmation', 'appointment_cancellation', 'appointment_rescheduled',
-        'payment_confirmation', 'invoice_ready', 'payment_overdue', 'prescription_ready',
+        'untreated_condition_reminder', 'payment_reminder', 'feedback_collection',
+        'appointment_reminder_patient', 'appointment_confirmation', 'appointment_cancellation',
+        'appointment_rescheduled', 'payment_confirmation', 'invoice_ready', 'payment_overdue',
+        'prescription_ready', 'followup_reminder', 'appointment_confirmation_dentist',
+        'appointment_reminder_dentist', 'subscription_payment_reminder',
       ];
       const allRules = allDefaultTypes.map((rt) => ({ ...mockRule, rule_type: rt }));
       mockPrisma.automationRule.findMany.mockResolvedValue(allRules);

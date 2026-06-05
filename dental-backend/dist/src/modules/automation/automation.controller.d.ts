@@ -26,6 +26,7 @@ export declare class AutomationController {
         template_id: string | null;
         rule_type: string;
     })[]>;
+    getUntreatedConditionDelayOptions(): import("./untreated-condition-reminder.config.js").ReminderDelayOption[];
     getRule(clinicId: string, ruleType: string): Promise<{
         template: {
             id: string;

@@ -49,6 +49,10 @@ import {
   buildCampaignContentUserPrompt,
 } from './prompts/campaign-content.prompt.js';
 import {
+  UNTREATED_CONDITION_REMINDER_SYSTEM_PROMPT,
+  buildUntreatedConditionReminderUserPrompt,
+} from './prompts/untreated-condition-reminder.prompt.js';
+import {
   XRAY_ANALYSIS_SYSTEM_PROMPT,
   buildXrayAnalysisUserPrompt,
 } from './prompts/xray-analysis.prompt.js';
@@ -1050,6 +1054,40 @@ export class AiService {
     });
 
     return { ...response, insight_id: saved?.id };
+  }
+
+  // ─── 7b. Untreated Condition Reminder (patient WhatsApp) ───────
+
+  async generateUntreatedConditionReminderMessage(
+    clinicId: string,
+    input: {
+      patient_first_name: string;
+      clinic_name: string;
+      conditions: string[];
+      reminder_number: 1 | 2;
+    },
+    userId?: string,
+  ): Promise<{ concerns_summary: string; urgency_note: string; full_message: string }> {
+    const userPrompt = buildUntreatedConditionReminderUserPrompt({
+      patient_first_name: input.patient_first_name,
+      clinic_name: input.clinic_name,
+      conditions: input.conditions,
+      reminder_number: input.reminder_number,
+    });
+
+    const result = await this.callLLM(
+      UNTREATED_CONDITION_REMINDER_SYSTEM_PROMPT,
+      userPrompt,
+      { clinicId, userId, type: 'untreated_condition_reminder' },
+      800,
+      'patient dental treatment reminder messages for this clinic',
+    );
+
+    return {
+      concerns_summary: String(result.concerns_summary ?? '').trim(),
+      urgency_note: String(result.urgency_note ?? '').trim(),
+      full_message: String(result.full_message ?? '').trim(),
+    };
   }
 
   // ─── 8. X-ray Analysis (Vision) ────────────────────────────────

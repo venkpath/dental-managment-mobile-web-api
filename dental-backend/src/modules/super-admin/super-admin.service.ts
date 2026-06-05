@@ -6,6 +6,7 @@ import { EmailProvider } from '../communication/providers/email.provider.js';
 import { WhatsAppProvider } from '../communication/providers/whatsapp.provider.js';
 import { CreateSuperAdminDto } from './dto/index.js';
 import { SuperAdmin } from '@prisma/client';
+import { AutomationService } from '../automation/automation.service.js';
 
 /** Synthetic clinic ID used to configure the platform-level SMTP transporter */
 const PLATFORM_CLINIC_ID = '__platform__';
@@ -23,6 +24,7 @@ export class SuperAdminService {
     private readonly emailProvider: EmailProvider,
     private readonly whatsapp: WhatsAppProvider,
     private readonly config: ConfigService,
+    private readonly automationService: AutomationService,
   ) {
     this.adminEmail = this.config.get<string>('app.adminEmail', 'prasanthshanmugam10@gmail.com');
     this.adminPhone = this.config.get<string>('app.adminWhatsappPhone', '916366767512');
@@ -319,6 +321,8 @@ export class SuperAdminService {
 
       return { clinic, branch, admin: user };
     });
+
+    await this.automationService.seedClinicAutomationDefaults(result.clinic.id);
 
     // Fire-and-forget onboarding emails (don't block the response)
     this.sendOnboardingWelcomeEmail({

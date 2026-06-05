@@ -16,6 +16,7 @@ import { JwtPayload, RefreshJwtPayload } from '../../common/interfaces/jwt-paylo
 import type { StringValue } from 'ms';
 import { decodeHtmlEntities } from '../../common/utils/name.util.js';
 import { LoginDto, LookupDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
+import { AutomationService } from '../automation/automation.service.js';
 
 /** Synthetic clinic ID used to configure the platform-level SMTP transporter */
 const PLATFORM_CLINIC_ID = '__platform__';
@@ -68,6 +69,7 @@ export class AuthService {
     private readonly smsProvider: SmsProvider,
     private readonly emailProvider: EmailProvider,
     private readonly whatsapp: WhatsAppProvider,
+    private readonly automationService: AutomationService,
   ) {}
 
   /** Long-lived token that can only be exchanged for a new access token at /auth/refresh. */
@@ -506,6 +508,10 @@ export class AuthService {
 
       return { clinic, admin, branch };
     });
+
+    this.automationService.seedClinicAutomationDefaults(result.clinic.id).catch((err) =>
+      this.logger.warn(`Failed to seed automation defaults for clinic ${result.clinic.id}: ${(err as Error).message}`),
+    );
 
     // Fire-and-forget onboarding emails (don't block the response)
     this.sendOnboardingWelcomeEmail({

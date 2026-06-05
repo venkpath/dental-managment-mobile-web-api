@@ -6,6 +6,13 @@ export declare class InsurancePreAuthController {
     findAll(clinicId: string, status?: string, patient_id?: string, skip?: number, take?: number): Promise<{
         total: number;
         items: ({
+            claims: {
+                id: string;
+                status: string;
+                created_at: Date;
+                claim_number: string | null;
+                billed_amount: import("@prisma/client-runtime-utils").Decimal;
+            }[];
             patient_insurance: {
                 plan: {
                     provider: {
@@ -63,13 +70,6 @@ export declare class InsurancePreAuthController {
                 card_back_url: string | null;
                 referral_letter_url: string | null;
             };
-            claims: {
-                id: string;
-                status: string;
-                created_at: Date;
-                claim_number: string | null;
-                billed_amount: import("@prisma/client-runtime-utils").Decimal;
-            }[];
         } & {
             id: string;
             status: string;
@@ -77,8 +77,8 @@ export declare class InsurancePreAuthController {
             updated_at: Date;
             clinic_id: string;
             notes: string | null;
-            patient_insurance_id: string;
             treatment_plan_id: string | null;
+            patient_insurance_id: string;
             valid_from: Date | null;
             valid_to: Date | null;
             submission_method: string | null;
@@ -94,6 +94,13 @@ export declare class InsurancePreAuthController {
         })[];
     }>;
     findOne(clinicId: string, id: string): Promise<{
+        claims: {
+            id: string;
+            status: string;
+            created_at: Date;
+            claim_number: string | null;
+            billed_amount: import("@prisma/client-runtime-utils").Decimal;
+        }[];
         patient_insurance: {
             plan: {
                 provider: {
@@ -151,13 +158,6 @@ export declare class InsurancePreAuthController {
             card_back_url: string | null;
             referral_letter_url: string | null;
         };
-        claims: {
-            id: string;
-            status: string;
-            created_at: Date;
-            claim_number: string | null;
-            billed_amount: import("@prisma/client-runtime-utils").Decimal;
-        }[];
     } & {
         id: string;
         status: string;
@@ -165,8 +165,8 @@ export declare class InsurancePreAuthController {
         updated_at: Date;
         clinic_id: string;
         notes: string | null;
-        patient_insurance_id: string;
         treatment_plan_id: string | null;
+        patient_insurance_id: string;
         valid_from: Date | null;
         valid_to: Date | null;
         submission_method: string | null;
@@ -181,6 +181,13 @@ export declare class InsurancePreAuthController {
         decision_at: Date | null;
     }>;
     create(clinicId: string, dto: CreatePreAuthDto): Promise<{
+        claims: {
+            id: string;
+            status: string;
+            created_at: Date;
+            claim_number: string | null;
+            billed_amount: import("@prisma/client-runtime-utils").Decimal;
+        }[];
         patient_insurance: {
             plan: {
                 provider: {
@@ -238,13 +245,6 @@ export declare class InsurancePreAuthController {
             card_back_url: string | null;
             referral_letter_url: string | null;
         };
-        claims: {
-            id: string;
-            status: string;
-            created_at: Date;
-            claim_number: string | null;
-            billed_amount: import("@prisma/client-runtime-utils").Decimal;
-        }[];
     } & {
         id: string;
         status: string;
@@ -252,8 +252,8 @@ export declare class InsurancePreAuthController {
         updated_at: Date;
         clinic_id: string;
         notes: string | null;
-        patient_insurance_id: string;
         treatment_plan_id: string | null;
+        patient_insurance_id: string;
         valid_from: Date | null;
         valid_to: Date | null;
         submission_method: string | null;
@@ -270,6 +270,13 @@ export declare class InsurancePreAuthController {
     submit(clinicId: string, user: {
         sub: string;
     }, id: string, dto: SubmitPreAuthDto): Promise<{
+        claims: {
+            id: string;
+            status: string;
+            created_at: Date;
+            claim_number: string | null;
+            billed_amount: import("@prisma/client-runtime-utils").Decimal;
+        }[];
         patient_insurance: {
             plan: {
                 provider: {
@@ -327,13 +334,6 @@ export declare class InsurancePreAuthController {
             card_back_url: string | null;
             referral_letter_url: string | null;
         };
-        claims: {
-            id: string;
-            status: string;
-            created_at: Date;
-            claim_number: string | null;
-            billed_amount: import("@prisma/client-runtime-utils").Decimal;
-        }[];
     } & {
         id: string;
         status: string;
@@ -341,8 +341,8 @@ export declare class InsurancePreAuthController {
         updated_at: Date;
         clinic_id: string;
         notes: string | null;
-        patient_insurance_id: string;
         treatment_plan_id: string | null;
+        patient_insurance_id: string;
         valid_from: Date | null;
         valid_to: Date | null;
         submission_method: string | null;
@@ -357,6 +357,13 @@ export declare class InsurancePreAuthController {
         decision_at: Date | null;
     }>;
     updateStatus(clinicId: string, id: string, dto: UpdatePreAuthStatusDto): Promise<{
+        claims: {
+            id: string;
+            status: string;
+            created_at: Date;
+            claim_number: string | null;
+            billed_amount: import("@prisma/client-runtime-utils").Decimal;
+        }[];
         patient_insurance: {
             plan: {
                 provider: {
@@ -414,13 +421,6 @@ export declare class InsurancePreAuthController {
             card_back_url: string | null;
             referral_letter_url: string | null;
         };
-        claims: {
-            id: string;
-            status: string;
-            created_at: Date;
-            claim_number: string | null;
-            billed_amount: import("@prisma/client-runtime-utils").Decimal;
-        }[];
     } & {
         id: string;
         status: string;
@@ -428,8 +428,8 @@ export declare class InsurancePreAuthController {
         updated_at: Date;
         clinic_id: string;
         notes: string | null;
-        patient_insurance_id: string;
         treatment_plan_id: string | null;
+        patient_insurance_id: string;
         valid_from: Date | null;
         valid_to: Date | null;
         submission_method: string | null;
@@ -444,6 +444,13 @@ export declare class InsurancePreAuthController {
         decision_at: Date | null;
     }>;
     uploadDocument(clinicId: string, id: string, slot: string, file: Express.Multer.File): Promise<{
+        claims: {
+            id: string;
+            status: string;
+            created_at: Date;
+            claim_number: string | null;
+            billed_amount: import("@prisma/client-runtime-utils").Decimal;
+        }[];
         patient_insurance: {
             plan: {
                 provider: {
@@ -501,13 +508,6 @@ export declare class InsurancePreAuthController {
             card_back_url: string | null;
             referral_letter_url: string | null;
         };
-        claims: {
-            id: string;
-            status: string;
-            created_at: Date;
-            claim_number: string | null;
-            billed_amount: import("@prisma/client-runtime-utils").Decimal;
-        }[];
     } & {
         id: string;
         status: string;
@@ -515,8 +515,8 @@ export declare class InsurancePreAuthController {
         updated_at: Date;
         clinic_id: string;
         notes: string | null;
-        patient_insurance_id: string;
         treatment_plan_id: string | null;
+        patient_insurance_id: string;
         valid_from: Date | null;
         valid_to: Date | null;
         submission_method: string | null;
