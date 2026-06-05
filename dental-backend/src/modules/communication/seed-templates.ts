@@ -207,6 +207,15 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
   {
     channel: 'all',
     category: 'follow_up',
+    template_name: 'Untreated Condition Reminder',
+    subject: 'A gentle reminder about your dental care',
+    body: 'Hi {{patient_name}}, during your visit at {{clinic_name}} we noted: {{concerns_summary}}. {{urgency_note}} Please call {{clinic_phone}} to schedule your visit.',
+    variables: ['patient_name', 'clinic_name', 'concerns_summary', 'urgency_note', 'clinic_phone'],
+    language: 'en',
+  },
+  {
+    channel: 'all',
+    category: 'follow_up',
     template_name: 'Prescription Refill Reminder',
     subject: 'Your medication is about to finish',
     body: 'Hi {{patient_name}}, the medication prescribed on {{prescription_date | format:"DD MMM YYYY"}} ({{medicine_name}}) is about to finish. If symptoms persist, please visit {{clinic_name}} for a follow-up. Call us at {{clinic_phone}}.',
@@ -621,6 +630,29 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
     sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic' },
   },
 
+  // ── 7b. Untreated Dental Condition Reminder ──
+  // Sent by `untreated_condition_reminder` automation when charted findings
+  // have no started treatment. AI fills {{3}} concerns_summary and {{4}} urgency_note.
+  // Meta registration:
+  //   Template name : dental_untreated_condition_reminder
+  //   Category      : UTILITY
+  //   Variables     : {{1}} patient_first_name · {{2}} clinic_name · {{3}} concerns_summary · {{4}} urgency_note · {{5}} phone
+  {
+    channel: 'whatsapp',
+    category: 'utility',
+    template_name: 'dental_untreated_condition_reminder',
+    body: 'Hi {{patient_first_name}},\n\nWe hope you\'re doing well.\n\nDuring your recent visit to *{{clinic_name}}*, our team identified: {{concerns_summary}}.\n\n{{urgency_note}}\n\nTo book your appointment or discuss the next steps, please contact us at *{{phone}}*.\n\nWe look forward to helping you maintain a healthy smile.',
+    variables: { body: ['patient_first_name', 'clinic_name', 'concerns_summary', 'urgency_note', 'phone'], buttons: [] },
+    language: 'en',
+    sampleValues: {
+      patient_first_name: 'Rahul',
+      clinic_name: 'Smile Dental Clinic',
+      concerns_summary: 'some areas of tooth decay',
+      urgency_note: 'Early care keeps treatment simpler. A short visit now can prevent the issue from progressing.',
+      phone: '9876543210',
+    },
+  },
+
   // ── 8. Payment Received ──
   {
     channel: 'whatsapp',
@@ -641,6 +673,57 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
     variables: { body: ['patient_name', 'clinic_name', 'invoice_no', 'amount', 'invoice_link', 'phone'], buttons: [] },
     language: 'en',
     sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic', invoice_no: 'INV-2026-001', amount: 'Rs.5000', invoice_link: 'https://example.com/invoice', phone: '9876543210' },
+  },
+
+  // ── 9b. Invoice PDF (document header) — default for invoice_ready automation ──
+  // Meta: dental_invoice_pdf · UTILITY · PDF header + body vars {{1}}–{{5}}
+  {
+    channel: 'whatsapp',
+    category: 'utility',
+    template_name: 'dental_invoice_pdf',
+    body: 'Hello {{patient_name}}, your invoice {{invoice_number}} for {{amount}} has been generated at {{clinic_name}}. For queries reach us at {{phone}}.',
+    variables: { body: ['patient_name', 'invoice_number', 'amount', 'clinic_name', 'phone'], buttons: [] },
+    language: 'en',
+    sampleValues: {
+      patient_name: 'Priya Sharma',
+      invoice_number: 'INV-2026-001',
+      amount: 'Rs.5000',
+      clinic_name: 'Smile Dental Clinic',
+      phone: '9876543210',
+    },
+  },
+
+  // ── 9c. Payment Received PDF — default for payment_confirmation automation ──
+  {
+    channel: 'whatsapp',
+    category: 'utility',
+    template_name: 'dental_payment_received_pdf',
+    body: 'Hi {{patient_name}}, we received your payment of {{amount}} for invoice {{invoice_number}} at {{clinic_name}}. Call {{phone}} for queries.',
+    variables: { body: ['patient_name', 'amount', 'invoice_number', 'clinic_name', 'phone'], buttons: [] },
+    language: 'en',
+    sampleValues: {
+      patient_name: 'Priya Sharma',
+      amount: 'Rs.5000',
+      invoice_number: 'INV-2026-001',
+      clinic_name: 'Smile Dental Clinic',
+      phone: '9876543210',
+    },
+  },
+
+  // ── 9d. Prescription PDF — default for prescription_ready automation ──
+  {
+    channel: 'whatsapp',
+    category: 'utility',
+    template_name: 'dental_prescription_pdf',
+    body: 'Hello {{patient_name}}, your prescription from {{doctor_name}} at {{clinic_name}} is ready. For queries reach us at {{phone}}.',
+    variables: { body: ['patient_name', 'doctor_name', 'clinic_name', 'phone'], buttons: [] },
+    language: 'en',
+    sampleValues: {
+      patient_name: 'Priya Sharma',
+      doctor_name: 'Dr. Anil Mehta',
+      clinic_name: 'Smile Dental Clinic',
+      phone: '9876543210',
+    },
   },
 
   // ── 10. Installment Due ──

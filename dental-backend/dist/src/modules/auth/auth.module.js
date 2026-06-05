@@ -13,6 +13,7 @@ const config_1 = require("@nestjs/config");
 const auth_service_js_1 = require("./auth.service.js");
 const auth_controller_js_1 = require("./auth.controller.js");
 const user_module_js_1 = require("../user/user.module.js");
+const automation_module_js_1 = require("../automation/automation.module.js");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -20,6 +21,7 @@ exports.AuthModule = AuthModule = __decorate([
     (0, common_1.Module)({
         imports: [
             user_module_js_1.UserModule,
+            automation_module_js_1.AutomationModule,
             jwt_1.JwtModule.registerAsync({
                 inject: [config_1.ConfigService],
                 useFactory: (config) => ({

@@ -33,11 +33,11 @@ export declare class AttachmentService {
         type: string;
         patient_id: string;
         mime_type: string;
-        file_name: string;
         file_url: string;
+        file_name: string;
         original_name: string;
-        uploaded_by: string;
         ai_analysis: import("@prisma/client/runtime/client").JsonValue | null;
+        uploaded_by: string;
     }>;
     findByPatient(clinicId: string, patientId: string): Promise<({
         branch: {
@@ -63,11 +63,11 @@ export declare class AttachmentService {
         type: string;
         patient_id: string;
         mime_type: string;
-        file_name: string;
         file_url: string;
+        file_name: string;
         original_name: string;
-        uploaded_by: string;
         ai_analysis: import("@prisma/client/runtime/client").JsonValue | null;
+        uploaded_by: string;
     })[]>;
     findById(clinicId: string, id: string): Promise<{
         id: string;
@@ -77,11 +77,11 @@ export declare class AttachmentService {
         type: string;
         patient_id: string;
         mime_type: string;
-        file_name: string;
         file_url: string;
+        file_name: string;
         original_name: string;
-        uploaded_by: string;
         ai_analysis: import("@prisma/client/runtime/client").JsonValue | null;
+        uploaded_by: string;
     }>;
     updateAnalysis(clinicId: string, id: string, analysis: Record<string, unknown>): Promise<{
         branch: {
@@ -107,11 +107,11 @@ export declare class AttachmentService {
         type: string;
         patient_id: string;
         mime_type: string;
-        file_name: string;
         file_url: string;
+        file_name: string;
         original_name: string;
-        uploaded_by: string;
         ai_analysis: import("@prisma/client/runtime/client").JsonValue | null;
+        uploaded_by: string;
     }>;
     remove(clinicId: string, id: string): Promise<{
         deleted: boolean;

@@ -29,6 +29,7 @@ const index_js_2 = require("./dto/index.js");
 const queue_names_js_1 = require("../../common/queue/queue-names.js");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const appointment_reminder_config_js_1 = require("../appointment/appointment-reminder.config.js");
+const untreated_condition_reminder_config_js_1 = require("./untreated-condition-reminder.config.js");
 let AutomationController = class AutomationController {
     automationService;
     automationCronService;
@@ -42,6 +43,9 @@ let AutomationController = class AutomationController {
     }
     async getAllRules(clinicId) {
         return this.automationService.getAllRules(clinicId);
+    }
+    getUntreatedConditionDelayOptions() {
+        return untreated_condition_reminder_config_js_1.UNTREATED_CONDITION_REMINDER_DELAYS;
     }
     async getRule(clinicId, ruleType) {
         return this.automationService.getRule(clinicId, ruleType);
@@ -57,6 +61,7 @@ let AutomationController = class AutomationController {
             { name: 'paymentReminders', fn: () => this.automationCronService.paymentReminders() },
             { name: 'dormantPatientDetection', fn: () => this.automationCronService.dormantPatientDetection() },
             { name: 'treatmentPlanReminders', fn: () => this.automationCronService.treatmentPlanReminders() },
+            { name: 'untreatedConditionReminders', fn: () => this.automationCronService.untreatedConditionReminders() },
         ];
         for (const job of jobs) {
             try {
@@ -76,6 +81,7 @@ let AutomationController = class AutomationController {
             paymentReminders: () => this.automationCronService.paymentReminders(),
             dormantPatientDetection: () => this.automationCronService.dormantPatientDetection(),
             treatmentPlanReminders: () => this.automationCronService.treatmentPlanReminders(),
+            untreatedConditionReminders: () => this.automationCronService.untreatedConditionReminders(),
         };
         const fn = jobMap[jobName];
         if (!fn) {
@@ -270,6 +276,17 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AutomationController.prototype, "getAllRules", null);
+__decorate([
+    (0, common_1.Get)('meta/untreated-condition-delay-options'),
+    (0, roles_decorator_js_1.Roles)(index_js_1.UserRole.ADMIN),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Delay dropdown options for untreated_condition_reminder (1M–2Y plus 5m/10m testing)',
+    }),
+    openapi.ApiResponse({ status: 200, type: [Object] }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], AutomationController.prototype, "getUntreatedConditionDelayOptions", null);
 __decorate([
     (0, common_1.Get)(':ruleType'),
     (0, roles_decorator_js_1.Roles)(index_js_1.UserRole.ADMIN),

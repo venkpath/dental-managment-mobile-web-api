@@ -87,10 +87,10 @@ export declare class ToothChartService {
             procedure: string;
             tooth_number: string | null;
             cost: import("@prisma/client-runtime-utils").Decimal;
+            diagnosis: string;
             dentist_id: string;
             clinical_visit_id: string | null;
             treatment_plan_id: string | null;
-            diagnosis: string;
         })[];
     }>;
     createCondition(clinicId: string, dto: CreateToothConditionDto): Promise<PatientToothCondition>;

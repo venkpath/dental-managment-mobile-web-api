@@ -4,6 +4,7 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { MessageChannel, MessageCategory } from '../communication/dto/send-message.dto.js';
 import { AutomationService } from './automation.service.js';
+import { UntreatedConditionReminderService } from './untreated-condition-reminder.service.js';
 import { ClinicEventsService } from '../clinic-events/clinic-events.service.js';
 import { formatDoctorName } from '../../common/utils/name.util.js';
 import { getBookingUrl } from '../../common/utils/booking-url.util.js';
@@ -16,6 +17,7 @@ export class AutomationCronService {
     private readonly prisma: PrismaService,
     private readonly communicationService: CommunicationService,
     private readonly automationService: AutomationService,
+    private readonly untreatedConditionReminderService: UntreatedConditionReminderService,
     private readonly clinicEventsService: ClinicEventsService,
   ) {}
 
@@ -469,6 +471,46 @@ export class AutomationCronService {
     }
 
     this.logger.log(`Treatment plan reminder automation completed. Total sent: ${totalSent}`);
+  }
+
+  // ─── Untreated Dental Condition Reminders — Daily at 10:15 AM ───
+  // Production delays (1M–2Y) only need a daily check. For 5m/10m test
+  // delays, use POST /automation/rules/trigger/untreatedConditionReminders
+  // after the wait period (or trigger-crons).
+
+  @Cron('0 15 10 * * *')
+  async untreatedConditionReminders(): Promise<void> {
+    this.logger.log('Running untreated dental condition reminder automation...');
+    let totalSent = 0;
+
+    try {
+      const clinics = await this.getActiveClinics();
+
+      for (const clinic of clinics) {
+        try {
+          const sent = await this.untreatedConditionReminderService.processClinic(
+            clinic,
+            (clinicId, patientId, ruleChannel) =>
+              this.resolveChannel(clinicId, patientId, ruleChannel),
+          );
+          totalSent += sent;
+          if (sent > 0) {
+            this.logger.log(`Sent ${sent} untreated condition reminder(s) for ${clinic.name}`);
+          }
+        } catch (e) {
+          this.logger.error(
+            `Untreated condition reminder error for clinic ${clinic.id}: ${(e as Error).message}`,
+          );
+        }
+      }
+    } catch (e) {
+      this.logger.error(
+        `Untreated condition reminder cron failed: ${(e as Error).message}`,
+        (e as Error).stack,
+      );
+    }
+
+    this.logger.log(`Untreated condition reminder automation completed. Total sent: ${totalSent}`);
   }
 
   // ─── No-Show Follow-Up — Daily at 10:30 AM ───

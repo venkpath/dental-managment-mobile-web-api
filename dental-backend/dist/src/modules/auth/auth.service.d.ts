@@ -10,6 +10,7 @@ import { SmsProvider } from '../communication/providers/sms.provider.js';
 import { EmailProvider } from '../communication/providers/email.provider.js';
 import { WhatsAppProvider } from '../communication/providers/whatsapp.provider.js';
 import { LoginDto, LookupDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
+import { AutomationService } from '../automation/automation.service.js';
 export interface RefreshResponse {
     access_token: string;
     refresh_token: string;
@@ -42,12 +43,13 @@ export declare class AuthService {
     private readonly smsProvider;
     private readonly emailProvider;
     private readonly whatsapp;
+    private readonly automationService;
     private readonly logger;
     private readonly otpStore;
     private readonly regOtpStore;
     private readonly regOtpSendTracker;
     private static readonly META_GRAPH_API;
-    constructor(userService: UserService, passwordService: PasswordService, jwtService: JwtService, configService: ConfigService, prisma: PrismaService, auditLogService: AuditLogService, communicationService: CommunicationService, smsProvider: SmsProvider, emailProvider: EmailProvider, whatsapp: WhatsAppProvider);
+    constructor(userService: UserService, passwordService: PasswordService, jwtService: JwtService, configService: ConfigService, prisma: PrismaService, auditLogService: AuditLogService, communicationService: CommunicationService, smsProvider: SmsProvider, emailProvider: EmailProvider, whatsapp: WhatsAppProvider, automationService: AutomationService);
     private signRefreshToken;
     lookup(dto: LookupDto): Promise<{
         clinics: {

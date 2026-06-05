@@ -5,10 +5,12 @@ import type { StringValue } from 'ms';
 import { AuthService } from './auth.service.js';
 import { AuthController } from './auth.controller.js';
 import { UserModule } from '../user/user.module.js';
+import { AutomationModule } from '../automation/automation.module.js';
 
 @Module({
   imports: [
     UserModule,
+    AutomationModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

@@ -13,6 +13,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AutomationService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
+const automation_defaults_config_js_1 = require("./automation-defaults.config.js");
 let AutomationService = AutomationService_1 = class AutomationService {
     prisma;
     logger = new common_1.Logger(AutomationService_1.name);
@@ -27,7 +28,7 @@ let AutomationService = AutomationService_1 = class AutomationService {
         });
         await this.seedDefaults(clinicId);
         const existingTypes = new Set(existing.map((r) => r.rule_type));
-        const hasAllTypes = this.getDefaultRuleTypes().every((t) => existingTypes.has(t));
+        const hasAllTypes = (0, automation_defaults_config_js_1.getAllAutomationRuleTypes)().every((t) => existingTypes.has(t));
         if (hasAllTypes) {
             return existing;
         }
@@ -83,159 +84,64 @@ let AutomationService = AutomationService_1 = class AutomationService {
             include: { template: true },
         });
     }
+    async seedClinicAutomationDefaults(clinicId) {
+        await this.seedDefaults(clinicId);
+    }
     async seedDefaults(clinicId) {
-        const defaults = [
-            {
-                rule_type: 'birthday_greeting',
-                is_enabled: false,
-                channel: 'preferred',
-                config: { send_time: '09:00', include_offer: false },
-            },
-            {
-                rule_type: 'festival_greeting',
-                is_enabled: false,
-                channel: 'preferred',
-                config: { send_day_before: false },
-            },
-            {
-                rule_type: 'post_treatment_care',
-                is_enabled: true,
-                channel: 'preferred',
-                config: { delay_hours: 1 },
-            },
-            {
-                rule_type: 'no_show_followup',
-                is_enabled: true,
-                channel: 'preferred',
-                config: { delay_hours: 1 },
-            },
-            {
-                rule_type: 'dormant_reactivation',
-                is_enabled: false,
-                channel: 'preferred',
-                config: { dormancy_months: 6, check_interval_days: 7 },
-            },
-            {
-                rule_type: 'treatment_plan_reminder',
-                is_enabled: true,
-                channel: 'preferred',
-                config: { reminder_interval_days: 14 },
-            },
-            {
-                rule_type: 'payment_reminder',
-                is_enabled: true,
-                channel: 'preferred',
-                config: { days_before_due: 3 },
-            },
-            {
-                rule_type: 'feedback_collection',
-                is_enabled: false,
-                channel: 'preferred',
-                config: { delay_hours: 4, min_rating_for_google_review: 4 },
-            },
-            {
-                rule_type: 'appointment_reminder_patient',
-                is_enabled: true,
-                channel: 'preferred',
-                config: {
-                    reminder_1_enabled: true,
-                    reminder_1_hours: 24,
-                    reminder_1_template_id: null,
-                    reminder_2_enabled: true,
-                    reminder_2_hours: 2,
-                    reminder_2_template_id: null,
-                },
-            },
-            {
-                rule_type: 'appointment_confirmation',
-                is_enabled: true,
-                channel: 'whatsapp',
-                config: {},
-            },
-            {
-                rule_type: 'appointment_cancellation',
-                is_enabled: true,
-                channel: 'whatsapp',
-                config: {},
-            },
-            {
-                rule_type: 'appointment_rescheduled',
-                is_enabled: true,
-                channel: 'whatsapp',
-                config: {},
-            },
-            {
-                rule_type: 'payment_confirmation',
-                is_enabled: true,
-                channel: 'preferred',
-                config: {},
-            },
-            {
-                rule_type: 'invoice_ready',
-                is_enabled: true,
-                channel: 'whatsapp',
-                config: {},
-            },
-            {
-                rule_type: 'payment_overdue',
-                is_enabled: true,
-                channel: 'preferred',
-                config: { days_overdue: 1 },
-            },
-            {
-                rule_type: 'prescription_ready',
-                is_enabled: true,
-                channel: 'whatsapp',
-                config: {},
-            },
-            {
-                rule_type: 'followup_reminder',
-                is_enabled: false,
-                channel: 'preferred',
-                config: { advance_days: 3, remind_on_day: true },
-            },
-            {
-                rule_type: 'appointment_confirmation_dentist',
-                is_enabled: true,
-                channel: 'whatsapp',
-                config: {},
-            },
-            {
-                rule_type: 'appointment_reminder_dentist',
-                is_enabled: true,
-                channel: 'whatsapp',
-                config: {},
-            },
-            {
-                rule_type: 'subscription_payment_reminder',
-                is_enabled: true,
-                channel: 'whatsapp',
-                config: {
-                    trial_reminder_days_before: [3, 1],
-                    trial_reminder_days_after: [1],
-                    renewal_reminder_days_before: [7, 3, 1],
-                },
-            },
-        ];
+        const templateIds = await this.resolveSystemTemplateIds();
+        const rows = automation_defaults_config_js_1.CLINIC_AUTOMATION_DEFAULTS.map((d) => this.buildRuleRow(clinicId, d, templateIds));
         await this.prisma.automationRule.createMany({
-            data: defaults.map((d) => ({
-                clinic_id: clinicId,
-                ...d,
-                config: JSON.parse(JSON.stringify(d.config)),
-            })),
+            data: rows,
             skipDuplicates: true,
         });
         this.logger.log(`Seeded default automation rules for clinic ${clinicId} (skipDuplicates=true)`);
     }
-    getDefaultRuleTypes() {
-        return [
-            'birthday_greeting', 'festival_greeting', 'post_treatment_care',
-            'no_show_followup', 'dormant_reactivation', 'treatment_plan_reminder',
-            'payment_reminder', 'feedback_collection', 'appointment_reminder_patient',
-            'appointment_confirmation', 'appointment_cancellation', 'appointment_rescheduled',
-            'payment_confirmation', 'invoice_ready', 'payment_overdue',
-            'prescription_ready', 'followup_reminder',
-        ];
+    buildRuleRow(clinicId, d, templateIds) {
+        const config = JSON.parse(JSON.stringify(d.config));
+        if (d.reminder_template_names) {
+            for (const slot of [1, 2]) {
+                const name = d.reminder_template_names[slot];
+                const id = name ? templateIds.get(name) : undefined;
+                if (id)
+                    config[`reminder_${slot}_template_id`] = id;
+            }
+        }
+        const templateId = d.template_name ? templateIds.get(d.template_name) ?? null : null;
+        return {
+            clinic_id: clinicId,
+            rule_type: d.rule_type,
+            is_enabled: d.is_enabled,
+            channel: d.channel,
+            template_id: templateId,
+            config: config,
+        };
+    }
+    async resolveSystemTemplateIds() {
+        const names = new Set();
+        for (const d of automation_defaults_config_js_1.CLINIC_AUTOMATION_DEFAULTS) {
+            if (d.template_name)
+                names.add(d.template_name);
+            if (d.reminder_template_names) {
+                Object.values(d.reminder_template_names).forEach((n) => n && names.add(n));
+            }
+        }
+        const templates = await this.prisma.messageTemplate.findMany({
+            where: {
+                clinic_id: null,
+                template_name: { in: [...names] },
+                is_active: true,
+            },
+            select: { id: true, template_name: true },
+        });
+        const map = new Map();
+        for (const t of templates) {
+            map.set(t.template_name, t.id);
+        }
+        const missing = [...names].filter((n) => !map.has(n));
+        if (missing.length > 0) {
+            this.logger.warn(`Automation seed: system templates not found (rules will have null template_id): ${missing.join(', ')}`);
+        }
+        return map;
     }
 };
 exports.AutomationService = AutomationService;

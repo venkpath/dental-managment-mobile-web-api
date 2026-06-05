@@ -21,6 +21,7 @@ import { UpsertAutomationRuleDto } from './dto/index.js';
 import { QUEUE_NAMES } from '../../common/queue/queue-names.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { getReminderDefinitions } from '../appointment/appointment-reminder.config.js';
+import { UNTREATED_CONDITION_REMINDER_DELAYS } from './untreated-condition-reminder.config.js';
 
 @ApiTags('Automation Rules')
 @ApiHeader({ name: 'x-clinic-id', required: true })
@@ -41,6 +42,15 @@ export class AutomationController {
   @ApiOkResponse({ description: 'List of automation rules with enable/disable status and config' })
   async getAllRules(@CurrentClinic() clinicId: string) {
     return this.automationService.getAllRules(clinicId);
+  }
+
+  @Get('meta/untreated-condition-delay-options')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Delay dropdown options for untreated_condition_reminder (1M–2Y plus 5m/10m testing)',
+  })
+  getUntreatedConditionDelayOptions() {
+    return UNTREATED_CONDITION_REMINDER_DELAYS;
   }
 
   @Get(':ruleType')
@@ -78,6 +88,7 @@ export class AutomationController {
       { name: 'paymentReminders', fn: () => this.automationCronService.paymentReminders() },
       { name: 'dormantPatientDetection', fn: () => this.automationCronService.dormantPatientDetection() },
       { name: 'treatmentPlanReminders', fn: () => this.automationCronService.treatmentPlanReminders() },
+      { name: 'untreatedConditionReminders', fn: () => this.automationCronService.untreatedConditionReminders() },
     ];
 
     for (const job of jobs) {
@@ -102,6 +113,7 @@ export class AutomationController {
       paymentReminders: () => this.automationCronService.paymentReminders(),
       dormantPatientDetection: () => this.automationCronService.dormantPatientDetection(),
       treatmentPlanReminders: () => this.automationCronService.treatmentPlanReminders(),
+      untreatedConditionReminders: () => this.automationCronService.untreatedConditionReminders(),
     };
 
     const fn = jobMap[jobName];

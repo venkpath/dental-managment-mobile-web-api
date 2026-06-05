@@ -61,13 +61,13 @@ export declare class AiService {
             updated_at: Date;
             clinic_id: string;
             notes: string | null;
-            paid_at: Date | null;
             cycle_start: Date;
             cycle_end: Date;
             base_quota: number;
             overage_requests_count: number;
             approved_requests_count: number;
             total_cost_inr: import("@prisma/client-runtime-utils").Decimal;
+            paid_at: Date | null;
             paid_by_super_admin_id: string | null;
             payment_reference: string | null;
         } | null;
@@ -149,6 +149,16 @@ export declare class AiService {
     generateCampaignContent(clinicId: string, dto: GenerateCampaignContentDto, userId?: string): Promise<{
         insight_id: string | undefined;
         generated_at: string;
+    }>;
+    generateUntreatedConditionReminderMessage(clinicId: string, input: {
+        patient_first_name: string;
+        clinic_name: string;
+        conditions: string[];
+        reminder_number: 1 | 2;
+    }, userId?: string): Promise<{
+        concerns_summary: string;
+        urgency_note: string;
+        full_message: string;
     }>;
     analyzeXray(clinicId: string, params: {
         attachmentId: string;

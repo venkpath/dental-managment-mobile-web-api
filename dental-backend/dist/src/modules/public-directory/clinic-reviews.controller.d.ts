@@ -19,13 +19,9 @@ export declare class ClinicReviewsController {
                 last_name: string;
             } | null;
             source: string;
-            comment: string | null;
-            doctor: {
-                id: string;
-                name: string;
-            } | null;
-            token_used_at: Date | null;
             reviewer_name: string;
+            comment: string | null;
+            token_used_at: Date | null;
             overall_rating: number;
             cleanliness_rating: number | null;
             staff_rating: number | null;
@@ -34,6 +30,10 @@ export declare class ClinicReviewsController {
             approval_status: string;
             is_visible: boolean;
             is_verified: boolean;
+            doctor: {
+                id: string;
+                name: string;
+            } | null;
         }[];
         meta: {
             total: number;

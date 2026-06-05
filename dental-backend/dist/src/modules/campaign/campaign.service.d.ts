@@ -39,16 +39,16 @@ export declare class CampaignService {
         template_id: string | null;
         scheduled_at: Date | null;
         created_by: string;
-        estimated_cost: Prisma.Decimal | null;
-        completed_at: Date | null;
         segment_type: string;
         segment_config: Prisma.JsonValue | null;
         started_at: Date | null;
+        completed_at: Date | null;
         total_recipients: number;
         sent_count: number;
         delivered_count: number;
         failed_count: number;
         read_count: number;
+        estimated_cost: Prisma.Decimal | null;
         actual_cost: Prisma.Decimal | null;
     }>;
     findAll(clinicId: string, query: QueryCampaignDto): Promise<import("../../common/interfaces/paginated-result.interface.js").PaginatedResult<{
@@ -67,16 +67,16 @@ export declare class CampaignService {
         template_id: string | null;
         scheduled_at: Date | null;
         created_by: string;
-        estimated_cost: Prisma.Decimal | null;
-        completed_at: Date | null;
         segment_type: string;
         segment_config: Prisma.JsonValue | null;
         started_at: Date | null;
+        completed_at: Date | null;
         total_recipients: number;
         sent_count: number;
         delivered_count: number;
         failed_count: number;
         read_count: number;
+        estimated_cost: Prisma.Decimal | null;
         actual_cost: Prisma.Decimal | null;
     }>>;
     findOne(clinicId: string, id: string): Promise<{
@@ -109,16 +109,16 @@ export declare class CampaignService {
         template_id: string | null;
         scheduled_at: Date | null;
         created_by: string;
-        estimated_cost: Prisma.Decimal | null;
-        completed_at: Date | null;
         segment_type: string;
         segment_config: Prisma.JsonValue | null;
         started_at: Date | null;
+        completed_at: Date | null;
         total_recipients: number;
         sent_count: number;
         delivered_count: number;
         failed_count: number;
         read_count: number;
+        estimated_cost: Prisma.Decimal | null;
         actual_cost: Prisma.Decimal | null;
     }>;
     update(clinicId: string, id: string, dto: UpdateCampaignDto): Promise<{
@@ -137,16 +137,16 @@ export declare class CampaignService {
         template_id: string | null;
         scheduled_at: Date | null;
         created_by: string;
-        estimated_cost: Prisma.Decimal | null;
-        completed_at: Date | null;
         segment_type: string;
         segment_config: Prisma.JsonValue | null;
         started_at: Date | null;
+        completed_at: Date | null;
         total_recipients: number;
         sent_count: number;
         delivered_count: number;
         failed_count: number;
         read_count: number;
+        estimated_cost: Prisma.Decimal | null;
         actual_cost: Prisma.Decimal | null;
     }>;
     delete(clinicId: string, id: string): Promise<{
@@ -160,16 +160,16 @@ export declare class CampaignService {
         template_id: string | null;
         scheduled_at: Date | null;
         created_by: string;
-        estimated_cost: Prisma.Decimal | null;
-        completed_at: Date | null;
         segment_type: string;
         segment_config: Prisma.JsonValue | null;
         started_at: Date | null;
+        completed_at: Date | null;
         total_recipients: number;
         sent_count: number;
         delivered_count: number;
         failed_count: number;
         read_count: number;
+        estimated_cost: Prisma.Decimal | null;
         actual_cost: Prisma.Decimal | null;
     }>;
     listTreatmentProcedures(clinicId: string): Promise<Array<{
@@ -317,16 +317,16 @@ export declare class CampaignService {
             template_id: string | null;
             scheduled_at: Date | null;
             created_by: string;
-            estimated_cost: Prisma.Decimal | null;
-            completed_at: Date | null;
             segment_type: string;
             segment_config: Prisma.JsonValue | null;
             started_at: Date | null;
+            completed_at: Date | null;
             total_recipients: number;
             sent_count: number;
             delivered_count: number;
             failed_count: number;
             read_count: number;
+            estimated_cost: Prisma.Decimal | null;
             actual_cost: Prisma.Decimal | null;
         };
         event_name: string;

@@ -27,6 +27,7 @@ const revenue_insights_prompt_js_1 = require("./prompts/revenue-insights.prompt.
 const dental_chart_analysis_prompt_js_1 = require("./prompts/dental-chart-analysis.prompt.js");
 const appointment_summary_prompt_js_1 = require("./prompts/appointment-summary.prompt.js");
 const campaign_content_prompt_js_1 = require("./prompts/campaign-content.prompt.js");
+const untreated_condition_reminder_prompt_js_1 = require("./prompts/untreated-condition-reminder.prompt.js");
 const xray_analysis_prompt_js_1 = require("./prompts/xray-analysis.prompt.js");
 const review_reply_prompt_js_1 = require("./prompts/review-reply.prompt.js");
 const expense_advisor_prompt_js_1 = require("./prompts/expense-advisor.prompt.js");
@@ -829,6 +830,20 @@ let AiService = AiService_1 = class AiService {
             userId,
         });
         return { ...response, insight_id: saved?.id };
+    }
+    async generateUntreatedConditionReminderMessage(clinicId, input, userId) {
+        const userPrompt = (0, untreated_condition_reminder_prompt_js_1.buildUntreatedConditionReminderUserPrompt)({
+            patient_first_name: input.patient_first_name,
+            clinic_name: input.clinic_name,
+            conditions: input.conditions,
+            reminder_number: input.reminder_number,
+        });
+        const result = await this.callLLM(untreated_condition_reminder_prompt_js_1.UNTREATED_CONDITION_REMINDER_SYSTEM_PROMPT, userPrompt, { clinicId, userId, type: 'untreated_condition_reminder' }, 800, 'patient dental treatment reminder messages for this clinic');
+        return {
+            concerns_summary: String(result.concerns_summary ?? '').trim(),
+            urgency_note: String(result.urgency_note ?? '').trim(),
+            full_message: String(result.full_message ?? '').trim(),
+        };
     }
     async analyzeXray(clinicId, params) {
         const attachment = await this.prisma.attachment.findUnique({

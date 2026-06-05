@@ -25,6 +25,7 @@ const email_provider_js_1 = require("../communication/providers/email.provider.j
 const whatsapp_provider_js_1 = require("../communication/providers/whatsapp.provider.js");
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
 const name_util_js_1 = require("../../common/utils/name.util.js");
+const automation_service_js_1 = require("../automation/automation.service.js");
 const PLATFORM_CLINIC_ID = '__platform__';
 let AuthService = class AuthService {
     static { AuthService_1 = this; }
@@ -38,12 +39,13 @@ let AuthService = class AuthService {
     smsProvider;
     emailProvider;
     whatsapp;
+    automationService;
     logger = new common_1.Logger(AuthService_1.name);
     otpStore = new Map();
     regOtpStore = new Map();
     regOtpSendTracker = new Map();
     static META_GRAPH_API = 'https://graph.facebook.com/v21.0';
-    constructor(userService, passwordService, jwtService, configService, prisma, auditLogService, communicationService, smsProvider, emailProvider, whatsapp) {
+    constructor(userService, passwordService, jwtService, configService, prisma, auditLogService, communicationService, smsProvider, emailProvider, whatsapp, automationService) {
         this.userService = userService;
         this.passwordService = passwordService;
         this.jwtService = jwtService;
@@ -54,6 +56,7 @@ let AuthService = class AuthService {
         this.smsProvider = smsProvider;
         this.emailProvider = emailProvider;
         this.whatsapp = whatsapp;
+        this.automationService = automationService;
     }
     async signRefreshToken(userId, clinicId) {
         const payload = { sub: userId, type: 'refresh', clinic_id: clinicId };
@@ -415,6 +418,7 @@ let AuthService = class AuthService {
             });
             return { clinic, admin, branch };
         });
+        this.automationService.seedClinicAutomationDefaults(result.clinic.id).catch((err) => this.logger.warn(`Failed to seed automation defaults for clinic ${result.clinic.id}: ${err.message}`));
         this.sendOnboardingWelcomeEmail({
             admin_name: result.admin.name,
             admin_email: result.admin.email,
@@ -1223,6 +1227,7 @@ exports.AuthService = AuthService = AuthService_1 = __decorate([
         communication_service_js_1.CommunicationService,
         sms_provider_js_1.SmsProvider,
         email_provider_js_1.EmailProvider,
-        whatsapp_provider_js_1.WhatsAppProvider])
+        whatsapp_provider_js_1.WhatsAppProvider,
+        automation_service_js_1.AutomationService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

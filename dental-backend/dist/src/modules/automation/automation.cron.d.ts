@@ -1,20 +1,23 @@
 import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { AutomationService } from './automation.service.js';
+import { UntreatedConditionReminderService } from './untreated-condition-reminder.service.js';
 import { ClinicEventsService } from '../clinic-events/clinic-events.service.js';
 export declare class AutomationCronService {
     private readonly prisma;
     private readonly communicationService;
     private readonly automationService;
+    private readonly untreatedConditionReminderService;
     private readonly clinicEventsService;
     private readonly logger;
-    constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService, clinicEventsService: ClinicEventsService);
+    constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService, untreatedConditionReminderService: UntreatedConditionReminderService, clinicEventsService: ClinicEventsService);
     refreshFestivalCalendar(): Promise<void>;
     birthdayGreetings(): Promise<void>;
     festivalGreetings(): Promise<void>;
     paymentReminders(): Promise<void>;
     dormantPatientDetection(): Promise<void>;
     treatmentPlanReminders(): Promise<void>;
+    untreatedConditionReminders(): Promise<void>;
     noShowFollowUp(): Promise<void>;
     postTreatmentCare(): Promise<void>;
     feedbackCollection(): Promise<void>;

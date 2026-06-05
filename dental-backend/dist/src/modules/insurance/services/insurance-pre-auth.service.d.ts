@@ -30,6 +30,13 @@ export declare class InsurancePreAuthService {
     }): Promise<{
         total: number;
         items: ({
+            claims: {
+                id: string;
+                status: string;
+                created_at: Date;
+                claim_number: string | null;
+                billed_amount: import("@prisma/client-runtime-utils").Decimal;
+            }[];
             patient_insurance: {
                 plan: {
                     provider: {
@@ -87,13 +94,6 @@ export declare class InsurancePreAuthService {
                 card_back_url: string | null;
                 referral_letter_url: string | null;
             };
-            claims: {
-                id: string;
-                status: string;
-                created_at: Date;
-                claim_number: string | null;
-                billed_amount: import("@prisma/client-runtime-utils").Decimal;
-            }[];
         } & {
             id: string;
             status: string;
@@ -101,8 +101,8 @@ export declare class InsurancePreAuthService {
             updated_at: Date;
             clinic_id: string;
             notes: string | null;
-            patient_insurance_id: string;
             treatment_plan_id: string | null;
+            patient_insurance_id: string;
             valid_from: Date | null;
             valid_to: Date | null;
             submission_method: string | null;
@@ -118,6 +118,13 @@ export declare class InsurancePreAuthService {
         })[];
     }>;
     findOne(id: string, clinicId: string): Promise<{
+        claims: {
+            id: string;
+            status: string;
+            created_at: Date;
+            claim_number: string | null;
+            billed_amount: import("@prisma/client-runtime-utils").Decimal;
+        }[];
         patient_insurance: {
             plan: {
                 provider: {
@@ -175,13 +182,6 @@ export declare class InsurancePreAuthService {
             card_back_url: string | null;
             referral_letter_url: string | null;
         };
-        claims: {
-            id: string;
-            status: string;
-            created_at: Date;
-            claim_number: string | null;
-            billed_amount: import("@prisma/client-runtime-utils").Decimal;
-        }[];
     } & {
         id: string;
         status: string;
@@ -189,8 +189,8 @@ export declare class InsurancePreAuthService {
         updated_at: Date;
         clinic_id: string;
         notes: string | null;
-        patient_insurance_id: string;
         treatment_plan_id: string | null;
+        patient_insurance_id: string;
         valid_from: Date | null;
         valid_to: Date | null;
         submission_method: string | null;
@@ -205,6 +205,13 @@ export declare class InsurancePreAuthService {
         decision_at: Date | null;
     }>;
     create(clinicId: string, dto: CreatePreAuthDto): Promise<{
+        claims: {
+            id: string;
+            status: string;
+            created_at: Date;
+            claim_number: string | null;
+            billed_amount: import("@prisma/client-runtime-utils").Decimal;
+        }[];
         patient_insurance: {
             plan: {
                 provider: {
@@ -262,13 +269,6 @@ export declare class InsurancePreAuthService {
             card_back_url: string | null;
             referral_letter_url: string | null;
         };
-        claims: {
-            id: string;
-            status: string;
-            created_at: Date;
-            claim_number: string | null;
-            billed_amount: import("@prisma/client-runtime-utils").Decimal;
-        }[];
     } & {
         id: string;
         status: string;
@@ -276,8 +276,8 @@ export declare class InsurancePreAuthService {
         updated_at: Date;
         clinic_id: string;
         notes: string | null;
-        patient_insurance_id: string;
         treatment_plan_id: string | null;
+        patient_insurance_id: string;
         valid_from: Date | null;
         valid_to: Date | null;
         submission_method: string | null;
@@ -292,6 +292,13 @@ export declare class InsurancePreAuthService {
         decision_at: Date | null;
     }>;
     submit(id: string, clinicId: string, dto: SubmitPreAuthDto, userId: string): Promise<{
+        claims: {
+            id: string;
+            status: string;
+            created_at: Date;
+            claim_number: string | null;
+            billed_amount: import("@prisma/client-runtime-utils").Decimal;
+        }[];
         patient_insurance: {
             plan: {
                 provider: {
@@ -349,13 +356,6 @@ export declare class InsurancePreAuthService {
             card_back_url: string | null;
             referral_letter_url: string | null;
         };
-        claims: {
-            id: string;
-            status: string;
-            created_at: Date;
-            claim_number: string | null;
-            billed_amount: import("@prisma/client-runtime-utils").Decimal;
-        }[];
     } & {
         id: string;
         status: string;
@@ -363,8 +363,8 @@ export declare class InsurancePreAuthService {
         updated_at: Date;
         clinic_id: string;
         notes: string | null;
-        patient_insurance_id: string;
         treatment_plan_id: string | null;
+        patient_insurance_id: string;
         valid_from: Date | null;
         valid_to: Date | null;
         submission_method: string | null;
@@ -379,6 +379,13 @@ export declare class InsurancePreAuthService {
         decision_at: Date | null;
     }>;
     updateStatus(id: string, clinicId: string, dto: UpdatePreAuthStatusDto): Promise<{
+        claims: {
+            id: string;
+            status: string;
+            created_at: Date;
+            claim_number: string | null;
+            billed_amount: import("@prisma/client-runtime-utils").Decimal;
+        }[];
         patient_insurance: {
             plan: {
                 provider: {
@@ -436,13 +443,6 @@ export declare class InsurancePreAuthService {
             card_back_url: string | null;
             referral_letter_url: string | null;
         };
-        claims: {
-            id: string;
-            status: string;
-            created_at: Date;
-            claim_number: string | null;
-            billed_amount: import("@prisma/client-runtime-utils").Decimal;
-        }[];
     } & {
         id: string;
         status: string;
@@ -450,8 +450,8 @@ export declare class InsurancePreAuthService {
         updated_at: Date;
         clinic_id: string;
         notes: string | null;
-        patient_insurance_id: string;
         treatment_plan_id: string | null;
+        patient_insurance_id: string;
         valid_from: Date | null;
         valid_to: Date | null;
         submission_method: string | null;
@@ -466,6 +466,13 @@ export declare class InsurancePreAuthService {
         decision_at: Date | null;
     }>;
     uploadDocument(id: string, clinicId: string, slot: 'request' | 'approval' | 'rejection', file: Express.Multer.File): Promise<{
+        claims: {
+            id: string;
+            status: string;
+            created_at: Date;
+            claim_number: string | null;
+            billed_amount: import("@prisma/client-runtime-utils").Decimal;
+        }[];
         patient_insurance: {
             plan: {
                 provider: {
@@ -523,13 +530,6 @@ export declare class InsurancePreAuthService {
             card_back_url: string | null;
             referral_letter_url: string | null;
         };
-        claims: {
-            id: string;
-            status: string;
-            created_at: Date;
-            claim_number: string | null;
-            billed_amount: import("@prisma/client-runtime-utils").Decimal;
-        }[];
     } & {
         id: string;
         status: string;
@@ -537,8 +537,8 @@ export declare class InsurancePreAuthService {
         updated_at: Date;
         clinic_id: string;
         notes: string | null;
-        patient_insurance_id: string;
         treatment_plan_id: string | null;
+        patient_insurance_id: string;
         valid_from: Date | null;
         valid_to: Date | null;
         submission_method: string | null;

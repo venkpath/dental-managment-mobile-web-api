@@ -17,6 +17,7 @@ const prisma_service_js_1 = require("../../database/prisma.service.js");
 const communication_service_js_1 = require("../communication/communication.service.js");
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
 const automation_service_js_1 = require("./automation.service.js");
+const untreated_condition_reminder_service_js_1 = require("./untreated-condition-reminder.service.js");
 const clinic_events_service_js_1 = require("../clinic-events/clinic-events.service.js");
 const name_util_js_1 = require("../../common/utils/name.util.js");
 const booking_url_util_js_1 = require("../../common/utils/booking-url.util.js");
@@ -24,12 +25,14 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
     prisma;
     communicationService;
     automationService;
+    untreatedConditionReminderService;
     clinicEventsService;
     logger = new common_1.Logger(AutomationCronService_1.name);
-    constructor(prisma, communicationService, automationService, clinicEventsService) {
+    constructor(prisma, communicationService, automationService, untreatedConditionReminderService, clinicEventsService) {
         this.prisma = prisma;
         this.communicationService = communicationService;
         this.automationService = automationService;
+        this.untreatedConditionReminderService = untreatedConditionReminderService;
         this.clinicEventsService = clinicEventsService;
     }
     async refreshFestivalCalendar() {
@@ -419,6 +422,29 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
             this.logger.error(`Treatment plan reminder cron failed: ${e.message}`, e.stack);
         }
         this.logger.log(`Treatment plan reminder automation completed. Total sent: ${totalSent}`);
+    }
+    async untreatedConditionReminders() {
+        this.logger.log('Running untreated dental condition reminder automation...');
+        let totalSent = 0;
+        try {
+            const clinics = await this.getActiveClinics();
+            for (const clinic of clinics) {
+                try {
+                    const sent = await this.untreatedConditionReminderService.processClinic(clinic, (clinicId, patientId, ruleChannel) => this.resolveChannel(clinicId, patientId, ruleChannel));
+                    totalSent += sent;
+                    if (sent > 0) {
+                        this.logger.log(`Sent ${sent} untreated condition reminder(s) for ${clinic.name}`);
+                    }
+                }
+                catch (e) {
+                    this.logger.error(`Untreated condition reminder error for clinic ${clinic.id}: ${e.message}`);
+                }
+            }
+        }
+        catch (e) {
+            this.logger.error(`Untreated condition reminder cron failed: ${e.message}`, e.stack);
+        }
+        this.logger.log(`Untreated condition reminder automation completed. Total sent: ${totalSent}`);
     }
     async noShowFollowUp() {
         this.logger.log('Running no-show follow-up automation...');
@@ -1119,6 +1145,12 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AutomationCronService.prototype, "treatmentPlanReminders", null);
 __decorate([
+    (0, schedule_1.Cron)('0 15 10 * * *'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AutomationCronService.prototype, "untreatedConditionReminders", null);
+__decorate([
     (0, schedule_1.Cron)('0 30 10 * * *'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
@@ -1171,6 +1203,7 @@ exports.AutomationCronService = AutomationCronService = AutomationCronService_1 
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         communication_service_js_1.CommunicationService,
         automation_service_js_1.AutomationService,
+        untreated_condition_reminder_service_js_1.UntreatedConditionReminderService,
         clinic_events_service_js_1.ClinicEventsService])
 ], AutomationCronService);
 //# sourceMappingURL=automation.cron.js.map

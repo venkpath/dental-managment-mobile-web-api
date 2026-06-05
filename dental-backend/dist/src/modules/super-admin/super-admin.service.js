@@ -17,6 +17,7 @@ const prisma_service_js_1 = require("../../database/prisma.service.js");
 const password_service_js_1 = require("../../common/services/password.service.js");
 const email_provider_js_1 = require("../communication/providers/email.provider.js");
 const whatsapp_provider_js_1 = require("../communication/providers/whatsapp.provider.js");
+const automation_service_js_1 = require("../automation/automation.service.js");
 const PLATFORM_CLINIC_ID = '__platform__';
 let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
     prisma;
@@ -24,16 +25,18 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
     emailProvider;
     whatsapp;
     config;
+    automationService;
     logger = new common_1.Logger(SuperAdminService_1.name);
     adminEmail;
     adminPhone;
     frontendUrl;
-    constructor(prisma, passwordService, emailProvider, whatsapp, config) {
+    constructor(prisma, passwordService, emailProvider, whatsapp, config, automationService) {
         this.prisma = prisma;
         this.passwordService = passwordService;
         this.emailProvider = emailProvider;
         this.whatsapp = whatsapp;
         this.config = config;
+        this.automationService = automationService;
         this.adminEmail = this.config.get('app.adminEmail', 'prasanthshanmugam10@gmail.com');
         this.adminPhone = this.config.get('app.adminWhatsappPhone', '916366767512');
         this.frontendUrl = this.config.get('app.frontendUrl', 'http://localhost:3001');
@@ -266,6 +269,7 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
             });
             return { clinic, branch, admin: user };
         });
+        await this.automationService.seedClinicAutomationDefaults(result.clinic.id);
         this.sendOnboardingWelcomeEmail({
             admin_name: result.admin.name,
             admin_email: result.admin.email,
@@ -906,6 +910,7 @@ exports.SuperAdminService = SuperAdminService = SuperAdminService_1 = __decorate
         password_service_js_1.PasswordService,
         email_provider_js_1.EmailProvider,
         whatsapp_provider_js_1.WhatsAppProvider,
-        config_1.ConfigService])
+        config_1.ConfigService,
+        automation_service_js_1.AutomationService])
 ], SuperAdminService);
 //# sourceMappingURL=super-admin.service.js.map
