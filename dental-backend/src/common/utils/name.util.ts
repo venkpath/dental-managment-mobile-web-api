@@ -13,19 +13,19 @@ export function decodeHtmlEntities(value: string | undefined | null): string {
     .replace(/&apos;/g, "'");
 }
 
+/** Matches "Dr.", "Dr. ", "Dr ", "Dr.Sai", "Doctor " at the start of a name. */
+const DOCTOR_PREFIX_RE = /^(?:dr\.(?:\s*)?|dr\s+|doctor\s+)/i;
+
 /**
  * Normalize a doctor's name to always render with a single "Dr." prefix.
- * Strips any existing leading "Dr.", "Dr ", "DR.", "doctor" (case-insensitive)
+ * Strips any existing leading "Dr.", "Dr.", "Dr ", "DR.", "doctor" (case-insensitive)
  * before re-adding "Dr. ", so we never produce "Dr. Dr. Priya".
  *
  * Returns an em-dash for empty/null/undefined input.
  */
 export function formatDoctorName(name?: string | null): string {
   if (!name) return '—';
-  const cleaned = name
-    .trim()
-    .replace(/^(dr\.?|doctor)\s+/i, '')
-    .trim();
+  const cleaned = name.trim().replace(DOCTOR_PREFIX_RE, '').trim();
   if (!cleaned) return '—';
   return `Dr. ${cleaned}`;
 }
@@ -37,5 +37,5 @@ export function formatDoctorName(name?: string | null): string {
  */
 export function stripDoctorPrefix(name?: string | null): string {
   if (!name) return '';
-  return name.trim().replace(/^(dr\.?|doctor)\s+/i, '').trim();
+  return name.trim().replace(DOCTOR_PREFIX_RE, '').trim();
 }

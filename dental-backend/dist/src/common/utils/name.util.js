@@ -14,13 +14,11 @@ function decodeHtmlEntities(value) {
         .replace(/&#39;/g, "'")
         .replace(/&apos;/g, "'");
 }
+const DOCTOR_PREFIX_RE = /^(?:dr\.(?:\s*)?|dr\s+|doctor\s+)/i;
 function formatDoctorName(name) {
     if (!name)
         return '—';
-    const cleaned = name
-        .trim()
-        .replace(/^(dr\.?|doctor)\s+/i, '')
-        .trim();
+    const cleaned = name.trim().replace(DOCTOR_PREFIX_RE, '').trim();
     if (!cleaned)
         return '—';
     return `Dr. ${cleaned}`;
@@ -28,6 +26,6 @@ function formatDoctorName(name) {
 function stripDoctorPrefix(name) {
     if (!name)
         return '';
-    return name.trim().replace(/^(dr\.?|doctor)\s+/i, '').trim();
+    return name.trim().replace(DOCTOR_PREFIX_RE, '').trim();
 }
 //# sourceMappingURL=name.util.js.map

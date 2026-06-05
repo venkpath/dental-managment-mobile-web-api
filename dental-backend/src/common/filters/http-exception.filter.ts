@@ -57,13 +57,16 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     // Prisma validation errors (wrong types, unknown fields)
     if (exception instanceof Prisma.PrismaClientValidationError) {
-      this.logger.error('Prisma validation error', exception.message);
+      const detail = exception.message.split('\n').find((l) => l.trim().startsWith('Unknown argument'))
+        || exception.message.split('\n').pop()
+        || exception.message;
+      this.logger.error(`Prisma validation error: ${detail}`);
       const body: ApiErrorResponse = {
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
           message: 'Invalid data sent to database',
-          details: [exception.message.split('\n').pop() || exception.message],
+          details: [detail],
         },
       };
       response.status(HttpStatus.BAD_REQUEST).json(body);
