@@ -15,6 +15,7 @@ import { MessageChannel, MessageCategory } from '../communication/dto/send-messa
 import { JwtPayload, RefreshJwtPayload } from '../../common/interfaces/jwt-payload.interface.js';
 import type { StringValue } from 'ms';
 import { decodeHtmlEntities } from '../../common/utils/name.util.js';
+import { phoneLookupVariants } from '../../common/utils/phone.util.js';
 import { LoginDto, LookupDto, RegisterClinicDto, ChangePasswordDto } from './dto/index.js';
 import { AutomationService } from '../automation/automation.service.js';
 
@@ -197,8 +198,13 @@ export class AuthService {
   }
 
   async lookupByPhone(phone: string, password: string) {
+    const phoneVariants = phoneLookupVariants(phone);
     const users = await this.prisma.user.findMany({
-      where: { phone, status: 'active', phone_verified: true },
+      where: {
+        phone: { in: phoneVariants },
+        status: 'active',
+        phone_verified: true,
+      },
       include: {
         clinic: { select: { id: true, name: true, email: true, subscription_status: true } },
       },
@@ -231,8 +237,9 @@ export class AuthService {
   }
 
   async loginByPhone(phone: string, password: string, clinicId: string, req?: Request): Promise<LoginResponse> {
+    const phoneVariants = phoneLookupVariants(phone);
     const user = await this.prisma.user.findFirst({
-      where: { phone, clinic_id: clinicId, status: 'active', phone_verified: true },
+      where: { phone: { in: phoneVariants }, clinic_id: clinicId, status: 'active', phone_verified: true },
     });
 
     if (!user) {
@@ -399,9 +406,9 @@ export class AuthService {
     if (isEmail) {
       return { storeKey: trimmed.toLowerCase(), isEmail, phoneVariants: [] };
     }
+    const variants = phoneLookupVariants(trimmed);
     const digits = trimmed.replace(/[^0-9]/g, '');
     const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
-    const variants = [...new Set([trimmed, last10, `+91${last10}`, `91${last10}`].filter((v) => v.length >= 7))];
     return { storeKey: last10 || trimmed.toLowerCase(), isEmail, phoneVariants: variants };
   }
 

@@ -19,6 +19,7 @@ const password_service_js_1 = require("../../common/services/password.service.js
 const email_provider_js_1 = require("../communication/providers/email.provider.js");
 const whatsapp_provider_js_1 = require("../communication/providers/whatsapp.provider.js");
 const automation_service_js_1 = require("../automation/automation.service.js");
+const phone_util_js_1 = require("../../common/utils/phone.util.js");
 const PLATFORM_CLINIC_ID = '__platform__';
 let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
     prisma;
@@ -557,6 +558,7 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
                     },
                 });
             }
+            const normalizedPhone = clinic.phone ? (0, phone_util_js_1.normalizePhoneE164)(clinic.phone) ?? clinic.phone : null;
             if (!existingUser && clinic.email) {
                 const passwordHash = await this.passwordService.hash(randomPassword);
                 await tx.user.create({
@@ -565,12 +567,12 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
                         branch_id: branch.id,
                         name: clinic.directory_contact_name || clinic.name,
                         email: clinic.email,
-                        phone: clinic.phone ?? null,
+                        phone: normalizedPhone,
                         password_hash: passwordHash,
                         role: 'SuperAdmin',
                         status: 'active',
                         email_verified: true,
-                        phone_verified: !!clinic.phone,
+                        phone_verified: !!normalizedPhone,
                         must_change_password: true,
                         is_doctor: true,
                         listed_in_directory: true,
@@ -584,6 +586,9 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
                     data: {
                         is_doctor: true,
                         listed_in_directory: true,
+                        ...(normalizedPhone
+                            ? { phone: normalizedPhone, phone_verified: true }
+                            : {}),
                     },
                 });
             }
