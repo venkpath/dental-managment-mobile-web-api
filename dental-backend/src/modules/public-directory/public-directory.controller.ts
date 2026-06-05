@@ -6,7 +6,7 @@ import type { Response } from 'express';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import {
   IsString, IsOptional, IsInt, IsNumber, IsBoolean, Min, Max, MinLength,
-  MaxLength, IsIn, IsEmail, IsArray, ArrayMaxSize,
+  MaxLength, IsIn, IsEmail, IsArray, ArrayMaxSize, IsNotEmpty,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
@@ -201,6 +201,7 @@ class SendEmailOtpDto {
 
   @ApiProperty({ description: 'Phone verification token from verify-phone-otp step' })
   @IsString()
+  @IsNotEmpty()
   phone_token!: string;
 }
 
@@ -219,10 +220,12 @@ class VerifyEmailOtpDto {
 class SubmitListingDto {
   @ApiProperty({ description: 'Phone verification JWT from verify-phone-otp' })
   @IsString()
+  @IsNotEmpty()
   phone_token!: string;
 
   @ApiProperty({ description: 'Email verification JWT from verify-email-otp' })
   @IsString()
+  @IsNotEmpty()
   email_token!: string;
 
   // Step 1

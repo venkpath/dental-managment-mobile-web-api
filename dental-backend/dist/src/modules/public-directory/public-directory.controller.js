@@ -290,6 +290,7 @@ __decorate([
 __decorate([
     (0, swagger_2.ApiProperty)({ description: 'Phone verification token from verify-phone-otp step' }),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], SendEmailOtpDto.prototype, "phone_token", void 0);
 class VerifyEmailOtpDto {
@@ -330,11 +331,13 @@ class SubmitListingDto {
 __decorate([
     (0, swagger_2.ApiProperty)({ description: 'Phone verification JWT from verify-phone-otp' }),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], SubmitListingDto.prototype, "phone_token", void 0);
 __decorate([
     (0, swagger_2.ApiProperty)({ description: 'Email verification JWT from verify-email-otp' }),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], SubmitListingDto.prototype, "email_token", void 0);
 __decorate([
