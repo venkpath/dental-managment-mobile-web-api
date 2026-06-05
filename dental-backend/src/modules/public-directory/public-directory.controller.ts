@@ -1,12 +1,13 @@
 import {
   Controller, Get, Post, Param, Body, Query, Res, UploadedFile, UseInterceptors,
-  ParseUUIDPipe, NotFoundException, BadRequestException, HttpException, HttpStatus,
+  ParseUUIDPipe, NotFoundException, BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ListingVerificationService,
   LISTING_VERIFICATION_MAX_BYTES,
 } from './listing-verification.service.js';
+import { ListingOtpService } from './listing-otp.service.js';
 import type { Response } from 'express';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import {
@@ -25,6 +26,9 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as nodemailer from 'nodemailer';
 import { normalizePhoneE164 } from '../../common/utils/phone.util.js';
+import { EmailProvider } from '../communication/providers/email.provider.js';
+
+const PLATFORM_CLINIC_ID = '__platform__';
 
 // ─── DTOs ───────────────────────────────────────────────────────────────────
 
@@ -229,10 +233,10 @@ class SubmitListingDto {
   @IsNotEmpty()
   phone_token!: string;
 
-  @ApiProperty({ description: 'Email verification JWT from verify-email-otp' })
-  @IsString()
-  @IsNotEmpty()
-  email_token!: string;
+  @ApiProperty({ example: 'dr.sharma@clinic.com', description: 'Contact email from the listing form (not OTP-verified)' })
+  @IsEmail()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
+  email!: string;
 
   // Step 1
   @ApiProperty({ example: 'Sharma Dental Clinic' })
@@ -535,20 +539,32 @@ const PUBLIC_DOCTOR_WHERE = {
 export class PublicDirectoryController {
   private readonly logger = new (class { log = (m: string) => console.log(`[PublicDirectory] ${m}`); warn = (m: string) => console.warn(`[PublicDirectory] ${m}`); })();
 
-  /** phone → { code, expiresAt, attempts } */
-  private readonly phoneOtpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
-  /** phone → list of send timestamps (rate limit) */
-  private readonly phoneOtpSendTracker = new Map<string, number[]>();
-  /** email → { code, expiresAt, attempts } */
-  private readonly emailOtpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly s3: S3Service,
     private readonly config: ConfigService,
     private readonly jwt: JwtService,
     private readonly listingVerification: ListingVerificationService,
+    private readonly listingOtp: ListingOtpService,
+    private readonly emailProvider: EmailProvider,
   ) {}
+
+  /** Reuse a cached SMTP connection — avoids first-send timeouts from cold handshakes. */
+  private ensurePlatformEmail(): boolean {
+    if (this.emailProvider.isConfigured(PLATFORM_CLINIC_ID)) return true;
+    const host = this.config.get<string>('app.smtp.host');
+    const user = this.config.get<string>('app.smtp.user');
+    if (!host || !user) return false;
+    this.emailProvider.configure(PLATFORM_CLINIC_ID, {
+      host,
+      port: this.config.get<number>('app.smtp.port') || 587,
+      user,
+      pass: this.config.get<string>('app.smtp.pass') || '',
+      from: this.config.get<string>('app.smtp.from') || user,
+      secure: this.config.get<boolean>('app.smtp.secure') || false,
+    }, 'smtp-env');
+    return true;
+  }
 
   // ── GET /public/directory — search / list clinics ──
   @Get()
@@ -1134,29 +1150,15 @@ export class PublicDirectoryController {
   @ApiOperation({ summary: 'Send SMS OTP to phone for free listing verification' })
   async sendListingPhoneOtp(@Body() dto: SendPhoneOtpDto) {
     const phone = dto.phone.trim();
-
-    // Rate limit: 3 sends per phone per hour
-    const now = Date.now();
-    const ONE_HOUR = 60 * 60 * 1000;
-    const sends = (this.phoneOtpSendTracker.get(phone) ?? []).filter((t) => now - t < ONE_HOUR);
-    if (sends.length >= 3) {
-      throw new HttpException(
-        'Too many OTP requests for this number. Please try again after an hour.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-    sends.push(now);
-    this.phoneOtpSendTracker.set(phone, sends);
-
+    const phoneKey = await this.listingOtp.assertPhoneSendAllowed(phone);
     const otp = String(randomInt(100000, 999999));
-    const OTP_EXPIRY_MS = 10 * 60 * 1000;
-    this.phoneOtpStore.set(phone, { code: otp, expiresAt: now + OTP_EXPIRY_MS, attempts: 0 });
 
     const apiKey = this.config.get<string>('app.sms.apiKey');
     const templateId = this.config.get<string>('app.sms.defaultDltTemplateId');
 
     if (!apiKey || !templateId) {
       this.logger.warn('Platform SMS not configured — listing phone OTP not sent');
+      await this.listingOtp.storePhoneOtp(phoneKey, otp);
       return { message: 'OTP generated. (SMS not configured on server)' };
     }
 
@@ -1207,6 +1209,7 @@ export class PublicDirectoryController {
       throw new BadRequestException('Failed to send SMS OTP. Please check the number and try again.');
     }
 
+    await this.listingOtp.storePhoneOtp(phoneKey, otp);
     return { message: 'OTP sent to your mobile number. Valid for 10 minutes.' };
   }
 
@@ -1215,33 +1218,12 @@ export class PublicDirectoryController {
   @Public()
   @ApiOperation({ summary: 'Verify phone OTP for free listing; returns a short-lived phone token' })
   async verifyListingPhoneOtp(@Body() dto: VerifyPhoneOtpDto) {
-    const phone = dto.phone.trim();
-    const entry = this.phoneOtpStore.get(phone);
-
-    if (!entry) throw new BadRequestException('OTP not found or expired. Please request a new one.');
-    if (Date.now() > entry.expiresAt) {
-      this.phoneOtpStore.delete(phone);
-      throw new BadRequestException('OTP has expired. Please request a new one.');
-    }
-    if (entry.attempts >= 3) {
-      this.phoneOtpStore.delete(phone);
-      throw new BadRequestException('Too many failed attempts. Please request a new OTP.');
-    }
-
-    // Constant-time comparison
-    const a = Buffer.from(dto.code);
-    const b = Buffer.from(entry.code);
-    let diff = a.length !== b.length ? 1 : 0;
-    const len = Math.min(a.length, b.length);
-    for (let i = 0; i < len; i++) diff |= a[i] ^ b[i];
-
-    if (diff !== 0) {
-      entry.attempts++;
-      throw new BadRequestException('Invalid OTP. Please try again.');
-    }
-
-    this.phoneOtpStore.delete(phone);
-    const token = await this.jwt.signAsync({ phone, type: 'listing_phone_verified' }, { expiresIn: '30m' });
+    const phoneKey = this.listingOtp.normalizePhoneKey(dto.phone);
+    await this.listingOtp.verifyPhoneOtp(phoneKey, dto.code.trim());
+    const token = await this.jwt.signAsync(
+      { phone: phoneKey, type: 'listing_phone_verified' },
+      { expiresIn: '60m' },
+    );
     return { verified: true, token, message: 'Phone verified successfully.' };
   }
 
@@ -1258,28 +1240,20 @@ export class PublicDirectoryController {
       throw new BadRequestException('Invalid or expired phone verification token. Please verify your phone first.');
     }
 
-    const email = dto.email.trim().toLowerCase();
+    const emailKey = await this.listingOtp.assertEmailSendAllowed(dto.email);
     const otp = String(randomInt(100000, 999999));
-    const OTP_EXPIRY_MS = 10 * 60 * 1000;
-    this.emailOtpStore.set(email, { code: otp, expiresAt: Date.now() + OTP_EXPIRY_MS, attempts: 0 });
 
-    const host = this.config.get<string>('app.smtp.host');
-    const user = this.config.get<string>('app.smtp.user');
-    const pass = this.config.get<string>('app.smtp.pass') || '';
-    const fromAddr = this.config.get<string>('app.smtp.from') || user || 'noreply@smartdentaldesk.com';
-    const port = this.config.get<number>('app.smtp.port') || 587;
-    const secure = this.config.get<boolean>('app.smtp.secure') || false;
-
-    if (!host || !user) {
+    if (!this.ensurePlatformEmail()) {
       this.logger.warn('Platform SMTP not configured — listing email OTP not sent');
+      await this.listingOtp.storeEmailOtp(emailKey, otp);
       return { message: 'OTP generated. (Email not configured on server)' };
     }
 
-    const mailOptions = {
-      from: `"Smart Dental Desk" <${fromAddr}>`,
-      to: email,
-      subject: `${otp} — Your verification code for Smart Dental Desk listing`,
-      html: `
+    const fromAddr =
+      this.config.get<string>('app.smtp.from')
+      || this.config.get<string>('app.smtp.user')
+      || 'noreply@smartdentaldesk.com';
+    const html = `
           <div style="font-family:Inter,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;">
             <div style="text-align:center;margin-bottom:24px;">
               <span style="font-size:20px;font-weight:700;color:#1a78d6;">Smart</span>
@@ -1292,35 +1266,34 @@ export class PublicDirectoryController {
             </div>
             <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">This code expires in 10 minutes. Do not share it with anyone.</p>
           </div>
-        `,
-    };
+        `;
 
-    let lastErr: Error | undefined;
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const transporter = nodemailer.createTransport({
-          host, port, secure,
-          auth: { user, pass },
-          connectionTimeout: 15000,
-          greetingTimeout: 15000,
-          socketTimeout: 30000,
-          ...(!secure && { tls: { rejectUnauthorized: false } }),
-        });
-        await transporter.sendMail(mailOptions);
-        this.logger.log(`Listing email OTP sent to ${email}`);
+    let lastErr: string | undefined;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const result = await this.emailProvider.send({
+        clinicId: PLATFORM_CLINIC_ID,
+        to: emailKey,
+        subject: `${otp} — Your verification code for Smart Dental Desk listing`,
+        body: `Your Smart Dental Desk listing verification code is ${otp}. Valid for 10 minutes.`,
+        html,
+        metadata: { from: `"Smart Dental Desk" <${fromAddr}>` },
+      });
+      if (result.success) {
+        this.logger.log(`Listing email OTP sent to ${emailKey} (attempt ${attempt})`);
         lastErr = undefined;
         break;
-      } catch (err) {
-        lastErr = err as Error;
-        this.logger.warn(`Listing email OTP attempt ${attempt} failed to ${email}: ${lastErr.message}`);
-        if (attempt < 2) await new Promise((r) => setTimeout(r, 1500));
       }
+      lastErr = result.error ?? 'Unknown email error';
+      this.logger.warn(`Listing email OTP attempt ${attempt} failed to ${emailKey}: ${lastErr}`);
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 2000));
     }
 
     if (lastErr) {
-      throw new BadRequestException('Failed to send email OTP. Please check the address and try again.');
+      await this.listingOtp.rollbackEmailSend(emailKey);
+      throw new BadRequestException('Could not send email OTP. Please try again.');
     }
 
+    await this.listingOtp.storeEmailOtp(emailKey, otp);
     return { message: 'OTP sent to your email address. Valid for 10 minutes.' };
   }
 
@@ -1329,32 +1302,12 @@ export class PublicDirectoryController {
   @Public()
   @ApiOperation({ summary: 'Verify email OTP for free listing; returns a short-lived email token' })
   async verifyListingEmailOtp(@Body() dto: VerifyEmailOtpDto) {
-    const email = dto.email.trim().toLowerCase();
-    const entry = this.emailOtpStore.get(email);
-
-    if (!entry) throw new BadRequestException('OTP not found or expired. Please request a new one.');
-    if (Date.now() > entry.expiresAt) {
-      this.emailOtpStore.delete(email);
-      throw new BadRequestException('OTP has expired. Please request a new one.');
-    }
-    if (entry.attempts >= 3) {
-      this.emailOtpStore.delete(email);
-      throw new BadRequestException('Too many failed attempts. Please request a new OTP.');
-    }
-
-    const a = Buffer.from(dto.code);
-    const b = Buffer.from(entry.code);
-    let diff = a.length !== b.length ? 1 : 0;
-    const len = Math.min(a.length, b.length);
-    for (let i = 0; i < len; i++) diff |= a[i] ^ b[i];
-
-    if (diff !== 0) {
-      entry.attempts++;
-      throw new BadRequestException('Invalid OTP. Please try again.');
-    }
-
-    this.emailOtpStore.delete(email);
-    const token = await this.jwt.signAsync({ email, type: 'listing_email_verified' }, { expiresIn: '30m' });
+    const emailKey = this.listingOtp.normalizeEmailKey(dto.email);
+    await this.listingOtp.verifyEmailOtp(emailKey, dto.code.trim());
+    const token = await this.jwt.signAsync(
+      { email: emailKey, type: 'listing_email_verified' },
+      { expiresIn: '60m' },
+    );
     return { verified: true, token, message: 'Email verified successfully.' };
   }
 
@@ -1381,7 +1334,7 @@ export class PublicDirectoryController {
   // ── POST /public/directory/list-practice/submit ───────────────────────────
   @Post('list-practice/submit')
   @Public()
-  @ApiOperation({ summary: 'Submit a free practice listing after phone + email verification' })
+  @ApiOperation({ summary: 'Submit a free practice listing after phone verification' })
   @UseInterceptors(FileInterceptor('verification_document', { limits: { fileSize: LISTING_VERIFICATION_MAX_BYTES } }))
   async submitListing(
     @UploadedFile() file: Express.Multer.File | undefined,
@@ -1417,15 +1370,7 @@ export class PublicDirectoryController {
       throw new BadRequestException('Invalid or expired phone verification token.');
     }
 
-    // Validate email token
-    let verifiedEmail: string;
-    try {
-      const payload = await this.jwt.verifyAsync<{ email: string; type: string }>(dto.email_token);
-      if (payload.type !== 'listing_email_verified') throw new Error('wrong type');
-      verifiedEmail = payload.email;
-    } catch {
-      throw new BadRequestException('Invalid or expired email verification token.');
-    }
+    const verifiedEmail = dto.email.trim().toLowerCase();
 
     // Block if a full dashboard account already exists with this email or phone
     const siteUrl = this.config.get<string>('app.frontendUrl') || 'https://smartdentaldesk.com';
