@@ -1086,20 +1086,11 @@ let PublicDirectoryController = class PublicDirectoryController {
             this.logger.warn('Platform SMTP not configured — listing email OTP not sent');
             return { message: 'OTP generated. (Email not configured on server)' };
         }
-        try {
-            const transporter = nodemailer.createTransport({
-                host, port, secure,
-                auth: { user, pass },
-                connectionTimeout: 15000,
-                greetingTimeout: 15000,
-                socketTimeout: 30000,
-                ...(!secure && { tls: { rejectUnauthorized: false } }),
-            });
-            await transporter.sendMail({
-                from: `"Smart Dental Desk" <${fromAddr}>`,
-                to: email,
-                subject: `${otp} — Your verification code for Smart Dental Desk listing`,
-                html: `
+        const mailOptions = {
+            from: `"Smart Dental Desk" <${fromAddr}>`,
+            to: email,
+            subject: `${otp} — Your verification code for Smart Dental Desk listing`,
+            html: `
           <div style="font-family:Inter,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;">
             <div style="text-align:center;margin-bottom:24px;">
               <span style="font-size:20px;font-weight:700;color:#1a78d6;">Smart</span>
@@ -1113,11 +1104,31 @@ let PublicDirectoryController = class PublicDirectoryController {
             <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">This code expires in 10 minutes. Do not share it with anyone.</p>
           </div>
         `,
-            });
-            this.logger.log(`Listing email OTP sent to ${email}`);
+        };
+        let lastErr;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+                const transporter = nodemailer.createTransport({
+                    host, port, secure,
+                    auth: { user, pass },
+                    connectionTimeout: 15000,
+                    greetingTimeout: 15000,
+                    socketTimeout: 30000,
+                    ...(!secure && { tls: { rejectUnauthorized: false } }),
+                });
+                await transporter.sendMail(mailOptions);
+                this.logger.log(`Listing email OTP sent to ${email}`);
+                lastErr = undefined;
+                break;
+            }
+            catch (err) {
+                lastErr = err;
+                this.logger.warn(`Listing email OTP attempt ${attempt} failed to ${email}: ${lastErr.message}`);
+                if (attempt < 2)
+                    await new Promise((r) => setTimeout(r, 1500));
+            }
         }
-        catch (err) {
-            this.logger.warn(`Listing email OTP send failed to ${email}: ${err.message}`);
+        if (lastErr) {
             throw new common_1.BadRequestException('Failed to send email OTP. Please check the address and try again.');
         }
         return { message: 'OTP sent to your email address. Valid for 10 minutes.' };
