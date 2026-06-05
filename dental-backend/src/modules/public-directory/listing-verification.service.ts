@@ -15,6 +15,18 @@ export const LISTING_VERIFICATION_DOC_PREFIX = 'listings/verification/';
 
 export type ListingVerificationDocType = 'clinic_photo' | 'prescription_pad' | 'invoice' | 'other';
 
+interface PendingDocJwt {
+  type: 'listing_pending_doc';
+  s3_key: string;
+  document_type: ListingVerificationDocType;
+}
+
+export interface StagedListingUpload {
+  id: string;
+  s3_key: string;
+  document_type: string;
+}
+
 @Injectable()
 export class ListingVerificationService {
   private readonly logger = new Logger(ListingVerificationService.name);
@@ -39,6 +51,25 @@ export class ListingVerificationService {
     }
   }
 
+  private parsePendingToken(uploadToken: string): PendingDocJwt {
+    try {
+      const payload = this.jwt.verify(uploadToken) as PendingDocJwt;
+      if (payload.type !== 'listing_pending_doc') throw new Error('wrong type');
+      if (!payload.s3_key?.startsWith(LISTING_PENDING_DOC_PREFIX)) throw new Error('bad key');
+      return payload;
+    } catch {
+      throw new BadRequestException('Invalid or expired upload token.');
+    }
+  }
+
+  private async isKeyClaimedByClinic(s3Key: string): Promise<boolean> {
+    const clinic = await this.prisma.clinic.findFirst({
+      where: { directory_verification_document_url: s3Key },
+      select: { id: true },
+    });
+    return !!clinic;
+  }
+
   async stagePendingUpload(
     file: Express.Multer.File,
     documentType: ListingVerificationDocType,
@@ -48,12 +79,8 @@ export class ListingVerificationService {
     const s3Key = `${LISTING_PENDING_DOC_PREFIX}${randomUUID()}${docExt}`;
     await this.s3.upload(s3Key, file.buffer, file.mimetype);
 
-    const row = await this.prisma.directoryListingUpload.create({
-      data: { s3_key: s3Key, document_type: documentType },
-    });
-
     const uploadToken = await this.jwt.signAsync(
-      { upload_id: row.id, s3_key: s3Key, type: 'listing_pending_doc' },
+      { s3_key: s3Key, document_type: documentType, type: 'listing_pending_doc' } satisfies PendingDocJwt,
       { expiresIn: '2h' },
     );
 
@@ -61,59 +88,31 @@ export class ListingVerificationService {
   }
 
   async discardPendingUpload(uploadToken: string) {
-    let payload: { upload_id: string; s3_key: string; type: string };
-    try {
-      payload = await this.jwt.verifyAsync(uploadToken);
-      if (payload.type !== 'listing_pending_doc') throw new Error('wrong type');
-    } catch {
-      throw new BadRequestException('Invalid or expired upload token.');
-    }
-
-    const row = await this.prisma.directoryListingUpload.findUnique({
-      where: { id: payload.upload_id },
-    });
-    if (!row || row.claimed_at) {
+    const payload = this.parsePendingToken(uploadToken);
+    if (await this.isKeyClaimedByClinic(payload.s3_key)) {
       return { discarded: false };
     }
-    if (row.s3_key !== payload.s3_key || !row.s3_key.startsWith(LISTING_PENDING_DOC_PREFIX)) {
-      throw new BadRequestException('Invalid upload reference.');
-    }
-
-    await this.s3.delete(row.s3_key);
-    await this.prisma.directoryListingUpload.delete({ where: { id: row.id } });
+    await this.s3.delete(payload.s3_key);
     return { discarded: true };
   }
 
-  async resolveStagedUpload(uploadToken: string, expectedType?: ListingVerificationDocType) {
-    let payload: { upload_id: string; s3_key: string; type: string };
-    try {
-      payload = await this.jwt.verifyAsync(uploadToken);
-      if (payload.type !== 'listing_pending_doc') throw new Error('wrong type');
-    } catch {
-      throw new BadRequestException('Invalid or expired verification upload. Please re-upload your document.');
-    }
-
-    const row = await this.prisma.directoryListingUpload.findUnique({
-      where: { id: payload.upload_id },
-    });
-    if (!row || row.claimed_at) {
-      throw new BadRequestException('Verification upload expired or already used. Please re-upload your document.');
-    }
-    if (row.s3_key !== payload.s3_key || !row.s3_key.startsWith(LISTING_PENDING_DOC_PREFIX)) {
-      throw new BadRequestException('Invalid verification upload reference.');
-    }
-    if (expectedType && row.document_type !== expectedType) {
+  async resolveStagedUpload(uploadToken: string, expectedType?: ListingVerificationDocType): Promise<StagedListingUpload> {
+    const payload = this.parsePendingToken(uploadToken);
+    if (expectedType && payload.document_type !== expectedType) {
       throw new BadRequestException('Document type does not match the uploaded file.');
     }
-
-    return row;
-  }
-
-  async claimStagedUpload(uploadId: string, clinicId: string) {
-    await this.prisma.directoryListingUpload.update({
-      where: { id: uploadId },
-      data: { claimed_at: new Date(), clinic_id: clinicId },
-    });
+    if (await this.isKeyClaimedByClinic(payload.s3_key)) {
+      throw new BadRequestException('Verification upload expired or already used. Please re-upload your document.');
+    }
+    const exists = await this.s3.objectExists(payload.s3_key);
+    if (!exists) {
+      throw new BadRequestException('Verification upload expired or already used. Please re-upload your document.');
+    }
+    return {
+      id: payload.s3_key,
+      s3_key: payload.s3_key,
+      document_type: payload.document_type,
+    };
   }
 
   async uploadAndTrack(file: Express.Multer.File, _documentType: ListingVerificationDocType) {
@@ -130,21 +129,30 @@ export class ListingVerificationService {
     }
   }
 
-  /** Remove staged uploads abandoned for more than 24 hours. */
+  /** Remove pending S3 objects older than 24h that were never linked to a clinic. */
   @Cron('0 30 11 * * *', { timeZone: 'Asia/Kolkata' }) // daily at 11:30 AM IST
   async cleanupOrphanedPendingUploads() {
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const orphans = await this.prisma.directoryListingUpload.findMany({
-      where: { claimed_at: null, created_at: { lt: cutoff } },
-      select: { id: true, s3_key: true },
-      take: 200,
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const claimed = await this.prisma.clinic.findMany({
+      where: {
+        directory_verification_document_url: { startsWith: LISTING_PENDING_DOC_PREFIX },
+      },
+      select: { directory_verification_document_url: true },
     });
-    if (!orphans.length) return;
+    const claimedKeys = new Set(
+      claimed.map((c) => c.directory_verification_document_url).filter((k): k is string => !!k),
+    );
 
-    for (const row of orphans) {
-      await this.s3.delete(row.s3_key);
-      await this.prisma.directoryListingUpload.delete({ where: { id: row.id } });
+    const objects = await this.s3.listObjectsByPrefix(LISTING_PENDING_DOC_PREFIX);
+    let cleaned = 0;
+    for (const obj of objects) {
+      if (claimedKeys.has(obj.key)) continue;
+      if (obj.lastModified && obj.lastModified.getTime() > cutoff) continue;
+      await this.s3.delete(obj.key);
+      cleaned++;
     }
-    this.logger.log(`Cleaned up ${orphans.length} orphaned listing verification upload(s)`);
+    if (cleaned > 0) {
+      this.logger.log(`Cleaned up ${cleaned} orphaned listing verification upload(s)`);
+    }
   }
 }

@@ -72,6 +72,26 @@ let S3Service = S3Service_1 = class S3Service {
             return false;
         }
     }
+    async listObjectsByPrefix(prefix) {
+        if (!this.bucket)
+            return [];
+        const results = [];
+        let continuationToken;
+        do {
+            const res = await this.client.send(new client_s3_1.ListObjectsV2Command({
+                Bucket: this.bucket,
+                Prefix: prefix,
+                ContinuationToken: continuationToken,
+            }));
+            for (const item of res.Contents ?? []) {
+                if (item.Key) {
+                    results.push({ key: item.Key, lastModified: item.LastModified });
+                }
+            }
+            continuationToken = res.IsTruncated ? res.NextContinuationToken : undefined;
+        } while (continuationToken);
+        return results;
+    }
     async delete(key) {
         try {
             await this.client.send(new client_s3_1.DeleteObjectCommand({ Bucket: this.bucket, Key: key }));

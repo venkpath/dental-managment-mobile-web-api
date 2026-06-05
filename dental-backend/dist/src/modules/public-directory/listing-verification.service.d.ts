@@ -6,6 +6,11 @@ export declare const LISTING_VERIFICATION_MIME_TYPES: Set<string>;
 export declare const LISTING_PENDING_DOC_PREFIX = "listings/verification/pending/";
 export declare const LISTING_VERIFICATION_DOC_PREFIX = "listings/verification/";
 export type ListingVerificationDocType = 'clinic_photo' | 'prescription_pad' | 'invoice' | 'other';
+export interface StagedListingUpload {
+    id: string;
+    s3_key: string;
+    document_type: string;
+}
 export declare class ListingVerificationService {
     private readonly prisma;
     private readonly s3;
@@ -13,6 +18,8 @@ export declare class ListingVerificationService {
     private readonly logger;
     constructor(prisma: PrismaService, s3: S3Service, jwt: JwtService);
     validateFile(file: Express.Multer.File): void;
+    private parsePendingToken;
+    private isKeyClaimedByClinic;
     stagePendingUpload(file: Express.Multer.File, documentType: ListingVerificationDocType): Promise<{
         upload_token: string;
         expires_in_minutes: number;
@@ -20,15 +27,7 @@ export declare class ListingVerificationService {
     discardPendingUpload(uploadToken: string): Promise<{
         discarded: boolean;
     }>;
-    resolveStagedUpload(uploadToken: string, expectedType?: ListingVerificationDocType): Promise<{
-        id: string;
-        created_at: Date;
-        clinic_id: string | null;
-        s3_key: string;
-        document_type: string;
-        claimed_at: Date | null;
-    }>;
-    claimStagedUpload(uploadId: string, clinicId: string): Promise<void>;
+    resolveStagedUpload(uploadToken: string, expectedType?: ListingVerificationDocType): Promise<StagedListingUpload>;
     uploadAndTrack(file: Express.Multer.File, _documentType: ListingVerificationDocType): Promise<string>;
     discardOrphanKey(s3Key: string): Promise<void>;
     cleanupOrphanedPendingUploads(): Promise<void>;

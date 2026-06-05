@@ -1500,9 +1500,6 @@ export class PublicDirectoryController {
         },
         select: { id: true, name: true },
       });
-      if (stagedUploadId) {
-        await this.listingVerification.claimStagedUpload(stagedUploadId, clinic.id);
-      }
     } catch (err) {
       if (!stagedUploadId && docKey) {
         await this.listingVerification.discardOrphanKey(docKey);

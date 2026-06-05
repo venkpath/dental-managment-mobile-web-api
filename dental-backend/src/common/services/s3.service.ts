@@ -5,6 +5,7 @@ import {
   GetObjectCommand,
   HeadObjectCommand,
   DeleteObjectCommand,
+  ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -82,6 +83,29 @@ export class S3Service {
       this.logger.warn(`S3 headObject failed for "${key}": ${err instanceof Error ? err.message : String(err)}`);
       return false;
     }
+  }
+
+  /** List object keys under a prefix (single page loop for cleanup jobs). */
+  async listObjectsByPrefix(prefix: string): Promise<Array<{ key: string; lastModified?: Date }>> {
+    if (!this.bucket) return [];
+    const results: Array<{ key: string; lastModified?: Date }> = [];
+    let continuationToken: string | undefined;
+    do {
+      const res = await this.client.send(
+        new ListObjectsV2Command({
+          Bucket: this.bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        }),
+      );
+      for (const item of res.Contents ?? []) {
+        if (item.Key) {
+          results.push({ key: item.Key, lastModified: item.LastModified });
+        }
+      }
+      continuationToken = res.IsTruncated ? res.NextContinuationToken : undefined;
+    } while (continuationToken);
+    return results;
   }
 
   /** Delete an object from S3. Silently succeeds if the key does not exist. */
