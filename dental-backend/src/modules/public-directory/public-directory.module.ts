@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PublicDirectoryController } from './public-directory.controller.js';
 import { ListingVerificationService } from './listing-verification.service.js';
+import { ListingOtpService } from './listing-otp.service.js';
 import { ClinicReviewsController } from './clinic-reviews.controller.js';
 import { ReviewTriggerService } from './review-trigger.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
@@ -23,7 +24,7 @@ import { CommunicationModule } from '../communication/communication.module.js';
     }),
   ],
   controllers: [PublicDirectoryController, ClinicReviewsController],
-  providers: [PrismaService, PublicDirectoryController, ReviewTriggerService, S3Service, ListingVerificationService],
+  providers: [PrismaService, PublicDirectoryController, ReviewTriggerService, S3Service, ListingVerificationService, ListingOtpService],
   exports: [ReviewTriggerService],
 })
 export class PublicDirectoryModule {}

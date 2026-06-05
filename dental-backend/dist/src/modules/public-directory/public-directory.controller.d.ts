@@ -1,10 +1,12 @@
 import { ListingVerificationService } from './listing-verification.service.js';
+import { ListingOtpService } from './listing-otp.service.js';
 import type { Response } from 'express';
 import { PrismaService } from '../../database/prisma.service.js';
 import { Prisma } from '@prisma/client';
 import { S3Service } from '../../common/services/s3.service.js';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { EmailProvider } from '../communication/providers/email.provider.js';
 declare class DirectorySearchQuery {
     lat?: number;
     lng?: number;
@@ -49,7 +51,7 @@ declare class VerifyEmailOtpDto {
 }
 declare class SubmitListingDto {
     phone_token: string;
-    email_token: string;
+    email: string;
     clinic_name: string;
     contact_name: string;
     address: string;
@@ -80,11 +82,11 @@ export declare class PublicDirectoryController {
     private readonly config;
     private readonly jwt;
     private readonly listingVerification;
+    private readonly listingOtp;
+    private readonly emailProvider;
     private readonly logger;
-    private readonly phoneOtpStore;
-    private readonly phoneOtpSendTracker;
-    private readonly emailOtpStore;
-    constructor(prisma: PrismaService, s3: S3Service, config: ConfigService, jwt: JwtService, listingVerification: ListingVerificationService);
+    constructor(prisma: PrismaService, s3: S3Service, config: ConfigService, jwt: JwtService, listingVerification: ListingVerificationService, listingOtp: ListingOtpService, emailProvider: EmailProvider);
+    private ensurePlatformEmail;
     searchClinics(query: DirectorySearchQuery, res: Response): Promise<{
         data: {
             id: string;

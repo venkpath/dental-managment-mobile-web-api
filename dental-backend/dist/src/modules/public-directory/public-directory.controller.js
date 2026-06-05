@@ -50,6 +50,7 @@ const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
 const listing_verification_service_js_1 = require("./listing-verification.service.js");
+const listing_otp_service_js_1 = require("./listing-otp.service.js");
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
@@ -63,6 +64,8 @@ const config_1 = require("@nestjs/config");
 const jwt_1 = require("@nestjs/jwt");
 const nodemailer = __importStar(require("nodemailer"));
 const phone_util_js_1 = require("../../common/utils/phone.util.js");
+const email_provider_js_1 = require("../communication/providers/email.provider.js");
+const PLATFORM_CLINIC_ID = '__platform__';
 class DirectorySearchQuery {
     lat;
     lng;
@@ -314,7 +317,7 @@ __decorate([
 ], VerifyEmailOtpDto.prototype, "code", void 0);
 class SubmitListingDto {
     phone_token;
-    email_token;
+    email;
     clinic_name;
     contact_name;
     address;
@@ -340,11 +343,11 @@ __decorate([
     __metadata("design:type", String)
 ], SubmitListingDto.prototype, "phone_token", void 0);
 __decorate([
-    (0, swagger_2.ApiProperty)({ description: 'Email verification JWT from verify-email-otp' }),
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, swagger_2.ApiProperty)({ example: 'dr.sharma@clinic.com', description: 'Contact email from the listing form (not OTP-verified)' }),
+    (0, class_validator_1.IsEmail)(),
+    (0, class_transformer_1.Transform)(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value)),
     __metadata("design:type", String)
-], SubmitListingDto.prototype, "email_token", void 0);
+], SubmitListingDto.prototype, "email", void 0);
 __decorate([
     (0, swagger_2.ApiProperty)({ example: 'Sharma Dental Clinic' }),
     (0, class_validator_1.IsString)(),
@@ -624,19 +627,37 @@ let PublicDirectoryController = class PublicDirectoryController {
     config;
     jwt;
     listingVerification;
+    listingOtp;
+    emailProvider;
     logger = new (class {
         log = (m) => console.log(`[PublicDirectory] ${m}`);
         warn = (m) => console.warn(`[PublicDirectory] ${m}`);
     })();
-    phoneOtpStore = new Map();
-    phoneOtpSendTracker = new Map();
-    emailOtpStore = new Map();
-    constructor(prisma, s3, config, jwt, listingVerification) {
+    constructor(prisma, s3, config, jwt, listingVerification, listingOtp, emailProvider) {
         this.prisma = prisma;
         this.s3 = s3;
         this.config = config;
         this.jwt = jwt;
         this.listingVerification = listingVerification;
+        this.listingOtp = listingOtp;
+        this.emailProvider = emailProvider;
+    }
+    ensurePlatformEmail() {
+        if (this.emailProvider.isConfigured(PLATFORM_CLINIC_ID))
+            return true;
+        const host = this.config.get('app.smtp.host');
+        const user = this.config.get('app.smtp.user');
+        if (!host || !user)
+            return false;
+        this.emailProvider.configure(PLATFORM_CLINIC_ID, {
+            host,
+            port: this.config.get('app.smtp.port') || 587,
+            user,
+            pass: this.config.get('app.smtp.pass') || '',
+            from: this.config.get('app.smtp.from') || user,
+            secure: this.config.get('app.smtp.secure') || false,
+        }, 'smtp-env');
+        return true;
     }
     async searchClinics(query, res) {
         const { lat, lng, city, specialty, q, country, page = 1, limit = 12, availableToday, radius, sort = 'relevance' } = query;
@@ -1104,21 +1125,13 @@ let PublicDirectoryController = class PublicDirectoryController {
     }
     async sendListingPhoneOtp(dto) {
         const phone = dto.phone.trim();
-        const now = Date.now();
-        const ONE_HOUR = 60 * 60 * 1000;
-        const sends = (this.phoneOtpSendTracker.get(phone) ?? []).filter((t) => now - t < ONE_HOUR);
-        if (sends.length >= 3) {
-            throw new common_1.HttpException('Too many OTP requests for this number. Please try again after an hour.', common_1.HttpStatus.TOO_MANY_REQUESTS);
-        }
-        sends.push(now);
-        this.phoneOtpSendTracker.set(phone, sends);
+        const phoneKey = await this.listingOtp.assertPhoneSendAllowed(phone);
         const otp = String((0, crypto_1.randomInt)(100000, 999999));
-        const OTP_EXPIRY_MS = 10 * 60 * 1000;
-        this.phoneOtpStore.set(phone, { code: otp, expiresAt: now + OTP_EXPIRY_MS, attempts: 0 });
         const apiKey = this.config.get('app.sms.apiKey');
         const templateId = this.config.get('app.sms.defaultDltTemplateId');
         if (!apiKey || !templateId) {
             this.logger.warn('Platform SMS not configured — listing phone OTP not sent');
+            await this.listingOtp.storePhoneOtp(phoneKey, otp);
             return { message: 'OTP generated. (SMS not configured on server)' };
         }
         const senderId = this.config.get('app.sms.senderId') || 'SDDSK';
@@ -1167,33 +1180,13 @@ let PublicDirectoryController = class PublicDirectoryController {
                 throw err;
             throw new common_1.BadRequestException('Failed to send SMS OTP. Please check the number and try again.');
         }
+        await this.listingOtp.storePhoneOtp(phoneKey, otp);
         return { message: 'OTP sent to your mobile number. Valid for 10 minutes.' };
     }
     async verifyListingPhoneOtp(dto) {
-        const phone = dto.phone.trim();
-        const entry = this.phoneOtpStore.get(phone);
-        if (!entry)
-            throw new common_1.BadRequestException('OTP not found or expired. Please request a new one.');
-        if (Date.now() > entry.expiresAt) {
-            this.phoneOtpStore.delete(phone);
-            throw new common_1.BadRequestException('OTP has expired. Please request a new one.');
-        }
-        if (entry.attempts >= 3) {
-            this.phoneOtpStore.delete(phone);
-            throw new common_1.BadRequestException('Too many failed attempts. Please request a new OTP.');
-        }
-        const a = Buffer.from(dto.code);
-        const b = Buffer.from(entry.code);
-        let diff = a.length !== b.length ? 1 : 0;
-        const len = Math.min(a.length, b.length);
-        for (let i = 0; i < len; i++)
-            diff |= a[i] ^ b[i];
-        if (diff !== 0) {
-            entry.attempts++;
-            throw new common_1.BadRequestException('Invalid OTP. Please try again.');
-        }
-        this.phoneOtpStore.delete(phone);
-        const token = await this.jwt.signAsync({ phone, type: 'listing_phone_verified' }, { expiresIn: '30m' });
+        const phoneKey = this.listingOtp.normalizePhoneKey(dto.phone);
+        await this.listingOtp.verifyPhoneOtp(phoneKey, dto.code.trim());
+        const token = await this.jwt.signAsync({ phone: phoneKey, type: 'listing_phone_verified' }, { expiresIn: '60m' });
         return { verified: true, token, message: 'Phone verified successfully.' };
     }
     async sendListingEmailOtp(dto) {
@@ -1205,25 +1198,17 @@ let PublicDirectoryController = class PublicDirectoryController {
         catch {
             throw new common_1.BadRequestException('Invalid or expired phone verification token. Please verify your phone first.');
         }
-        const email = dto.email.trim().toLowerCase();
+        const emailKey = await this.listingOtp.assertEmailSendAllowed(dto.email);
         const otp = String((0, crypto_1.randomInt)(100000, 999999));
-        const OTP_EXPIRY_MS = 10 * 60 * 1000;
-        this.emailOtpStore.set(email, { code: otp, expiresAt: Date.now() + OTP_EXPIRY_MS, attempts: 0 });
-        const host = this.config.get('app.smtp.host');
-        const user = this.config.get('app.smtp.user');
-        const pass = this.config.get('app.smtp.pass') || '';
-        const fromAddr = this.config.get('app.smtp.from') || user || 'noreply@smartdentaldesk.com';
-        const port = this.config.get('app.smtp.port') || 587;
-        const secure = this.config.get('app.smtp.secure') || false;
-        if (!host || !user) {
+        if (!this.ensurePlatformEmail()) {
             this.logger.warn('Platform SMTP not configured — listing email OTP not sent');
+            await this.listingOtp.storeEmailOtp(emailKey, otp);
             return { message: 'OTP generated. (Email not configured on server)' };
         }
-        const mailOptions = {
-            from: `"Smart Dental Desk" <${fromAddr}>`,
-            to: email,
-            subject: `${otp} — Your verification code for Smart Dental Desk listing`,
-            html: `
+        const fromAddr = this.config.get('app.smtp.from')
+            || this.config.get('app.smtp.user')
+            || 'noreply@smartdentaldesk.com';
+        const html = `
           <div style="font-family:Inter,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;">
             <div style="text-align:center;margin-bottom:24px;">
               <span style="font-size:20px;font-weight:700;color:#1a78d6;">Smart</span>
@@ -1236,61 +1221,38 @@ let PublicDirectoryController = class PublicDirectoryController {
             </div>
             <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">This code expires in 10 minutes. Do not share it with anyone.</p>
           </div>
-        `,
-        };
+        `;
         let lastErr;
-        for (let attempt = 1; attempt <= 2; attempt++) {
-            try {
-                const transporter = nodemailer.createTransport({
-                    host, port, secure,
-                    auth: { user, pass },
-                    connectionTimeout: 15000,
-                    greetingTimeout: 15000,
-                    socketTimeout: 30000,
-                    ...(!secure && { tls: { rejectUnauthorized: false } }),
-                });
-                await transporter.sendMail(mailOptions);
-                this.logger.log(`Listing email OTP sent to ${email}`);
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            const result = await this.emailProvider.send({
+                clinicId: PLATFORM_CLINIC_ID,
+                to: emailKey,
+                subject: `${otp} — Your verification code for Smart Dental Desk listing`,
+                body: `Your Smart Dental Desk listing verification code is ${otp}. Valid for 10 minutes.`,
+                html,
+                metadata: { from: `"Smart Dental Desk" <${fromAddr}>` },
+            });
+            if (result.success) {
+                this.logger.log(`Listing email OTP sent to ${emailKey} (attempt ${attempt})`);
                 lastErr = undefined;
                 break;
             }
-            catch (err) {
-                lastErr = err;
-                this.logger.warn(`Listing email OTP attempt ${attempt} failed to ${email}: ${lastErr.message}`);
-                if (attempt < 2)
-                    await new Promise((r) => setTimeout(r, 1500));
-            }
+            lastErr = result.error ?? 'Unknown email error';
+            this.logger.warn(`Listing email OTP attempt ${attempt} failed to ${emailKey}: ${lastErr}`);
+            if (attempt < 3)
+                await new Promise((r) => setTimeout(r, 2000));
         }
         if (lastErr) {
-            throw new common_1.BadRequestException('Failed to send email OTP. Please check the address and try again.');
+            await this.listingOtp.rollbackEmailSend(emailKey);
+            throw new common_1.BadRequestException('Could not send email OTP. Please try again.');
         }
+        await this.listingOtp.storeEmailOtp(emailKey, otp);
         return { message: 'OTP sent to your email address. Valid for 10 minutes.' };
     }
     async verifyListingEmailOtp(dto) {
-        const email = dto.email.trim().toLowerCase();
-        const entry = this.emailOtpStore.get(email);
-        if (!entry)
-            throw new common_1.BadRequestException('OTP not found or expired. Please request a new one.');
-        if (Date.now() > entry.expiresAt) {
-            this.emailOtpStore.delete(email);
-            throw new common_1.BadRequestException('OTP has expired. Please request a new one.');
-        }
-        if (entry.attempts >= 3) {
-            this.emailOtpStore.delete(email);
-            throw new common_1.BadRequestException('Too many failed attempts. Please request a new OTP.');
-        }
-        const a = Buffer.from(dto.code);
-        const b = Buffer.from(entry.code);
-        let diff = a.length !== b.length ? 1 : 0;
-        const len = Math.min(a.length, b.length);
-        for (let i = 0; i < len; i++)
-            diff |= a[i] ^ b[i];
-        if (diff !== 0) {
-            entry.attempts++;
-            throw new common_1.BadRequestException('Invalid OTP. Please try again.');
-        }
-        this.emailOtpStore.delete(email);
-        const token = await this.jwt.signAsync({ email, type: 'listing_email_verified' }, { expiresIn: '30m' });
+        const emailKey = this.listingOtp.normalizeEmailKey(dto.email);
+        await this.listingOtp.verifyEmailOtp(emailKey, dto.code.trim());
+        const token = await this.jwt.signAsync({ email: emailKey, type: 'listing_email_verified' }, { expiresIn: '60m' });
         return { verified: true, token, message: 'Email verified successfully.' };
     }
     async stagePendingVerification(file, dto) {
@@ -1326,16 +1288,7 @@ let PublicDirectoryController = class PublicDirectoryController {
         catch {
             throw new common_1.BadRequestException('Invalid or expired phone verification token.');
         }
-        let verifiedEmail;
-        try {
-            const payload = await this.jwt.verifyAsync(dto.email_token);
-            if (payload.type !== 'listing_email_verified')
-                throw new Error('wrong type');
-            verifiedEmail = payload.email;
-        }
-        catch {
-            throw new common_1.BadRequestException('Invalid or expired email verification token.');
-        }
+        const verifiedEmail = dto.email.trim().toLowerCase();
         const siteUrl = this.config.get('app.frontendUrl') || 'https://smartdentaldesk.com';
         const existingUser = await this.prisma.user.findFirst({
             where: {
@@ -1624,7 +1577,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)('list-practice/submit'),
     (0, public_decorator_js_1.Public)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Submit a free practice listing after phone + email verification' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Submit a free practice listing after phone verification' }),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('verification_document', { limits: { fileSize: listing_verification_service_js_1.LISTING_VERIFICATION_MAX_BYTES } })),
     openapi.ApiResponse({ status: 201, type: Object }),
     __param(0, (0, common_1.UploadedFile)()),
@@ -1641,6 +1594,8 @@ exports.PublicDirectoryController = PublicDirectoryController = __decorate([
         s3_service_js_1.S3Service,
         config_1.ConfigService,
         jwt_1.JwtService,
-        listing_verification_service_js_1.ListingVerificationService])
+        listing_verification_service_js_1.ListingVerificationService,
+        listing_otp_service_js_1.ListingOtpService,
+        email_provider_js_1.EmailProvider])
 ], PublicDirectoryController);
 //# sourceMappingURL=public-directory.controller.js.map
