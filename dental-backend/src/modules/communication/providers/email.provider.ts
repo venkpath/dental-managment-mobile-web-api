@@ -40,10 +40,9 @@ export class EmailProvider implements ChannelProvider {
         user: config.user,
         pass: config.pass,
       },
-      // Fast-fail timeouts instead of default 2-min wait
-      connectionTimeout: 30_000, // 30s to establish TCP connection
-      greetingTimeout: 30_000,   // 30s to receive SMTP greeting
-      socketTimeout: 60_000,     // 60s idle timeout on the socket
+      connectionTimeout: 45_000,
+      greetingTimeout: 45_000,
+      socketTimeout: 90_000,
       // Port 587 uses STARTTLS — allow self-signed / mismatched certs
       ...(!secure && {
         tls: { rejectUnauthorized: false },

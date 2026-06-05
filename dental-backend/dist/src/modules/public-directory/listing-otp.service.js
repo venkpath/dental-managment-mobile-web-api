@@ -25,23 +25,36 @@ const MAX_PHONE_SENDS_PER_HOUR = 3;
 const EMAIL_SEND_WINDOW_SECONDS = 10 * 60;
 const MAX_EMAIL_SENDS_PER_WINDOW = 5;
 const MAX_VERIFY_ATTEMPTS = 5;
+const REDIS_RETRY_DELAYS_MS = [0, 300, 800, 2000];
 let ListingOtpService = ListingOtpService_1 = class ListingOtpService {
     logger = new common_1.Logger(ListingOtpService_1.name);
     redis;
-    memPhone = new Map();
-    memEmail = new Map();
     constructor(config) {
         this.redis = new ioredis_1.default({
             host: config.get('redis.host', 'localhost'),
             port: config.get('redis.port', 6379),
-            password: config.get('redis.password'),
+            password: config.get('redis.password') || undefined,
             tls: config.get('redis.tls') ? {} : undefined,
-            maxRetriesPerRequest: 3,
+            connectTimeout: 20_000,
+            keepAlive: 30_000,
+            maxRetriesPerRequest: 5,
+            enableOfflineQueue: false,
             lazyConnect: false,
+            retryStrategy: (times) => (times > 10 ? null : Math.min(times * 400, 4_000)),
         });
         this.redis.on('error', (err) => {
-            this.logger.warn(`Listing OTP Redis error: ${err.message}`);
+            this.logger.error(`Listing OTP Redis error: ${err.message}`);
         });
+    }
+    async onModuleInit() {
+        try {
+            await this.withRedis('startup ping', () => this.redis.ping());
+            this.logger.log('Listing OTP store ready (Redis)');
+        }
+        catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.logger.error(`Listing OTP Redis not reachable at startup: ${msg}`);
+        }
     }
     async onModuleDestroy() {
         await this.redis.quit().catch(() => { });
@@ -77,18 +90,25 @@ let ListingOtpService = ListingOtpService_1 = class ListingOtpService {
             return false;
         return (0, crypto_1.timingSafeEqual)(Buffer.from(a), Buffer.from(b));
     }
-    async redisAvailable() {
-        try {
-            await this.redis.ping();
-            return true;
+    async withRedis(label, fn) {
+        let lastErr;
+        for (const delay of REDIS_RETRY_DELAYS_MS) {
+            if (delay > 0)
+                await new Promise((r) => setTimeout(r, delay));
+            try {
+                return await fn();
+            }
+            catch (err) {
+                lastErr = err instanceof Error ? err : new Error(String(err));
+                this.logger.warn(`Redis ${label} failed: ${lastErr.message}`);
+            }
         }
-        catch {
-            return false;
-        }
+        this.logger.error(`Redis ${label} exhausted retries: ${lastErr?.message}`);
+        throw new common_1.ServiceUnavailableException('Verification service is temporarily unavailable. Please try again.');
     }
     async assertPhoneSendAllowed(phone) {
         const key = this.normalizePhoneKey(phone);
-        if (await this.redisAvailable()) {
+        await this.withRedis('phone send limit', async () => {
             const sendKey = this.phoneSendKey(key);
             const count = await this.redis.incr(sendKey);
             if (count === 1)
@@ -96,14 +116,12 @@ let ListingOtpService = ListingOtpService_1 = class ListingOtpService {
             if (count > MAX_PHONE_SENDS_PER_HOUR) {
                 throw new common_1.BadRequestException('Too many OTP requests for this number. Please try again after an hour.');
             }
-            return key;
-        }
-        this.logger.warn('Redis unavailable — using in-memory listing phone OTP store');
+        });
         return key;
     }
     async assertEmailSendAllowed(email) {
         const key = this.normalizeEmailKey(email);
-        if (await this.redisAvailable()) {
+        await this.withRedis('email send limit', async () => {
             const sendKey = this.emailSendKey(key);
             const count = await this.redis.incr(sendKey);
             if (count === 1)
@@ -111,45 +129,39 @@ let ListingOtpService = ListingOtpService_1 = class ListingOtpService {
             if (count > MAX_EMAIL_SENDS_PER_WINDOW) {
                 throw new common_1.BadRequestException('Too many OTP requests for this email. Please wait a few minutes and try again.');
             }
-            return key;
-        }
-        this.logger.warn('Redis unavailable — using in-memory listing email OTP store');
+        });
         return key;
     }
+    async rollbackPhoneSend(phoneKey) {
+        await this.withRedis('rollback phone send', async () => {
+            const sendKey = this.phoneSendKey(phoneKey);
+            const count = await this.redis.decr(sendKey);
+            if (count <= 0)
+                await this.redis.del(sendKey);
+        }).catch(() => { });
+    }
     async rollbackEmailSend(emailKey) {
-        if (!(await this.redisAvailable()))
-            return;
-        const sendKey = this.emailSendKey(emailKey);
-        const count = await this.redis.decr(sendKey);
-        if (count <= 0)
-            await this.redis.del(sendKey);
+        await this.withRedis('rollback email send', async () => {
+            const sendKey = this.emailSendKey(emailKey);
+            const count = await this.redis.decr(sendKey);
+            if (count <= 0)
+                await this.redis.del(sendKey);
+        }).catch(() => { });
     }
     async storePhoneOtp(phoneKey, otp) {
-        if (await this.redisAvailable()) {
+        await this.withRedis('store phone otp', async () => {
             await this.redis.set(this.phoneOtpKey(phoneKey), otp, 'EX', OTP_TTL_SECONDS);
             await this.redis.del(this.phoneVerifyKey(phoneKey));
-            return;
-        }
-        this.memPhone.set(phoneKey, {
-            code: otp,
-            expiresAt: Date.now() + OTP_TTL_SECONDS * 1000,
-            verifyAttempts: 0,
         });
     }
     async storeEmailOtp(emailKey, otp) {
-        if (await this.redisAvailable()) {
+        await this.withRedis('store email otp', async () => {
             await this.redis.set(this.emailOtpKey(emailKey), otp, 'EX', OTP_TTL_SECONDS);
             await this.redis.del(this.emailVerifyKey(emailKey));
-            return;
-        }
-        this.memEmail.set(emailKey, {
-            code: otp,
-            expiresAt: Date.now() + OTP_TTL_SECONDS * 1000,
-            verifyAttempts: 0,
         });
     }
     async verifyPhoneOtp(phoneKey, code) {
-        if (await this.redisAvailable()) {
+        await this.withRedis('verify phone otp', async () => {
             const verifyKey = this.phoneVerifyKey(phoneKey);
             const attempts = await this.redis.incr(verifyKey);
             if (attempts === 1)
@@ -166,25 +178,10 @@ let ListingOtpService = ListingOtpService_1 = class ListingOtpService {
                 throw new common_1.BadRequestException('Invalid OTP. Please try again.');
             }
             await this.redis.del(this.phoneOtpKey(phoneKey), verifyKey);
-            return;
-        }
-        const entry = this.memPhone.get(phoneKey);
-        if (!entry || Date.now() > entry.expiresAt) {
-            this.memPhone.delete(phoneKey);
-            throw new common_1.BadRequestException('OTP not found or expired. Please request a new one.');
-        }
-        if (entry.verifyAttempts >= MAX_VERIFY_ATTEMPTS) {
-            this.memPhone.delete(phoneKey);
-            throw new common_1.BadRequestException('Too many failed attempts. Please request a new OTP.');
-        }
-        if (!this.codesMatch(entry.code, code)) {
-            entry.verifyAttempts++;
-            throw new common_1.BadRequestException('Invalid OTP. Please try again.');
-        }
-        this.memPhone.delete(phoneKey);
+        });
     }
     async verifyEmailOtp(emailKey, code) {
-        if (await this.redisAvailable()) {
+        await this.withRedis('verify email otp', async () => {
             const verifyKey = this.emailVerifyKey(emailKey);
             const attempts = await this.redis.incr(verifyKey);
             if (attempts === 1)
@@ -201,22 +198,7 @@ let ListingOtpService = ListingOtpService_1 = class ListingOtpService {
                 throw new common_1.BadRequestException('Invalid OTP. Please try again.');
             }
             await this.redis.del(this.emailOtpKey(emailKey), verifyKey);
-            return;
-        }
-        const entry = this.memEmail.get(emailKey);
-        if (!entry || Date.now() > entry.expiresAt) {
-            this.memEmail.delete(emailKey);
-            throw new common_1.BadRequestException('OTP not found or expired. Please request a new one.');
-        }
-        if (entry.verifyAttempts >= MAX_VERIFY_ATTEMPTS) {
-            this.memEmail.delete(emailKey);
-            throw new common_1.BadRequestException('Too many failed attempts. Please request a new OTP.');
-        }
-        if (!this.codesMatch(entry.code, code)) {
-            entry.verifyAttempts++;
-            throw new common_1.BadRequestException('Invalid OTP. Please try again.');
-        }
-        this.memEmail.delete(emailKey);
+        });
     }
 };
 exports.ListingOtpService = ListingOtpService;

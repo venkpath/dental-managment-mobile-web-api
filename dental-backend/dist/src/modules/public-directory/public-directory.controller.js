@@ -317,7 +317,8 @@ __decorate([
 ], VerifyEmailOtpDto.prototype, "code", void 0);
 class SubmitListingDto {
     phone_token;
-    email;
+    email_token;
+    accepted_terms;
     clinic_name;
     contact_name;
     address;
@@ -343,11 +344,17 @@ __decorate([
     __metadata("design:type", String)
 ], SubmitListingDto.prototype, "phone_token", void 0);
 __decorate([
-    (0, swagger_2.ApiProperty)({ example: 'dr.sharma@clinic.com', description: 'Contact email from the listing form (not OTP-verified)' }),
-    (0, class_validator_1.IsEmail)(),
-    (0, class_transformer_1.Transform)(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value)),
+    (0, swagger_2.ApiProperty)({ description: 'Email verification JWT from verify-email-otp' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
-], SubmitListingDto.prototype, "email", void 0);
+], SubmitListingDto.prototype, "email_token", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ description: 'Must be true — submitter accepted Terms of Service and Privacy Policy' }),
+    (0, class_transformer_1.Transform)(({ value }) => value === true || value === 'true' || value === '1'),
+    (0, class_validator_1.Equals)(true, { message: 'You must accept the Terms of Service and Privacy Policy.' }),
+    __metadata("design:type", Boolean)
+], SubmitListingDto.prototype, "accepted_terms", void 0);
 __decorate([
     (0, swagger_2.ApiProperty)({ example: 'Sharma Dental Clinic' }),
     (0, class_validator_1.IsString)(),
@@ -1162,23 +1169,34 @@ let PublicDirectoryController = class PublicDirectoryController {
         });
         if (entityId)
             params.set('EntityId', entityId);
-        try {
-            const res = await fetch(`https://www.smsgatewayhub.com/api/mt/SendSMS?${params.toString()}`, {
-                signal: AbortSignal.timeout(15000),
-            });
-            const data = await res.json();
-            const ok = data['ErrorCode'] === '000' || data['ErrorCode'] === 0;
-            if (!ok) {
-                const errMsg = String(data['ErrorMessage'] ?? 'SMS gateway error');
-                this.logger.warn(`Listing phone OTP SMS failed to ${number}: ${errMsg}`);
-                throw new common_1.BadRequestException(`Could not send SMS OTP: ${errMsg}`);
+        let smsErr;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                const res = await fetch(`https://www.smsgatewayhub.com/api/mt/SendSMS?${params.toString()}`, {
+                    signal: AbortSignal.timeout(45_000),
+                });
+                const data = await res.json();
+                const ok = data['ErrorCode'] === '000' || data['ErrorCode'] === 0;
+                if (!ok) {
+                    smsErr = String(data['ErrorMessage'] ?? 'SMS gateway error');
+                    this.logger.warn(`Listing phone OTP attempt ${attempt} failed to ${number}: ${smsErr}`);
+                }
+                else {
+                    this.logger.log(`Listing phone OTP sent to ${number} (attempt ${attempt})`);
+                    smsErr = undefined;
+                    break;
+                }
             }
-            this.logger.log(`Listing phone OTP sent to ${number}`);
+            catch (err) {
+                smsErr = err instanceof Error ? err.message : 'SMS gateway timeout';
+                this.logger.warn(`Listing phone OTP attempt ${attempt} failed to ${number}: ${smsErr}`);
+            }
+            if (attempt < 3)
+                await new Promise((r) => setTimeout(r, 2000));
         }
-        catch (err) {
-            if (err instanceof common_1.BadRequestException)
-                throw err;
-            throw new common_1.BadRequestException('Failed to send SMS OTP. Please check the number and try again.');
+        if (smsErr) {
+            await this.listingOtp.rollbackPhoneSend(phoneKey);
+            throw new common_1.BadRequestException('Could not send SMS OTP. Please try again.');
         }
         await this.listingOtp.storePhoneOtp(phoneKey, otp);
         return { message: 'OTP sent to your mobile number. Valid for 10 minutes.' };
@@ -1223,7 +1241,7 @@ let PublicDirectoryController = class PublicDirectoryController {
           </div>
         `;
         let lastErr;
-        for (let attempt = 1; attempt <= 3; attempt++) {
+        for (let attempt = 1; attempt <= 4; attempt++) {
             const result = await this.emailProvider.send({
                 clinicId: PLATFORM_CLINIC_ID,
                 to: emailKey,
@@ -1239,8 +1257,8 @@ let PublicDirectoryController = class PublicDirectoryController {
             }
             lastErr = result.error ?? 'Unknown email error';
             this.logger.warn(`Listing email OTP attempt ${attempt} failed to ${emailKey}: ${lastErr}`);
-            if (attempt < 3)
-                await new Promise((r) => setTimeout(r, 2000));
+            if (attempt < 4)
+                await new Promise((r) => setTimeout(r, 3000));
         }
         if (lastErr) {
             await this.listingOtp.rollbackEmailSend(emailKey);
@@ -1288,7 +1306,16 @@ let PublicDirectoryController = class PublicDirectoryController {
         catch {
             throw new common_1.BadRequestException('Invalid or expired phone verification token.');
         }
-        const verifiedEmail = dto.email.trim().toLowerCase();
+        let verifiedEmail;
+        try {
+            const payload = await this.jwt.verifyAsync(dto.email_token);
+            if (payload.type !== 'listing_email_verified')
+                throw new Error('wrong type');
+            verifiedEmail = payload.email;
+        }
+        catch {
+            throw new common_1.BadRequestException('Invalid or expired email verification token.');
+        }
         const siteUrl = this.config.get('app.frontendUrl') || 'https://smartdentaldesk.com';
         const existingUser = await this.prisma.user.findFirst({
             where: {
@@ -1345,6 +1372,7 @@ let PublicDirectoryController = class PublicDirectoryController {
                     directory_contact_name: dto.contact_name.trim(),
                     directory_approval_status: 'pending',
                     directory_requested_at: new Date(),
+                    directory_terms_accepted_at: new Date(),
                     listed_in_directory: false,
                     subscription_status: 'directory',
                 },
@@ -1577,7 +1605,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)('list-practice/submit'),
     (0, public_decorator_js_1.Public)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Submit a free practice listing after phone verification' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Submit a free practice listing after phone + email verification' }),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('verification_document', { limits: { fileSize: listing_verification_service_js_1.LISTING_VERIFICATION_MAX_BYTES } })),
     openapi.ApiResponse({ status: 201, type: Object }),
     __param(0, (0, common_1.UploadedFile)()),

@@ -87,6 +87,8 @@ model Clinic {
   // Proof-of-practice document uploaded during free listing (photo, Rx pad, invoice, etc.)
   directory_verification_document_url  String?   @db.VarChar(500)
   directory_verification_document_type String?   @db.VarChar(30)
+  // When the submitter accepted Terms + Privacy on the free listing form
+  directory_terms_accepted_at          DateTime?
 
   ai_usage_count            Int       @default(0)
   ai_quota_override         Int? // per-clinic AI quota override (null = use plan default)

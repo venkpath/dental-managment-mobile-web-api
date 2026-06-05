@@ -91,6 +91,7 @@ export declare class SuperAdminService {
             directory_featured_order: number | null;
             directory_verification_document_url: string | null;
             directory_verification_document_type: string | null;
+            directory_terms_accepted_at: Date | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -182,6 +183,7 @@ export declare class SuperAdminService {
             directory_featured_order: number | null;
             directory_verification_document_url: string | null;
             directory_verification_document_type: string | null;
+            directory_terms_accepted_at: Date | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -350,6 +352,7 @@ export declare class SuperAdminService {
         directory_featured_order: number | null;
         directory_verification_document_url: string | null;
         directory_verification_document_type: string | null;
+        directory_terms_accepted_at: Date | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -440,6 +443,7 @@ export declare class SuperAdminService {
             directory_featured_order: number | null;
             directory_verification_document_url: string | null;
             directory_verification_document_type: string | null;
+            directory_terms_accepted_at: Date | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
