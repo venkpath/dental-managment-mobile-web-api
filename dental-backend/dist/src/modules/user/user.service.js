@@ -26,6 +26,7 @@ const userSelect = {
     status: true,
     email_verified: true,
     phone_verified: true,
+    must_change_password: true,
     is_doctor: true,
     license_number: true,
     signature_url: true,
@@ -271,6 +272,13 @@ let UserService = class UserService {
     }
     async update(clinicId, id, dto) {
         const user = await this.findOne(clinicId, id);
+        const data = { ...dto };
+        if (data.listed_in_directory === true && !data.is_doctor && !user.is_doctor) {
+            const role = data.role ?? user.role;
+            if (['SuperAdmin', 'Admin', 'Dentist', 'Consultant'].includes(role)) {
+                data.is_doctor = true;
+            }
+        }
         if (dto.branch_id) {
             const branch = await this.prisma.branch.findUnique({
                 where: { id: dto.branch_id },
@@ -281,7 +289,7 @@ let UserService = class UserService {
         }
         const updated = await this.prisma.user.update({
             where: { id },
-            data: dto,
+            data,
             select: userSelect,
         });
         return this.withSignedUrls(updated);

@@ -41,6 +41,7 @@ export interface LoginResponse {
     email_verified: boolean;
     phone_verified: boolean;
     requires_verification: boolean;
+    must_change_password: boolean;
   };
 }
 
@@ -174,6 +175,7 @@ export class AuthService {
         email_verified: user.email_verified,
         phone_verified: user.phone_verified,
         requires_verification: requiresVerification,
+        must_change_password: user.must_change_password,
       },
     };
 
@@ -284,6 +286,7 @@ export class AuthService {
         email_verified: user.email_verified,
         phone_verified: user.phone_verified,
         requires_verification: requiresVerification,
+        must_change_password: user.must_change_password,
       },
     };
 
@@ -367,10 +370,246 @@ export class AuthService {
     const newHash = await this.passwordService.hash(dto.new_password);
     await this.prisma.user.update({
       where: { id: userId },
-      data: { password_hash: newHash },
+      data: { password_hash: newHash, must_change_password: false },
     });
 
     return { message: 'Password changed successfully' };
+  }
+
+  async setInitialPassword(userId: string, newPassword: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+    if (!user.must_change_password) throw new BadRequestException('Password change not required for this account');
+
+    const newHash = await this.passwordService.hash(newPassword);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password_hash: newHash, must_change_password: false },
+    });
+    return { message: 'Password set successfully' };
+  }
+
+  /** In-memory OTP store for login-via-OTP flow (no clinic_id needed at send time) */
+  private readonly loginOtpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
+
+  /** Normalize login identifier to a stable OTP-store key and phone lookup variants. */
+  private normalizeLoginIdentifier(identifier: string): { storeKey: string; isEmail: boolean; phoneVariants: string[] } {
+    const trimmed = identifier.trim();
+    const isEmail = trimmed.includes('@');
+    if (isEmail) {
+      return { storeKey: trimmed.toLowerCase(), isEmail, phoneVariants: [] };
+    }
+    const digits = trimmed.replace(/[^0-9]/g, '');
+    const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+    const variants = [...new Set([trimmed, last10, `+91${last10}`, `91${last10}`].filter((v) => v.length >= 7))];
+    return { storeKey: last10 || trimmed.toLowerCase(), isEmail, phoneVariants: variants };
+  }
+
+  /** Platform SMS OTP — same SMSGatewayHub + DLT pattern as listing phone OTP. */
+  private async sendPlatformLoginSms(phone: string, otp: string): Promise<void> {
+    const apiKey = this.configService.get<string>('app.sms.apiKey');
+    const templateId = this.configService.get<string>('app.sms.defaultDltTemplateId');
+    if (!apiKey || !templateId) {
+      this.logger.warn('Platform SMS not configured — login phone OTP not sent');
+      return;
+    }
+
+    const senderId = this.configService.get<string>('app.sms.senderId') || 'SDDSK';
+    const entityId = this.configService.get<string>('app.sms.entityId') || '';
+    const templateBody =
+      this.configService.get<string>('app.sms.dltTemplateBody') ||
+      "Your otp for {#var#} by grats it is {#var#}, otp valid for 10min, please don't share with any one,";
+
+    let slot = 0;
+    const text = templateBody.replace(/\{#var#\}/g, () => {
+      slot++;
+      if (slot === 1) return 'logging in to Smart Dental Desk';
+      if (slot === 2) return otp;
+      return '';
+    });
+
+    const digits = phone.replace(/[^0-9]/g, '');
+    const number = digits.length === 10 ? `91${digits}` : digits;
+
+    const params = new URLSearchParams({
+      APIKey: apiKey,
+      senderid: senderId,
+      channel: '2',
+      DCS: '0',
+      flashsms: '0',
+      number,
+      text,
+      route: '47',
+      dlttemplateid: templateId,
+    });
+    if (entityId) params.set('EntityId', entityId);
+
+    const res = await fetch(`https://www.smsgatewayhub.com/api/mt/SendSMS?${params.toString()}`, {
+      signal: AbortSignal.timeout(15000),
+    });
+    const data = await res.json() as Record<string, unknown>;
+    const ok = data['ErrorCode'] === '000' || data['ErrorCode'] === 0;
+    if (!ok) {
+      const errMsg = String(data['ErrorMessage'] ?? 'SMS gateway error');
+      throw new Error(errMsg);
+    }
+  }
+
+  async sendLoginOtp(identifier: string): Promise<{ message: string }> {
+    const { storeKey, isEmail, phoneVariants } = this.normalizeLoginIdentifier(identifier);
+
+    // Check at least one active user exists — don't reveal which
+    const user = await this.prisma.user.findFirst({
+      where: {
+        status: 'active',
+        ...(isEmail ? { email: storeKey } : { phone: { in: phoneVariants } }),
+      },
+      select: { id: true, clinic_id: true, email: true, phone: true },
+    });
+
+    const otp = String(randomInt(100000, 999999));
+    this.loginOtpStore.set(storeKey, {
+      code: otp,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+      attempts: 0,
+    });
+
+    if (!user) {
+      // Don't reveal non-existence — silently succeed
+      return { message: 'If an account exists, a code has been sent.' };
+    }
+
+    if (isEmail && user.email) {
+      if (this.ensurePlatformEmailConfigured()) {
+        await this.emailProvider.send({
+          to: user.email,
+          subject: `${otp} — Your Smart Dental Desk login code`,
+          body: `Your login code is ${otp}. Valid for 10 minutes.`,
+          html: `
+            <div style="font-family:Inter,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;">
+              <div style="text-align:center;margin-bottom:24px;">
+                <span style="font-size:20px;font-weight:700;color:#3b5bff;">Smart</span>
+                <span style="font-size:20px;font-weight:700;color:#1ec991;margin-left:4px;">Dental Desk</span>
+              </div>
+              <h2 style="font-size:18px;font-weight:600;color:#111827;text-align:center;margin:0 0 8px;">Your login code</h2>
+              <p style="color:#6b7280;font-size:14px;text-align:center;margin:0 0 28px;">Use this code to sign in to your Smart Dental Desk account.</p>
+              <div style="background:#f3f4f6;border-radius:10px;padding:20px;text-align:center;margin-bottom:24px;">
+                <span style="font-size:36px;font-weight:700;letter-spacing:10px;color:#111827;">${otp}</span>
+              </div>
+              <p style="color:#9ca3af;font-size:12px;text-align:center;margin:0;">This code expires in 10 minutes. Do not share it with anyone.</p>
+            </div>`,
+          clinicId: PLATFORM_CLINIC_ID,
+        });
+      }
+    } else if (!isEmail && user.phone) {
+      try {
+        await this.sendPlatformLoginSms(user.phone, otp);
+      } catch (err) {
+        this.logger.warn(`Login OTP SMS failed to ${user.phone}: ${(err as Error).message}`);
+      }
+    }
+
+    return { message: 'If an account exists, a code has been sent.' };
+  }
+
+  async loginWithOtp(identifier: string, code: string, clinicId?: string, req?: Request): Promise<LoginResponse | { requires_clinic_selection: true; clinics: { clinic_id: string; clinic_name: string; clinic_email: string; subscription_status: string; role: string }[] }> {
+    const { storeKey, isEmail, phoneVariants } = this.normalizeLoginIdentifier(identifier);
+    const entry = this.loginOtpStore.get(storeKey);
+
+    if (!entry) throw new UnauthorizedException('OTP not found or expired. Please request a new one.');
+    if (Date.now() > entry.expiresAt) {
+      this.loginOtpStore.delete(storeKey);
+      throw new UnauthorizedException('OTP has expired. Please request a new one.');
+    }
+    if (entry.attempts >= 3) {
+      this.loginOtpStore.delete(storeKey);
+      throw new UnauthorizedException('Too many failed attempts. Please request a new OTP.');
+    }
+
+    const a = Buffer.from(code);
+    const b = Buffer.from(entry.code);
+    let diff = a.length !== b.length ? 1 : 0;
+    for (let i = 0; i < Math.min(a.length, b.length); i++) diff |= a[i] ^ b[i];
+
+    if (diff !== 0) {
+      entry.attempts++;
+      throw new UnauthorizedException('Invalid OTP. Please try again.');
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        status: 'active',
+        ...(isEmail ? { email: storeKey } : { phone: { in: phoneVariants } }),
+      },
+      include: { clinic: { select: { name: true, email: true, subscription_status: true } } },
+    });
+
+    if (users.length === 0) throw new UnauthorizedException('No active account found.');
+
+    // If clinic not yet selected and multiple clinics, return list without consuming OTP
+    if (!clinicId && users.length > 1) {
+      return {
+        requires_clinic_selection: true as const,
+        clinics: users.map((u) => ({
+          clinic_id: u.clinic_id,
+          clinic_name: u.clinic.name,
+          clinic_email: u.clinic.email || '',
+          subscription_status: u.clinic.subscription_status,
+          role: u.role,
+        })),
+      };
+    }
+
+    // Consume OTP
+    this.loginOtpStore.delete(storeKey);
+
+    const user = clinicId ? users.find((u) => u.clinic_id === clinicId) : users[0];
+    if (!user) throw new UnauthorizedException('Invalid clinic selection.');
+
+    // OTP proves ownership — mark identifier as verified if it wasn't already
+    if (isEmail && !user.email_verified) {
+      await this.prisma.user.update({ where: { id: user.id }, data: { email_verified: true } });
+      user.email_verified = true;
+    } else if (!isEmail && !user.phone_verified) {
+      await this.prisma.user.update({ where: { id: user.id }, data: { phone_verified: true } });
+      user.phone_verified = true;
+    }
+
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: user.clinic_id },
+      select: { is_suspended: true, subscription_status: true },
+    });
+    if (clinic?.is_suspended) throw new ForbiddenException({ code: 'ACCOUNT_SUSPENDED', message: 'Your account has been suspended.' });
+    if (clinic?.subscription_status === 'pending') {
+      throw new ForbiddenException({
+        code: 'PENDING_APPROVAL',
+        message: 'Your account is pending approval. You will receive an email once our team has reviewed your application.',
+      });
+    }
+
+    const payload: JwtPayload = { sub: user.id, type: 'user', clinic_id: user.clinic_id, role: user.role, branch_id: user.branch_id };
+    const ip = req?.ip || req?.headers?.['x-forwarded-for'] || undefined;
+    const userAgent = req?.headers?.['user-agent'] || undefined;
+    await this.auditLogService.log({ clinic_id: user.clinic_id, user_id: user.id, action: 'login_otp', entity: 'auth', entity_id: user.id, metadata: { role: user.role, ...(ip ? { ip } : {}), ...(userAgent ? { user_agent: userAgent } : {}) } }).catch(() => {});
+
+    return {
+      access_token: await this.jwtService.signAsync(payload),
+      refresh_token: await this.signRefreshToken(user.id, user.clinic_id),
+      user: {
+        id: user.id,
+        clinic_id: user.clinic_id,
+        branch_id: user.branch_id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        status: user.status,
+        email_verified: user.email_verified,
+        phone_verified: user.phone_verified,
+        requires_verification: false,
+        must_change_password: user.must_change_password,
+      },
+    };
   }
 
   async register(dto: RegisterClinicDto) {

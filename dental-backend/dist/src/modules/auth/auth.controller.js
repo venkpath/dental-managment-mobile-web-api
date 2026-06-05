@@ -110,6 +110,26 @@ let AuthController = class AuthController {
     async verifyOtp(body) {
         return this.authService.verifyOtp(body.identifier, body.clinic_id, body.code);
     }
+    async sendLoginOtp(body) {
+        return this.authService.sendLoginOtp(body.identifier);
+    }
+    async loginWithOtp(body, req, res) {
+        const result = await this.authService.loginWithOtp(body.identifier, body.code, body.clinic_id, req);
+        if ('access_token' in result) {
+            const isProduction = process.env['NODE_ENV'] === 'production';
+            res.cookie('access_token', result.access_token, {
+                httpOnly: true,
+                secure: isProduction,
+                sameSite: 'strict',
+                path: '/',
+                maxAge: 24 * 60 * 60 * 1000,
+            });
+        }
+        return result;
+    }
+    async setInitialPassword(user, body) {
+        return this.authService.setInitialPassword(user.sub, body.new_password);
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -374,6 +394,44 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "verifyOtp", null);
+__decorate([
+    (0, public_decorator_js_1.Public)(),
+    (0, throttler_1.Throttle)({ default: { ttl: 60000, limit: 5 } }),
+    (0, common_1.Post)('send-login-otp'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Send OTP to email or phone for passwordless login' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "sendLoginOtp", null);
+__decorate([
+    (0, public_decorator_js_1.Public)(),
+    (0, throttler_1.Throttle)({ default: { ttl: 60000, limit: 10 } }),
+    (0, common_1.Post)('login-with-otp'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Login using OTP code; returns LoginResponse or clinic list if multiple clinics' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.OK, type: Object }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)({ passthrough: true })),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "loginWithOtp", null);
+__decorate([
+    (0, common_1.Post)('set-initial-password'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Set a new password on first login (must_change_password accounts only)' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.OK }),
+    __param(0, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "setInitialPassword", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Auth'),
     (0, common_1.Controller)('auth'),

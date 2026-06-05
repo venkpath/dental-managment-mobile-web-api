@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service.js';
@@ -10,6 +10,8 @@ import { AuditLogService } from '../audit-log/audit-log.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { SmsProvider } from '../communication/providers/sms.provider.js';
 import { EmailProvider } from '../communication/providers/email.provider.js';
+import { WhatsAppProvider } from '../communication/providers/whatsapp.provider.js';
+import { AutomationService } from '../automation/automation.service.js';
 
 const clinicId = '123e4567-e89b-12d3-a456-426614174000';
 const branchId = 'aaa11111-bbbb-cccc-dddd-eeeeeeeeeeee';
@@ -47,6 +49,7 @@ const mockPrismaService = {
   user: {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
+    findMany: jest.fn(),
     update: jest.fn(),
   },
   clinic: {
@@ -60,7 +63,13 @@ const mockAuditLogService = {
 const mockConfigService = { get: jest.fn().mockReturnValue('test-secret') };
 const mockCommunicationService = { sendMessage: jest.fn().mockResolvedValue({}) };
 const mockSmsProvider = { send: jest.fn().mockResolvedValue({}) };
-const mockEmailProvider = { send: jest.fn().mockResolvedValue({}) };
+const mockEmailProvider = {
+  send: jest.fn().mockResolvedValue({ success: true }),
+  isConfigured: jest.fn().mockReturnValue(false),
+  configure: jest.fn(),
+};
+const mockWhatsAppProvider = { send: jest.fn(), isConfigured: jest.fn() };
+const mockAutomationService = { seedClinicAutomationDefaults: jest.fn() };
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -78,6 +87,8 @@ describe('AuthService', () => {
         { provide: CommunicationService, useValue: mockCommunicationService },
         { provide: SmsProvider, useValue: mockSmsProvider },
         { provide: EmailProvider, useValue: mockEmailProvider },
+        { provide: WhatsAppProvider, useValue: mockWhatsAppProvider },
+        { provide: AutomationService, useValue: mockAutomationService },
       ],
     }).compile();
 
@@ -178,7 +189,7 @@ describe('AuthService', () => {
       expect(mockPasswordService.hash).toHaveBeenCalledWith('NewP@ss456');
       expect(mockPrismaService.user.update).toHaveBeenCalledWith({
         where: { id: userId },
-        data: { password_hash: '$2b$12$newhashedpassword' },
+        data: { password_hash: '$2b$12$newhashedpassword', must_change_password: false },
       });
     });
 
@@ -206,6 +217,63 @@ describe('AuthService', () => {
 
       expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({ where: { id: userId } });
       expect(mockPasswordService.verify).toHaveBeenCalledWith('OldP@ss123', mockUser.password_hash);
+    });
+  });
+
+  describe('setInitialPassword', () => {
+    it('should set password and clear must_change_password flag', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ ...mockUser, must_change_password: true });
+      mockPasswordService.hash.mockResolvedValue('$2b$12$newhash');
+      mockPrismaService.user.update.mockResolvedValue(mockUser);
+
+      const result = await service.setInitialPassword(mockUser.id, 'NewSecureP@ss1');
+
+      expect(result).toEqual({ message: 'Password set successfully' });
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: mockUser.id },
+        data: { password_hash: '$2b$12$newhash', must_change_password: false },
+      });
+    });
+
+    it('should reject when must_change_password is false', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ ...mockUser, must_change_password: false });
+
+      await expect(service.setInitialPassword(mockUser.id, 'NewP@ss1')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('sendLoginOtp', () => {
+    it('should configure platform email and send OTP for email identifier', async () => {
+      mockPrismaService.user.findFirst.mockResolvedValue({
+        id: mockUser.id,
+        clinic_id: clinicId,
+        email: 'jane@clinic.com',
+        phone: null,
+      });
+      mockConfigService.get.mockImplementation((key: string) => {
+        if (key === 'app.smtp.host') return 'smtp.test.com';
+        if (key === 'app.smtp.user') return 'user@test.com';
+        return undefined;
+      });
+      mockEmailProvider.isConfigured.mockReturnValue(false);
+
+      const result = await service.sendLoginOtp('jane@clinic.com');
+
+      expect(result.message).toContain('If an account exists');
+      expect(mockEmailProvider.configure).toHaveBeenCalledWith('__platform__', expect.any(Object), 'smtp-env');
+      expect(mockEmailProvider.send).toHaveBeenCalledWith(expect.objectContaining({
+        to: 'jane@clinic.com',
+        clinicId: '__platform__',
+      }));
+    });
+
+    it('should return safe message when user does not exist', async () => {
+      mockPrismaService.user.findFirst.mockResolvedValue(null);
+
+      const result = await service.sendLoginOtp('unknown@clinic.com');
+
+      expect(result.message).toContain('If an account exists');
+      expect(mockEmailProvider.send).not.toHaveBeenCalled();
     });
   });
 });

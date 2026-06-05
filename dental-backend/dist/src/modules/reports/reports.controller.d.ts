@@ -85,6 +85,7 @@ export declare class ReportsController {
                     education: import("@prisma/client/runtime/client").JsonValue | null;
                     specializations: import("@prisma/client/runtime/client").JsonValue | null;
                     consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
+                    must_change_password: boolean;
                     branch_id: string | null;
                 };
                 patient: {

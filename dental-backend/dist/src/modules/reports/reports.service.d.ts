@@ -142,6 +142,7 @@ export declare class ReportsService {
                     education: Prisma.JsonValue | null;
                     specializations: Prisma.JsonValue | null;
                     consultation_fee: Prisma.Decimal | null;
+                    must_change_password: boolean;
                     branch_id: string | null;
                 };
                 patient: {

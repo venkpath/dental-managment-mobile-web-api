@@ -628,6 +628,7 @@ export declare class SuperAdminController {
     approveDirectoryListing(id: string): Promise<{
         approved: boolean;
         clinic_name: string;
+        plan: string;
     }>;
     rejectDirectoryListing(id: string, body: {
         reason: string;

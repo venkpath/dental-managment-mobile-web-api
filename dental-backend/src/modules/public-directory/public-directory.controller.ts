@@ -461,6 +461,12 @@ function computeClinicAvailability(
   };
 }
 
+// Staff with listed_in_directory=true are shown publicly (UI only exposes this toggle for doctors).
+const PUBLIC_DOCTOR_WHERE = {
+  status: 'active',
+  listed_in_directory: true,
+} as const;
+
 // ─── Controller ─────────────────────────────────────────────────────────────
 
 @SkipThrottle()
@@ -562,15 +568,7 @@ export class PublicDirectoryController {
           select: { overall_rating: true },
         },
         users: {
-          where: {
-            status: 'active',
-            listed_in_directory: true,
-            OR: [
-              { is_doctor: true },
-              { role: 'Dentist' },
-              { role: 'Consultant' },
-            ],
-          },
+          where: PUBLIC_DOCTOR_WHERE,
           select: { id: true, name: true, specializations: true, years_experience: true, profile_photo_url: true },
           take: 3,
         },
@@ -744,15 +742,7 @@ export class PublicDirectoryController {
         },
         // Doctors
         users: {
-          where: {
-            status: 'active',
-            listed_in_directory: true,
-            OR: [
-              { is_doctor: true },
-              { role: 'Dentist' },
-              { role: 'Consultant' },
-            ],
-          },
+          where: PUBLIC_DOCTOR_WHERE,
           select: {
             id: true,
             name: true,
@@ -1251,6 +1241,21 @@ export class PublicDirectoryController {
       throw new BadRequestException('Invalid or expired email verification token.');
     }
 
+    // Block if a full dashboard account already exists with this email or phone
+    const siteUrl = this.config.get<string>('app.frontendUrl') || 'https://smartdentaldesk.com';
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        status: 'active',
+        OR: [{ email: verifiedEmail }, { phone: verifiedPhone }],
+      },
+      select: { id: true },
+    });
+    if (existingUser) {
+      throw new BadRequestException(
+        `A clinic account already exists with this mobile or email. Please login at ${siteUrl}/login to manage or update your listing.`,
+      );
+    }
+
     // Check for duplicate submission (same phone or email in last 24h for directory-only clinics)
     const existing = await this.prisma.clinic.findFirst({
       where: {
@@ -1266,6 +1271,12 @@ export class PublicDirectoryController {
       }
       if (existing.directory_approval_status === 'approved') {
         return { success: true, message: 'Your practice is already listed in our directory.' };
+      }
+      // Previously rejected — block duplicate clinic rows; ask them to contact support or re-apply after correction
+      if (existing.directory_approval_status === 'rejected') {
+        throw new BadRequestException(
+          'A previous listing request with this email or phone was rejected. Please contact support@smartdentaldesk.com to re-apply.',
+        );
       }
     }
 

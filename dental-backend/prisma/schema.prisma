@@ -432,7 +432,8 @@ model User {
   // Consultation fee shown publicly (INR)
   consultation_fee  Decimal? @db.Decimal(10, 2)
   // Whether this doctor appears on the public directory listing
-  listed_in_directory Boolean @default(false)
+  listed_in_directory  Boolean @default(false)
+  must_change_password Boolean @default(false)
 
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt

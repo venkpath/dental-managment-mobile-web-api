@@ -40,6 +40,7 @@ export declare class UserController {
         education: import("@prisma/client/runtime/client").JsonValue | null;
         specializations: import("@prisma/client/runtime/client").JsonValue | null;
         consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
+        must_change_password: boolean;
         branch_id: string | null;
     }, "password_hash">>;
     findAll(clinicId: string, role?: string, search?: string, branchId?: string): Promise<Omit<{
@@ -66,6 +67,7 @@ export declare class UserController {
         education: import("@prisma/client/runtime/client").JsonValue | null;
         specializations: import("@prisma/client/runtime/client").JsonValue | null;
         consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
+        must_change_password: boolean;
         branch_id: string | null;
     }, "password_hash">[]>;
     findOne(clinicId: string, id: string): Promise<Omit<{
@@ -92,6 +94,7 @@ export declare class UserController {
         education: import("@prisma/client/runtime/client").JsonValue | null;
         specializations: import("@prisma/client/runtime/client").JsonValue | null;
         consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
+        must_change_password: boolean;
         branch_id: string | null;
     }, "password_hash">>;
     update(clinicId: string, id: string, dto: UpdateUserDto): Promise<Omit<{
@@ -118,6 +121,7 @@ export declare class UserController {
         education: import("@prisma/client/runtime/client").JsonValue | null;
         specializations: import("@prisma/client/runtime/client").JsonValue | null;
         consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
+        must_change_password: boolean;
         branch_id: string | null;
     }, "password_hash">>;
     remove(clinicId: string, id: string): Promise<{

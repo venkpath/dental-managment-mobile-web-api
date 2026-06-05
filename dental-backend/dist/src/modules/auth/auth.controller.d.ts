@@ -147,4 +147,28 @@ export declare class AuthController {
         valid: boolean;
         message: string;
     }>;
+    sendLoginOtp(body: {
+        identifier: string;
+    }): Promise<{
+        message: string;
+    }>;
+    loginWithOtp(body: {
+        identifier: string;
+        code: string;
+        clinic_id?: string;
+    }, req: Request, res: Response): Promise<import("./auth.service.js").LoginResponse | {
+        requires_clinic_selection: true;
+        clinics: {
+            clinic_id: string;
+            clinic_name: string;
+            clinic_email: string;
+            subscription_status: string;
+            role: string;
+        }[];
+    }>;
+    setInitialPassword(user: JwtPayload, body: {
+        new_password: string;
+    }): Promise<{
+        message: string;
+    }>;
 }
