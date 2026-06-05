@@ -19,6 +19,7 @@ import { randomBytes, randomInt } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as nodemailer from 'nodemailer';
+import { normalizePhoneE164 } from '../../common/utils/phone.util.js';
 
 // ─── DTOs ───────────────────────────────────────────────────────────────────
 
@@ -1284,7 +1285,7 @@ export class PublicDirectoryController {
       data: {
         name: dto.clinic_name.trim(),
         email: verifiedEmail,
-        phone: verifiedPhone,
+        phone: normalizePhoneE164(verifiedPhone) ?? verifiedPhone,
         address: dto.address.trim(),
         city: dto.city.trim(),
         state: dto.state.trim(),

@@ -25,6 +25,7 @@ const email_provider_js_1 = require("../communication/providers/email.provider.j
 const whatsapp_provider_js_1 = require("../communication/providers/whatsapp.provider.js");
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
 const name_util_js_1 = require("../../common/utils/name.util.js");
+const phone_util_js_1 = require("../../common/utils/phone.util.js");
 const automation_service_js_1 = require("../automation/automation.service.js");
 const PLATFORM_CLINIC_ID = '__platform__';
 let AuthService = class AuthService {
@@ -160,8 +161,13 @@ let AuthService = class AuthService {
         return result;
     }
     async lookupByPhone(phone, password) {
+        const phoneVariants = (0, phone_util_js_1.phoneLookupVariants)(phone);
         const users = await this.prisma.user.findMany({
-            where: { phone, status: 'active', phone_verified: true },
+            where: {
+                phone: { in: phoneVariants },
+                status: 'active',
+                phone_verified: true,
+            },
             include: {
                 clinic: { select: { id: true, name: true, email: true, subscription_status: true } },
             },
@@ -188,8 +194,9 @@ let AuthService = class AuthService {
         return { clinics, requires_clinic_selection: clinics.length > 1 };
     }
     async loginByPhone(phone, password, clinicId, req) {
+        const phoneVariants = (0, phone_util_js_1.phoneLookupVariants)(phone);
         const user = await this.prisma.user.findFirst({
-            where: { phone, clinic_id: clinicId, status: 'active', phone_verified: true },
+            where: { phone: { in: phoneVariants }, clinic_id: clinicId, status: 'active', phone_verified: true },
         });
         if (!user) {
             throw new common_1.UnauthorizedException('Invalid phone number or password');
@@ -329,9 +336,9 @@ let AuthService = class AuthService {
         if (isEmail) {
             return { storeKey: trimmed.toLowerCase(), isEmail, phoneVariants: [] };
         }
+        const variants = (0, phone_util_js_1.phoneLookupVariants)(trimmed);
         const digits = trimmed.replace(/[^0-9]/g, '');
         const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
-        const variants = [...new Set([trimmed, last10, `+91${last10}`, `91${last10}`].filter((v) => v.length >= 7))];
         return { storeKey: last10 || trimmed.toLowerCase(), isEmail, phoneVariants: variants };
     }
     async sendPlatformLoginSms(phone, otp) {

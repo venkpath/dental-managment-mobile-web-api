@@ -8,6 +8,7 @@ import { WhatsAppProvider } from '../communication/providers/whatsapp.provider.j
 import { CreateSuperAdminDto } from './dto/index.js';
 import { SuperAdmin } from '@prisma/client';
 import { AutomationService } from '../automation/automation.service.js';
+import { normalizePhoneE164 } from '../../common/utils/phone.util.js';
 
 /** Synthetic clinic ID used to configure the platform-level SMTP transporter */
 const PLATFORM_CLINIC_ID = '__platform__';
@@ -692,6 +693,8 @@ export class SuperAdminService {
         });
       }
 
+      const normalizedPhone = clinic.phone ? normalizePhoneE164(clinic.phone) ?? clinic.phone : null;
+
       if (!existingUser && clinic.email) {
         const passwordHash = await this.passwordService.hash(randomPassword);
         await tx.user.create({
@@ -700,12 +703,13 @@ export class SuperAdminService {
             branch_id: branch.id,
             name: clinic.directory_contact_name || clinic.name,
             email: clinic.email,
-            phone: clinic.phone ?? null,
+            phone: normalizedPhone,
             password_hash: passwordHash,
             role: 'SuperAdmin',
             status: 'active',
             email_verified: true,
-            phone_verified: !!clinic.phone,
+            // Listing submitters verify phone via OTP before approval
+            phone_verified: !!normalizedPhone,
             must_change_password: true,
             is_doctor: true,
             listed_in_directory: true,
@@ -718,6 +722,9 @@ export class SuperAdminService {
           data: {
             is_doctor: true,
             listed_in_directory: true,
+            ...(normalizedPhone
+              ? { phone: normalizedPhone, phone_verified: true }
+              : {}),
           },
         });
       }

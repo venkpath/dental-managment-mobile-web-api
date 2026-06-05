@@ -60,6 +60,7 @@ const crypto_1 = require("crypto");
 const config_1 = require("@nestjs/config");
 const jwt_1 = require("@nestjs/jwt");
 const nodemailer = __importStar(require("nodemailer"));
+const phone_util_js_1 = require("../../common/utils/phone.util.js");
 class DirectorySearchQuery {
     lat;
     lng;
@@ -1202,7 +1203,7 @@ let PublicDirectoryController = class PublicDirectoryController {
             data: {
                 name: dto.clinic_name.trim(),
                 email: verifiedEmail,
-                phone: verifiedPhone,
+                phone: (0, phone_util_js_1.normalizePhoneE164)(verifiedPhone) ?? verifiedPhone,
                 address: dto.address.trim(),
                 city: dto.city.trim(),
                 state: dto.state.trim(),

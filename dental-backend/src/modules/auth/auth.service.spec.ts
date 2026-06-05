@@ -242,6 +242,39 @@ describe('AuthService', () => {
     });
   });
 
+  describe('lookupByPhone', () => {
+    const phoneUser = {
+      ...mockUser,
+      phone: '9876543210',
+      phone_verified: true,
+      clinic: { id: clinicId, name: 'Test Clinic', email: 'clinic@test.com', subscription_status: 'directory' },
+    };
+
+    it('should match phone stored without country code when login uses +91', async () => {
+      mockPrismaService.user.findMany.mockResolvedValue([phoneUser]);
+      mockPasswordService.verify.mockResolvedValue(true);
+
+      const result = await service.lookupByPhone('+919876543210', 'ValidP@ss123');
+
+      expect(mockPrismaService.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            phone: { in: expect.arrayContaining(['9876543210', '+919876543210']) },
+            phone_verified: true,
+          }),
+        }),
+      );
+      expect(result.clinics).toHaveLength(1);
+    });
+
+    it('should throw when password is wrong', async () => {
+      mockPrismaService.user.findMany.mockResolvedValue([phoneUser]);
+      mockPasswordService.verify.mockResolvedValue(false);
+
+      await expect(service.lookupByPhone('+919876543210', 'WrongP@ss1')).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
   describe('sendLoginOtp', () => {
     it('should configure platform email and send OTP for email identifier', async () => {
       mockPrismaService.user.findFirst.mockResolvedValue({
