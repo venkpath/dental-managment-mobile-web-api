@@ -10,8 +10,8 @@ export declare class SuperAdminTutorialController {
         description: string | null;
         category: string | null;
         title: string;
-        display_order: number;
         s3_key: string;
+        display_order: number;
         thumbnail_s3_key: string | null;
         duration_seconds: number | null;
         allowed_roles: string[];
@@ -24,8 +24,8 @@ export declare class SuperAdminTutorialController {
         description: string | null;
         category: string | null;
         title: string;
-        display_order: number;
         s3_key: string;
+        display_order: number;
         thumbnail_s3_key: string | null;
         duration_seconds: number | null;
         allowed_roles: string[];
@@ -38,8 +38,8 @@ export declare class SuperAdminTutorialController {
         description: string | null;
         category: string | null;
         title: string;
-        display_order: number;
         s3_key: string;
+        display_order: number;
         thumbnail_s3_key: string | null;
         duration_seconds: number | null;
         allowed_roles: string[];

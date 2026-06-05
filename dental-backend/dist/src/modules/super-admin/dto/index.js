@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SetClinicCustomPriceDto = exports.FeatureOverrideItem = exports.UpdateClinicFeaturesDto = exports.UpdateClinicLimitsDto = exports.OnboardClinicDto = exports.LoginSuperAdminDto = exports.CreateSuperAdminDto = void 0;
+exports.ReorderFeaturedClinicsDto = exports.UpdateDirectoryFeaturedDto = exports.SetClinicCustomPriceDto = exports.FeatureOverrideItem = exports.UpdateClinicFeaturesDto = exports.UpdateClinicLimitsDto = exports.OnboardClinicDto = exports.LoginSuperAdminDto = exports.CreateSuperAdminDto = void 0;
 var create_super_admin_dto_js_1 = require("./create-super-admin.dto.js");
 Object.defineProperty(exports, "CreateSuperAdminDto", { enumerable: true, get: function () { return create_super_admin_dto_js_1.CreateSuperAdminDto; } });
 var login_super_admin_dto_js_1 = require("./login-super-admin.dto.js");
@@ -14,4 +14,7 @@ Object.defineProperty(exports, "UpdateClinicFeaturesDto", { enumerable: true, ge
 Object.defineProperty(exports, "FeatureOverrideItem", { enumerable: true, get: function () { return update_clinic_features_dto_js_1.FeatureOverrideItem; } });
 var set_clinic_custom_price_dto_js_1 = require("./set-clinic-custom-price.dto.js");
 Object.defineProperty(exports, "SetClinicCustomPriceDto", { enumerable: true, get: function () { return set_clinic_custom_price_dto_js_1.SetClinicCustomPriceDto; } });
+var update_directory_featured_dto_js_1 = require("./update-directory-featured.dto.js");
+Object.defineProperty(exports, "UpdateDirectoryFeaturedDto", { enumerable: true, get: function () { return update_directory_featured_dto_js_1.UpdateDirectoryFeaturedDto; } });
+Object.defineProperty(exports, "ReorderFeaturedClinicsDto", { enumerable: true, get: function () { return update_directory_featured_dto_js_1.ReorderFeaturedClinicsDto; } });
 //# sourceMappingURL=index.js.map

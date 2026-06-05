@@ -81,6 +81,12 @@ model Clinic {
   is_directory_only         Boolean   @default(false)
   // Name of the person who submitted the free listing form
   directory_contact_name    String?   @db.VarChar(200)
+  // Homepage "Featured Dental Clinics" carousel — toggled by super admin only
+  directory_featured        Boolean   @default(false)
+  directory_featured_order  Int?
+  // Proof-of-practice document uploaded during free listing (photo, Rx pad, invoice, etc.)
+  directory_verification_document_url  String?   @db.VarChar(500)
+  directory_verification_document_type String?   @db.VarChar(30)
 
   ai_usage_count            Int       @default(0)
   ai_quota_override         Int? // per-clinic AI quota override (null = use plan default)
@@ -178,13 +184,29 @@ model Clinic {
   insurance_reimbursements InsuranceReimbursement[]
   rooms                    Room[]
   directory_reviews        ClinicDirectoryReview[]
+  directory_listing_uploads DirectoryListingUpload[]
   doctor_availability      DoctorAvailability[]
 
   @@index([email])
   @@index([plan_id])
   @@index([listed_in_directory])
   @@index([listed_in_directory, is_suspended])
+  @@index([directory_featured, directory_featured_order])
   @@map("clinics")
+}
+
+/// Staged verification documents for free directory listings — cleaned up if never claimed.
+model DirectoryListingUpload {
+  id            String    @id @default(uuid()) @db.Uuid
+  s3_key        String    @unique @db.VarChar(500)
+  document_type String    @db.VarChar(30)
+  created_at    DateTime  @default(now())
+  claimed_at    DateTime?
+  clinic_id     String?   @db.Uuid
+  clinic        Clinic?   @relation(fields: [clinic_id], references: [id], onDelete: SetNull)
+
+  @@index([claimed_at, created_at])
+  @@map("directory_listing_uploads")
 }
 
 model Branch {

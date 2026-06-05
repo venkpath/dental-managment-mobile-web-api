@@ -12,11 +12,12 @@ import { AutomationModule } from '../automation/automation.module.js';
 import { BranchModule } from '../branch/branch.module.js';
 import { ReportsModule } from '../reports/reports.module.js';
 import { FeatureModule } from '../feature/feature.module.js';
+import { S3Service } from '../../common/services/s3.service.js';
 
 @Module({
   imports: [AuthModule, ClinicModule, AutomationModule, BranchModule, ReportsModule, FeatureModule],
   controllers: [SuperAdminController, PlatformTemplateController],
-  providers: [SuperAdminService, SuperAdminAuthService, SuperAdminWhatsAppService, PlatformTemplateService, InactivityCronService],
+  providers: [SuperAdminService, SuperAdminAuthService, SuperAdminWhatsAppService, PlatformTemplateService, InactivityCronService, S3Service],
   exports: [SuperAdminService],
 })
 export class SuperAdminModule {}

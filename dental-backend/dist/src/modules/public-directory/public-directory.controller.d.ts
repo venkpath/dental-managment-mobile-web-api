@@ -1,3 +1,4 @@
+import { ListingVerificationService } from './listing-verification.service.js';
 import type { Response } from 'express';
 import { PrismaService } from '../../database/prisma.service.js';
 import { Prisma } from '@prisma/client';
@@ -64,17 +65,26 @@ declare class SubmitListingDto {
     languages_spoken?: string;
     website_url?: string;
     clinic_description?: string;
+    verification_document_type?: 'clinic_photo' | 'prescription_pad' | 'invoice' | 'other';
+    verification_upload_token?: string;
+}
+declare class StagePendingVerificationDto {
+    verification_document_type: 'clinic_photo' | 'prescription_pad' | 'invoice' | 'other';
+}
+declare class DiscardPendingVerificationDto {
+    upload_token: string;
 }
 export declare class PublicDirectoryController {
     private readonly prisma;
     private readonly s3;
     private readonly config;
     private readonly jwt;
+    private readonly listingVerification;
     private readonly logger;
     private readonly phoneOtpStore;
     private readonly phoneOtpSendTracker;
     private readonly emailOtpStore;
-    constructor(prisma: PrismaService, s3: S3Service, config: ConfigService, jwt: JwtService);
+    constructor(prisma: PrismaService, s3: S3Service, config: ConfigService, jwt: JwtService, listingVerification: ListingVerificationService);
     searchClinics(query: DirectorySearchQuery, res: Response): Promise<{
         data: {
             id: string;
@@ -120,6 +130,33 @@ export declare class PublicDirectoryController {
     listForSitemap(res: Response): Promise<{
         id: string;
         updated_at: Date;
+    }[]>;
+    getFeaturedClinics(res: Response): Promise<{
+        id: string;
+        name: string;
+        address: string | null;
+        city: string | null;
+        state: string | null;
+        country: string | null;
+        phone: string | null;
+        logo_url: string | null;
+        clinic_description: string | null;
+        specialties: string | null;
+        working_hours_label: string | null;
+        google_maps_url: string | null;
+        website_url: string | null;
+        users: {
+            id: string;
+            name: string;
+            profile_photo_url: string | null;
+            years_experience: number | null;
+            specializations: Prisma.JsonValue;
+        }[];
+        branch_cover_id: string | null;
+        review_count: number;
+        avg_rating: number | null;
+        available_today: boolean;
+        open_now: boolean;
     }[]>;
     getClinicDetail(clinicId: string): Promise<{
         branches: {
@@ -248,7 +285,14 @@ export declare class PublicDirectoryController {
         token: string;
         message: string;
     }>;
-    submitListing(dto: SubmitListingDto): Promise<{
+    stagePendingVerification(file: Express.Multer.File, dto: StagePendingVerificationDto): Promise<{
+        upload_token: string;
+        expires_in_minutes: number;
+    }>;
+    discardPendingVerification(dto: DiscardPendingVerificationDto): Promise<{
+        discarded: boolean;
+    }>;
+    submitListing(file: Express.Multer.File | undefined, dto: SubmitListingDto): Promise<{
         success: boolean;
         message: string;
         clinic_id?: undefined;

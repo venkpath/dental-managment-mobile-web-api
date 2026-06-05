@@ -116,6 +116,10 @@ export declare class InvoiceController {
             review_secret: string | null;
             is_directory_only: boolean;
             directory_contact_name: string | null;
+            directory_featured: boolean;
+            directory_featured_order: number | null;
+            directory_verification_document_url: string | null;
+            directory_verification_document_type: string | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;

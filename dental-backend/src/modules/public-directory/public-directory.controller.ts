@@ -1,7 +1,12 @@
 import {
-  Controller, Get, Post, Param, Body, Query, Res,
+  Controller, Get, Post, Param, Body, Query, Res, UploadedFile, UseInterceptors,
   ParseUUIDPipe, NotFoundException, BadRequestException, HttpException, HttpStatus,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ListingVerificationService,
+  LISTING_VERIFICATION_MAX_BYTES,
+} from './listing-verification.service.js';
 import type { Response } from 'express';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import {
@@ -288,6 +293,19 @@ class SubmitListingDto {
   // Step 3
   @ApiPropertyOptional({ example: ['General Dentistry', 'Orthodontics'] })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value == null || value === '') return undefined;
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value) as unknown;
+        return Array.isArray(parsed) ? parsed : undefined;
+      } catch {
+        return undefined;
+      }
+    }
+    return value;
+  })
   @IsArray()
   @ArrayMaxSize(10)
   @IsString({ each: true })
@@ -295,6 +313,19 @@ class SubmitListingDto {
 
   @ApiPropertyOptional({ example: ['Root Canal', 'Teeth Whitening', 'Braces'] })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value == null || value === '') return undefined;
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value) as unknown;
+        return Array.isArray(parsed) ? parsed : undefined;
+      } catch {
+        return undefined;
+      }
+    }
+    return value;
+  })
   @IsArray()
   @ArrayMaxSize(30)
   @IsString({ each: true })
@@ -323,6 +354,34 @@ class SubmitListingDto {
   @IsString()
   @MaxLength(500)
   clinic_description?: string;
+
+  @ApiPropertyOptional({
+    description: 'Type of proof-of-practice document (optional — speeds up review)',
+    enum: ['clinic_photo', 'prescription_pad', 'invoice', 'other'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['clinic_photo', 'prescription_pad', 'invoice', 'other'])
+  verification_document_type?: 'clinic_photo' | 'prescription_pad' | 'invoice' | 'other';
+
+  @ApiPropertyOptional({ description: 'JWT from pending-verification upload (preferred over re-uploading the file)' })
+  @IsOptional()
+  @IsString()
+  verification_upload_token?: string;
+}
+
+class StagePendingVerificationDto {
+  @ApiProperty({ enum: ['clinic_photo', 'prescription_pad', 'invoice', 'other'] })
+  @IsString()
+  @IsIn(['clinic_photo', 'prescription_pad', 'invoice', 'other'])
+  verification_document_type!: 'clinic_photo' | 'prescription_pad' | 'invoice' | 'other';
+}
+
+class DiscardPendingVerificationDto {
+  @ApiProperty({ description: 'JWT returned by pending-verification upload' })
+  @IsString()
+  @IsNotEmpty()
+  upload_token!: string;
 }
 
 // ─── City alias normalization ────────────────────────────────────────────────
@@ -488,6 +547,7 @@ export class PublicDirectoryController {
     private readonly s3: S3Service,
     private readonly config: ConfigService,
     private readonly jwt: JwtService,
+    private readonly listingVerification: ListingVerificationService,
   ) {}
 
   // ── GET /public/directory — search / list clinics ──
@@ -691,6 +751,87 @@ export class PublicDirectoryController {
     // Return a bare array — the global response interceptor wraps it as
     // { success, data: [...] }, so the consumer reads it at `data`.
     return clinics;
+  }
+
+  // ── GET /public/directory/featured — homepage carousel (super-admin curated) ──
+  @Get('featured')
+  @Public()
+  @ApiOperation({ summary: 'List featured directory clinics for the patient homepage' })
+  async getFeaturedClinics(@Res({ passthrough: true }) res: Response) {
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+
+    const clinics = await this.prisma.clinic.findMany({
+      where: {
+        listed_in_directory: true,
+        is_suspended: false,
+        directory_featured: true,
+      },
+      orderBy: [{ directory_featured_order: 'asc' }, { name: 'asc' }],
+      take: 12,
+      select: {
+        id: true, name: true, address: true, city: true, state: true,
+        country: true, phone: true, logo_url: true, clinic_description: true,
+        specialties: true, latitude: true, longitude: true,
+        working_hours_label: true, google_maps_url: true, website_url: true,
+        directory_reviews: {
+          where: { is_visible: true },
+          select: { overall_rating: true },
+        },
+        users: {
+          where: PUBLIC_DOCTOR_WHERE,
+          select: { id: true, name: true, specializations: true, years_experience: true, profile_photo_url: true },
+          take: 3,
+        },
+        branches: {
+          select: {
+            id: true, photo_url: true,
+            working_days: true, working_start_time: true, working_end_time: true,
+            lunch_start_time: true, lunch_end_time: true,
+            slot_duration: true, buffer_minutes: true,
+          },
+          orderBy: { created_at: 'asc' },
+        },
+      },
+    });
+
+    const { istMinutes, schemaDay, todayStart, todayEnd } = getISTContext();
+    const clinicIds = clinics.map((c) => c.id);
+    const apptCounts = clinicIds.length
+      ? await this.prisma.appointment.groupBy({
+          by: ['clinic_id'],
+          where: {
+            clinic_id: { in: clinicIds },
+            appointment_date: { gte: todayStart, lt: todayEnd },
+            status: { not: 'cancelled' },
+          },
+          _count: { id: true },
+        })
+      : [];
+    const apptCountMap = new Map(apptCounts.map((a) => [a.clinic_id, a._count.id]));
+
+    return clinics.map((c) => {
+      const reviews = c.directory_reviews;
+      const avg = reviews.length
+        ? reviews.reduce((s, r) => s + r.overall_rating, 0) / reviews.length
+        : null;
+      const bookedToday = apptCountMap.get(c.id) ?? 0;
+      const avail = computeClinicAvailability(c.branches, schemaDay, istMinutes, bookedToday);
+      const coverBranch = c.branches.find((b) => b.photo_url) ?? null;
+
+      return {
+        id: c.id, name: c.name, address: c.address, city: c.city, state: c.state,
+        country: c.country, phone: c.phone, logo_url: c.logo_url,
+        clinic_description: c.clinic_description, specialties: c.specialties,
+        working_hours_label: c.working_hours_label,
+        google_maps_url: c.google_maps_url, website_url: c.website_url,
+        users: c.users,
+        branch_cover_id: coverBranch?.id ?? null,
+        review_count: reviews.length,
+        avg_rating: avg ? Math.round(avg * 10) / 10 : null,
+        available_today: avail.available_today,
+        open_now: avail.open_now,
+      };
+    });
   }
 
   // ── GET /public/directory/:clinicId — full clinic detail ──
@@ -1217,11 +1358,55 @@ export class PublicDirectoryController {
     return { verified: true, token, message: 'Email verified successfully.' };
   }
 
+  // ── POST /public/directory/list-practice/pending-verification ─────────────
+  @Post('list-practice/pending-verification')
+  @Public()
+  @ApiOperation({ summary: 'Stage a verification document before OTP steps (cleaned up if listing is abandoned)' })
+  @UseInterceptors(FileInterceptor('verification_document', { limits: { fileSize: LISTING_VERIFICATION_MAX_BYTES } }))
+  async stagePendingVerification(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: StagePendingVerificationDto,
+  ) {
+    return this.listingVerification.stagePendingUpload(file, dto.verification_document_type);
+  }
+
+  // ── DELETE /public/directory/list-practice/pending-verification ───────────
+  @Post('list-practice/discard-pending-verification')
+  @Public()
+  @ApiOperation({ summary: 'Remove a staged verification document when the user abandons or replaces it' })
+  async discardPendingVerification(@Body() dto: DiscardPendingVerificationDto) {
+    return this.listingVerification.discardPendingUpload(dto.upload_token);
+  }
+
   // ── POST /public/directory/list-practice/submit ───────────────────────────
   @Post('list-practice/submit')
   @Public()
   @ApiOperation({ summary: 'Submit a free practice listing after phone + email verification' })
-  async submitListing(@Body() dto: SubmitListingDto) {
+  @UseInterceptors(FileInterceptor('verification_document', { limits: { fileSize: LISTING_VERIFICATION_MAX_BYTES } }))
+  async submitListing(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() dto: SubmitListingDto,
+  ) {
+    let docKey: string | null = null;
+    let docType: string | null = null;
+    let stagedUploadId: string | null = null;
+
+    if (dto.verification_upload_token) {
+      const staged = await this.listingVerification.resolveStagedUpload(
+        dto.verification_upload_token,
+        dto.verification_document_type,
+      );
+      docKey = staged.s3_key;
+      docType = staged.document_type;
+      stagedUploadId = staged.id;
+    } else if (file) {
+      if (!dto.verification_document_type) {
+        throw new BadRequestException('Please select a document type when uploading a verification file.');
+      }
+      docKey = await this.listingVerification.uploadAndTrack(file, dto.verification_document_type);
+      docType = dto.verification_document_type;
+    }
+
     // Validate phone token
     let verifiedPhone: string;
     try {
@@ -1281,36 +1466,49 @@ export class PublicDirectoryController {
       }
     }
 
-    const clinic = await this.prisma.clinic.create({
-      data: {
-        name: dto.clinic_name.trim(),
-        email: verifiedEmail,
-        phone: normalizePhoneE164(verifiedPhone) ?? verifiedPhone,
-        address: dto.address.trim(),
-        city: dto.city.trim(),
-        state: dto.state.trim(),
-        country: 'India',
-        pincode: dto.pincode?.trim() ?? null,
-        google_maps_url: dto.google_maps_url?.trim() ?? null,
-        latitude: dto.latitude ?? null,
-        longitude: dto.longitude ?? null,
-        specialties: dto.specialties?.join(',') ?? null,
-        directory_treatments: dto.treatments?.join(',') ?? null,
-        working_hours_label: dto.working_hours_label?.trim() ?? null,
-        languages_spoken: dto.languages_spoken?.trim() ?? null,
-        website_url: dto.website_url?.trim() ?? null,
-        clinic_description: dto.clinic_description?.trim() ?? null,
-        // Directory flags
-        is_directory_only: true,
-        directory_contact_name: dto.contact_name.trim(),
-        directory_approval_status: 'pending',
-        directory_requested_at: new Date(),
-        listed_in_directory: false,
-        // Minimal subscription state — directory-only clinics have no app access
-        subscription_status: 'directory',
-      },
-      select: { id: true, name: true },
-    });
+    let clinic: { id: string; name: string };
+    try {
+      clinic = await this.prisma.clinic.create({
+        data: {
+          name: dto.clinic_name.trim(),
+          email: verifiedEmail,
+          phone: normalizePhoneE164(verifiedPhone) ?? verifiedPhone,
+          address: dto.address.trim(),
+          city: dto.city.trim(),
+          state: dto.state.trim(),
+          country: 'India',
+          pincode: dto.pincode?.trim() ?? null,
+          google_maps_url: dto.google_maps_url?.trim() ?? null,
+          latitude: dto.latitude ?? null,
+          longitude: dto.longitude ?? null,
+          specialties: dto.specialties?.join(',') ?? null,
+          directory_treatments: dto.treatments?.join(',') ?? null,
+          working_hours_label: dto.working_hours_label?.trim() ?? null,
+          languages_spoken: dto.languages_spoken?.trim() ?? null,
+          website_url: dto.website_url?.trim() ?? null,
+          clinic_description: dto.clinic_description?.trim() ?? null,
+          directory_verification_document_url: docKey,
+          directory_verification_document_type: docType,
+          // Directory flags
+          is_directory_only: true,
+          directory_contact_name: dto.contact_name.trim(),
+          directory_approval_status: 'pending',
+          directory_requested_at: new Date(),
+          listed_in_directory: false,
+          // Minimal subscription state — directory-only clinics have no app access
+          subscription_status: 'directory',
+        },
+        select: { id: true, name: true },
+      });
+      if (stagedUploadId) {
+        await this.listingVerification.claimStagedUpload(stagedUploadId, clinic.id);
+      }
+    } catch (err) {
+      if (!stagedUploadId && docKey) {
+        await this.listingVerification.discardOrphanKey(docKey);
+      }
+      throw err;
+    }
 
     // Notify super-admin via email
     this.notifySuperAdmin(clinic.name, dto.contact_name, verifiedPhone, verifiedEmail).catch(() => {});

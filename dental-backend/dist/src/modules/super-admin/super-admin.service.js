@@ -20,6 +20,7 @@ const email_provider_js_1 = require("../communication/providers/email.provider.j
 const whatsapp_provider_js_1 = require("../communication/providers/whatsapp.provider.js");
 const automation_service_js_1 = require("../automation/automation.service.js");
 const phone_util_js_1 = require("../../common/utils/phone.util.js");
+const s3_service_js_1 = require("../../common/services/s3.service.js");
 const PLATFORM_CLINIC_ID = '__platform__';
 let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
     prisma;
@@ -28,17 +29,19 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
     whatsapp;
     config;
     automationService;
+    s3;
     logger = new common_1.Logger(SuperAdminService_1.name);
     adminEmail;
     adminPhone;
     frontendUrl;
-    constructor(prisma, passwordService, emailProvider, whatsapp, config, automationService) {
+    constructor(prisma, passwordService, emailProvider, whatsapp, config, automationService, s3) {
         this.prisma = prisma;
         this.passwordService = passwordService;
         this.emailProvider = emailProvider;
         this.whatsapp = whatsapp;
         this.config = config;
         this.automationService = automationService;
+        this.s3 = s3;
         this.adminEmail = this.config.get('app.adminEmail', 'prasanthshanmugam10@gmail.com');
         this.adminPhone = this.config.get('app.adminWhatsappPhone', '916366767512');
         this.frontendUrl = this.config.get('app.frontendUrl', 'http://localhost:3001');
@@ -403,9 +406,44 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
                 created_at: true,
                 is_directory_only: true,
                 directory_contact_name: true,
+                directory_verification_document_url: true,
+                directory_verification_document_type: true,
             },
             orderBy: { directory_requested_at: 'asc' },
         });
+    }
+    async getDirectoryVerificationDocumentUrl(clinicId) {
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: {
+                id: true,
+                name: true,
+                directory_verification_document_url: true,
+                directory_verification_document_type: true,
+            },
+        });
+        if (!clinic?.directory_verification_document_url) {
+            throw new common_1.NotFoundException('No verification document on file for this clinic');
+        }
+        const key = clinic.directory_verification_document_url;
+        const url = await this.s3.getSignedUrl(key);
+        const lower = key.toLowerCase();
+        const is_pdf = lower.endsWith('.pdf');
+        const content_type = is_pdf
+            ? 'application/pdf'
+            : lower.endsWith('.png')
+                ? 'image/png'
+                : lower.endsWith('.webp')
+                    ? 'image/webp'
+                    : 'image/jpeg';
+        return {
+            clinic_id: clinic.id,
+            clinic_name: clinic.name,
+            document_type: clinic.directory_verification_document_type,
+            url,
+            content_type,
+            is_pdf,
+        };
     }
     async getPendingSignups() {
         return this.prisma.clinic.findMany({
@@ -690,6 +728,99 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
             },
         });
         return { rejected: true, clinic_name: clinic.name };
+    }
+    async listFeaturedDirectoryClinics() {
+        return this.prisma.clinic.findMany({
+            where: { directory_featured: true },
+            orderBy: [{ directory_featured_order: 'asc' }, { name: 'asc' }],
+            select: {
+                id: true,
+                name: true,
+                city: true,
+                state: true,
+                listed_in_directory: true,
+                is_suspended: true,
+                directory_featured_order: true,
+            },
+        });
+    }
+    async listFeaturedDirectoryCandidates(search) {
+        const where = {
+            listed_in_directory: true,
+            is_suspended: false,
+            directory_featured: false,
+        };
+        if (search?.trim()) {
+            where['OR'] = [
+                { name: { contains: search.trim(), mode: 'insensitive' } },
+                { city: { contains: search.trim(), mode: 'insensitive' } },
+                { email: { contains: search.trim(), mode: 'insensitive' } },
+            ];
+        }
+        return this.prisma.clinic.findMany({
+            where,
+            take: 30,
+            orderBy: { name: 'asc' },
+            select: { id: true, name: true, city: true, state: true },
+        });
+    }
+    async updateDirectoryFeatured(id, featured, order) {
+        const clinic = await this.prisma.clinic.findUnique({ where: { id } });
+        if (!clinic)
+            throw new common_1.NotFoundException('Clinic not found');
+        if (featured) {
+            if (!clinic.listed_in_directory) {
+                throw new common_1.BadRequestException('Clinic must be listed in the public directory before it can be featured');
+            }
+            if (clinic.is_suspended) {
+                throw new common_1.BadRequestException('Suspended clinics cannot be featured');
+            }
+            let assignedOrder = order;
+            if (assignedOrder == null) {
+                const max = await this.prisma.clinic.aggregate({
+                    where: { directory_featured: true },
+                    _max: { directory_featured_order: true },
+                });
+                assignedOrder = (max._max.directory_featured_order ?? 0) + 1;
+            }
+            return this.prisma.clinic.update({
+                where: { id },
+                data: { directory_featured: true, directory_featured_order: assignedOrder },
+                select: {
+                    id: true,
+                    name: true,
+                    directory_featured: true,
+                    directory_featured_order: true,
+                },
+            });
+        }
+        return this.prisma.clinic.update({
+            where: { id },
+            data: { directory_featured: false, directory_featured_order: null },
+            select: {
+                id: true,
+                name: true,
+                directory_featured: true,
+                directory_featured_order: true,
+            },
+        });
+    }
+    async reorderFeaturedDirectoryClinics(clinicIds) {
+        if (!clinicIds.length) {
+            throw new common_1.BadRequestException('clinic_ids must be a non-empty array');
+        }
+        const rows = await this.prisma.clinic.findMany({
+            where: { id: { in: clinicIds }, directory_featured: true },
+            select: { id: true },
+        });
+        if (rows.length !== clinicIds.length) {
+            throw new common_1.BadRequestException('One or more clinics are not featured or do not exist');
+        }
+        await this.prisma.$transaction(clinicIds.map((clinicId, index) => this.prisma.clinic.update({
+            where: { id: clinicId },
+            data: { directory_featured_order: index + 1 },
+        })));
+        return { reordered: clinicIds.length };
     }
     async getWhatsAppConnectRequests(status = 'pending') {
         return this.prisma.clinic.findMany({
@@ -1037,6 +1168,7 @@ exports.SuperAdminService = SuperAdminService = SuperAdminService_1 = __decorate
         email_provider_js_1.EmailProvider,
         whatsapp_provider_js_1.WhatsAppProvider,
         config_1.ConfigService,
-        automation_service_js_1.AutomationService])
+        automation_service_js_1.AutomationService,
+        s3_service_js_1.S3Service])
 ], SuperAdminService);
 //# sourceMappingURL=super-admin.service.js.map

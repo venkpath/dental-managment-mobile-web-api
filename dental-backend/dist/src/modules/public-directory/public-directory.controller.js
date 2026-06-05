@@ -48,6 +48,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PublicDirectoryController = void 0;
 const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
+const platform_express_1 = require("@nestjs/platform-express");
+const listing_verification_service_js_1 = require("./listing-verification.service.js");
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
@@ -328,6 +330,8 @@ class SubmitListingDto {
     languages_spoken;
     website_url;
     clinic_description;
+    verification_document_type;
+    verification_upload_token;
 }
 __decorate([
     (0, swagger_2.ApiProperty)({ description: 'Phone verification JWT from verify-phone-otp' }),
@@ -407,6 +411,22 @@ __decorate([
 __decorate([
     (0, swagger_2.ApiPropertyOptional)({ example: ['General Dentistry', 'Orthodontics'] }),
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (value == null || value === '')
+            return undefined;
+        if (Array.isArray(value))
+            return value;
+        if (typeof value === 'string') {
+            try {
+                const parsed = JSON.parse(value);
+                return Array.isArray(parsed) ? parsed : undefined;
+            }
+            catch {
+                return undefined;
+            }
+        }
+        return value;
+    }),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ArrayMaxSize)(10),
     (0, class_validator_1.IsString)({ each: true }),
@@ -415,6 +435,22 @@ __decorate([
 __decorate([
     (0, swagger_2.ApiPropertyOptional)({ example: ['Root Canal', 'Teeth Whitening', 'Braces'] }),
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (value == null || value === '')
+            return undefined;
+        if (Array.isArray(value))
+            return value;
+        if (typeof value === 'string') {
+            try {
+                const parsed = JSON.parse(value);
+                return Array.isArray(parsed) ? parsed : undefined;
+            }
+            catch {
+                return undefined;
+            }
+        }
+        return value;
+    }),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ArrayMaxSize)(30),
     (0, class_validator_1.IsString)({ each: true }),
@@ -448,6 +484,40 @@ __decorate([
     (0, class_validator_1.MaxLength)(500),
     __metadata("design:type", String)
 ], SubmitListingDto.prototype, "clinic_description", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({
+        description: 'Type of proof-of-practice document (optional — speeds up review)',
+        enum: ['clinic_photo', 'prescription_pad', 'invoice', 'other'],
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsIn)(['clinic_photo', 'prescription_pad', 'invoice', 'other']),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "verification_document_type", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ description: 'JWT from pending-verification upload (preferred over re-uploading the file)' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "verification_upload_token", void 0);
+class StagePendingVerificationDto {
+    verification_document_type;
+}
+__decorate([
+    (0, swagger_2.ApiProperty)({ enum: ['clinic_photo', 'prescription_pad', 'invoice', 'other'] }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsIn)(['clinic_photo', 'prescription_pad', 'invoice', 'other']),
+    __metadata("design:type", String)
+], StagePendingVerificationDto.prototype, "verification_document_type", void 0);
+class DiscardPendingVerificationDto {
+    upload_token;
+}
+__decorate([
+    (0, swagger_2.ApiProperty)({ description: 'JWT returned by pending-verification upload' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], DiscardPendingVerificationDto.prototype, "upload_token", void 0);
 const CITY_ALIASES = {
     bengaluru: ['bengaluru', 'bangalore'],
     bangalore: ['bengaluru', 'bangalore'],
@@ -553,6 +623,7 @@ let PublicDirectoryController = class PublicDirectoryController {
     s3;
     config;
     jwt;
+    listingVerification;
     logger = new (class {
         log = (m) => console.log(`[PublicDirectory] ${m}`);
         warn = (m) => console.warn(`[PublicDirectory] ${m}`);
@@ -560,11 +631,12 @@ let PublicDirectoryController = class PublicDirectoryController {
     phoneOtpStore = new Map();
     phoneOtpSendTracker = new Map();
     emailOtpStore = new Map();
-    constructor(prisma, s3, config, jwt) {
+    constructor(prisma, s3, config, jwt, listingVerification) {
         this.prisma = prisma;
         this.s3 = s3;
         this.config = config;
         this.jwt = jwt;
+        this.listingVerification = listingVerification;
     }
     async searchClinics(query, res) {
         const { lat, lng, city, specialty, q, country, page = 1, limit = 12, availableToday, radius, sort = 'relevance' } = query;
@@ -716,6 +788,78 @@ let PublicDirectoryController = class PublicDirectoryController {
             orderBy: { created_at: 'desc' },
         });
         return clinics;
+    }
+    async getFeaturedClinics(res) {
+        res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+        const clinics = await this.prisma.clinic.findMany({
+            where: {
+                listed_in_directory: true,
+                is_suspended: false,
+                directory_featured: true,
+            },
+            orderBy: [{ directory_featured_order: 'asc' }, { name: 'asc' }],
+            take: 12,
+            select: {
+                id: true, name: true, address: true, city: true, state: true,
+                country: true, phone: true, logo_url: true, clinic_description: true,
+                specialties: true, latitude: true, longitude: true,
+                working_hours_label: true, google_maps_url: true, website_url: true,
+                directory_reviews: {
+                    where: { is_visible: true },
+                    select: { overall_rating: true },
+                },
+                users: {
+                    where: PUBLIC_DOCTOR_WHERE,
+                    select: { id: true, name: true, specializations: true, years_experience: true, profile_photo_url: true },
+                    take: 3,
+                },
+                branches: {
+                    select: {
+                        id: true, photo_url: true,
+                        working_days: true, working_start_time: true, working_end_time: true,
+                        lunch_start_time: true, lunch_end_time: true,
+                        slot_duration: true, buffer_minutes: true,
+                    },
+                    orderBy: { created_at: 'asc' },
+                },
+            },
+        });
+        const { istMinutes, schemaDay, todayStart, todayEnd } = getISTContext();
+        const clinicIds = clinics.map((c) => c.id);
+        const apptCounts = clinicIds.length
+            ? await this.prisma.appointment.groupBy({
+                by: ['clinic_id'],
+                where: {
+                    clinic_id: { in: clinicIds },
+                    appointment_date: { gte: todayStart, lt: todayEnd },
+                    status: { not: 'cancelled' },
+                },
+                _count: { id: true },
+            })
+            : [];
+        const apptCountMap = new Map(apptCounts.map((a) => [a.clinic_id, a._count.id]));
+        return clinics.map((c) => {
+            const reviews = c.directory_reviews;
+            const avg = reviews.length
+                ? reviews.reduce((s, r) => s + r.overall_rating, 0) / reviews.length
+                : null;
+            const bookedToday = apptCountMap.get(c.id) ?? 0;
+            const avail = computeClinicAvailability(c.branches, schemaDay, istMinutes, bookedToday);
+            const coverBranch = c.branches.find((b) => b.photo_url) ?? null;
+            return {
+                id: c.id, name: c.name, address: c.address, city: c.city, state: c.state,
+                country: c.country, phone: c.phone, logo_url: c.logo_url,
+                clinic_description: c.clinic_description, specialties: c.specialties,
+                working_hours_label: c.working_hours_label,
+                google_maps_url: c.google_maps_url, website_url: c.website_url,
+                users: c.users,
+                branch_cover_id: coverBranch?.id ?? null,
+                review_count: reviews.length,
+                avg_rating: avg ? Math.round(avg * 10) / 10 : null,
+                available_today: avail.available_today,
+                open_now: avail.open_now,
+            };
+        });
     }
     async getClinicDetail(clinicId) {
         const clinic = await this.prisma.clinic.findUnique({
@@ -1149,7 +1293,29 @@ let PublicDirectoryController = class PublicDirectoryController {
         const token = await this.jwt.signAsync({ email, type: 'listing_email_verified' }, { expiresIn: '30m' });
         return { verified: true, token, message: 'Email verified successfully.' };
     }
-    async submitListing(dto) {
+    async stagePendingVerification(file, dto) {
+        return this.listingVerification.stagePendingUpload(file, dto.verification_document_type);
+    }
+    async discardPendingVerification(dto) {
+        return this.listingVerification.discardPendingUpload(dto.upload_token);
+    }
+    async submitListing(file, dto) {
+        let docKey = null;
+        let docType = null;
+        let stagedUploadId = null;
+        if (dto.verification_upload_token) {
+            const staged = await this.listingVerification.resolveStagedUpload(dto.verification_upload_token, dto.verification_document_type);
+            docKey = staged.s3_key;
+            docType = staged.document_type;
+            stagedUploadId = staged.id;
+        }
+        else if (file) {
+            if (!dto.verification_document_type) {
+                throw new common_1.BadRequestException('Please select a document type when uploading a verification file.');
+            }
+            docKey = await this.listingVerification.uploadAndTrack(file, dto.verification_document_type);
+            docType = dto.verification_document_type;
+        }
         let verifiedPhone;
         try {
             const payload = await this.jwt.verifyAsync(dto.phone_token);
@@ -1199,34 +1365,48 @@ let PublicDirectoryController = class PublicDirectoryController {
                 throw new common_1.BadRequestException('A previous listing request with this email or phone was rejected. Please contact support@smartdentaldesk.com to re-apply.');
             }
         }
-        const clinic = await this.prisma.clinic.create({
-            data: {
-                name: dto.clinic_name.trim(),
-                email: verifiedEmail,
-                phone: (0, phone_util_js_1.normalizePhoneE164)(verifiedPhone) ?? verifiedPhone,
-                address: dto.address.trim(),
-                city: dto.city.trim(),
-                state: dto.state.trim(),
-                country: 'India',
-                pincode: dto.pincode?.trim() ?? null,
-                google_maps_url: dto.google_maps_url?.trim() ?? null,
-                latitude: dto.latitude ?? null,
-                longitude: dto.longitude ?? null,
-                specialties: dto.specialties?.join(',') ?? null,
-                directory_treatments: dto.treatments?.join(',') ?? null,
-                working_hours_label: dto.working_hours_label?.trim() ?? null,
-                languages_spoken: dto.languages_spoken?.trim() ?? null,
-                website_url: dto.website_url?.trim() ?? null,
-                clinic_description: dto.clinic_description?.trim() ?? null,
-                is_directory_only: true,
-                directory_contact_name: dto.contact_name.trim(),
-                directory_approval_status: 'pending',
-                directory_requested_at: new Date(),
-                listed_in_directory: false,
-                subscription_status: 'directory',
-            },
-            select: { id: true, name: true },
-        });
+        let clinic;
+        try {
+            clinic = await this.prisma.clinic.create({
+                data: {
+                    name: dto.clinic_name.trim(),
+                    email: verifiedEmail,
+                    phone: (0, phone_util_js_1.normalizePhoneE164)(verifiedPhone) ?? verifiedPhone,
+                    address: dto.address.trim(),
+                    city: dto.city.trim(),
+                    state: dto.state.trim(),
+                    country: 'India',
+                    pincode: dto.pincode?.trim() ?? null,
+                    google_maps_url: dto.google_maps_url?.trim() ?? null,
+                    latitude: dto.latitude ?? null,
+                    longitude: dto.longitude ?? null,
+                    specialties: dto.specialties?.join(',') ?? null,
+                    directory_treatments: dto.treatments?.join(',') ?? null,
+                    working_hours_label: dto.working_hours_label?.trim() ?? null,
+                    languages_spoken: dto.languages_spoken?.trim() ?? null,
+                    website_url: dto.website_url?.trim() ?? null,
+                    clinic_description: dto.clinic_description?.trim() ?? null,
+                    directory_verification_document_url: docKey,
+                    directory_verification_document_type: docType,
+                    is_directory_only: true,
+                    directory_contact_name: dto.contact_name.trim(),
+                    directory_approval_status: 'pending',
+                    directory_requested_at: new Date(),
+                    listed_in_directory: false,
+                    subscription_status: 'directory',
+                },
+                select: { id: true, name: true },
+            });
+            if (stagedUploadId) {
+                await this.listingVerification.claimStagedUpload(stagedUploadId, clinic.id);
+            }
+        }
+        catch (err) {
+            if (!stagedUploadId && docKey) {
+                await this.listingVerification.discardOrphanKey(docKey);
+            }
+            throw err;
+        }
         this.notifySuperAdmin(clinic.name, dto.contact_name, verifiedPhone, verifiedEmail).catch(() => { });
         this.logger.log(`Free listing submitted: clinic ${clinic.id} (${clinic.name}) — pending approval`);
         return {
@@ -1331,6 +1511,16 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], PublicDirectoryController.prototype, "listForSitemap", null);
 __decorate([
+    (0, common_1.Get)('featured'),
+    (0, public_decorator_js_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List featured directory clinics for the patient homepage' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Res)({ passthrough: true })),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], PublicDirectoryController.prototype, "getFeaturedClinics", null);
+__decorate([
     (0, common_1.Get)(':clinicId'),
     (0, public_decorator_js_1.Public)(),
     (0, swagger_1.ApiOperation)({ summary: 'Get full clinic detail page data' }),
@@ -1413,13 +1603,37 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], PublicDirectoryController.prototype, "verifyListingEmailOtp", null);
 __decorate([
+    (0, common_1.Post)('list-practice/pending-verification'),
+    (0, public_decorator_js_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Stage a verification document before OTP steps (cleaned up if listing is abandoned)' }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('verification_document', { limits: { fileSize: listing_verification_service_js_1.LISTING_VERIFICATION_MAX_BYTES } })),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.UploadedFile)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, StagePendingVerificationDto]),
+    __metadata("design:returntype", Promise)
+], PublicDirectoryController.prototype, "stagePendingVerification", null);
+__decorate([
+    (0, common_1.Post)('list-practice/discard-pending-verification'),
+    (0, public_decorator_js_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Remove a staged verification document when the user abandons or replaces it' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [DiscardPendingVerificationDto]),
+    __metadata("design:returntype", Promise)
+], PublicDirectoryController.prototype, "discardPendingVerification", null);
+__decorate([
     (0, common_1.Post)('list-practice/submit'),
     (0, public_decorator_js_1.Public)(),
     (0, swagger_1.ApiOperation)({ summary: 'Submit a free practice listing after phone + email verification' }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('verification_document', { limits: { fileSize: listing_verification_service_js_1.LISTING_VERIFICATION_MAX_BYTES } })),
     openapi.ApiResponse({ status: 201, type: Object }),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, common_1.UploadedFile)()),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [SubmitListingDto]),
+    __metadata("design:paramtypes", [Object, SubmitListingDto]),
     __metadata("design:returntype", Promise)
 ], PublicDirectoryController.prototype, "submitListing", null);
 exports.PublicDirectoryController = PublicDirectoryController = __decorate([
@@ -1429,6 +1643,7 @@ exports.PublicDirectoryController = PublicDirectoryController = __decorate([
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         s3_service_js_1.S3Service,
         config_1.ConfigService,
-        jwt_1.JwtService])
+        jwt_1.JwtService,
+        listing_verification_service_js_1.ListingVerificationService])
 ], PublicDirectoryController);
 //# sourceMappingURL=public-directory.controller.js.map
