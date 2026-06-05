@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { randomInt } from 'crypto';
 import { PrismaService } from '../../database/prisma.service.js';
 import { PasswordService } from '../../common/services/password.service.js';
 import { EmailProvider } from '../communication/providers/email.provider.js';
@@ -660,24 +661,151 @@ export class SuperAdminService {
     if (clinic.directory_approval_status !== 'pending') {
       throw new BadRequestException('No pending directory approval request for this clinic');
     }
-    await this.prisma.clinic.update({
-      where: { id },
-      data: {
-        listed_in_directory: true,
-        directory_approval_status: 'approved',
-        directory_approved_at: new Date(),
-        directory_rejection_reason: null,
-      },
+
+    const freePlan = await this.prisma.plan.findFirst({
+      where: { name: { equals: 'Free', mode: 'insensitive' } },
+    });
+    if (!freePlan) {
+      throw new BadRequestException('Free plan is not configured. Please seed plans before approving listings.');
+    }
+
+    // Generate a random 12-char password (no ambiguous chars like 0/O, 1/l)
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    const randomPassword = Array.from(
+      { length: 12 },
+      () => chars[randomInt(0, chars.length)],
+    ).join('');
+
+    const existingUser = await this.prisma.user.findFirst({ where: { clinic_id: id } });
+    let createdNewUser = false;
+
+    await this.prisma.$transaction(async (tx) => {
+      let branch = await tx.branch.findFirst({ where: { clinic_id: id } });
+      if (!branch) {
+        branch = await tx.branch.create({
+          data: {
+            clinic_id: id,
+            name: 'Main Branch',
+            address: clinic.address || undefined,
+            phone: clinic.phone || undefined,
+          },
+        });
+      }
+
+      if (!existingUser && clinic.email) {
+        const passwordHash = await this.passwordService.hash(randomPassword);
+        await tx.user.create({
+          data: {
+            clinic_id: id,
+            branch_id: branch.id,
+            name: clinic.directory_contact_name || clinic.name,
+            email: clinic.email,
+            phone: clinic.phone ?? null,
+            password_hash: passwordHash,
+            role: 'SuperAdmin',
+            status: 'active',
+            email_verified: true,
+            phone_verified: !!clinic.phone,
+            must_change_password: true,
+          },
+        });
+        createdNewUser = true;
+      }
+
+      await tx.clinic.update({
+        where: { id },
+        data: {
+          plan_id: freePlan.id,
+          listed_in_directory: true,
+          directory_approval_status: 'approved',
+          directory_approved_at: new Date(),
+          directory_rejection_reason: null,
+          is_directory_only: false,
+          // Kept for analytics — SubscriptionGuard allows directory when plan_id is set
+          subscription_status: 'directory',
+          trial_ends_at: null,
+        },
+      });
     });
 
-    // Send approval email with claim link (fire-and-forget)
-    if (clinic.email) {
+    this.automationService.seedClinicAutomationDefaults(id).catch((err) =>
+      this.logger.warn(`Failed to seed automation defaults for listing clinic ${id}: ${(err as Error).message}`),
+    );
+
+    // Send welcome email with credentials (fire-and-forget)
+    if (clinic.email && createdNewUser) {
+      this.sendListingWelcomeEmail(clinic, randomPassword).catch((err) =>
+        this.logger.warn(`Listing welcome email failed: ${err.message}`),
+      );
+    } else if (clinic.email && existingUser) {
       this.sendListingApprovedEmail(clinic).catch((err) =>
         this.logger.warn(`Listing approved email failed: ${err.message}`),
       );
     }
 
-    return { approved: true, clinic_name: clinic.name };
+    return { approved: true, clinic_name: clinic.name, plan: 'Free' };
+  }
+
+  private async sendListingWelcomeEmail(
+    clinic: { id: string; name: string; email: string | null; phone?: string | null; directory_contact_name?: string | null },
+    password: string,
+  ) {
+    if (!clinic.email || !this.ensureEmailConfigured()) return;
+    const loginUrl = `${this.frontendUrl}/login`;
+    const contactName = clinic.directory_contact_name || 'Doctor';
+    const loginId = clinic.email;
+    const html = `
+      <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;">
+        <div style="background:linear-gradient(135deg,#3b5bff,#1ec991);padding:32px;border-radius:12px 12px 0 0;">
+          <h1 style="color:#fff;margin:0;font-size:22px;">Your clinic is live on Smart Dental Desk!</h1>
+        </div>
+        <div style="padding:32px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+          <p style="color:#374151;font-size:15px;line-height:1.6;">Hi ${contactName},</p>
+          <p style="color:#374151;font-size:15px;line-height:1.6;">
+            <strong>${clinic.name}</strong> has been approved and is now live. We've created a <strong>Free plan</strong> account for you (always free, no trial) — log in to manage appointments, billing, records, and more.
+          </p>
+          <div style="background:#f8faff;border:1px solid #dbeafe;border-radius:10px;padding:20px;margin:24px 0;">
+            <p style="color:#1e40af;font-size:13px;font-weight:700;margin:0 0 12px 0;text-transform:uppercase;letter-spacing:0.05em;">Your Login Credentials</p>
+            <table style="width:100%;border-collapse:collapse;">
+              <tr>
+                <td style="padding:6px 0;color:#6b7280;font-size:13px;width:120px;">Login URL</td>
+                <td style="padding:6px 0;color:#111827;font-size:13px;"><a href="${loginUrl}" style="color:#3b5bff;">${loginUrl}</a></td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0;color:#6b7280;font-size:13px;">Email</td>
+                <td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;">${loginId}</td>
+              </tr>
+              ${clinic.phone ? `<tr>
+                <td style="padding:6px 0;color:#6b7280;font-size:13px;">Mobile</td>
+                <td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;">${clinic.phone}</td>
+              </tr>` : ''}
+              <tr>
+                <td style="padding:6px 0;color:#6b7280;font-size:13px;">Password</td>
+                <td style="padding:6px 0;color:#111827;font-size:18px;font-weight:700;letter-spacing:2px;">${password}</td>
+              </tr>
+            </table>
+          </div>
+          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
+            <p style="color:#92400e;font-size:13px;margin:0;">
+              ⚠️ You will be asked to set a new password on your first login. You can also log in using an OTP sent to your email or mobile.
+            </p>
+          </div>
+          <div style="text-align:center;margin:24px 0;">
+            <a href="${loginUrl}" style="display:inline-block;background:linear-gradient(135deg,#3b5bff,#6366f1);color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:700;font-size:15px;">Login to Your Dashboard →</a>
+          </div>
+          <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:24px;">
+            Smart Dental Desk · <a href="${this.frontendUrl}" style="color:#9ca3af;">smartdentaldesk.com</a>
+          </p>
+        </div>
+      </div>
+    `;
+    await this.emailProvider.send({
+      to: clinic.email,
+      subject: `Your Smart Dental Desk account is ready — login credentials inside`,
+      body: `Hi ${contactName}, your clinic "${clinic.name}" is approved. Login at ${loginUrl} with email: ${loginId} and password: ${password}. You will be asked to change your password on first login.`,
+      html,
+      clinicId: PLATFORM_CLINIC_ID,
+    });
   }
 
   async rejectDirectoryListing(id: string, reason: string) {

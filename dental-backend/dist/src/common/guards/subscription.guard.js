@@ -37,12 +37,15 @@ let SubscriptionGuard = class SubscriptionGuard {
             return true;
         const clinic = await this.prisma.clinic.findUnique({
             where: { id: user.clinicId },
-            select: { subscription_status: true, trial_ends_at: true },
+            select: { subscription_status: true, trial_ends_at: true, plan_id: true },
         });
         if (!clinic)
             return true;
-        const { subscription_status, trial_ends_at } = clinic;
+        const { subscription_status, trial_ends_at, plan_id } = clinic;
         if (subscription_status === 'active' || subscription_status === 'created') {
+            return true;
+        }
+        if (subscription_status === 'directory' && plan_id) {
             return true;
         }
         if (subscription_status === 'trial') {

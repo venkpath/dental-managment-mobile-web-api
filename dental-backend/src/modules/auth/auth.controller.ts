@@ -269,4 +269,49 @@ export class AuthController {
   async verifyOtp(@Body() body: { identifier: string; clinic_id: string; code: string }) {
     return this.authService.verifyOtp(body.identifier, body.clinic_id, body.code);
   }
+
+  // ─── OTP Login ───
+
+  @Public()
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Post('send-login-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Send OTP to email or phone for passwordless login' })
+  async sendLoginOtp(@Body() body: { identifier: string }) {
+    return this.authService.sendLoginOtp(body.identifier);
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Post('login-with-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login using OTP code; returns LoginResponse or clinic list if multiple clinics' })
+  async loginWithOtp(
+    @Body() body: { identifier: string; code: string; clinic_id?: string },
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.loginWithOtp(body.identifier, body.code, body.clinic_id, req);
+    if ('access_token' in result) {
+      const isProduction = process.env['NODE_ENV'] === 'production';
+      res.cookie('access_token', result.access_token, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 24 * 60 * 60 * 1000,
+      });
+    }
+    return result;
+  }
+
+  // ─── Set Initial Password (first login, must_change_password=true) ───
+
+  @Post('set-initial-password')
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Set a new password on first login (must_change_password accounts only)' })
+  async setInitialPassword(@CurrentUser() user: JwtPayload, @Body() body: { new_password: string }) {
+    return this.authService.setInitialPassword(user.sub, body.new_password);
+  }
 }

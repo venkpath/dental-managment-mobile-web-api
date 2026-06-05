@@ -26,6 +26,7 @@ const userSelect = {
     status: true,
     email_verified: true,
     phone_verified: true,
+    must_change_password: true,
     is_doctor: true,
     license_number: true,
     signature_url: true,

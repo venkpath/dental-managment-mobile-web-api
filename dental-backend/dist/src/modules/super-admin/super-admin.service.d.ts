@@ -536,7 +536,9 @@ export declare class SuperAdminService {
     approveDirectoryListing(id: string): Promise<{
         approved: boolean;
         clinic_name: string;
+        plan: string;
     }>;
+    private sendListingWelcomeEmail;
     rejectDirectoryListing(id: string, reason: string): Promise<{
         rejected: boolean;
         clinic_name: string;

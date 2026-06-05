@@ -37,15 +37,20 @@ export class SubscriptionGuard implements CanActivate {
 
     const clinic = await this.prisma.clinic.findUnique({
       where: { id: user.clinicId },
-      select: { subscription_status: true, trial_ends_at: true },
+      select: { subscription_status: true, trial_ends_at: true, plan_id: true },
     });
 
     if (!clinic) return true;
 
-    const { subscription_status, trial_ends_at } = clinic;
+    const { subscription_status, trial_ends_at, plan_id } = clinic;
 
     // Active or pending payment — allow
     if (subscription_status === 'active' || subscription_status === 'created') {
+      return true;
+    }
+
+    // Directory-listed clinics provisioned on the Free plan (post listing approval)
+    if (subscription_status === 'directory' && plan_id) {
       return true;
     }
 

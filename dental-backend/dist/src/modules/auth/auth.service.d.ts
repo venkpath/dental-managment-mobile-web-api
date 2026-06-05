@@ -30,6 +30,7 @@ export interface LoginResponse {
         email_verified: boolean;
         phone_verified: boolean;
         requires_verification: boolean;
+        must_change_password: boolean;
     };
 }
 export declare class AuthService {
@@ -76,6 +77,25 @@ export declare class AuthService {
     refresh(refreshToken: string): Promise<RefreshResponse>;
     changePassword(userId: string, dto: ChangePasswordDto): Promise<{
         message: string;
+    }>;
+    setInitialPassword(userId: string, newPassword: string): Promise<{
+        message: string;
+    }>;
+    private readonly loginOtpStore;
+    private normalizeLoginIdentifier;
+    private sendPlatformLoginSms;
+    sendLoginOtp(identifier: string): Promise<{
+        message: string;
+    }>;
+    loginWithOtp(identifier: string, code: string, clinicId?: string, req?: Request): Promise<LoginResponse | {
+        requires_clinic_selection: true;
+        clinics: {
+            clinic_id: string;
+            clinic_name: string;
+            clinic_email: string;
+            subscription_status: string;
+            role: string;
+        }[];
     }>;
     register(dto: RegisterClinicDto): Promise<{
         clinic: {

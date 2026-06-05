@@ -1181,6 +1181,17 @@ let PublicDirectoryController = class PublicDirectoryController {
         catch {
             throw new common_1.BadRequestException('Invalid or expired email verification token.');
         }
+        const siteUrl = this.config.get('app.frontendUrl') || 'https://smartdentaldesk.com';
+        const existingUser = await this.prisma.user.findFirst({
+            where: {
+                status: 'active',
+                OR: [{ email: verifiedEmail }, { phone: verifiedPhone }],
+            },
+            select: { id: true },
+        });
+        if (existingUser) {
+            throw new common_1.BadRequestException(`A clinic account already exists with this mobile or email. Please login at ${siteUrl}/login to manage or update your listing.`);
+        }
         const existing = await this.prisma.clinic.findFirst({
             where: {
                 is_directory_only: true,
@@ -1194,6 +1205,9 @@ let PublicDirectoryController = class PublicDirectoryController {
             }
             if (existing.directory_approval_status === 'approved') {
                 return { success: true, message: 'Your practice is already listed in our directory.' };
+            }
+            if (existing.directory_approval_status === 'rejected') {
+                throw new common_1.BadRequestException('A previous listing request with this email or phone was rejected. Please contact support@smartdentaldesk.com to re-apply.');
             }
         }
         const clinic = await this.prisma.clinic.create({
