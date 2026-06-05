@@ -12,7 +12,7 @@ import type { Response } from 'express';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import {
   IsString, IsOptional, IsInt, IsNumber, IsBoolean, Min, Max, MinLength,
-  MaxLength, IsIn, IsEmail, IsArray, ArrayMaxSize, IsNotEmpty,
+  MaxLength, IsIn, IsEmail, IsArray, ArrayMaxSize, IsNotEmpty, Equals,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
@@ -233,10 +233,15 @@ class SubmitListingDto {
   @IsNotEmpty()
   phone_token!: string;
 
-  @ApiProperty({ example: 'dr.sharma@clinic.com', description: 'Contact email from the listing form (not OTP-verified)' })
-  @IsEmail()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
-  email!: string;
+  @ApiProperty({ description: 'Email verification JWT from verify-email-otp' })
+  @IsString()
+  @IsNotEmpty()
+  email_token!: string;
+
+  @ApiProperty({ description: 'Must be true — submitter accepted Terms of Service and Privacy Policy' })
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @Equals(true, { message: 'You must accept the Terms of Service and Privacy Policy.' })
+  accepted_terms!: boolean;
 
   // Step 1
   @ApiProperty({ example: 'Sharma Dental Clinic' })
@@ -1192,21 +1197,32 @@ export class PublicDirectoryController {
     });
     if (entityId) params.set('EntityId', entityId);
 
-    try {
-      const res = await fetch(`https://www.smsgatewayhub.com/api/mt/SendSMS?${params.toString()}`, {
-        signal: AbortSignal.timeout(15000),
-      });
-      const data = await res.json() as Record<string, unknown>;
-      const ok = data['ErrorCode'] === '000' || data['ErrorCode'] === 0;
-      if (!ok) {
-        const errMsg = String(data['ErrorMessage'] ?? 'SMS gateway error');
-        this.logger.warn(`Listing phone OTP SMS failed to ${number}: ${errMsg}`);
-        throw new BadRequestException(`Could not send SMS OTP: ${errMsg}`);
+    let smsErr: string | undefined;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const res = await fetch(`https://www.smsgatewayhub.com/api/mt/SendSMS?${params.toString()}`, {
+          signal: AbortSignal.timeout(45_000),
+        });
+        const data = await res.json() as Record<string, unknown>;
+        const ok = data['ErrorCode'] === '000' || data['ErrorCode'] === 0;
+        if (!ok) {
+          smsErr = String(data['ErrorMessage'] ?? 'SMS gateway error');
+          this.logger.warn(`Listing phone OTP attempt ${attempt} failed to ${number}: ${smsErr}`);
+        } else {
+          this.logger.log(`Listing phone OTP sent to ${number} (attempt ${attempt})`);
+          smsErr = undefined;
+          break;
+        }
+      } catch (err) {
+        smsErr = err instanceof Error ? err.message : 'SMS gateway timeout';
+        this.logger.warn(`Listing phone OTP attempt ${attempt} failed to ${number}: ${smsErr}`);
       }
-      this.logger.log(`Listing phone OTP sent to ${number}`);
-    } catch (err) {
-      if (err instanceof BadRequestException) throw err;
-      throw new BadRequestException('Failed to send SMS OTP. Please check the number and try again.');
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 2000));
+    }
+
+    if (smsErr) {
+      await this.listingOtp.rollbackPhoneSend(phoneKey);
+      throw new BadRequestException('Could not send SMS OTP. Please try again.');
     }
 
     await this.listingOtp.storePhoneOtp(phoneKey, otp);
@@ -1269,7 +1285,7 @@ export class PublicDirectoryController {
         `;
 
     let lastErr: string | undefined;
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    for (let attempt = 1; attempt <= 4; attempt++) {
       const result = await this.emailProvider.send({
         clinicId: PLATFORM_CLINIC_ID,
         to: emailKey,
@@ -1285,7 +1301,7 @@ export class PublicDirectoryController {
       }
       lastErr = result.error ?? 'Unknown email error';
       this.logger.warn(`Listing email OTP attempt ${attempt} failed to ${emailKey}: ${lastErr}`);
-      if (attempt < 3) await new Promise((r) => setTimeout(r, 2000));
+      if (attempt < 4) await new Promise((r) => setTimeout(r, 3000));
     }
 
     if (lastErr) {
@@ -1334,7 +1350,7 @@ export class PublicDirectoryController {
   // ── POST /public/directory/list-practice/submit ───────────────────────────
   @Post('list-practice/submit')
   @Public()
-  @ApiOperation({ summary: 'Submit a free practice listing after phone verification' })
+  @ApiOperation({ summary: 'Submit a free practice listing after phone + email verification' })
   @UseInterceptors(FileInterceptor('verification_document', { limits: { fileSize: LISTING_VERIFICATION_MAX_BYTES } }))
   async submitListing(
     @UploadedFile() file: Express.Multer.File | undefined,
@@ -1370,7 +1386,14 @@ export class PublicDirectoryController {
       throw new BadRequestException('Invalid or expired phone verification token.');
     }
 
-    const verifiedEmail = dto.email.trim().toLowerCase();
+    let verifiedEmail: string;
+    try {
+      const payload = await this.jwt.verifyAsync<{ email: string; type: string }>(dto.email_token);
+      if (payload.type !== 'listing_email_verified') throw new Error('wrong type');
+      verifiedEmail = payload.email;
+    } catch {
+      throw new BadRequestException('Invalid or expired email verification token.');
+    }
 
     // Block if a full dashboard account already exists with this email or phone
     const siteUrl = this.config.get<string>('app.frontendUrl') || 'https://smartdentaldesk.com';
@@ -1439,6 +1462,7 @@ export class PublicDirectoryController {
           directory_contact_name: dto.contact_name.trim(),
           directory_approval_status: 'pending',
           directory_requested_at: new Date(),
+          directory_terms_accepted_at: new Date(),
           listed_in_directory: false,
           // Minimal subscription state — directory-only clinics have no app access
           subscription_status: 'directory',

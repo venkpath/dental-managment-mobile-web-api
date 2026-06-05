@@ -1,11 +1,10 @@
-import { OnModuleDestroy } from '@nestjs/common';
+import { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-export declare class ListingOtpService implements OnModuleDestroy {
+export declare class ListingOtpService implements OnModuleInit, OnModuleDestroy {
     private readonly logger;
     private readonly redis;
-    private readonly memPhone;
-    private readonly memEmail;
     constructor(config: ConfigService);
+    onModuleInit(): Promise<void>;
     onModuleDestroy(): Promise<void>;
     normalizePhoneKey(phone: string): string;
     normalizeEmailKey(email: string): string;
@@ -16,9 +15,10 @@ export declare class ListingOtpService implements OnModuleDestroy {
     private phoneVerifyKey;
     private emailVerifyKey;
     private codesMatch;
-    private redisAvailable;
+    private withRedis;
     assertPhoneSendAllowed(phone: string): Promise<string>;
     assertEmailSendAllowed(email: string): Promise<string>;
+    rollbackPhoneSend(phoneKey: string): Promise<void>;
     rollbackEmailSend(emailKey: string): Promise<void>;
     storePhoneOtp(phoneKey: string, otp: string): Promise<void>;
     storeEmailOtp(emailKey: string, otp: string): Promise<void>;

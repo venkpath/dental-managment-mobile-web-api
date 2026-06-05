@@ -58,9 +58,9 @@ let EmailProvider = EmailProvider_1 = class EmailProvider {
                 user: config.user,
                 pass: config.pass,
             },
-            connectionTimeout: 30_000,
-            greetingTimeout: 30_000,
-            socketTimeout: 60_000,
+            connectionTimeout: 45_000,
+            greetingTimeout: 45_000,
+            socketTimeout: 90_000,
             ...(!secure && {
                 tls: { rejectUnauthorized: false },
             }),
