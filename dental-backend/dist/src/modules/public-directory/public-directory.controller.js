@@ -723,6 +723,15 @@ let PublicDirectoryController = class PublicDirectoryController {
         this.listingOtp = listingOtp;
         this.emailProvider = emailProvider;
     }
+    async signedUrlIfExists(key) {
+        if (!key)
+            return null;
+        if (key.startsWith('http://') || key.startsWith('https://'))
+            return key;
+        if (!(await this.s3.objectExists(key)))
+            return null;
+        return this.s3.getSignedUrl(key).catch(() => null);
+    }
     ensurePlatformEmail() {
         if (this.emailProvider.isConfigured(PLATFORM_CLINIC_ID))
             return true;
@@ -842,13 +851,9 @@ let PublicDirectoryController = class PublicDirectoryController {
             const { branchCoverId, coverKey } = (0, public_directory_image_utils_js_1.resolveListingCover)(c.branches, c.directory_clinic_image_url, dentistPhotoKey);
             const signedUsers = await Promise.all(c.users.map(async (u) => ({
                 ...u,
-                profile_photo_url: u.profile_photo_url
-                    ? await this.s3.getSignedUrl(u.profile_photo_url).catch(() => null)
-                    : null,
+                profile_photo_url: await this.signedUrlIfExists(u.profile_photo_url),
             })));
-            const branchCoverPhotoUrl = coverKey && !branchCoverId
-                ? await this.s3.getSignedUrl(coverKey).catch(() => null)
-                : null;
+            const branchCoverPhotoUrl = !branchCoverId ? await this.signedUrlIfExists(coverKey) : null;
             return {
                 id: c.id, name: c.name, address: c.address, city: c.city, state: c.state,
                 country: c.country, phone: c.phone, logo_url: c.logo_url,
@@ -964,13 +969,9 @@ let PublicDirectoryController = class PublicDirectoryController {
             const { branchCoverId, coverKey } = (0, public_directory_image_utils_js_1.resolveListingCover)(c.branches, c.directory_clinic_image_url, dentistPhotoKey);
             const signedUsers = await Promise.all(c.users.map(async (u) => ({
                 ...u,
-                profile_photo_url: u.profile_photo_url
-                    ? await this.s3.getSignedUrl(u.profile_photo_url).catch(() => null)
-                    : null,
+                profile_photo_url: await this.signedUrlIfExists(u.profile_photo_url),
             })));
-            const branchCoverPhotoUrl = coverKey && !branchCoverId
-                ? await this.s3.getSignedUrl(coverKey).catch(() => null)
-                : null;
+            const branchCoverPhotoUrl = !branchCoverId ? await this.signedUrlIfExists(coverKey) : null;
             return {
                 id: c.id, name: c.name, address: c.address, city: c.city, state: c.state,
                 country: c.country, phone: c.phone, logo_url: c.logo_url,
@@ -1092,14 +1093,10 @@ let PublicDirectoryController = class PublicDirectoryController {
             _count: { id: true },
         });
         const clinicCoverKey = clinic.directory_clinic_image_url;
-        const clinicCoverPhotoUrl = clinicCoverKey
-            ? await this.s3.getSignedUrl(clinicCoverKey).catch(() => null)
-            : null;
+        const clinicCoverPhotoUrl = await this.signedUrlIfExists(clinicCoverKey);
         const branches = await Promise.all(clinic.branches.map(async (b) => {
             const displayKey = (0, public_directory_image_utils_js_1.resolveBranchDisplayKey)(b.photo_url, clinicCoverKey);
-            const signedPhoto = displayKey
-                ? await this.s3.getSignedUrl(displayKey).catch(() => null)
-                : null;
+            const signedPhoto = await this.signedUrlIfExists(displayKey);
             return { ...b, photo_url: signedPhoto };
         }));
         const doctors = await Promise.all(clinic.users.map(async (d) => {
@@ -1107,9 +1104,7 @@ let PublicDirectoryController = class PublicDirectoryController {
             const dAvg = dReviews.length
                 ? dReviews.reduce((s, r) => s + r.overall_rating, 0) / dReviews.length
                 : null;
-            const signedPhoto = d.profile_photo_url
-                ? await this.s3.getSignedUrl(d.profile_photo_url).catch(() => null)
-                : null;
+            const signedPhoto = await this.signedUrlIfExists(d.profile_photo_url);
             return {
                 ...d,
                 profile_photo_url: signedPhoto,

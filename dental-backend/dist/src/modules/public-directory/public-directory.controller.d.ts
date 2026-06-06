@@ -94,6 +94,7 @@ export declare class PublicDirectoryController {
     private readonly emailProvider;
     private readonly logger;
     constructor(prisma: PrismaService, s3: S3Service, config: ConfigService, jwt: JwtService, listingVerification: ListingVerificationService, listingOtp: ListingOtpService, emailProvider: EmailProvider);
+    private signedUrlIfExists;
     private ensurePlatformEmail;
     searchClinics(query: DirectorySearchQuery, res: Response): Promise<{
         data: {
