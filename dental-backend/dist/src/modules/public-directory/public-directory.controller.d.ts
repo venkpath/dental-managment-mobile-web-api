@@ -171,6 +171,8 @@ export declare class PublicDirectoryController {
         open_now: boolean;
     }[]>;
     getClinicDetail(clinicId: string): Promise<{
+        directory_clinic_image_url: undefined;
+        clinic_cover_photo_url: string | null;
         branches: {
             photo_url: string | null;
             id: string;

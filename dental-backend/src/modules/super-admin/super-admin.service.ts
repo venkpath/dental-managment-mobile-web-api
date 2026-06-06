@@ -871,8 +871,7 @@ export class SuperAdminService {
       : [1, 2, 3, 4, 5, 6];
     const workingStart = clinic.directory_working_start_time || '09:00';
     const workingEnd   = clinic.directory_working_end_time   || '20:00';
-    const listingCoverKey =
-      clinic.directory_clinic_image_url || clinic.directory_dentist_photo_url || null;
+    const listingCoverKey = clinic.directory_clinic_image_url || null;
 
     await this.prisma.$transaction(async (tx) => {
       let branch = await tx.branch.findFirst({ where: { clinic_id: id } });
@@ -993,36 +992,16 @@ export class SuperAdminService {
     if (branch) {
       const dentistPending = clinic.directory_dentist_photo_url;
       const clinicPending = clinic.directory_clinic_image_url;
-      const sameListingImage = !clinicPending || clinicPending === dentistPending;
 
       const dentistKey = await this.promoteListingImageKey(
         dentistPending,
         `clinics/${id}/staff-photos/listing_dentist`,
       );
 
-      let clinicImageKey: string | null = null;
-      if (sameListingImage && dentistKey) {
-        const ext = this.extFromS3Key(dentistKey);
-        const dest = `clinics/${id}/branch-photos/${branch.id}.${ext}`;
-        clinicImageKey = await this.s3.copyObject(
-          dentistKey,
-          dest,
-          this.contentTypeFromS3Key(dentistKey),
-        );
-      } else {
-        clinicImageKey = await this.promoteListingImageKey(
-          clinicPending,
-          `clinics/${id}/branch-photos/${branch.id}`,
-        );
-      }
-      if (!clinicImageKey && dentistKey) {
-        const ext = this.extFromS3Key(dentistKey);
-        clinicImageKey = await this.s3.copyObject(
-          dentistKey,
-          `clinics/${id}/branch-photos/${branch.id}.${ext}`,
-          this.contentTypeFromS3Key(dentistKey),
-        );
-      }
+      const clinicImageKey = await this.promoteListingImageKey(
+        clinicPending,
+        `clinics/${id}/branch-photos/${branch.id}`,
+      );
 
       if (dentistKey || clinicImageKey) {
         if (clinicImageKey) {
