@@ -51,6 +51,7 @@ const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
 const listing_verification_service_js_1 = require("./listing-verification.service.js");
 const listing_otp_service_js_1 = require("./listing-otp.service.js");
+const public_directory_image_utils_js_1 = require("./public-directory-image.utils.js");
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
@@ -656,10 +657,6 @@ function getISTContext() {
     const todayEnd = new Date(todayStart.getTime() + 86_400_000);
     return { istMinutes, schemaDay, todayStart, todayEnd };
 }
-function timeToMins(t) {
-    const [h, m] = t.split(':').map(Number);
-    return (h || 0) * 60 + (m || 0);
-}
 function fmt12h(t) {
     const [h, m] = t.split(':').map(Number);
     const period = h >= 12 ? 'PM' : 'AM';
@@ -668,26 +665,16 @@ function fmt12h(t) {
 }
 function computeClinicAvailability(branches, schemaDay, istMinutes, bookedToday) {
     let bestBranch = null;
-    let bestTotalSlots = -1;
+    let bestRemainingSlots = -1;
     for (const b of branches) {
         if (!b.working_days || !b.working_start_time || !b.working_end_time)
             continue;
         const days = b.working_days.split(',').map((d) => parseInt(d.trim(), 10));
         if (!days.includes(schemaDay))
             continue;
-        const startMin = timeToMins(b.working_start_time);
-        const endMin = timeToMins(b.working_end_time);
-        let workMins = endMin - startMin;
-        if (workMins <= 0)
-            continue;
-        if (b.lunch_start_time && b.lunch_end_time) {
-            const lunchMins = timeToMins(b.lunch_end_time) - timeToMins(b.lunch_start_time);
-            workMins -= Math.max(0, lunchMins);
-        }
-        const slotMin = Math.max(1, (b.slot_duration ?? 15) + (b.buffer_minutes ?? 0));
-        const total = Math.max(0, Math.floor(workMins / slotMin));
-        if (total > bestTotalSlots) {
-            bestTotalSlots = total;
+        const remaining = (0, public_directory_image_utils_js_1.countRemainingSlots)(b, istMinutes);
+        if (remaining > bestRemainingSlots) {
+            bestRemainingSlots = remaining;
             bestBranch = b;
         }
     }
@@ -698,16 +685,16 @@ function computeClinicAvailability(branches, schemaDay, istMinutes, bookedToday)
             total_slots_today: null, available_slots_today: null,
         };
     }
-    const startMin = timeToMins(bestBranch.working_start_time);
-    const endMin = timeToMins(bestBranch.working_end_time);
+    const startMin = (0, public_directory_image_utils_js_1.timeToMins)(bestBranch.working_start_time);
+    const endMin = (0, public_directory_image_utils_js_1.timeToMins)(bestBranch.working_end_time);
     const openNow = istMinutes >= startMin && istMinutes < endMin;
-    const availableSlots = Math.max(0, bestTotalSlots - bookedToday);
+    const availableSlots = Math.max(0, bestRemainingSlots - bookedToday);
     return {
         available_today: true,
         open_now: openNow,
         opens_at: fmt12h(bestBranch.working_start_time),
         closes_at: fmt12h(bestBranch.working_end_time),
-        total_slots_today: bestTotalSlots,
+        total_slots_today: bestRemainingSlots,
         available_slots_today: availableSlots,
     };
 }
@@ -805,6 +792,7 @@ let PublicDirectoryController = class PublicDirectoryController {
                 country: true, phone: true, logo_url: true, clinic_description: true,
                 specialties: true, latitude: true, longitude: true,
                 working_hours_label: true, google_maps_url: true, website_url: true,
+                directory_clinic_image_url: true,
                 directory_reviews: {
                     where: { is_visible: true },
                     select: { overall_rating: true },
@@ -819,7 +807,7 @@ let PublicDirectoryController = class PublicDirectoryController {
                         id: true, photo_url: true,
                         working_days: true, working_start_time: true, working_end_time: true,
                         lunch_start_time: true, lunch_end_time: true,
-                        slot_duration: true, buffer_minutes: true,
+                        slot_duration: true, buffer_minutes: true, default_appt_duration: true,
                     },
                     orderBy: { created_at: 'asc' },
                 },
@@ -850,17 +838,16 @@ let PublicDirectoryController = class PublicDirectoryController {
                 : null;
             const bookedToday = apptCountMap.get(c.id) ?? 0;
             const avail = computeClinicAvailability(c.branches, schemaDay, istMinutes, bookedToday);
-            const coverBranch = c.branches.find((b) => b.photo_url) ?? null;
-            const fallbackDoctorPhotoKey = c.users.find((u) => u.profile_photo_url)?.profile_photo_url ?? null;
+            const dentistPhotoKey = c.users.find((u) => u.profile_photo_url)?.profile_photo_url ?? null;
+            const { branchCoverId, coverKey } = (0, public_directory_image_utils_js_1.resolveListingCover)(c.branches, c.directory_clinic_image_url, dentistPhotoKey);
             const signedUsers = await Promise.all(c.users.map(async (u) => ({
                 ...u,
                 profile_photo_url: u.profile_photo_url
                     ? await this.s3.getSignedUrl(u.profile_photo_url).catch(() => null)
                     : null,
             })));
-            const coverPhotoKey = coverBranch?.photo_url ?? fallbackDoctorPhotoKey;
-            const branchCoverPhotoUrl = coverPhotoKey
-                ? await this.s3.getSignedUrl(coverPhotoKey).catch(() => null)
+            const branchCoverPhotoUrl = coverKey && !branchCoverId
+                ? await this.s3.getSignedUrl(coverKey).catch(() => null)
                 : null;
             return {
                 id: c.id, name: c.name, address: c.address, city: c.city, state: c.state,
@@ -869,7 +856,7 @@ let PublicDirectoryController = class PublicDirectoryController {
                 working_hours_label: c.working_hours_label,
                 google_maps_url: c.google_maps_url, website_url: c.website_url,
                 users: signedUsers,
-                branch_cover_id: coverBranch?.id ?? null,
+                branch_cover_id: branchCoverId,
                 branch_cover_photo_url: branchCoverPhotoUrl,
                 lat: c.latitude ?? null,
                 lng: c.longitude ?? null,
@@ -885,7 +872,7 @@ let PublicDirectoryController = class PublicDirectoryController {
             };
         }));
         if (availableToday) {
-            enriched = enriched.filter((c) => c.available_today);
+            enriched = enriched.filter((c) => (c.available_slots_today ?? 0) > 0);
         }
         if (lat != null && lng != null && radius != null) {
             enriched = enriched.filter((c) => c.distance_km != null && c.distance_km <= radius);
@@ -931,6 +918,7 @@ let PublicDirectoryController = class PublicDirectoryController {
                 country: true, phone: true, logo_url: true, clinic_description: true,
                 specialties: true, latitude: true, longitude: true,
                 working_hours_label: true, google_maps_url: true, website_url: true,
+                directory_clinic_image_url: true,
                 directory_reviews: {
                     where: { is_visible: true },
                     select: { overall_rating: true },
@@ -945,7 +933,7 @@ let PublicDirectoryController = class PublicDirectoryController {
                         id: true, photo_url: true,
                         working_days: true, working_start_time: true, working_end_time: true,
                         lunch_start_time: true, lunch_end_time: true,
-                        slot_duration: true, buffer_minutes: true,
+                        slot_duration: true, buffer_minutes: true, default_appt_duration: true,
                     },
                     orderBy: { created_at: 'asc' },
                 },
@@ -972,17 +960,16 @@ let PublicDirectoryController = class PublicDirectoryController {
                 : null;
             const bookedToday = apptCountMap.get(c.id) ?? 0;
             const avail = computeClinicAvailability(c.branches, schemaDay, istMinutes, bookedToday);
-            const coverBranch = c.branches.find((b) => b.photo_url) ?? null;
-            const fallbackDoctorPhotoKey = c.users.find((u) => u.profile_photo_url)?.profile_photo_url ?? null;
+            const dentistPhotoKey = c.users.find((u) => u.profile_photo_url)?.profile_photo_url ?? null;
+            const { branchCoverId, coverKey } = (0, public_directory_image_utils_js_1.resolveListingCover)(c.branches, c.directory_clinic_image_url, dentistPhotoKey);
             const signedUsers = await Promise.all(c.users.map(async (u) => ({
                 ...u,
                 profile_photo_url: u.profile_photo_url
                     ? await this.s3.getSignedUrl(u.profile_photo_url).catch(() => null)
                     : null,
             })));
-            const coverPhotoKey = coverBranch?.photo_url ?? fallbackDoctorPhotoKey;
-            const branchCoverPhotoUrl = coverPhotoKey
-                ? await this.s3.getSignedUrl(coverPhotoKey).catch(() => null)
+            const branchCoverPhotoUrl = coverKey && !branchCoverId
+                ? await this.s3.getSignedUrl(coverKey).catch(() => null)
                 : null;
             return {
                 id: c.id, name: c.name, address: c.address, city: c.city, state: c.state,
@@ -991,7 +978,7 @@ let PublicDirectoryController = class PublicDirectoryController {
                 working_hours_label: c.working_hours_label,
                 google_maps_url: c.google_maps_url, website_url: c.website_url,
                 users: signedUsers,
-                branch_cover_id: coverBranch?.id ?? null,
+                branch_cover_id: branchCoverId,
                 branch_cover_photo_url: branchCoverPhotoUrl,
                 review_count: reviews.length,
                 avg_rating: avg ? Math.round(avg * 10) / 10 : null,
@@ -1024,6 +1011,7 @@ let PublicDirectoryController = class PublicDirectoryController {
                 languages_spoken: true,
                 directory_treatments: true,
                 gallery_images: true,
+                directory_clinic_image_url: true,
                 branches: {
                     select: {
                         id: true,
@@ -1103,11 +1091,14 @@ let PublicDirectoryController = class PublicDirectoryController {
             where: { clinic_id: clinicId, is_visible: true },
             _count: { id: true },
         });
-        const fallbackDoctorPhotoKey = clinic.users.find((u) => u.profile_photo_url)?.profile_photo_url ?? null;
+        const clinicCoverKey = clinic.directory_clinic_image_url;
+        const clinicCoverPhotoUrl = clinicCoverKey
+            ? await this.s3.getSignedUrl(clinicCoverKey).catch(() => null)
+            : null;
         const branches = await Promise.all(clinic.branches.map(async (b) => {
-            const photoKey = b.photo_url ?? fallbackDoctorPhotoKey;
-            const signedPhoto = photoKey
-                ? await this.s3.getSignedUrl(photoKey).catch(() => null)
+            const displayKey = (0, public_directory_image_utils_js_1.resolveBranchDisplayKey)(b.photo_url, clinicCoverKey);
+            const signedPhoto = displayKey
+                ? await this.s3.getSignedUrl(displayKey).catch(() => null)
                 : null;
             return { ...b, photo_url: signedPhoto };
         }));
@@ -1130,6 +1121,8 @@ let PublicDirectoryController = class PublicDirectoryController {
         }));
         return {
             ...clinic,
+            directory_clinic_image_url: undefined,
+            clinic_cover_photo_url: clinicCoverPhotoUrl,
             branches,
             users: undefined,
             doctors,
