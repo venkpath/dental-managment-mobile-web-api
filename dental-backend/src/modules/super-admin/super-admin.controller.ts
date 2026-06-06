@@ -128,6 +128,20 @@ export class SuperAdminController {
     return this.superAdminService.getDirectoryVerificationDocumentUrl(id);
   }
 
+  @Get('super-admins/clinics/:id/directory-dentist-photo')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Get a signed URL for the dentist profile photo submitted with a listing' })
+  async getDirectoryDentistPhoto(@Param('id', ParseUUIDPipe) id: string) {
+    return this.superAdminService.getDirectoryDentistPhotoUrl(id);
+  }
+
+  @Get('super-admins/clinics/:id/directory-clinic-image')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Get a signed URL for the clinic cover image submitted with a listing' })
+  async getDirectoryClinicImage(@Param('id', ParseUUIDPipe) id: string) {
+    return this.superAdminService.getDirectoryClinicImageUrl(id);
+  }
+
   @Get('super-admins/directory/featured')
   @SuperAdmin()
   @ApiOperation({ summary: 'List clinics featured on the patient homepage carousel' })

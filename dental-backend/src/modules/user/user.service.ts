@@ -28,6 +28,7 @@ const userSelect = {
   years_experience: true,
   education: true,
   specializations: true,
+  treatments_offered: true,
   languages_spoken: true,
   consultation_fee: true,
   created_at: true,
@@ -37,7 +38,7 @@ const userSelect = {
 const SIGNATURE_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const SIGNATURE_MAX_BYTES = 1 * 1024 * 1024; // 1 MB
 const PROFILE_PHOTO_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-const PROFILE_PHOTO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB (after client-side crop)
+const PROFILE_PHOTO_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 
 /** Slugify a name into a filesystem-safe segment (lowercase, dashes). */
 function slugify(input: string): string {
@@ -115,13 +116,19 @@ export class UserService {
     userId: string,
     file: { buffer: Buffer; mimetype: string; size: number; originalname?: string },
   ): Promise<{ profile_photo_url: string }> {
-    const user = await this.findOne(clinicId, userId);
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, clinic_id: true, name: true, profile_photo_url: true },
+    });
+    if (!user || user.clinic_id !== clinicId) {
+      throw new NotFoundException(`User with ID "${userId}" not found`);
+    }
 
     if (!file?.buffer || file.size === 0) {
       throw new BadRequestException('No file uploaded');
     }
     if (file.size > PROFILE_PHOTO_MAX_BYTES) {
-      throw new BadRequestException('Profile photo must be 2 MB or smaller');
+      throw new BadRequestException('Profile photo must be 5 MB or smaller');
     }
     if (!PROFILE_PHOTO_ALLOWED_MIME.includes(file.mimetype)) {
       throw new BadRequestException('Profile photo must be a PNG, JPEG, or WebP image');
@@ -132,6 +139,7 @@ export class UserService {
               : 'jpg';
     const slug = slugify(user.name);
     const key = `clinics/${clinicId}/staff-photos/${slug}_${userId}.${ext}`;
+    const previousKey = user.profile_photo_url;
     await this.s3Service.upload(key, file.buffer, file.mimetype);
 
     await this.prisma.user.update({
@@ -139,16 +147,30 @@ export class UserService {
       data: { profile_photo_url: key },
     });
 
+    if (previousKey && previousKey !== key) {
+      await this.s3Service.delete(previousKey).catch(() => null);
+    }
+
     const signed = await this.s3Service.getSignedUrl(key).catch(() => null);
     return { profile_photo_url: signed ?? key };
   }
 
   async deleteProfilePhoto(clinicId: string, userId: string): Promise<{ message: string }> {
-    await this.findOne(clinicId, userId);
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, clinic_id: true, profile_photo_url: true },
+    });
+    if (!user || user.clinic_id !== clinicId) {
+      throw new NotFoundException(`User with ID "${userId}" not found`);
+    }
+    const previousKey = user.profile_photo_url;
     await this.prisma.user.update({
       where: { id: userId },
       data: { profile_photo_url: null },
     });
+    if (previousKey) {
+      await this.s3Service.delete(previousKey).catch(() => null);
+    }
     return { message: 'Profile photo removed' };
   }
 

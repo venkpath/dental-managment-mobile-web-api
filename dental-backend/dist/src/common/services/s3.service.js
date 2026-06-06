@@ -55,22 +55,40 @@ let S3Service = S3Service_1 = class S3Service {
         });
         return (0, s3_request_presigner_1.getSignedUrl)(this.client, command, { expiresIn: this.expiresIn });
     }
-    async objectExists(key) {
+    async headObjectStatus(key) {
         try {
             await this.client.send(new client_s3_1.HeadObjectCommand({ Bucket: this.bucket, Key: key }));
-            return true;
+            return 'ok';
         }
         catch (err) {
             const status = err?.$metadata?.httpStatusCode;
             if (status === 404)
-                return false;
+                return 'missing';
             if (status === 403) {
                 this.logger.warn(`S3 headObject 403 for "${key}" — check IAM policy grants s3:GetObject on this prefix`);
-                return false;
+                return 'denied';
             }
             this.logger.warn(`S3 headObject failed for "${key}": ${err instanceof Error ? err.message : String(err)}`);
-            return false;
+            return 'missing';
         }
+    }
+    async objectExists(key) {
+        return (await this.headObjectStatus(key)) === 'ok';
+    }
+    async copyObject(sourceKey, destKey, contentType) {
+        await this.client.send(new client_s3_1.CopyObjectCommand({
+            Bucket: this.bucket,
+            CopySource: `${this.bucket}/${sourceKey}`,
+            Key: destKey,
+            ...(contentType ? { ContentType: contentType, MetadataDirective: 'REPLACE' } : {}),
+        }));
+        this.logger.log(`Copied S3 object ${sourceKey} → ${destKey}`);
+        return destKey;
+    }
+    async moveObject(sourceKey, destKey, contentType) {
+        await this.copyObject(sourceKey, destKey, contentType);
+        await this.delete(sourceKey);
+        return destKey;
     }
     async listObjectsByPrefix(prefix) {
         if (!this.bucket)

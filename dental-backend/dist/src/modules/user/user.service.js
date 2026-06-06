@@ -36,6 +36,7 @@ const userSelect = {
     years_experience: true,
     education: true,
     specializations: true,
+    treatments_offered: true,
     languages_spoken: true,
     consultation_fee: true,
     created_at: true,
@@ -44,7 +45,7 @@ const userSelect = {
 const SIGNATURE_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const SIGNATURE_MAX_BYTES = 1 * 1024 * 1024;
 const PROFILE_PHOTO_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-const PROFILE_PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+const PROFILE_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 function slugify(input) {
     return input.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'user';
 }
@@ -94,12 +95,18 @@ let UserService = class UserService {
         return { signature_url: signed ?? key };
     }
     async uploadProfilePhoto(clinicId, userId, file) {
-        const user = await this.findOne(clinicId, userId);
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, clinic_id: true, name: true, profile_photo_url: true },
+        });
+        if (!user || user.clinic_id !== clinicId) {
+            throw new common_1.NotFoundException(`User with ID "${userId}" not found`);
+        }
         if (!file?.buffer || file.size === 0) {
             throw new common_1.BadRequestException('No file uploaded');
         }
         if (file.size > PROFILE_PHOTO_MAX_BYTES) {
-            throw new common_1.BadRequestException('Profile photo must be 2 MB or smaller');
+            throw new common_1.BadRequestException('Profile photo must be 5 MB or smaller');
         }
         if (!PROFILE_PHOTO_ALLOWED_MIME.includes(file.mimetype)) {
             throw new common_1.BadRequestException('Profile photo must be a PNG, JPEG, or WebP image');
@@ -109,20 +116,34 @@ let UserService = class UserService {
                 : 'jpg';
         const slug = slugify(user.name);
         const key = `clinics/${clinicId}/staff-photos/${slug}_${userId}.${ext}`;
+        const previousKey = user.profile_photo_url;
         await this.s3Service.upload(key, file.buffer, file.mimetype);
         await this.prisma.user.update({
             where: { id: userId },
             data: { profile_photo_url: key },
         });
+        if (previousKey && previousKey !== key) {
+            await this.s3Service.delete(previousKey).catch(() => null);
+        }
         const signed = await this.s3Service.getSignedUrl(key).catch(() => null);
         return { profile_photo_url: signed ?? key };
     }
     async deleteProfilePhoto(clinicId, userId) {
-        await this.findOne(clinicId, userId);
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, clinic_id: true, profile_photo_url: true },
+        });
+        if (!user || user.clinic_id !== clinicId) {
+            throw new common_1.NotFoundException(`User with ID "${userId}" not found`);
+        }
+        const previousKey = user.profile_photo_url;
         await this.prisma.user.update({
             where: { id: userId },
             data: { profile_photo_url: null },
         });
+        if (previousKey) {
+            await this.s3Service.delete(previousKey).catch(() => null);
+        }
         return { message: 'Profile photo removed' };
     }
     async create(clinicId, dto) {

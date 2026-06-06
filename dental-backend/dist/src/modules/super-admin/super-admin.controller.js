@@ -95,6 +95,12 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     async getDirectoryVerificationDocument(id) {
         return this.superAdminService.getDirectoryVerificationDocumentUrl(id);
     }
+    async getDirectoryDentistPhoto(id) {
+        return this.superAdminService.getDirectoryDentistPhotoUrl(id);
+    }
+    async getDirectoryClinicImage(id) {
+        return this.superAdminService.getDirectoryClinicImageUrl(id);
+    }
     async listFeaturedDirectoryClinics() {
         return this.superAdminService.listFeaturedDirectoryClinics();
     }
@@ -411,6 +417,26 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "getDirectoryVerificationDocument", null);
+__decorate([
+    (0, common_1.Get)('super-admins/clinics/:id/directory-dentist-photo'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get a signed URL for the dentist profile photo submitted with a listing' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getDirectoryDentistPhoto", null);
+__decorate([
+    (0, common_1.Get)('super-admins/clinics/:id/directory-clinic-image'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get a signed URL for the clinic cover image submitted with a listing' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getDirectoryClinicImage", null);
 __decorate([
     (0, common_1.Get)('super-admins/directory/featured'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),

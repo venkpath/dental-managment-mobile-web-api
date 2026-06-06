@@ -117,6 +117,12 @@ export declare class SuperAdminController {
             directory_verification_document_url: string | null;
             directory_verification_document_type: string | null;
             directory_terms_accepted_at: Date | null;
+            directory_working_days: string | null;
+            directory_working_start_time: string | null;
+            directory_working_end_time: string | null;
+            directory_dentist_photo_url: string | null;
+            directory_clinic_image_url: string | null;
+            directory_dentist_years_experience: number | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -204,6 +210,12 @@ export declare class SuperAdminController {
             directory_verification_document_url: string | null;
             directory_verification_document_type: string | null;
             directory_terms_accepted_at: Date | null;
+            directory_working_days: string | null;
+            directory_working_start_time: string | null;
+            directory_working_end_time: string | null;
+            directory_dentist_photo_url: string | null;
+            directory_clinic_image_url: string | null;
+            directory_dentist_years_experience: number | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -286,6 +298,12 @@ export declare class SuperAdminController {
             directory_verification_document_url: string | null;
             directory_verification_document_type: string | null;
             directory_terms_accepted_at: Date | null;
+            directory_working_days: string | null;
+            directory_working_start_time: string | null;
+            directory_working_end_time: string | null;
+            directory_dentist_photo_url: string | null;
+            directory_clinic_image_url: string | null;
+            directory_dentist_years_experience: number | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -366,10 +384,17 @@ export declare class SuperAdminController {
         directory_requested_at: Date | null;
         clinic_description: string | null;
         specialties: string | null;
+        established_year: number | null;
         is_directory_only: boolean;
         directory_contact_name: string | null;
         directory_verification_document_url: string | null;
         directory_verification_document_type: string | null;
+        directory_working_days: string | null;
+        directory_working_start_time: string | null;
+        directory_working_end_time: string | null;
+        directory_dentist_photo_url: string | null;
+        directory_clinic_image_url: string | null;
+        directory_dentist_years_experience: number | null;
     }[]>;
     getDirectoryVerificationDocument(id: string): Promise<{
         clinic_id: string;
@@ -378,6 +403,19 @@ export declare class SuperAdminController {
         url: string;
         content_type: string;
         is_pdf: boolean;
+    }>;
+    getDirectoryDentistPhoto(id: string): Promise<{
+        clinic_id: string;
+        clinic_name: string;
+        url: string;
+        content_type: string;
+    }>;
+    getDirectoryClinicImage(id: string): Promise<{
+        clinic_id: string;
+        clinic_name: string;
+        url: string;
+        content_type: string;
+        uses_dentist_photo_fallback: boolean;
     }>;
     listFeaturedDirectoryClinics(): Promise<{
         id: string;
@@ -553,6 +591,12 @@ export declare class SuperAdminController {
         directory_verification_document_url: string | null;
         directory_verification_document_type: string | null;
         directory_terms_accepted_at: Date | null;
+        directory_working_days: string | null;
+        directory_working_start_time: string | null;
+        directory_working_end_time: string | null;
+        directory_dentist_photo_url: string | null;
+        directory_clinic_image_url: string | null;
+        directory_dentist_years_experience: number | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -627,6 +671,12 @@ export declare class SuperAdminController {
         directory_verification_document_url: string | null;
         directory_verification_document_type: string | null;
         directory_terms_accepted_at: Date | null;
+        directory_working_days: string | null;
+        directory_working_start_time: string | null;
+        directory_working_end_time: string | null;
+        directory_dentist_photo_url: string | null;
+        directory_clinic_image_url: string | null;
+        directory_dentist_years_experience: number | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;

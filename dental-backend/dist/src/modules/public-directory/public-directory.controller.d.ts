@@ -62,17 +62,24 @@ declare class SubmitListingDto {
     google_maps_url?: string;
     latitude?: number;
     longitude?: number;
-    specialties?: string[];
-    treatments?: string[];
+    specialties: string[];
+    treatments: string[];
     working_hours_label?: string;
-    languages_spoken?: string;
+    languages_spoken: string;
     website_url?: string;
     clinic_description?: string;
     verification_document_type?: 'clinic_photo' | 'prescription_pad' | 'invoice' | 'other';
     verification_upload_token?: string;
+    dentist_photo_upload_token: string;
+    years_experience: number;
+    established_year: number;
+    clinic_image_upload_token?: string;
+    working_days: number[];
+    working_start_time: string;
+    working_end_time: string;
 }
 declare class StagePendingVerificationDto {
-    verification_document_type: 'clinic_photo' | 'prescription_pad' | 'invoice' | 'other';
+    verification_document_type: 'clinic_photo' | 'prescription_pad' | 'invoice' | 'other' | 'dentist_photo' | 'clinic_image';
 }
 declare class DiscardPendingVerificationDto {
     upload_token: string;
@@ -104,13 +111,14 @@ export declare class PublicDirectoryController {
             google_maps_url: string | null;
             website_url: string | null;
             users: {
+                profile_photo_url: string | null;
                 id: string;
                 name: string;
-                profile_photo_url: string | null;
                 years_experience: number | null;
                 specializations: Prisma.JsonValue;
             }[];
             branch_cover_id: string | null;
+            branch_cover_photo_url: string | null;
             lat: number | null;
             lng: number | null;
             review_count: number;
@@ -149,13 +157,14 @@ export declare class PublicDirectoryController {
         google_maps_url: string | null;
         website_url: string | null;
         users: {
+            profile_photo_url: string | null;
             id: string;
             name: string;
-            profile_photo_url: string | null;
             years_experience: number | null;
             specializations: Prisma.JsonValue;
         }[];
         branch_cover_id: string | null;
+        branch_cover_photo_url: string | null;
         review_count: number;
         avg_rating: number | null;
         available_today: boolean;
@@ -192,6 +201,7 @@ export declare class PublicDirectoryController {
             years_experience: number | null;
             education: Prisma.JsonValue;
             specializations: Prisma.JsonValue;
+            treatments_offered: Prisma.JsonValue;
         }[];
         reviews: {
             total: number;

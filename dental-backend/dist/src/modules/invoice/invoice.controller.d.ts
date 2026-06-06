@@ -121,6 +121,12 @@ export declare class InvoiceController {
             directory_verification_document_url: string | null;
             directory_verification_document_type: string | null;
             directory_terms_accepted_at: Date | null;
+            directory_working_days: string | null;
+            directory_working_start_time: string | null;
+            directory_working_end_time: string | null;
+            directory_dentist_photo_url: string | null;
+            directory_clinic_image_url: string | null;
+            directory_dentist_years_experience: number | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -233,6 +239,7 @@ export declare class InvoiceController {
             years_experience: number | null;
             education: import("@prisma/client/runtime/client").JsonValue | null;
             specializations: import("@prisma/client/runtime/client").JsonValue | null;
+            treatments_offered: import("@prisma/client/runtime/client").JsonValue | null;
             consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
             must_change_password: boolean;
             branch_id: string | null;
@@ -283,6 +290,7 @@ export declare class InvoiceController {
                     years_experience: number | null;
                     education: import("@prisma/client/runtime/client").JsonValue | null;
                     specializations: import("@prisma/client/runtime/client").JsonValue | null;
+                    treatments_offered: import("@prisma/client/runtime/client").JsonValue | null;
                     consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
                     must_change_password: boolean;
                     branch_id: string | null;
@@ -337,6 +345,7 @@ export declare class InvoiceController {
             years_experience: number | null;
             education: import("@prisma/client/runtime/client").JsonValue | null;
             specializations: import("@prisma/client/runtime/client").JsonValue | null;
+            treatments_offered: import("@prisma/client/runtime/client").JsonValue | null;
             consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
             must_change_password: boolean;
             branch_id: string | null;

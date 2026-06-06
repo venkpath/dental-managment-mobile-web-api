@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { AppState, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -270,6 +270,16 @@ export default function AppNavigator() {
       .then(() => bootstrapLock(sessionRestored))
       .finally(() => setBootstrapping(false));
   }, [bootstrapLock]);
+
+  // Refresh presigned profile photo URLs when the app returns to foreground.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && useAuthStore.getState().isAuthenticated) {
+        void refreshUserProfile();
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   if (bootstrapping || (isAuthenticated && !lockReady)) {
     return <LoadingScreen message="Loading..." />;

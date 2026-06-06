@@ -6,7 +6,10 @@ export declare class S3Service {
     constructor();
     upload(key: string, body: Buffer, contentType: string): Promise<string>;
     getSignedUrl(key: string, downloadFilename?: string): Promise<string>;
+    headObjectStatus(key: string): Promise<'ok' | 'missing' | 'denied'>;
     objectExists(key: string): Promise<boolean>;
+    copyObject(sourceKey: string, destKey: string, contentType?: string): Promise<string>;
+    moveObject(sourceKey: string, destKey: string, contentType?: string): Promise<string>;
     listObjectsByPrefix(prefix: string): Promise<Array<{
         key: string;
         lastModified?: Date;

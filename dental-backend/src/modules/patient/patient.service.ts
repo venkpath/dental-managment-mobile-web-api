@@ -11,7 +11,7 @@ import { PaginatedResult, paginate } from '../../common/interfaces/paginated-res
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 
 const PROFILE_PHOTO_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-const PROFILE_PHOTO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+const PROFILE_PHOTO_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 
 @Injectable()
 export class PatientService {
@@ -184,7 +184,7 @@ export class PatientService {
       throw new BadRequestException('No file uploaded');
     }
     if (file.size > PROFILE_PHOTO_MAX_BYTES) {
-      throw new BadRequestException('Profile photo must be 2 MB or smaller');
+      throw new BadRequestException('Profile photo must be 5 MB or smaller');
     }
     if (!PROFILE_PHOTO_ALLOWED_MIME.includes(file.mimetype)) {
       throw new BadRequestException('Profile photo must be a PNG, JPEG, or WebP image');
@@ -194,12 +194,17 @@ export class PatientService {
               : file.mimetype === 'image/webp' ? 'webp'
               : 'jpg';
     const key = `clinics/${clinicId}/branches/${patient.branch_id}/patient-photos/patient_${patientId}.${ext}`;
+    const previousKey = patient.profile_photo_url;
     await this.s3Service.upload(key, file.buffer, file.mimetype);
 
     await this.prisma.patient.update({
       where: { id: patientId },
       data: { profile_photo_url: key },
     });
+
+    if (previousKey && previousKey !== key) {
+      await this.s3Service.delete(previousKey).catch(() => null);
+    }
 
     const signed = await this.s3Service.getSignedUrl(key).catch(() => null);
     return { profile_photo_url: signed ?? key };
@@ -210,10 +215,14 @@ export class PatientService {
     if (!patient || patient.clinic_id !== clinicId) {
       throw new NotFoundException(`Patient with ID "${patientId}" not found`);
     }
+    const previousKey = patient.profile_photo_url;
     await this.prisma.patient.update({
       where: { id: patientId },
       data: { profile_photo_url: null },
     });
+    if (previousKey) {
+      await this.s3Service.delete(previousKey).catch(() => null);
+    }
     return { message: 'Profile photo removed' };
   }
 
