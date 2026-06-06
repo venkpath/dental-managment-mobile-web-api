@@ -530,10 +530,21 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
             return null;
         if (!sourceKey.startsWith(listing_verification_service_js_1.LISTING_PENDING_DOC_PREFIX))
             return sourceKey;
+        const exists = await this.s3.objectExists(sourceKey);
+        if (!exists) {
+            this.logger.warn(`Listing image missing in S3 — skipping promote: ${sourceKey}`);
+            return null;
+        }
         const ext = this.extFromS3Key(sourceKey);
         const destKey = `${destBase}.${ext}`;
         const contentType = this.contentTypeFromS3Key(sourceKey);
-        return this.s3.moveObject(sourceKey, destKey, contentType);
+        try {
+            return await this.s3.moveObject(sourceKey, destKey, contentType);
+        }
+        catch (err) {
+            this.logger.warn(`Failed to promote listing image ${sourceKey} → ${destKey}: ${err.message}`);
+            return null;
+        }
     }
     async seedDoctorAvailabilityFromListing(tx, userId, clinicId, workingDays, workingStart, workingEnd) {
         const availCount = await tx.doctorAvailability.count({ where: { user_id: userId } });
@@ -818,33 +829,56 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
                 },
             });
         });
-        const branch = await this.prisma.branch.findFirst({ where: { clinic_id: id }, select: { id: true } });
-        if (branch) {
-            const dentistPending = clinic.directory_dentist_photo_url;
-            const clinicPending = clinic.directory_clinic_image_url;
-            const dentistKey = await this.promoteListingImageKey(dentistPending, `clinics/${id}/staff-photos/listing_dentist`);
-            const clinicImageKey = await this.promoteListingImageKey(clinicPending, `clinics/${id}/branch-photos/${branch.id}`);
-            if (dentistKey || clinicImageKey) {
-                if (clinicImageKey) {
+        try {
+            const branch = await this.prisma.branch.findFirst({ where: { clinic_id: id }, select: { id: true, photo_url: true } });
+            if (branch) {
+                const dentistPending = clinic.directory_dentist_photo_url;
+                const clinicPending = clinic.directory_clinic_image_url;
+                const dentistKey = await this.promoteListingImageKey(dentistPending, `clinics/${id}/staff-photos/listing_dentist`);
+                const clinicImageKey = await this.promoteListingImageKey(clinicPending, `clinics/${id}/branch-photos/${branch.id}`);
+                const branchPhotoUpdate = clinicImageKey
+                    ? clinicImageKey
+                    : dentistPending?.startsWith(listing_verification_service_js_1.LISTING_PENDING_DOC_PREFIX)
+                        ? null
+                        : undefined;
+                if (branchPhotoUpdate !== undefined) {
                     await this.prisma.branch.update({
                         where: { id: branch.id },
-                        data: { photo_url: clinicImageKey },
+                        data: { photo_url: branchPhotoUpdate },
                     });
                 }
-                if (approvedUserId && dentistKey) {
-                    await this.prisma.user.update({
-                        where: { id: approvedUserId },
-                        data: { profile_photo_url: dentistKey },
-                    });
+                if (approvedUserId) {
+                    const profileUpdate = dentistKey
+                        ? dentistKey
+                        : dentistPending?.startsWith(listing_verification_service_js_1.LISTING_PENDING_DOC_PREFIX)
+                            ? null
+                            : undefined;
+                    if (profileUpdate !== undefined) {
+                        await this.prisma.user.update({
+                            where: { id: approvedUserId },
+                            data: { profile_photo_url: profileUpdate },
+                        });
+                    }
                 }
                 await this.prisma.clinic.update({
                     where: { id },
                     data: {
-                        ...(dentistKey ? { directory_dentist_photo_url: dentistKey } : {}),
-                        ...(clinicImageKey ? { directory_clinic_image_url: clinicImageKey } : {}),
+                        ...(dentistKey
+                            ? { directory_dentist_photo_url: dentistKey }
+                            : dentistPending?.startsWith(listing_verification_service_js_1.LISTING_PENDING_DOC_PREFIX)
+                                ? { directory_dentist_photo_url: null }
+                                : {}),
+                        ...(clinicImageKey
+                            ? { directory_clinic_image_url: clinicImageKey }
+                            : clinicPending?.startsWith(listing_verification_service_js_1.LISTING_PENDING_DOC_PREFIX)
+                                ? { directory_clinic_image_url: null }
+                                : {}),
                     },
                 });
             }
+        }
+        catch (err) {
+            this.logger.warn(`Directory listing approved for ${id} but image promotion failed: ${err.message}`);
         }
         this.automationService.seedClinicAutomationDefaults(id).catch((err) => this.logger.warn(`Failed to seed automation defaults for listing clinic ${id}: ${err.message}`));
         if (clinic.email && createdNewUser) {
