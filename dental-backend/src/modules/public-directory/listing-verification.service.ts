@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { JwtService } from '@nestjs/jwt';
 import { randomUUID } from 'crypto';
@@ -6,14 +6,32 @@ import { extname } from 'path';
 import { PrismaService } from '../../database/prisma.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 
-export const LISTING_VERIFICATION_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+export const LISTING_VERIFICATION_MAX_BYTES = 10 * 1024 * 1024; // 10 MB (PDF verification docs)
+export const LISTING_IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5 MB (profile / cover images)
+export const LISTING_PENDING_JWT_HOURS = 24;
 export const LISTING_VERIFICATION_MIME_TYPES = new Set([
   'image/jpeg', 'image/png', 'image/webp', 'application/pdf',
+]);
+export const LISTING_IMAGE_MIME_TYPES = new Set([
+  'image/jpeg', 'image/png', 'image/webp',
 ]);
 export const LISTING_PENDING_DOC_PREFIX = 'listings/verification/pending/';
 export const LISTING_VERIFICATION_DOC_PREFIX = 'listings/verification/';
 
-export type ListingVerificationDocType = 'clinic_photo' | 'prescription_pad' | 'invoice' | 'other';
+// 'dentist_photo' and 'clinic_image' are photos for the public directory profile.
+// The rest are proof-of-practice verification documents.
+export type ListingVerificationDocType =
+  | 'clinic_photo'
+  | 'prescription_pad'
+  | 'invoice'
+  | 'other'
+  | 'dentist_photo'
+  | 'clinic_image';
+
+const PHOTO_DOC_TYPES: ReadonlySet<ListingVerificationDocType> = new Set([
+  'dentist_photo',
+  'clinic_image',
+]);
 
 interface PendingDocJwt {
   type: 'listing_pending_doc';
@@ -37,17 +55,31 @@ export class ListingVerificationService {
     private readonly jwt: JwtService,
   ) {}
 
-  validateFile(file: Express.Multer.File) {
+  validateFile(file: Express.Multer.File, documentType?: ListingVerificationDocType) {
     if (!file) {
       throw new BadRequestException(
         'Please upload a verification document (clinic photo, prescription pad, or invoice).',
       );
     }
-    if (file.size > LISTING_VERIFICATION_MAX_BYTES) {
-      throw new BadRequestException('Verification document must be 10 MB or smaller.');
+    const isPhotoType = documentType && PHOTO_DOC_TYPES.has(documentType);
+    const maxBytes = isPhotoType ? LISTING_IMAGE_MAX_BYTES : LISTING_VERIFICATION_MAX_BYTES;
+    if (file.size > maxBytes) {
+      throw new BadRequestException(
+        isPhotoType
+          ? 'Images must be 5 MB or smaller.'
+          : 'Verification document must be 10 MB or smaller.',
+      );
     }
-    if (!LISTING_VERIFICATION_MIME_TYPES.has(file.mimetype)) {
+    if (isPhotoType) {
+      if (!LISTING_IMAGE_MIME_TYPES.has(file.mimetype)) {
+        throw new BadRequestException('Only JPEG, PNG, or WebP images are allowed for photos.');
+      }
+    } else if (!LISTING_VERIFICATION_MIME_TYPES.has(file.mimetype)) {
       throw new BadRequestException('Only JPEG, PNG, WebP images or PDF documents are allowed.');
+    }
+    // Verification docs that are images still capped at 5 MB
+    if (!isPhotoType && LISTING_IMAGE_MIME_TYPES.has(file.mimetype) && file.size > LISTING_IMAGE_MAX_BYTES) {
+      throw new BadRequestException('Image files must be 5 MB or smaller.');
     }
   }
 
@@ -64,7 +96,13 @@ export class ListingVerificationService {
 
   private async isKeyClaimedByClinic(s3Key: string): Promise<boolean> {
     const clinic = await this.prisma.clinic.findFirst({
-      where: { directory_verification_document_url: s3Key },
+      where: {
+        OR: [
+          { directory_verification_document_url: s3Key },
+          { directory_dentist_photo_url: s3Key },
+          { directory_clinic_image_url: s3Key },
+        ],
+      },
       select: { id: true },
     });
     return !!clinic;
@@ -74,17 +112,17 @@ export class ListingVerificationService {
     file: Express.Multer.File,
     documentType: ListingVerificationDocType,
   ) {
-    this.validateFile(file);
+    this.validateFile(file, documentType);
     const docExt = (extname(file.originalname) || (file.mimetype === 'application/pdf' ? '.pdf' : '.jpg')).toLowerCase();
     const s3Key = `${LISTING_PENDING_DOC_PREFIX}${randomUUID()}${docExt}`;
     await this.s3.upload(s3Key, file.buffer, file.mimetype);
 
     const uploadToken = await this.jwt.signAsync(
       { s3_key: s3Key, document_type: documentType, type: 'listing_pending_doc' } satisfies PendingDocJwt,
-      { expiresIn: '2h' },
+      { expiresIn: `${LISTING_PENDING_JWT_HOURS}h` },
     );
 
-    return { upload_token: uploadToken, expires_in_minutes: 120 };
+    return { upload_token: uploadToken, expires_in_minutes: LISTING_PENDING_JWT_HOURS * 60 };
   }
 
   async discardPendingUpload(uploadToken: string) {
@@ -104,8 +142,13 @@ export class ListingVerificationService {
     if (await this.isKeyClaimedByClinic(payload.s3_key)) {
       throw new BadRequestException('Verification upload expired or already used. Please re-upload your document.');
     }
-    const exists = await this.s3.objectExists(payload.s3_key);
-    if (!exists) {
+    const headStatus = await this.s3.headObjectStatus(payload.s3_key);
+    if (headStatus === 'denied') {
+      throw new ServiceUnavailableException(
+        'Upload storage is temporarily unavailable. Please try again in a few minutes.',
+      );
+    }
+    if (headStatus === 'missing') {
       throw new BadRequestException('Verification upload expired or already used. Please re-upload your document.');
     }
     return {
@@ -115,8 +158,8 @@ export class ListingVerificationService {
     };
   }
 
-  async uploadAndTrack(file: Express.Multer.File, _documentType: ListingVerificationDocType) {
-    this.validateFile(file);
+  async uploadAndTrack(file: Express.Multer.File, documentType: ListingVerificationDocType) {
+    this.validateFile(file, documentType);
     const docExt = (extname(file.originalname) || (file.mimetype === 'application/pdf' ? '.pdf' : '.jpg')).toLowerCase();
     const s3Key = `${LISTING_VERIFICATION_DOC_PREFIX}${randomUUID()}${docExt}`;
     await this.s3.upload(s3Key, file.buffer, file.mimetype);
@@ -129,19 +172,36 @@ export class ListingVerificationService {
     }
   }
 
+  /** Discard multiple staged keys after a failed listing submit (best-effort). */
+  async discardOrphanKeys(s3Keys: string[]) {
+    const unique = [...new Set(s3Keys.filter(Boolean))];
+    await Promise.all(unique.map((key) => this.discardOrphanKey(key)));
+  }
+
   /** Remove pending S3 objects older than 24h that were never linked to a clinic. */
   @Cron('0 30 11 * * *', { timeZone: 'Asia/Kolkata' }) // daily at 11:30 AM IST
   async cleanupOrphanedPendingUploads() {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
     const claimed = await this.prisma.clinic.findMany({
       where: {
-        directory_verification_document_url: { startsWith: LISTING_PENDING_DOC_PREFIX },
+        OR: [
+          { directory_verification_document_url: { startsWith: LISTING_PENDING_DOC_PREFIX } },
+          { directory_dentist_photo_url: { startsWith: LISTING_PENDING_DOC_PREFIX } },
+          { directory_clinic_image_url: { startsWith: LISTING_PENDING_DOC_PREFIX } },
+        ],
       },
-      select: { directory_verification_document_url: true },
+      select: {
+        directory_verification_document_url: true,
+        directory_dentist_photo_url: true,
+        directory_clinic_image_url: true,
+      },
     });
-    const claimedKeys = new Set(
-      claimed.map((c) => c.directory_verification_document_url).filter((k): k is string => !!k),
-    );
+    const claimedKeys = new Set<string>();
+    for (const c of claimed) {
+      if (c.directory_verification_document_url) claimedKeys.add(c.directory_verification_document_url);
+      if (c.directory_dentist_photo_url) claimedKeys.add(c.directory_dentist_photo_url);
+      if (c.directory_clinic_image_url) claimedKeys.add(c.directory_clinic_image_url);
+    }
 
     const objects = await this.s3.listObjectsByPrefix(LISTING_PENDING_DOC_PREFIX);
     let cleaned = 0;

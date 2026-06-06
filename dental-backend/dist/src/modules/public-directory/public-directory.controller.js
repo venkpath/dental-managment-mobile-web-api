@@ -336,6 +336,13 @@ class SubmitListingDto {
     clinic_description;
     verification_document_type;
     verification_upload_token;
+    dentist_photo_upload_token;
+    years_experience;
+    established_year;
+    clinic_image_upload_token;
+    working_days;
+    working_start_time;
+    working_end_time;
 }
 __decorate([
     (0, swagger_2.ApiProperty)({ description: 'Phone verification JWT from verify-phone-otp' }),
@@ -419,51 +426,59 @@ __decorate([
     __metadata("design:type", Number)
 ], SubmitListingDto.prototype, "longitude", void 0);
 __decorate([
-    (0, swagger_2.ApiPropertyOptional)({ example: ['General Dentistry', 'Orthodontics'] }),
-    (0, class_validator_1.IsOptional)(),
+    (0, swagger_2.ApiProperty)({ example: ['General Dentistry', 'Orthodontics'] }),
     (0, class_transformer_1.Transform)(({ value }) => {
         if (value == null || value === '')
-            return undefined;
+            return [];
         if (Array.isArray(value))
-            return value;
+            return value.map(String).map((s) => s.trim()).filter(Boolean);
         if (typeof value === 'string') {
             try {
                 const parsed = JSON.parse(value);
-                return Array.isArray(parsed) ? parsed : undefined;
+                return Array.isArray(parsed)
+                    ? parsed.map(String).map((s) => s.trim()).filter(Boolean)
+                    : [];
             }
             catch {
-                return undefined;
+                return [];
             }
         }
         return value;
     }),
     (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMinSize)(1),
     (0, class_validator_1.ArrayMaxSize)(10),
     (0, class_validator_1.IsString)({ each: true }),
+    (0, class_validator_1.MinLength)(2, { each: true }),
+    (0, class_validator_1.MaxLength)(80, { each: true }),
     __metadata("design:type", Array)
 ], SubmitListingDto.prototype, "specialties", void 0);
 __decorate([
-    (0, swagger_2.ApiPropertyOptional)({ example: ['Root Canal', 'Teeth Whitening', 'Braces'] }),
-    (0, class_validator_1.IsOptional)(),
+    (0, swagger_2.ApiProperty)({ example: ['Root Canal', 'Teeth Whitening', 'Braces'] }),
     (0, class_transformer_1.Transform)(({ value }) => {
         if (value == null || value === '')
-            return undefined;
+            return [];
         if (Array.isArray(value))
-            return value;
+            return value.map(String).map((s) => s.trim()).filter(Boolean);
         if (typeof value === 'string') {
             try {
                 const parsed = JSON.parse(value);
-                return Array.isArray(parsed) ? parsed : undefined;
+                return Array.isArray(parsed)
+                    ? parsed.map(String).map((s) => s.trim()).filter(Boolean)
+                    : [];
             }
             catch {
-                return undefined;
+                return [];
             }
         }
         return value;
     }),
     (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMinSize)(1),
     (0, class_validator_1.ArrayMaxSize)(30),
     (0, class_validator_1.IsString)({ each: true }),
+    (0, class_validator_1.MinLength)(2, { each: true }),
+    (0, class_validator_1.MaxLength)(80, { each: true }),
     __metadata("design:type", Array)
 ], SubmitListingDto.prototype, "treatments", void 0);
 __decorate([
@@ -474,9 +489,10 @@ __decorate([
     __metadata("design:type", String)
 ], SubmitListingDto.prototype, "working_hours_label", void 0);
 __decorate([
-    (0, swagger_2.ApiPropertyOptional)({ example: 'English, Hindi, Kannada' }),
-    (0, class_validator_1.IsOptional)(),
+    (0, swagger_2.ApiProperty)({ example: 'English, Hindi, Kannada' }),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.MinLength)(2),
     (0, class_validator_1.MaxLength)(300),
     __metadata("design:type", String)
 ], SubmitListingDto.prototype, "languages_spoken", void 0);
@@ -510,13 +526,84 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], SubmitListingDto.prototype, "verification_upload_token", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ description: 'JWT from staged dentist profile photo upload (required — use /pending-verification with type=dentist_photo)' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "dentist_photo_upload_token", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ description: 'Dentist years of clinical experience', example: 8 }),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(60),
+    __metadata("design:type", Number)
+], SubmitListingDto.prototype, "years_experience", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ description: 'Year the clinic was established', example: 2015 }),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1900),
+    (0, class_validator_1.Max)(new Date().getFullYear()),
+    __metadata("design:type", Number)
+], SubmitListingDto.prototype, "established_year", void 0);
+__decorate([
+    (0, swagger_2.ApiPropertyOptional)({ description: 'JWT from staged clinic cover image upload (use /pending-verification with type=clinic_image)' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "clinic_image_upload_token", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({
+        description: 'Working day numbers (1=Mon … 7=Sun). Seeded onto branch schedule and doctor availability on approval.',
+        example: [1, 2, 3, 4, 5, 6],
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (value == null || value === '')
+            return [1, 2, 3, 4, 5, 6];
+        if (Array.isArray(value))
+            return value.map(Number);
+        if (typeof value === 'string') {
+            try {
+                const parsed = JSON.parse(value);
+                return Array.isArray(parsed) ? parsed.map(Number) : [1, 2, 3, 4, 5, 6];
+            }
+            catch {
+                return [1, 2, 3, 4, 5, 6];
+            }
+        }
+        return value;
+    }),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMinSize)(1),
+    (0, class_validator_1.ArrayMaxSize)(7),
+    (0, class_validator_1.IsInt)({ each: true }),
+    (0, class_validator_1.Min)(1, { each: true }),
+    (0, class_validator_1.Max)(7, { each: true }),
+    __metadata("design:type", Array)
+], SubmitListingDto.prototype, "working_days", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ description: 'Working start time in HH:mm format', example: '09:00' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(5),
+    (0, class_validator_1.Matches)(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'working_start_time must be HH:mm (00:00–23:59)' }),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "working_start_time", void 0);
+__decorate([
+    (0, swagger_2.ApiProperty)({ description: 'Working end time in HH:mm format', example: '20:00' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(5),
+    (0, class_validator_1.Matches)(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'working_end_time must be HH:mm (00:00–23:59)' }),
+    __metadata("design:type", String)
+], SubmitListingDto.prototype, "working_end_time", void 0);
 class StagePendingVerificationDto {
     verification_document_type;
 }
 __decorate([
-    (0, swagger_2.ApiProperty)({ enum: ['clinic_photo', 'prescription_pad', 'invoice', 'other'] }),
+    (0, swagger_2.ApiProperty)({ enum: ['clinic_photo', 'prescription_pad', 'invoice', 'other', 'dentist_photo', 'clinic_image'] }),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsIn)(['clinic_photo', 'prescription_pad', 'invoice', 'other']),
+    (0, class_validator_1.IsIn)(['clinic_photo', 'prescription_pad', 'invoice', 'other', 'dentist_photo', 'clinic_image']),
     __metadata("design:type", String)
 ], StagePendingVerificationDto.prototype, "verification_document_type", void 0);
 class DiscardPendingVerificationDto {
@@ -753,7 +840,7 @@ let PublicDirectoryController = class PublicDirectoryController {
             })
             : [];
         const apptCountMap = new Map(apptCounts.map((a) => [a.clinic_id, a._count.id]));
-        let enriched = clinics.map((c) => {
+        let enriched = await Promise.all(clinics.map(async (c) => {
             const reviews = c.directory_reviews;
             const avg = reviews.length
                 ? reviews.reduce((s, r) => s + r.overall_rating, 0) / reviews.length
@@ -764,14 +851,26 @@ let PublicDirectoryController = class PublicDirectoryController {
             const bookedToday = apptCountMap.get(c.id) ?? 0;
             const avail = computeClinicAvailability(c.branches, schemaDay, istMinutes, bookedToday);
             const coverBranch = c.branches.find((b) => b.photo_url) ?? null;
+            const fallbackDoctorPhotoKey = c.users.find((u) => u.profile_photo_url)?.profile_photo_url ?? null;
+            const signedUsers = await Promise.all(c.users.map(async (u) => ({
+                ...u,
+                profile_photo_url: u.profile_photo_url
+                    ? await this.s3.getSignedUrl(u.profile_photo_url).catch(() => null)
+                    : null,
+            })));
+            const coverPhotoKey = coverBranch?.photo_url ?? fallbackDoctorPhotoKey;
+            const branchCoverPhotoUrl = coverPhotoKey
+                ? await this.s3.getSignedUrl(coverPhotoKey).catch(() => null)
+                : null;
             return {
                 id: c.id, name: c.name, address: c.address, city: c.city, state: c.state,
                 country: c.country, phone: c.phone, logo_url: c.logo_url,
                 clinic_description: c.clinic_description, specialties: c.specialties,
                 working_hours_label: c.working_hours_label,
                 google_maps_url: c.google_maps_url, website_url: c.website_url,
-                users: c.users,
+                users: signedUsers,
                 branch_cover_id: coverBranch?.id ?? null,
+                branch_cover_photo_url: branchCoverPhotoUrl,
                 lat: c.latitude ?? null,
                 lng: c.longitude ?? null,
                 review_count: reviews.length,
@@ -784,7 +883,7 @@ let PublicDirectoryController = class PublicDirectoryController {
                 total_slots_today: avail.total_slots_today,
                 available_slots_today: avail.available_slots_today,
             };
-        });
+        }));
         if (availableToday) {
             enriched = enriched.filter((c) => c.available_today);
         }
@@ -866,7 +965,7 @@ let PublicDirectoryController = class PublicDirectoryController {
             })
             : [];
         const apptCountMap = new Map(apptCounts.map((a) => [a.clinic_id, a._count.id]));
-        return clinics.map((c) => {
+        return Promise.all(clinics.map(async (c) => {
             const reviews = c.directory_reviews;
             const avg = reviews.length
                 ? reviews.reduce((s, r) => s + r.overall_rating, 0) / reviews.length
@@ -874,20 +973,32 @@ let PublicDirectoryController = class PublicDirectoryController {
             const bookedToday = apptCountMap.get(c.id) ?? 0;
             const avail = computeClinicAvailability(c.branches, schemaDay, istMinutes, bookedToday);
             const coverBranch = c.branches.find((b) => b.photo_url) ?? null;
+            const fallbackDoctorPhotoKey = c.users.find((u) => u.profile_photo_url)?.profile_photo_url ?? null;
+            const signedUsers = await Promise.all(c.users.map(async (u) => ({
+                ...u,
+                profile_photo_url: u.profile_photo_url
+                    ? await this.s3.getSignedUrl(u.profile_photo_url).catch(() => null)
+                    : null,
+            })));
+            const coverPhotoKey = coverBranch?.photo_url ?? fallbackDoctorPhotoKey;
+            const branchCoverPhotoUrl = coverPhotoKey
+                ? await this.s3.getSignedUrl(coverPhotoKey).catch(() => null)
+                : null;
             return {
                 id: c.id, name: c.name, address: c.address, city: c.city, state: c.state,
                 country: c.country, phone: c.phone, logo_url: c.logo_url,
                 clinic_description: c.clinic_description, specialties: c.specialties,
                 working_hours_label: c.working_hours_label,
                 google_maps_url: c.google_maps_url, website_url: c.website_url,
-                users: c.users,
+                users: signedUsers,
                 branch_cover_id: coverBranch?.id ?? null,
+                branch_cover_photo_url: branchCoverPhotoUrl,
                 review_count: reviews.length,
                 avg_rating: avg ? Math.round(avg * 10) / 10 : null,
                 available_today: avail.available_today,
                 open_now: avail.open_now,
             };
-        });
+        }));
     }
     async getClinicDetail(clinicId) {
         const clinic = await this.prisma.clinic.findUnique({
@@ -941,6 +1052,7 @@ let PublicDirectoryController = class PublicDirectoryController {
                         years_experience: true,
                         education: true,
                         specializations: true,
+                        treatments_offered: true,
                         languages_spoken: true,
                         consultation_fee: true,
                         profile_photo_url: true,
@@ -991,9 +1103,11 @@ let PublicDirectoryController = class PublicDirectoryController {
             where: { clinic_id: clinicId, is_visible: true },
             _count: { id: true },
         });
+        const fallbackDoctorPhotoKey = clinic.users.find((u) => u.profile_photo_url)?.profile_photo_url ?? null;
         const branches = await Promise.all(clinic.branches.map(async (b) => {
-            const signedPhoto = b.photo_url
-                ? await this.s3.getSignedUrl(b.photo_url).catch(() => null)
+            const photoKey = b.photo_url ?? fallbackDoctorPhotoKey;
+            const signedPhoto = photoKey
+                ? await this.s3.getSignedUrl(photoKey).catch(() => null)
                 : null;
             return { ...b, photo_url: signedPhoto };
         }));
@@ -1283,11 +1397,22 @@ let PublicDirectoryController = class PublicDirectoryController {
         let docKey = null;
         let docType = null;
         let stagedUploadId = null;
+        const orphanKeysOnFailure = [];
+        if (dto.working_start_time && dto.working_end_time) {
+            const [sh, sm] = dto.working_start_time.split(':').map(Number);
+            const [eh, em] = dto.working_end_time.split(':').map(Number);
+            const startMins = sh * 60 + sm;
+            const endMins = eh * 60 + em;
+            if (endMins <= startMins) {
+                throw new common_1.BadRequestException('Closing time must be after opening time.');
+            }
+        }
         if (dto.verification_upload_token) {
             const staged = await this.listingVerification.resolveStagedUpload(dto.verification_upload_token, dto.verification_document_type);
             docKey = staged.s3_key;
             docType = staged.document_type;
             stagedUploadId = staged.id;
+            orphanKeysOnFailure.push(staged.s3_key);
         }
         else if (file) {
             if (!dto.verification_document_type) {
@@ -1295,6 +1420,21 @@ let PublicDirectoryController = class PublicDirectoryController {
             }
             docKey = await this.listingVerification.uploadAndTrack(file, dto.verification_document_type);
             docType = dto.verification_document_type;
+        }
+        let dentistPhotoKey = null;
+        {
+            const staged = await this.listingVerification.resolveStagedUpload(dto.dentist_photo_upload_token, 'dentist_photo');
+            dentistPhotoKey = staged.s3_key;
+            orphanKeysOnFailure.push(staged.s3_key);
+        }
+        let clinicImageKey = null;
+        if (dto.clinic_image_upload_token) {
+            const staged = await this.listingVerification.resolveStagedUpload(dto.clinic_image_upload_token, 'clinic_image');
+            clinicImageKey = staged.s3_key;
+            orphanKeysOnFailure.push(staged.s3_key);
+        }
+        if (!clinicImageKey) {
+            clinicImageKey = dentistPhotoKey;
         }
         let verifiedPhone;
         try {
@@ -1360,14 +1500,21 @@ let PublicDirectoryController = class PublicDirectoryController {
                     google_maps_url: dto.google_maps_url?.trim() ?? null,
                     latitude: dto.latitude ?? null,
                     longitude: dto.longitude ?? null,
-                    specialties: dto.specialties?.join(',') ?? null,
-                    directory_treatments: dto.treatments?.join(',') ?? null,
+                    specialties: dto.specialties.join(','),
+                    directory_treatments: dto.treatments.join(','),
                     working_hours_label: dto.working_hours_label?.trim() ?? null,
-                    languages_spoken: dto.languages_spoken?.trim() ?? null,
+                    languages_spoken: dto.languages_spoken.trim(),
                     website_url: dto.website_url?.trim() ?? null,
                     clinic_description: dto.clinic_description?.trim() ?? null,
                     directory_verification_document_url: docKey,
                     directory_verification_document_type: docType,
+                    established_year: dto.established_year,
+                    directory_dentist_photo_url: dentistPhotoKey,
+                    directory_clinic_image_url: clinicImageKey,
+                    directory_dentist_years_experience: dto.years_experience,
+                    directory_working_days: dto.working_days.join(','),
+                    directory_working_start_time: dto.working_start_time.trim(),
+                    directory_working_end_time: dto.working_end_time.trim(),
                     is_directory_only: true,
                     directory_contact_name: dto.contact_name.trim(),
                     directory_approval_status: 'pending',
@@ -1380,9 +1527,10 @@ let PublicDirectoryController = class PublicDirectoryController {
             });
         }
         catch (err) {
-            if (!stagedUploadId && docKey) {
-                await this.listingVerification.discardOrphanKey(docKey);
-            }
+            await this.listingVerification.discardOrphanKeys([
+                ...orphanKeysOnFailure,
+                ...(!stagedUploadId && docKey ? [docKey] : []),
+            ]);
             throw err;
         }
         this.notifySuperAdmin(clinic.name, dto.contact_name, verifiedPhone, verifiedEmail).catch(() => { });

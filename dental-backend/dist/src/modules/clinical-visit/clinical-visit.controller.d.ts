@@ -239,6 +239,7 @@ export declare class ClinicalVisitController {
             years_experience: number | null;
             education: import("@prisma/client/runtime/client").JsonValue | null;
             specializations: import("@prisma/client/runtime/client").JsonValue | null;
+            treatments_offered: import("@prisma/client/runtime/client").JsonValue | null;
             consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
             must_change_password: boolean;
             branch_id: string | null;
@@ -404,6 +405,7 @@ export declare class ClinicalVisitController {
             years_experience: number | null;
             education: import("@prisma/client/runtime/client").JsonValue | null;
             specializations: import("@prisma/client/runtime/client").JsonValue | null;
+            treatments_offered: import("@prisma/client/runtime/client").JsonValue | null;
             consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
             must_change_password: boolean;
             branch_id: string | null;
@@ -515,6 +517,7 @@ export declare class ClinicalVisitController {
             years_experience: number | null;
             education: import("@prisma/client/runtime/client").JsonValue | null;
             specializations: import("@prisma/client/runtime/client").JsonValue | null;
+            treatments_offered: import("@prisma/client/runtime/client").JsonValue | null;
             consultation_fee: import("@prisma/client-runtime-utils").Decimal | null;
             must_change_password: boolean;
             branch_id: string | null;

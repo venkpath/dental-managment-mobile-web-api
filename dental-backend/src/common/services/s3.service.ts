@@ -6,6 +6,7 @@ import {
   HeadObjectCommand,
   DeleteObjectCommand,
   ListObjectsV2Command,
+  CopyObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -59,30 +60,53 @@ export class S3Service {
     return getSignedUrl(this.client, command, { expiresIn: this.expiresIn });
   }
 
-  /** Check whether an object exists at the given key. Returns true on
-   *  HeadObject success, false on 404. Used to validate manually-uploaded
-   *  S3 keys (e.g. tutorial videos pasted by super-admin). */
-  async objectExists(key: string): Promise<boolean> {
+  /** HeadObject result — distinguishes missing keys from IAM permission errors. */
+  async headObjectStatus(key: string): Promise<'ok' | 'missing' | 'denied'> {
     try {
       await this.client.send(
         new HeadObjectCommand({ Bucket: this.bucket, Key: key }),
       );
-      return true;
+      return 'ok';
     } catch (err) {
       const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
-      if (status === 404) return false;
-      // 403 usually means missing s3:GetObject/HeadObject in IAM — surface it
-      // loudly so admins don't get a misleading "not found" for a file they
-      // just uploaded.
+      if (status === 404) return 'missing';
       if (status === 403) {
         this.logger.warn(
           `S3 headObject 403 for "${key}" — check IAM policy grants s3:GetObject on this prefix`,
         );
-        return false;
+        return 'denied';
       }
       this.logger.warn(`S3 headObject failed for "${key}": ${err instanceof Error ? err.message : String(err)}`);
-      return false;
+      return 'missing';
     }
+  }
+
+  /** Check whether an object exists at the given key. Returns true on
+   *  HeadObject success, false on 404. Used to validate manually-uploaded
+   *  S3 keys (e.g. tutorial videos pasted by super-admin). */
+  async objectExists(key: string): Promise<boolean> {
+    return (await this.headObjectStatus(key)) === 'ok';
+  }
+
+  /** Copy an object within the same bucket. Returns the destination key. */
+  async copyObject(sourceKey: string, destKey: string, contentType?: string): Promise<string> {
+    await this.client.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        CopySource: `${this.bucket}/${sourceKey}`,
+        Key: destKey,
+        ...(contentType ? { ContentType: contentType, MetadataDirective: 'REPLACE' } : {}),
+      }),
+    );
+    this.logger.log(`Copied S3 object ${sourceKey} → ${destKey}`);
+    return destKey;
+  }
+
+  /** Copy then delete the source — used to promote staged listing uploads. */
+  async moveObject(sourceKey: string, destKey: string, contentType?: string): Promise<string> {
+    await this.copyObject(sourceKey, destKey, contentType);
+    await this.delete(sourceKey);
+    return destKey;
   }
 
   /** List object keys under a prefix (single page loop for cleanup jobs). */

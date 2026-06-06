@@ -12,7 +12,7 @@ import type { Response } from 'express';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import {
   IsString, IsOptional, IsInt, IsNumber, IsBoolean, Min, Max, MinLength,
-  MaxLength, IsIn, IsEmail, IsArray, ArrayMaxSize, IsNotEmpty, Equals,
+  MaxLength, IsIn, IsEmail, IsArray, ArrayMinSize, ArrayMaxSize, IsNotEmpty, Equals, Matches,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
@@ -299,46 +299,54 @@ class SubmitListingDto {
   @Type(() => Number)
   longitude?: number;
 
-  // Step 3
-  @ApiPropertyOptional({ example: ['General Dentistry', 'Orthodontics'] })
-  @IsOptional()
+  // Step 3 — at least one specialty, treatment, and language required (custom values allowed)
+  @ApiProperty({ example: ['General Dentistry', 'Orthodontics'] })
   @Transform(({ value }) => {
-    if (value == null || value === '') return undefined;
-    if (Array.isArray(value)) return value;
+    if (value == null || value === '') return [];
+    if (Array.isArray(value)) return (value as unknown[]).map(String).map((s) => s.trim()).filter(Boolean);
     if (typeof value === 'string') {
       try {
         const parsed = JSON.parse(value) as unknown;
-        return Array.isArray(parsed) ? parsed : undefined;
+        return Array.isArray(parsed)
+          ? parsed.map(String).map((s) => s.trim()).filter(Boolean)
+          : [];
       } catch {
-        return undefined;
+        return [];
       }
     }
     return value;
   })
   @IsArray()
+  @ArrayMinSize(1)
   @ArrayMaxSize(10)
   @IsString({ each: true })
-  specialties?: string[];
+  @MinLength(2, { each: true })
+  @MaxLength(80, { each: true })
+  specialties!: string[];
 
-  @ApiPropertyOptional({ example: ['Root Canal', 'Teeth Whitening', 'Braces'] })
-  @IsOptional()
+  @ApiProperty({ example: ['Root Canal', 'Teeth Whitening', 'Braces'] })
   @Transform(({ value }) => {
-    if (value == null || value === '') return undefined;
-    if (Array.isArray(value)) return value;
+    if (value == null || value === '') return [];
+    if (Array.isArray(value)) return (value as unknown[]).map(String).map((s) => s.trim()).filter(Boolean);
     if (typeof value === 'string') {
       try {
         const parsed = JSON.parse(value) as unknown;
-        return Array.isArray(parsed) ? parsed : undefined;
+        return Array.isArray(parsed)
+          ? parsed.map(String).map((s) => s.trim()).filter(Boolean)
+          : [];
       } catch {
-        return undefined;
+        return [];
       }
     }
     return value;
   })
   @IsArray()
+  @ArrayMinSize(1)
   @ArrayMaxSize(30)
   @IsString({ each: true })
-  treatments?: string[];
+  @MinLength(2, { each: true })
+  @MaxLength(80, { each: true })
+  treatments!: string[];
 
   @ApiPropertyOptional({ example: 'Mon–Sat 9am–7pm' })
   @IsOptional()
@@ -346,11 +354,12 @@ class SubmitListingDto {
   @MaxLength(200)
   working_hours_label?: string;
 
-  @ApiPropertyOptional({ example: 'English, Hindi, Kannada' })
-  @IsOptional()
+  @ApiProperty({ example: 'English, Hindi, Kannada' })
   @IsString()
+  @IsNotEmpty()
+  @MinLength(2)
   @MaxLength(300)
-  languages_spoken?: string;
+  languages_spoken!: string;
 
   @ApiPropertyOptional({ example: 'https://drsharmadental.com' })
   @IsOptional()
@@ -377,13 +386,78 @@ class SubmitListingDto {
   @IsOptional()
   @IsString()
   verification_upload_token?: string;
+
+  // ─── Dentist mandatory fields ──────────────────────────────────────────────
+  @ApiProperty({ description: 'JWT from staged dentist profile photo upload (required — use /pending-verification with type=dentist_photo)' })
+  @IsString()
+  @IsNotEmpty()
+  dentist_photo_upload_token!: string;
+
+  @ApiProperty({ description: 'Dentist years of clinical experience', example: 8 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(60)
+  years_experience!: number;
+
+  // ─── Clinic mandatory fields ───────────────────────────────────────────────
+  @ApiProperty({ description: 'Year the clinic was established', example: 2015 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1900)
+  @Max(new Date().getFullYear())
+  established_year!: number;
+
+  // ─── Clinic cover image (shown on public directory profile) ──────────────
+  @ApiPropertyOptional({ description: 'JWT from staged clinic cover image upload (use /pending-verification with type=clinic_image)' })
+  @IsOptional()
+  @IsString()
+  clinic_image_upload_token?: string;
+
+  // ─── Structured working schedule (required; defaults Mon–Sat 09:00–20:00 on the form) ──
+  @ApiProperty({
+    description: 'Working day numbers (1=Mon … 7=Sun). Seeded onto branch schedule and doctor availability on approval.',
+    example: [1, 2, 3, 4, 5, 6],
+  })
+  @Transform(({ value }) => {
+    if (value == null || value === '') return [1, 2, 3, 4, 5, 6];
+    if (Array.isArray(value)) return (value as unknown[]).map(Number);
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value) as unknown;
+        return Array.isArray(parsed) ? parsed.map(Number) : [1, 2, 3, 4, 5, 6];
+      } catch {
+        return [1, 2, 3, 4, 5, 6];
+      }
+    }
+    return value;
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(7)
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  @Max(7, { each: true })
+  working_days!: number[];
+
+  @ApiProperty({ description: 'Working start time in HH:mm format', example: '09:00' })
+  @IsString()
+  @MaxLength(5)
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'working_start_time must be HH:mm (00:00–23:59)' })
+  working_start_time!: string;
+
+  @ApiProperty({ description: 'Working end time in HH:mm format', example: '20:00' })
+  @IsString()
+  @MaxLength(5)
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'working_end_time must be HH:mm (00:00–23:59)' })
+  working_end_time!: string;
 }
 
 class StagePendingVerificationDto {
-  @ApiProperty({ enum: ['clinic_photo', 'prescription_pad', 'invoice', 'other'] })
+  @ApiProperty({ enum: ['clinic_photo', 'prescription_pad', 'invoice', 'other', 'dentist_photo', 'clinic_image'] })
   @IsString()
-  @IsIn(['clinic_photo', 'prescription_pad', 'invoice', 'other'])
-  verification_document_type!: 'clinic_photo' | 'prescription_pad' | 'invoice' | 'other';
+  @IsIn(['clinic_photo', 'prescription_pad', 'invoice', 'other', 'dentist_photo', 'clinic_image'])
+  verification_document_type!: 'clinic_photo' | 'prescription_pad' | 'invoice' | 'other' | 'dentist_photo' | 'clinic_image';
 }
 
 class DiscardPendingVerificationDto {
@@ -686,7 +760,8 @@ export class PublicDirectoryController {
     const apptCountMap = new Map(apptCounts.map((a) => [a.clinic_id, a._count.id]));
 
     // ── Enrich each clinic ──────────────────────────────────────────────────
-    let enriched = clinics.map((c) => {
+    // profile_photo_url is a private S3 key — must be presigned before sending to the client.
+    let enriched = await Promise.all(clinics.map(async (c) => {
       const reviews = c.directory_reviews;
       const avg = reviews.length
         ? reviews.reduce((s, r) => s + r.overall_rating, 0) / reviews.length
@@ -700,6 +775,20 @@ export class PublicDirectoryController {
       const avail = computeClinicAvailability(c.branches, schemaDay, istMinutes, bookedToday);
 
       const coverBranch = c.branches.find((b) => b.photo_url) ?? null;
+      const fallbackDoctorPhotoKey = c.users.find((u) => u.profile_photo_url)?.profile_photo_url ?? null;
+
+      const signedUsers = await Promise.all(
+        c.users.map(async (u) => ({
+          ...u,
+          profile_photo_url: u.profile_photo_url
+            ? await this.s3.getSignedUrl(u.profile_photo_url).catch(() => null)
+            : null,
+        })),
+      );
+      const coverPhotoKey = coverBranch?.photo_url ?? fallbackDoctorPhotoKey;
+      const branchCoverPhotoUrl = coverPhotoKey
+        ? await this.s3.getSignedUrl(coverPhotoKey).catch(() => null)
+        : null;
 
       return {
         id: c.id, name: c.name, address: c.address, city: c.city, state: c.state,
@@ -707,8 +796,9 @@ export class PublicDirectoryController {
         clinic_description: c.clinic_description, specialties: c.specialties,
         working_hours_label: c.working_hours_label,
         google_maps_url: c.google_maps_url, website_url: c.website_url,
-        users: c.users,
+        users: signedUsers,
         branch_cover_id: coverBranch?.id ?? null,
+        branch_cover_photo_url: branchCoverPhotoUrl,
         lat: c.latitude ?? null,
         lng: c.longitude ?? null,
         review_count: reviews.length,
@@ -722,7 +812,7 @@ export class PublicDirectoryController {
         total_slots_today:    avail.total_slots_today,
         available_slots_today: avail.available_slots_today,
       };
-    });
+    }));
 
     // ── Filter by availableToday ────────────────────────────────────────────
     if (availableToday) {
@@ -830,7 +920,7 @@ export class PublicDirectoryController {
       : [];
     const apptCountMap = new Map(apptCounts.map((a) => [a.clinic_id, a._count.id]));
 
-    return clinics.map((c) => {
+    return Promise.all(clinics.map(async (c) => {
       const reviews = c.directory_reviews;
       const avg = reviews.length
         ? reviews.reduce((s, r) => s + r.overall_rating, 0) / reviews.length
@@ -838,6 +928,20 @@ export class PublicDirectoryController {
       const bookedToday = apptCountMap.get(c.id) ?? 0;
       const avail = computeClinicAvailability(c.branches, schemaDay, istMinutes, bookedToday);
       const coverBranch = c.branches.find((b) => b.photo_url) ?? null;
+      const fallbackDoctorPhotoKey = c.users.find((u) => u.profile_photo_url)?.profile_photo_url ?? null;
+
+      const signedUsers = await Promise.all(
+        c.users.map(async (u) => ({
+          ...u,
+          profile_photo_url: u.profile_photo_url
+            ? await this.s3.getSignedUrl(u.profile_photo_url).catch(() => null)
+            : null,
+        })),
+      );
+      const coverPhotoKey = coverBranch?.photo_url ?? fallbackDoctorPhotoKey;
+      const branchCoverPhotoUrl = coverPhotoKey
+        ? await this.s3.getSignedUrl(coverPhotoKey).catch(() => null)
+        : null;
 
       return {
         id: c.id, name: c.name, address: c.address, city: c.city, state: c.state,
@@ -845,14 +949,15 @@ export class PublicDirectoryController {
         clinic_description: c.clinic_description, specialties: c.specialties,
         working_hours_label: c.working_hours_label,
         google_maps_url: c.google_maps_url, website_url: c.website_url,
-        users: c.users,
+        users: signedUsers,
         branch_cover_id: coverBranch?.id ?? null,
+        branch_cover_photo_url: branchCoverPhotoUrl,
         review_count: reviews.length,
         avg_rating: avg ? Math.round(avg * 10) / 10 : null,
         available_today: avail.available_today,
         open_now: avail.open_now,
       };
-    });
+    }));
   }
 
   // ── GET /public/directory/:clinicId — full clinic detail ──
@@ -913,6 +1018,7 @@ export class PublicDirectoryController {
             years_experience: true,
             education: true,
             specializations: true,
+            treatments_offered: true,
             languages_spoken: true,
             consultation_fee: true,
             profile_photo_url: true,
@@ -968,10 +1074,12 @@ export class PublicDirectoryController {
       _count: { id: true },
     });
 
+    const fallbackDoctorPhotoKey = clinic.users.find((u) => u.profile_photo_url)?.profile_photo_url ?? null;
     const branches = await Promise.all(
       clinic.branches.map(async (b) => {
-        const signedPhoto = b.photo_url
-          ? await this.s3.getSignedUrl(b.photo_url).catch(() => null)
+        const photoKey = b.photo_url ?? fallbackDoctorPhotoKey;
+        const signedPhoto = photoKey
+          ? await this.s3.getSignedUrl(photoKey).catch(() => null)
           : null;
         return { ...b, photo_url: signedPhoto };
       }),
@@ -1359,6 +1467,17 @@ export class PublicDirectoryController {
     let docKey: string | null = null;
     let docType: string | null = null;
     let stagedUploadId: string | null = null;
+    const orphanKeysOnFailure: string[] = [];
+
+    if (dto.working_start_time && dto.working_end_time) {
+      const [sh, sm] = dto.working_start_time.split(':').map(Number);
+      const [eh, em] = dto.working_end_time.split(':').map(Number);
+      const startMins = sh * 60 + sm;
+      const endMins = eh * 60 + em;
+      if (endMins <= startMins) {
+        throw new BadRequestException('Closing time must be after opening time.');
+      }
+    }
 
     if (dto.verification_upload_token) {
       const staged = await this.listingVerification.resolveStagedUpload(
@@ -1368,12 +1487,39 @@ export class PublicDirectoryController {
       docKey = staged.s3_key;
       docType = staged.document_type;
       stagedUploadId = staged.id;
+      orphanKeysOnFailure.push(staged.s3_key);
     } else if (file) {
       if (!dto.verification_document_type) {
         throw new BadRequestException('Please select a document type when uploading a verification file.');
       }
       docKey = await this.listingVerification.uploadAndTrack(file, dto.verification_document_type);
       docType = dto.verification_document_type;
+    }
+
+    // Resolve dentist profile photo (required)
+    let dentistPhotoKey: string | null = null;
+    {
+      const staged = await this.listingVerification.resolveStagedUpload(
+        dto.dentist_photo_upload_token,
+        'dentist_photo',
+      );
+      dentistPhotoKey = staged.s3_key;
+      orphanKeysOnFailure.push(staged.s3_key);
+    }
+
+    // Resolve clinic cover image (optional)
+    let clinicImageKey: string | null = null;
+    if (dto.clinic_image_upload_token) {
+      const staged = await this.listingVerification.resolveStagedUpload(
+        dto.clinic_image_upload_token,
+        'clinic_image',
+      );
+      clinicImageKey = staged.s3_key;
+      orphanKeysOnFailure.push(staged.s3_key);
+    }
+    // No separate clinic cover — reuse the dentist profile photo for the listing card.
+    if (!clinicImageKey) {
+      clinicImageKey = dentistPhotoKey;
     }
 
     // Validate phone token
@@ -1449,14 +1595,25 @@ export class PublicDirectoryController {
           google_maps_url: dto.google_maps_url?.trim() ?? null,
           latitude: dto.latitude ?? null,
           longitude: dto.longitude ?? null,
-          specialties: dto.specialties?.join(',') ?? null,
-          directory_treatments: dto.treatments?.join(',') ?? null,
+          specialties: dto.specialties.join(','),
+          directory_treatments: dto.treatments.join(','),
           working_hours_label: dto.working_hours_label?.trim() ?? null,
-          languages_spoken: dto.languages_spoken?.trim() ?? null,
+          languages_spoken: dto.languages_spoken.trim(),
           website_url: dto.website_url?.trim() ?? null,
           clinic_description: dto.clinic_description?.trim() ?? null,
           directory_verification_document_url: docKey,
           directory_verification_document_type: docType,
+          // Clinic identity fields
+          established_year: dto.established_year,
+          // Dentist photo and clinic image staged for approval
+          directory_dentist_photo_url: dentistPhotoKey,
+          directory_clinic_image_url: clinicImageKey,
+          // Dentist profile fields staged for approval
+          directory_dentist_years_experience: dto.years_experience,
+          // Structured working schedule staged for approval
+          directory_working_days: dto.working_days.join(','),
+          directory_working_start_time: dto.working_start_time.trim(),
+          directory_working_end_time: dto.working_end_time.trim(),
           // Directory flags
           is_directory_only: true,
           directory_contact_name: dto.contact_name.trim(),
@@ -1470,9 +1627,10 @@ export class PublicDirectoryController {
         select: { id: true, name: true },
       });
     } catch (err) {
-      if (!stagedUploadId && docKey) {
-        await this.listingVerification.discardOrphanKey(docKey);
-      }
+      await this.listingVerification.discardOrphanKeys([
+        ...orphanKeysOnFailure,
+        ...(!stagedUploadId && docKey ? [docKey] : []),
+      ]);
       throw err;
     }
 

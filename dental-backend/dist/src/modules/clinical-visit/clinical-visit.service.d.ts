@@ -184,6 +184,7 @@ export declare class ClinicalVisitService {
             years_experience: number | null;
             education: Prisma.JsonValue | null;
             specializations: Prisma.JsonValue | null;
+            treatments_offered: Prisma.JsonValue | null;
             consultation_fee: Prisma.Decimal | null;
             must_change_password: boolean;
             branch_id: string | null;
@@ -328,6 +329,7 @@ export declare class ClinicalVisitService {
             years_experience: number | null;
             education: Prisma.JsonValue | null;
             specializations: Prisma.JsonValue | null;
+            treatments_offered: Prisma.JsonValue | null;
             consultation_fee: Prisma.Decimal | null;
             must_change_password: boolean;
             branch_id: string | null;
@@ -428,6 +430,7 @@ export declare class ClinicalVisitService {
             years_experience: number | null;
             education: Prisma.JsonValue | null;
             specializations: Prisma.JsonValue | null;
+            treatments_offered: Prisma.JsonValue | null;
             consultation_fee: Prisma.Decimal | null;
             must_change_password: boolean;
             branch_id: string | null;

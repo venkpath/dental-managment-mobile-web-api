@@ -105,7 +105,7 @@ export class PatientController {
   @ApiOperation({ summary: 'Upload a profile photo for the patient (private, served via presigned URL)' })
   @ApiConsumes('multipart/form-data')
   @ApiOkResponse({ description: 'Profile photo uploaded' })
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024 } }))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async uploadProfilePhoto(
     @CurrentClinic() clinicId: string,
     @Param('id', ParseUUIDPipe) id: string,

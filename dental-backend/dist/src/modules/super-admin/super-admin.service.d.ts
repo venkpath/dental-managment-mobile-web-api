@@ -4,7 +4,7 @@ import { PasswordService } from '../../common/services/password.service.js';
 import { EmailProvider } from '../communication/providers/email.provider.js';
 import { WhatsAppProvider } from '../communication/providers/whatsapp.provider.js';
 import { CreateSuperAdminDto } from './dto/index.js';
-import { SuperAdmin } from '@prisma/client';
+import { Prisma, SuperAdmin } from '@prisma/client';
 import { AutomationService } from '../automation/automation.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 export declare class SuperAdminService {
@@ -92,6 +92,12 @@ export declare class SuperAdminService {
             directory_verification_document_url: string | null;
             directory_verification_document_type: string | null;
             directory_terms_accepted_at: Date | null;
+            directory_working_days: string | null;
+            directory_working_start_time: string | null;
+            directory_working_end_time: string | null;
+            directory_dentist_photo_url: string | null;
+            directory_clinic_image_url: string | null;
+            directory_dentist_years_experience: number | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -103,8 +109,8 @@ export declare class SuperAdminService {
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
             custom_waba_monthly_limit: number | null;
-            custom_price_monthly: import("@prisma/client-runtime-utils").Decimal | null;
-            custom_price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
+            custom_price_monthly: Prisma.Decimal | null;
+            custom_price_yearly: Prisma.Decimal | null;
             custom_price_expires_at: Date | null;
             custom_price_reason: string | null;
             custom_price_granted_by_super_admin_id: string | null;
@@ -126,7 +132,7 @@ export declare class SuperAdminService {
             plan: {
                 id: string;
                 name: string;
-                price_monthly: import("@prisma/client-runtime-utils").Decimal;
+                price_monthly: Prisma.Decimal;
             } | null;
             _count: {
                 users: number;
@@ -184,6 +190,12 @@ export declare class SuperAdminService {
             directory_verification_document_url: string | null;
             directory_verification_document_type: string | null;
             directory_terms_accepted_at: Date | null;
+            directory_working_days: string | null;
+            directory_working_start_time: string | null;
+            directory_working_end_time: string | null;
+            directory_dentist_photo_url: string | null;
+            directory_clinic_image_url: string | null;
+            directory_dentist_years_experience: number | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -195,8 +207,8 @@ export declare class SuperAdminService {
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
             custom_waba_monthly_limit: number | null;
-            custom_price_monthly: import("@prisma/client-runtime-utils").Decimal | null;
-            custom_price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
+            custom_price_monthly: Prisma.Decimal | null;
+            custom_price_yearly: Prisma.Decimal | null;
             custom_price_expires_at: Date | null;
             custom_price_reason: string | null;
             custom_price_granted_by_super_admin_id: string | null;
@@ -235,8 +247,8 @@ export declare class SuperAdminService {
             created_at: Date;
             updated_at: Date;
             max_invoices_per_month: number | null;
-            price_monthly: import("@prisma/client-runtime-utils").Decimal;
-            price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
+            price_monthly: Prisma.Decimal;
+            price_yearly: Prisma.Decimal | null;
             max_branches: number;
             max_staff: number;
             ai_quota: number;
@@ -293,7 +305,7 @@ export declare class SuperAdminService {
             working_days: string | null;
             room_cleaning_duration_minutes: number | null;
             prescription_template_url: string | null;
-            prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
+            prescription_template_config: Prisma.JsonValue | null;
             prescription_template_enabled: boolean;
             qr_code_token: string | null;
             qr_code_enabled: boolean;
@@ -353,6 +365,12 @@ export declare class SuperAdminService {
         directory_verification_document_url: string | null;
         directory_verification_document_type: string | null;
         directory_terms_accepted_at: Date | null;
+        directory_working_days: string | null;
+        directory_working_start_time: string | null;
+        directory_working_end_time: string | null;
+        directory_dentist_photo_url: string | null;
+        directory_clinic_image_url: string | null;
+        directory_dentist_years_experience: number | null;
         ai_usage_count: number;
         ai_quota_override: number | null;
         custom_max_branches: number | null;
@@ -364,8 +382,8 @@ export declare class SuperAdminService {
         custom_prescription_limit: number | null;
         custom_consultation_limit: number | null;
         custom_waba_monthly_limit: number | null;
-        custom_price_monthly: import("@prisma/client-runtime-utils").Decimal | null;
-        custom_price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
+        custom_price_monthly: Prisma.Decimal | null;
+        custom_price_yearly: Prisma.Decimal | null;
         custom_price_expires_at: Date | null;
         custom_price_reason: string | null;
         custom_price_granted_by_super_admin_id: string | null;
@@ -444,6 +462,12 @@ export declare class SuperAdminService {
             directory_verification_document_url: string | null;
             directory_verification_document_type: string | null;
             directory_terms_accepted_at: Date | null;
+            directory_working_days: string | null;
+            directory_working_start_time: string | null;
+            directory_working_end_time: string | null;
+            directory_dentist_photo_url: string | null;
+            directory_clinic_image_url: string | null;
+            directory_dentist_years_experience: number | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;
@@ -455,8 +479,8 @@ export declare class SuperAdminService {
             custom_prescription_limit: number | null;
             custom_consultation_limit: number | null;
             custom_waba_monthly_limit: number | null;
-            custom_price_monthly: import("@prisma/client-runtime-utils").Decimal | null;
-            custom_price_yearly: import("@prisma/client-runtime-utils").Decimal | null;
+            custom_price_monthly: Prisma.Decimal | null;
+            custom_price_yearly: Prisma.Decimal | null;
             custom_price_expires_at: Date | null;
             custom_price_reason: string | null;
             custom_price_granted_by_super_admin_id: string | null;
@@ -494,7 +518,7 @@ export declare class SuperAdminService {
             working_days: string | null;
             room_cleaning_duration_minutes: number | null;
             prescription_template_url: string | null;
-            prescription_template_config: import("@prisma/client/runtime/client").JsonValue | null;
+            prescription_template_config: Prisma.JsonValue | null;
             prescription_template_enabled: boolean;
             qr_code_token: string | null;
             qr_code_enabled: boolean;
@@ -526,10 +550,17 @@ export declare class SuperAdminService {
         directory_requested_at: Date | null;
         clinic_description: string | null;
         specialties: string | null;
+        established_year: number | null;
         is_directory_only: boolean;
         directory_contact_name: string | null;
         directory_verification_document_url: string | null;
         directory_verification_document_type: string | null;
+        directory_working_days: string | null;
+        directory_working_start_time: string | null;
+        directory_working_end_time: string | null;
+        directory_dentist_photo_url: string | null;
+        directory_clinic_image_url: string | null;
+        directory_dentist_years_experience: number | null;
     }[]>;
     getDirectoryVerificationDocumentUrl(clinicId: string): Promise<{
         clinic_id: string;
@@ -539,6 +570,25 @@ export declare class SuperAdminService {
         content_type: string;
         is_pdf: boolean;
     }>;
+    getDirectoryDentistPhotoUrl(clinicId: string): Promise<{
+        clinic_id: string;
+        clinic_name: string;
+        url: string;
+        content_type: string;
+    }>;
+    getDirectoryClinicImageUrl(clinicId: string): Promise<{
+        clinic_id: string;
+        clinic_name: string;
+        url: string;
+        content_type: string;
+        uses_dentist_photo_fallback: boolean;
+    }>;
+    private contentTypeFromS3Key;
+    private parseListingCsv;
+    private dentistProfileFromListing;
+    private extFromS3Key;
+    private promoteListingImageKey;
+    private seedDoctorAvailabilityFromListing;
     getPendingSignups(): Promise<{
         id: string;
         email: string;
@@ -685,7 +735,7 @@ export declare class SuperAdminService {
             id: string;
             created_at: Date;
             clinic_id: string;
-            metadata: import("@prisma/client/runtime/client").JsonValue | null;
+            metadata: Prisma.JsonValue | null;
             user_id: string | null;
             entity: string;
             entity_id: string;
@@ -736,7 +786,7 @@ export declare class SuperAdminService {
             clinic_id: string;
             channel: string;
             category: string;
-            metadata: import("@prisma/client/runtime/client").JsonValue;
+            metadata: Prisma.JsonValue;
             recipient: string;
             wa_message_id: string | null;
             sent_at: Date | null;

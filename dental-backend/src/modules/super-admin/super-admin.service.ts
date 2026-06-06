@@ -6,10 +6,11 @@ import { PasswordService } from '../../common/services/password.service.js';
 import { EmailProvider } from '../communication/providers/email.provider.js';
 import { WhatsAppProvider } from '../communication/providers/whatsapp.provider.js';
 import { CreateSuperAdminDto } from './dto/index.js';
-import { SuperAdmin } from '@prisma/client';
+import { Prisma, SuperAdmin } from '@prisma/client';
 import { AutomationService } from '../automation/automation.service.js';
 import { normalizePhoneE164 } from '../../common/utils/phone.util.js';
 import { S3Service } from '../../common/services/s3.service.js';
+import { LISTING_PENDING_DOC_PREFIX } from '../public-directory/listing-verification.service.js';
 
 /** Synthetic clinic ID used to configure the platform-level SMTP transporter */
 const PLATFORM_CLINIC_ID = '__platform__';
@@ -511,6 +512,13 @@ export class SuperAdminService {
         directory_contact_name: true,
         directory_verification_document_url: true,
         directory_verification_document_type: true,
+        directory_dentist_photo_url: true,
+        directory_clinic_image_url: true,
+        directory_dentist_years_experience: true,
+        established_year: true,
+        directory_working_days: true,
+        directory_working_start_time: true,
+        directory_working_end_time: true,
       },
       orderBy: { directory_requested_at: 'asc' },
     });
@@ -548,6 +556,119 @@ export class SuperAdminService {
       content_type,
       is_pdf,
     };
+  }
+
+  async getDirectoryDentistPhotoUrl(clinicId: string) {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { id: true, name: true, directory_dentist_photo_url: true },
+    });
+    if (!clinic?.directory_dentist_photo_url) {
+      throw new NotFoundException('No dentist profile photo on file for this listing');
+    }
+    const url = await this.s3.getSignedUrl(clinic.directory_dentist_photo_url);
+    return {
+      clinic_id: clinic.id,
+      clinic_name: clinic.name,
+      url,
+      content_type: this.contentTypeFromS3Key(clinic.directory_dentist_photo_url),
+    };
+  }
+
+  async getDirectoryClinicImageUrl(clinicId: string) {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: {
+        id: true,
+        name: true,
+        directory_clinic_image_url: true,
+        directory_dentist_photo_url: true,
+      },
+    });
+    const imageKey = clinic?.directory_clinic_image_url || clinic?.directory_dentist_photo_url;
+    if (!clinic || !imageKey) {
+      throw new NotFoundException('No clinic cover image on file for this listing');
+    }
+    const url = await this.s3.getSignedUrl(imageKey);
+    return {
+      clinic_id: clinic.id,
+      clinic_name: clinic.name,
+      url,
+      content_type: this.contentTypeFromS3Key(imageKey),
+      uses_dentist_photo_fallback: !clinic.directory_clinic_image_url,
+    };
+  }
+
+  private contentTypeFromS3Key(key: string): string {
+    const lower = key.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.pdf')) return 'application/pdf';
+    return 'image/jpeg';
+  }
+
+  /** Parse comma-separated listing values (specialties, treatments, etc.). */
+  private parseListingCsv(csv: string | null | undefined): string[] {
+    if (!csv?.trim()) return [];
+    return csv.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+
+  /** Map clinic listing fields → dentist public profile (languages, specialties, treatments). */
+  private dentistProfileFromListing(clinic: {
+    specialties: string | null;
+    directory_treatments: string | null;
+    languages_spoken: string | null;
+  }) {
+    const specializations = this.parseListingCsv(clinic.specialties);
+    const treatmentsOffered = this.parseListingCsv(clinic.directory_treatments);
+    const languages = clinic.languages_spoken?.trim().slice(0, 200) || undefined;
+    return {
+      specializations: specializations.length ? specializations : undefined,
+      treatments_offered: treatmentsOffered.length ? treatmentsOffered : undefined,
+      languages_spoken: languages,
+    };
+  }
+
+  private extFromS3Key(key: string): string {
+    const lower = key.toLowerCase();
+    if (lower.endsWith('.png')) return 'png';
+    if (lower.endsWith('.webp')) return 'webp';
+    return 'jpg';
+  }
+
+  /** Promote staged listing images from pending/ to permanent clinic paths. */
+  private async promoteListingImageKey(
+    sourceKey: string | null | undefined,
+    destBase: string,
+  ): Promise<string | null> {
+    if (!sourceKey) return null;
+    if (!sourceKey.startsWith(LISTING_PENDING_DOC_PREFIX)) return sourceKey;
+    const ext = this.extFromS3Key(sourceKey);
+    const destKey = `${destBase}.${ext}`;
+    const contentType = this.contentTypeFromS3Key(sourceKey);
+    return this.s3.moveObject(sourceKey, destKey, contentType);
+  }
+
+  private async seedDoctorAvailabilityFromListing(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    clinicId: string,
+    workingDays: number[],
+    workingStart: string,
+    workingEnd: string,
+  ) {
+    const availCount = await tx.doctorAvailability.count({ where: { user_id: userId } });
+    if (availCount > 0) return;
+    await tx.doctorAvailability.createMany({
+      data: Array.from({ length: 7 }, (_, i) => ({
+        user_id: userId,
+        clinic_id: clinicId,
+        day_of_week: i + 1,
+        start_time: workingStart,
+        end_time: workingEnd,
+        is_day_off: workingDays.length > 0 ? !workingDays.includes(i + 1) : false,
+      })),
+    });
   }
 
   // ─── Signup Approval ────────────────────────────────────────────────────────
@@ -695,11 +816,30 @@ export class SuperAdminService {
   }
 
   async approveDirectoryListing(id: string) {
-    const clinic = await this.prisma.clinic.findUnique({ where: { id } });
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id },
+      select: {
+        id: true, name: true, email: true, phone: true,
+        address: true, directory_approval_status: true,
+        directory_contact_name: true,
+        directory_verification_document_url: true,
+        directory_dentist_photo_url: true,
+        directory_clinic_image_url: true,
+        directory_working_days: true,
+        directory_working_start_time: true,
+        directory_working_end_time: true,
+        directory_dentist_years_experience: true,
+        languages_spoken: true,
+        specialties: true,
+        directory_treatments: true,
+      },
+    });
     if (!clinic) throw new NotFoundException('Clinic not found');
     if (clinic.directory_approval_status !== 'pending') {
       throw new BadRequestException('No pending directory approval request for this clinic');
     }
+
+    const dentistProfile = this.dentistProfileFromListing(clinic);
 
     const freePlan = await this.prisma.plan.findFirst({
       where: { name: { equals: 'Free', mode: 'insensitive' } },
@@ -715,8 +855,24 @@ export class SuperAdminService {
       () => chars[randomInt(0, chars.length)],
     ).join('');
 
-    const existingUser = await this.prisma.user.findFirst({ where: { clinic_id: id } });
+    const existingUser = await this.prisma.user.findFirst({
+      where: { clinic_id: id },
+      select: {
+        id: true, role: true, profile_photo_url: true, years_experience: true,
+        languages_spoken: true, specializations: true, treatments_offered: true,
+      },
+    });
     let createdNewUser = false;
+    let approvedUserId: string | null = existingUser?.id ?? null;
+
+    // Pre-compute working schedule values so they're available inside the transaction.
+    const workingDays = clinic.directory_working_days
+      ? clinic.directory_working_days.split(',').map((d) => parseInt(d.trim(), 10)).filter((d) => d >= 1 && d <= 7)
+      : [1, 2, 3, 4, 5, 6];
+    const workingStart = clinic.directory_working_start_time || '09:00';
+    const workingEnd   = clinic.directory_working_end_time   || '20:00';
+    const listingCoverKey =
+      clinic.directory_clinic_image_url || clinic.directory_dentist_photo_url || null;
 
     await this.prisma.$transaction(async (tx) => {
       let branch = await tx.branch.findFirst({ where: { clinic_id: id } });
@@ -727,6 +883,26 @@ export class SuperAdminService {
             name: 'Main Branch',
             address: clinic.address || undefined,
             phone: clinic.phone || undefined,
+            // Seed branch schedule and cover photo from listing data
+            photo_url:          listingCoverKey || undefined,
+            working_days:       clinic.directory_working_days || '1,2,3,4,5,6',
+            working_start_time: workingStart,
+            working_end_time:   workingEnd,
+          },
+        });
+      } else {
+        // Update existing branch — only fill in fields that aren't already set
+        await tx.branch.update({
+          where: { id: branch.id },
+          data: {
+            ...(!branch.photo_url && listingCoverKey ? { photo_url: listingCoverKey } : {}),
+            ...(!branch.working_days
+              ? {
+                  working_days: clinic.directory_working_days || '1,2,3,4,5,6',
+                  working_start_time: workingStart,
+                  working_end_time: workingEnd,
+                }
+              : {}),
           },
         });
       }
@@ -735,7 +911,7 @@ export class SuperAdminService {
 
       if (!existingUser && clinic.email) {
         const passwordHash = await this.passwordService.hash(randomPassword);
-        await tx.user.create({
+        const newUser = await tx.user.create({
           data: {
             clinic_id: id,
             branch_id: branch.id,
@@ -751,8 +927,22 @@ export class SuperAdminService {
             must_change_password: true,
             is_doctor: true,
             listed_in_directory: true,
+            // Profile photo uploaded during listing form
+            profile_photo_url: clinic.directory_dentist_photo_url || undefined,
+            // Dentist profile fields from listing (same as form selections)
+            years_experience: clinic.directory_dentist_years_experience ?? undefined,
+            languages_spoken: dentistProfile.languages_spoken,
+            specializations: dentistProfile.specializations,
+            treatments_offered: dentistProfile.treatments_offered,
           },
+          select: { id: true },
         });
+
+        await this.seedDoctorAvailabilityFromListing(
+          tx, newUser.id, id, workingDays, workingStart, workingEnd,
+        );
+
+        approvedUserId = newUser.id;
         createdNewUser = true;
       } else if (existingUser?.role === 'SuperAdmin') {
         await tx.user.update({
@@ -763,8 +953,23 @@ export class SuperAdminService {
             ...(normalizedPhone
               ? { phone: normalizedPhone, phone_verified: true }
               : {}),
+            // Set profile photo only if not already set
+            ...(clinic.directory_dentist_photo_url && !existingUser.profile_photo_url
+              ? { profile_photo_url: clinic.directory_dentist_photo_url }
+              : {}),
+            ...(clinic.directory_dentist_years_experience != null && existingUser.years_experience == null
+              ? { years_experience: clinic.directory_dentist_years_experience }
+              : {}),
+            // Always mirror listing selections onto the dentist directory profile
+            languages_spoken: dentistProfile.languages_spoken,
+            specializations: dentistProfile.specializations,
+            treatments_offered: dentistProfile.treatments_offered,
           },
         });
+        await this.seedDoctorAvailabilityFromListing(
+          tx, existingUser.id, id, workingDays, workingStart, workingEnd,
+        );
+        approvedUserId = existingUser.id;
       }
 
       await tx.clinic.update({
@@ -782,6 +987,65 @@ export class SuperAdminService {
         },
       });
     });
+
+    // Promote staged listing images from pending/ to permanent clinic paths.
+    const branch = await this.prisma.branch.findFirst({ where: { clinic_id: id }, select: { id: true } });
+    if (branch) {
+      const dentistPending = clinic.directory_dentist_photo_url;
+      const clinicPending = clinic.directory_clinic_image_url;
+      const sameListingImage = !clinicPending || clinicPending === dentistPending;
+
+      const dentistKey = await this.promoteListingImageKey(
+        dentistPending,
+        `clinics/${id}/staff-photos/listing_dentist`,
+      );
+
+      let clinicImageKey: string | null = null;
+      if (sameListingImage && dentistKey) {
+        const ext = this.extFromS3Key(dentistKey);
+        const dest = `clinics/${id}/branch-photos/${branch.id}.${ext}`;
+        clinicImageKey = await this.s3.copyObject(
+          dentistKey,
+          dest,
+          this.contentTypeFromS3Key(dentistKey),
+        );
+      } else {
+        clinicImageKey = await this.promoteListingImageKey(
+          clinicPending,
+          `clinics/${id}/branch-photos/${branch.id}`,
+        );
+      }
+      if (!clinicImageKey && dentistKey) {
+        const ext = this.extFromS3Key(dentistKey);
+        clinicImageKey = await this.s3.copyObject(
+          dentistKey,
+          `clinics/${id}/branch-photos/${branch.id}.${ext}`,
+          this.contentTypeFromS3Key(dentistKey),
+        );
+      }
+
+      if (dentistKey || clinicImageKey) {
+        if (clinicImageKey) {
+          await this.prisma.branch.update({
+            where: { id: branch.id },
+            data: { photo_url: clinicImageKey },
+          });
+        }
+        if (approvedUserId && dentistKey) {
+          await this.prisma.user.update({
+            where: { id: approvedUserId },
+            data: { profile_photo_url: dentistKey },
+          });
+        }
+        await this.prisma.clinic.update({
+          where: { id },
+          data: {
+            ...(dentistKey ? { directory_dentist_photo_url: dentistKey } : {}),
+            ...(clinicImageKey ? { directory_clinic_image_url: clinicImageKey } : {}),
+          },
+        });
+      }
+    }
 
     this.automationService.seedClinicAutomationDefaults(id).catch((err) =>
       this.logger.warn(`Failed to seed automation defaults for listing clinic ${id}: ${(err as Error).message}`),
