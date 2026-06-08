@@ -125,6 +125,7 @@ export declare class SuperAdminService {
     listClinics(params: {
         status?: string;
         search?: string;
+        group?: 'directory_free' | 'paid';
         page?: number;
         limit?: number;
     }): Promise<{

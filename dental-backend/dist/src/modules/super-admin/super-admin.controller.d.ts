@@ -147,7 +147,7 @@ export declare class SuperAdminController {
             inactivity_reminder_40_sent: boolean;
         })[];
     }>;
-    listClinics(status?: string, search?: string, page?: string, limit?: string): Promise<{
+    listClinics(status?: string, search?: string, group?: string, page?: string, limit?: string): Promise<{
         data: ({
             plan: {
                 id: string;

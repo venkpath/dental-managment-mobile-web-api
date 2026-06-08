@@ -91,12 +91,14 @@ export class SuperAdminController {
   async listClinics(
     @Query('status') status?: string,
     @Query('search') search?: string,
+    @Query('group') group?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
     return this.superAdminService.listClinics({
       status,
       search,
+      group: group as 'directory_free' | 'paid' | undefined,
       page: page ? parseInt(page, 10) : 1,
       limit: limit ? parseInt(limit, 10) : 20,
     });

@@ -199,17 +199,34 @@ export class SuperAdminService {
 
   // ─── Clinics Management ───
 
-  async listClinics(params: { status?: string; search?: string; page?: number; limit?: number }) {
-    const { status, search, page = 1, limit = 20 } = params;
+  async listClinics(params: { status?: string; search?: string; group?: 'directory_free' | 'paid'; page?: number; limit?: number }) {
+    const { status, search, group, page = 1, limit = 20 } = params;
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = {};
-    if (status) where['subscription_status'] = status;
+    if (group === 'directory_free') {
+      where['AND'] = [
+        { OR: [{ listed_in_directory: true }, { is_directory_only: true }] },
+        { plan: { name: { equals: 'Free', mode: 'insensitive' } } },
+      ];
+    } else if (group === 'paid') {
+      where['AND'] = [
+        { plan: { name: { not: { equals: 'Free' } } } },
+        { subscription_status: { in: ['trial', 'active'] } },
+      ];
+    } else {
+      if (status) where['subscription_status'] = status;
+    }
     if (search) {
-      where['OR'] = [
+      const searchCondition = [
         { name: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
       ];
+      if (where['AND']) {
+        (where['AND'] as unknown[]).push({ OR: searchCondition });
+      } else {
+        where['OR'] = searchCondition;
+      }
     }
 
     const [clinics, total] = await Promise.all([
