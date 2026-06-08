@@ -759,6 +759,14 @@ export class AuthService {
       this.logger.warn(`Failed to seed automation defaults for clinic ${result.clinic.id}: ${(err as Error).message}`),
     );
 
+    this.prisma.clinicCommunicationSettings.upsert({
+      where: { clinic_id: result.clinic.id },
+      create: { clinic_id: result.clinic.id, enable_whatsapp: true },
+      update: { enable_whatsapp: true },
+    }).catch((err) =>
+      this.logger.warn(`Failed to seed communication settings for clinic ${result.clinic.id}: ${(err as Error).message}`),
+    );
+
     // Fire-and-forget onboarding emails (don't block the response)
     this.sendOnboardingWelcomeEmail({
       admin_name: result.admin.name,

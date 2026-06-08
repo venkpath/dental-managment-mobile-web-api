@@ -329,6 +329,12 @@ export class SuperAdminService {
 
     await this.automationService.seedClinicAutomationDefaults(result.clinic.id);
 
+    await this.prisma.clinicCommunicationSettings.upsert({
+      where: { clinic_id: result.clinic.id },
+      create: { clinic_id: result.clinic.id, enable_whatsapp: true },
+      update: { enable_whatsapp: true },
+    });
+
     // Fire-and-forget onboarding emails (don't block the response)
     this.sendOnboardingWelcomeEmail({
       admin_name: result.admin.name,
@@ -1073,6 +1079,12 @@ export class SuperAdminService {
     this.automationService.seedClinicAutomationDefaults(id).catch((err) =>
       this.logger.warn(`Failed to seed automation defaults for listing clinic ${id}: ${(err as Error).message}`),
     );
+
+    await this.prisma.clinicCommunicationSettings.upsert({
+      where: { clinic_id: id },
+      create: { clinic_id: id, enable_whatsapp: true },
+      update: { enable_whatsapp: true },
+    });
 
     // Send welcome email with credentials (fire-and-forget)
     if (clinic.email && createdNewUser) {

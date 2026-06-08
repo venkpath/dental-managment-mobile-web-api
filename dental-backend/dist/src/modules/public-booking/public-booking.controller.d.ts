@@ -3,6 +3,7 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 import { OtpService } from './otp.service.js';
 import { AppointmentReminderProducer } from '../appointment/appointment-reminder.producer.js';
+import { AppointmentNotificationService } from '../appointment/appointment-notification.service.js';
 declare class BookAppointmentDto {
     first_name: string;
     last_name: string;
@@ -26,11 +27,12 @@ declare class VerifyOtpDto {
 export declare class PublicBookingController {
     private readonly prisma;
     private readonly reminderProducer;
+    private readonly notificationService;
     private readonly s3;
     private readonly config;
     private readonly otpService;
     private readonly logger;
-    constructor(prisma: PrismaService, reminderProducer: AppointmentReminderProducer, s3: S3Service, config: ConfigService, otpService: OtpService);
+    constructor(prisma: PrismaService, reminderProducer: AppointmentReminderProducer, notificationService: AppointmentNotificationService, s3: S3Service, config: ConfigService, otpService: OtpService);
     getBranchBookingInfo(clinicId: string, branchId: string): Promise<{
         clinic: {
             id: string;

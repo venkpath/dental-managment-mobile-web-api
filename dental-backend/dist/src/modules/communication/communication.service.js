@@ -873,13 +873,25 @@ let CommunicationService = class CommunicationService {
         this.logger.log(`Fallback: ${messageId} ${failedChannel} → ${nextChannel}`);
         return true;
     }
+    platformWhatsAppAvailable() {
+        return !!(this.configService.get('app.whatsapp.accessToken') &&
+            this.configService.get('app.whatsapp.phoneNumberId'));
+    }
     async getOrCreateClinicSettings(clinicId) {
         let settings = await this.prisma.clinicCommunicationSettings.findUnique({
             where: { clinic_id: clinicId },
         });
+        const platformWa = this.platformWhatsAppAvailable();
         if (!settings) {
             settings = await this.prisma.clinicCommunicationSettings.create({
-                data: { clinic_id: clinicId },
+                data: { clinic_id: clinicId, enable_whatsapp: platformWa },
+            });
+            return settings;
+        }
+        if (platformWa && !settings.enable_whatsapp && !settings.whatsapp_config) {
+            settings = await this.prisma.clinicCommunicationSettings.update({
+                where: { clinic_id: clinicId },
+                data: { enable_whatsapp: true },
             });
         }
         return settings;

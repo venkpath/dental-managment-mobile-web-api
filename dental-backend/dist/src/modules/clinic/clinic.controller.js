@@ -16,6 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ClinicController = void 0;
 const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
+const class_validator_1 = require("class-validator");
 const https_1 = require("https");
 const swagger_1 = require("@nestjs/swagger");
 const platform_express_1 = require("@nestjs/platform-express");
@@ -28,6 +29,14 @@ const roles_decorator_js_1 = require("../../common/decorators/roles.decorator.js
 const create_user_dto_js_1 = require("../user/dto/create-user.dto.js");
 const current_user_decorator_js_1 = require("../../common/decorators/current-user.decorator.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
+class DeleteGalleryImageDto {
+    key;
+}
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], DeleteGalleryImageDto.prototype, "key", void 0);
 const clinic_service_js_1 = require("./clinic.service.js");
 const index_js_1 = require("./dto/index.js");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
@@ -122,6 +131,65 @@ let ClinicController = class ClinicController {
         const key = `clinics/${user.clinicId}/logos/${(0, crypto_1.randomUUID)()}${ext}`;
         await this.s3Service.upload(key, file.buffer, file.mimetype);
         return this.clinicService.update(user.clinicId, { logo_url: key });
+    }
+    async getGallery(user) {
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: user.clinicId },
+            select: { gallery_images: true },
+        });
+        const keys = this.parseGalleryKeys(clinic?.gallery_images);
+        const signed_urls = await Promise.all(keys.map((k) => this.s3Service.getSignedUrl(k).catch(() => null)));
+        return { keys, signed_urls };
+    }
+    async uploadGalleryImage(user, file) {
+        if (!file)
+            throw new common_1.BadRequestException('No file uploaded');
+        const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!allowed.includes(file.mimetype)) {
+            throw new common_1.BadRequestException('Only JPEG, PNG, or WebP images allowed');
+        }
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: user.clinicId },
+            select: { gallery_images: true },
+        });
+        const keys = this.parseGalleryKeys(clinic?.gallery_images);
+        if (keys.length >= 5)
+            throw new common_1.BadRequestException('Maximum 5 gallery images allowed');
+        const ext = ((0, path_1.extname)(file.originalname) || '.jpg').toLowerCase();
+        const key = `clinics/${user.clinicId}/gallery/${(0, crypto_1.randomUUID)()}${ext}`;
+        await this.s3Service.upload(key, file.buffer, file.mimetype);
+        const updatedKeys = [...keys, key];
+        await this.clinicService.update(user.clinicId, { gallery_images: JSON.stringify(updatedKeys) });
+        const signed_urls = await Promise.all(updatedKeys.map((k) => this.s3Service.getSignedUrl(k).catch(() => null)));
+        return { keys: updatedKeys, signed_urls };
+    }
+    async deleteGalleryImage(user, body) {
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: user.clinicId },
+            select: { gallery_images: true },
+        });
+        const keys = this.parseGalleryKeys(clinic?.gallery_images);
+        if (!keys.includes(body.key))
+            throw new common_1.BadRequestException('Image not found in gallery');
+        this.s3Service.delete(body.key).catch((e) => {
+            this.logger.warn(`Failed to delete gallery image ${body.key}: ${String(e)}`);
+        });
+        const updatedKeys = keys.filter((k) => k !== body.key);
+        await this.clinicService.update(user.clinicId, {
+            gallery_images: updatedKeys.length ? JSON.stringify(updatedKeys) : undefined,
+        });
+        const signed_urls = await Promise.all(updatedKeys.map((k) => this.s3Service.getSignedUrl(k).catch(() => null)));
+        return { keys: updatedKeys, signed_urls };
+    }
+    parseGalleryKeys(raw) {
+        if (!raw)
+            return [];
+        try {
+            return JSON.parse(raw);
+        }
+        catch {
+            return [];
+        }
     }
     async serveLogo(clinicId, filename, res) {
         if (!/^[A-Za-z0-9-]+$/.test(clinicId) || !/^[A-Za-z0-9._-]+$/.test(filename)) {
@@ -308,6 +376,43 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], ClinicController.prototype, "uploadLogo", null);
+__decorate([
+    (0, common_1.Get)('me/gallery'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Get gallery images (with presigned URLs) for the authenticated clinic' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], ClinicController.prototype, "getGallery", null);
+__decorate([
+    (0, common_1.Post)('me/gallery'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Upload a gallery image (max 5 per clinic)' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', { limits: { fileSize: 5 * 1024 * 1024 } })),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(1, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], ClinicController.prototype, "uploadGalleryImage", null);
+__decorate([
+    (0, common_1.Delete)('me/gallery'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.SUPER_ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete a gallery image by S3 key' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, DeleteGalleryImageDto]),
+    __metadata("design:returntype", Promise)
+], ClinicController.prototype, "deleteGalleryImage", null);
 __decorate([
     (0, common_1.Get)('logo/:clinicId/:filename'),
     (0, public_decorator_js_1.Public)(),

@@ -639,6 +639,11 @@ let AuthService = class AuthService {
             return { clinic, admin, branch };
         });
         this.automationService.seedClinicAutomationDefaults(result.clinic.id).catch((err) => this.logger.warn(`Failed to seed automation defaults for clinic ${result.clinic.id}: ${err.message}`));
+        this.prisma.clinicCommunicationSettings.upsert({
+            where: { clinic_id: result.clinic.id },
+            create: { clinic_id: result.clinic.id, enable_whatsapp: true },
+            update: { enable_whatsapp: true },
+        }).catch((err) => this.logger.warn(`Failed to seed communication settings for clinic ${result.clinic.id}: ${err.message}`));
         this.sendOnboardingWelcomeEmail({
             admin_name: result.admin.name,
             admin_email: result.admin.email,

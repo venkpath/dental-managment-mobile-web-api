@@ -276,6 +276,11 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
             return { clinic, branch, admin: user };
         });
         await this.automationService.seedClinicAutomationDefaults(result.clinic.id);
+        await this.prisma.clinicCommunicationSettings.upsert({
+            where: { clinic_id: result.clinic.id },
+            create: { clinic_id: result.clinic.id, enable_whatsapp: true },
+            update: { enable_whatsapp: true },
+        });
         this.sendOnboardingWelcomeEmail({
             admin_name: result.admin.name,
             admin_email: result.admin.email,
@@ -881,6 +886,11 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
             this.logger.warn(`Directory listing approved for ${id} but image promotion failed: ${err.message}`);
         }
         this.automationService.seedClinicAutomationDefaults(id).catch((err) => this.logger.warn(`Failed to seed automation defaults for listing clinic ${id}: ${err.message}`));
+        await this.prisma.clinicCommunicationSettings.upsert({
+            where: { clinic_id: id },
+            create: { clinic_id: id, enable_whatsapp: true },
+            update: { enable_whatsapp: true },
+        });
         if (clinic.email && createdNewUser) {
             this.sendListingWelcomeEmail(clinic, randomPassword).catch((err) => this.logger.warn(`Listing welcome email failed: ${err.message}`));
         }

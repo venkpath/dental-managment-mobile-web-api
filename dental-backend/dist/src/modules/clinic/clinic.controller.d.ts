@@ -6,6 +6,9 @@ interface RequestUser {
     role: string;
     branchId: string | null;
 }
+declare class DeleteGalleryImageDto {
+    key: string;
+}
 import { ClinicService } from './clinic.service.js';
 import { CreateClinicDto, UpdateClinicDto, UpdateSubscriptionDto } from './dto/index.js';
 import { PrismaService } from '../../database/prisma.service.js';
@@ -696,6 +699,19 @@ export declare class ClinicController {
         inactivity_reminder_30_sent: boolean;
         inactivity_reminder_40_sent: boolean;
     }>;
+    getGallery(user: RequestUser): Promise<{
+        keys: string[];
+        signed_urls: (string | null)[];
+    }>;
+    uploadGalleryImage(user: RequestUser, file: Express.Multer.File): Promise<{
+        keys: string[];
+        signed_urls: (string | null)[];
+    }>;
+    deleteGalleryImage(user: RequestUser, body: DeleteGalleryImageDto): Promise<{
+        keys: string[];
+        signed_urls: (string | null)[];
+    }>;
+    private parseGalleryKeys;
     serveLogo(clinicId: string, filename: string, res: Response): Promise<void>;
     serveBranchPhoto(clinicId: string, branchId: string, res: Response): Promise<void>;
 }

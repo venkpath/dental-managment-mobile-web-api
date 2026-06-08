@@ -1,7 +1,8 @@
 import {
-  Controller, Get, Post, Patch, Param, Body, ParseUUIDPipe,
+  Controller, Get, Post, Patch, Delete, Param, Body, ParseUUIDPipe,
   UseInterceptors, UploadedFile, BadRequestException, Res, Logger,
 } from '@nestjs/common';
+import { IsString, IsNotEmpty } from 'class-validator';
 import { get as httpsGet } from 'https';
 import {
   ApiTags,
@@ -30,6 +31,12 @@ interface RequestUser {
   role: string;
   branchId: string | null;
 }
+class DeleteGalleryImageDto {
+  @IsString()
+  @IsNotEmpty()
+  key!: string;
+}
+
 import { ClinicService } from './clinic.service.js';
 import { CreateClinicDto, UpdateClinicDto, UpdateSubscriptionDto } from './dto/index.js';
 import { PrismaService } from '../../database/prisma.service.js';
@@ -204,6 +211,95 @@ export class ClinicController {
     const key = `clinics/${user.clinicId}/logos/${randomUUID()}${ext}`;
     await this.s3Service.upload(key, file.buffer, file.mimetype);
     return this.clinicService.update(user.clinicId, { logo_url: key });
+  }
+
+  // ── Gallery upload / list / delete ──────────────────────────────────
+
+  @Get('me/gallery')
+  @ApiBearerAuth()
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get gallery images (with presigned URLs) for the authenticated clinic' })
+  async getGallery(@CurrentUser() user: RequestUser) {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: user.clinicId },
+      select: { gallery_images: true },
+    });
+    const keys: string[] = this.parseGalleryKeys(clinic?.gallery_images);
+    const signed_urls = await Promise.all(
+      keys.map((k) => this.s3Service.getSignedUrl(k).catch(() => null)),
+    );
+    return { keys, signed_urls };
+  }
+
+  @Post('me/gallery')
+  @ApiBearerAuth()
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Upload a gallery image (max 5 per clinic)' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  async uploadGalleryImage(
+    @CurrentUser() user: RequestUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.mimetype)) {
+      throw new BadRequestException('Only JPEG, PNG, or WebP images allowed');
+    }
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: user.clinicId },
+      select: { gallery_images: true },
+    });
+    const keys: string[] = this.parseGalleryKeys(clinic?.gallery_images);
+    if (keys.length >= 5) throw new BadRequestException('Maximum 5 gallery images allowed');
+
+    const ext = (extname(file.originalname) || '.jpg').toLowerCase();
+    const key = `clinics/${user.clinicId}/gallery/${randomUUID()}${ext}`;
+    await this.s3Service.upload(key, file.buffer, file.mimetype);
+
+    const updatedKeys = [...keys, key];
+    await this.clinicService.update(user.clinicId, { gallery_images: JSON.stringify(updatedKeys) });
+
+    const signed_urls = await Promise.all(
+      updatedKeys.map((k) => this.s3Service.getSignedUrl(k).catch(() => null)),
+    );
+    return { keys: updatedKeys, signed_urls };
+  }
+
+  @Delete('me/gallery')
+  @ApiBearerAuth()
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Delete a gallery image by S3 key' })
+  async deleteGalleryImage(
+    @CurrentUser() user: RequestUser,
+    @Body() body: DeleteGalleryImageDto,
+  ) {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: user.clinicId },
+      select: { gallery_images: true },
+    });
+    const keys: string[] = this.parseGalleryKeys(clinic?.gallery_images);
+    if (!keys.includes(body.key)) throw new BadRequestException('Image not found in gallery');
+
+    // Delete from S3 (fire and forget — don't block if it fails)
+    this.s3Service.delete(body.key).catch((e: unknown) => {
+      this.logger.warn(`Failed to delete gallery image ${body.key}: ${String(e)}`);
+    });
+
+    const updatedKeys = keys.filter((k) => k !== body.key);
+    await this.clinicService.update(user.clinicId, {
+      gallery_images: updatedKeys.length ? JSON.stringify(updatedKeys) : undefined,
+    });
+
+    const signed_urls = await Promise.all(
+      updatedKeys.map((k) => this.s3Service.getSignedUrl(k).catch(() => null)),
+    );
+    return { keys: updatedKeys, signed_urls };
+  }
+
+  private parseGalleryKeys(raw: string | null | undefined): string[] {
+    if (!raw) return [];
+    try { return JSON.parse(raw) as string[]; } catch { return []; }
   }
 
   @Get('logo/:clinicId/:filename')

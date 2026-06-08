@@ -26,6 +26,7 @@ const s3_service_js_1 = require("../../common/services/s3.service.js");
 const otp_service_js_1 = require("./otp.service.js");
 const booking_url_util_js_1 = require("../../common/utils/booking-url.util.js");
 const appointment_reminder_producer_js_1 = require("../appointment/appointment-reminder.producer.js");
+const appointment_notification_service_js_1 = require("../appointment/appointment-notification.service.js");
 const META_GRAPH_API = 'https://graph.facebook.com/v21.0';
 class BookAppointmentDto {
     first_name;
@@ -148,13 +149,15 @@ function getNowMinutesIST() {
 let PublicBookingController = PublicBookingController_1 = class PublicBookingController {
     prisma;
     reminderProducer;
+    notificationService;
     s3;
     config;
     otpService;
     logger = new common_1.Logger(PublicBookingController_1.name);
-    constructor(prisma, reminderProducer, s3, config, otpService) {
+    constructor(prisma, reminderProducer, notificationService, s3, config, otpService) {
         this.prisma = prisma;
         this.reminderProducer = reminderProducer;
+        this.notificationService = notificationService;
         this.s3 = s3;
         this.config = config;
         this.otpService = otpService;
@@ -379,6 +382,12 @@ let PublicBookingController = PublicBookingController_1 = class PublicBookingCon
                 dentist: { select: { name: true } },
             },
         });
+        this.notificationService.sendConfirmation(clinicId, appointment.id).catch((e) => {
+            this.logger.warn(`Appointment confirmation notification failed for public booking ${appointment.id}: ${e.message}`);
+        });
+        this.notificationService.sendDentistConfirmation(clinicId, appointment.id).catch((e) => {
+            this.logger.warn(`Dentist confirmation notification failed for public booking ${appointment.id}: ${e.message}`);
+        });
         this.reminderProducer
             .scheduleReminders(appointment.id, clinicId, appointment.appointment_date, appointment.start_time)
             .catch((e) => {
@@ -519,6 +528,7 @@ exports.PublicBookingController = PublicBookingController = PublicBookingControl
     (0, common_1.Controller)('public/booking'),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         appointment_reminder_producer_js_1.AppointmentReminderProducer,
+        appointment_notification_service_js_1.AppointmentNotificationService,
         s3_service_js_1.S3Service,
         config_1.ConfigService,
         otp_service_js_1.OtpService])
