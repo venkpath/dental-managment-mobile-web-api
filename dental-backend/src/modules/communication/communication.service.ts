@@ -110,7 +110,15 @@ export class CommunicationService {
       }
     }
 
-    // 4.7 WhatsApp quota check (skipped for Growth BYO-WABA clinics)
+    // 4.7 BYO-WABA clinics must never send via the shared platform WhatsApp account
+    if (dto.channel === 'whatsapp') {
+      const byoBlockReason = await this.getByoWhatsAppBlockReason(clinicId);
+      if (byoBlockReason) {
+        return this.createSkippedMessage(clinicId, dto, patient, byoBlockReason);
+      }
+    }
+
+    // 4.8 WhatsApp quota check
     if (dto.channel === 'whatsapp') {
       const quotaExceeded = await this.checkWhatsAppQuota(clinicId);
       if (quotaExceeded) {
@@ -1496,16 +1504,26 @@ export class CommunicationService {
   }
 
   private async loadAndConfigureProviders(clinicId: string): Promise<void> {
-    const [settings, canCustomize] = await Promise.all([
+    const [settings, canCustomize, clinic] = await Promise.all([
       this.prisma.clinicCommunicationSettings.findUnique({
         where: { clinic_id: clinicId },
       }),
       this.hasClinicFeature(clinicId, 'CUSTOM_PROVIDER_CONFIG'),
+      this.prisma.clinic.findUnique({
+        where: { id: clinicId },
+        select: { has_own_waba: true },
+      }),
     ]);
 
-    // Only apply clinic-level provider configs if the plan supports customization
+    const isByoWaba = clinic?.has_own_waba ?? false;
+
+    // Apply full clinic-level provider configs when the plan supports customization.
     if (settings && canCustomize) {
-      this.configureProviders(clinicId, settings);
+      this.configureProviders(clinicId, settings, { isByoWaba });
+    } else if (settings && isByoWaba) {
+      // BYO-WABA clinics must always load their own WhatsApp credentials from DB,
+      // even without CUSTOM_PROVIDER_CONFIG — never silently use the platform WABA.
+      this.configureClinicWhatsApp(clinicId, settings, { isByoWaba: true });
     }
 
     // Fallback: configure email from env vars if not already configured
@@ -1540,32 +1558,121 @@ export class CommunicationService {
       }
     }
 
-    // Fallback: configure WhatsApp from env vars if not already configured
+    // Fallback: configure WhatsApp from env vars only for clinics on the shared platform WABA.
     if (!this.whatsAppProvider.isConfigured(clinicId)) {
-      const envAccessToken = this.configService.get<string>('app.whatsapp.accessToken');
-      const envPhoneNumberId = this.configService.get<string>('app.whatsapp.phoneNumberId');
-      if (envAccessToken && envPhoneNumberId) {
-        this.whatsAppProvider.configure(clinicId, {
-          accessToken: envAccessToken,
-          phoneNumberId: envPhoneNumberId,
-          wabaId: this.configService.get<string>('app.whatsapp.wabaId'),
-        }, 'meta');
-        this.logger.log(`WhatsApp provider configured from env vars for clinic ${clinicId}`);
+      if (isByoWaba) {
+        this.logger.error(
+          `BYO-WABA clinic ${clinicId}: own WhatsApp credentials could not be loaded — ` +
+          `refusing platform WABA fallback. Check enable_whatsapp, whatsapp_config, and token encryption.`,
+        );
+      } else {
+        const envAccessToken = this.configService.get<string>('app.whatsapp.accessToken');
+        const envPhoneNumberId = this.configService.get<string>('app.whatsapp.phoneNumberId');
+        if (envAccessToken && envPhoneNumberId) {
+          this.whatsAppProvider.configure(clinicId, {
+            accessToken: envAccessToken,
+            phoneNumberId: envPhoneNumberId,
+            wabaId: this.configService.get<string>('app.whatsapp.wabaId'),
+          }, 'meta');
+          this.logger.log(`WhatsApp provider configured from env vars for clinic ${clinicId}`);
+        }
       }
     }
   }
 
-  private configureProviders(clinicId: string, settings: {
-    enable_email: boolean;
-    email_provider: string | null;
-    email_config: unknown;
-    enable_sms: boolean;
-    sms_provider: string | null;
-    sms_config: unknown;
-    enable_whatsapp: boolean;
-    whatsapp_provider: string | null;
-    whatsapp_config: unknown;
-  }): void {
+  /**
+   * Returns a skip reason when a BYO-WABA clinic cannot safely send WhatsApp,
+   * or null when sending may proceed.
+   */
+  private async getByoWhatsAppBlockReason(clinicId: string): Promise<string | null> {
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { has_own_waba: true },
+    });
+    if (!clinic?.has_own_waba) return null;
+
+    if (!this.whatsAppProvider.isConfigured(clinicId)) {
+      return 'byo_whatsapp_not_configured';
+    }
+
+    const platformPhoneId = this.configService.get<string>('app.whatsapp.phoneNumberId');
+    const clinicPhoneId = this.whatsAppProvider.getPhoneNumberId(clinicId);
+    if (platformPhoneId && clinicPhoneId === platformPhoneId) {
+      this.logger.error(
+        `BYO-WABA clinic ${clinicId} is routed to the platform WhatsApp phone_number_id — blocking send`,
+      );
+      return 'byo_whatsapp_platform_fallback_blocked';
+    }
+
+    return null;
+  }
+
+  private configureClinicWhatsApp(
+    clinicId: string,
+    settings: {
+      enable_whatsapp: boolean;
+      whatsapp_provider: string | null;
+      whatsapp_config: unknown;
+    },
+    options?: { isByoWaba?: boolean },
+  ): void {
+    if (!settings.enable_whatsapp || !settings.whatsapp_config || !settings.whatsapp_provider) {
+      if (options?.isByoWaba) {
+        this.logger.error(
+          `BYO-WABA clinic ${clinicId}: WhatsApp is not fully configured in clinic settings ` +
+          `(enable_whatsapp, whatsapp_provider, whatsapp_config required)`,
+        );
+      }
+      return;
+    }
+
+    const raw = settings.whatsapp_config as Record<string, unknown>;
+    const rawToken = (raw.accessToken ?? raw.access_token) as string;
+    const phoneNumberId = (raw.phoneNumberId ?? raw.phone_number_id) as string;
+    const platformPhoneId = this.configService.get<string>('app.whatsapp.phoneNumberId');
+
+    if (options?.isByoWaba && platformPhoneId && phoneNumberId === platformPhoneId) {
+      this.logger.error(
+        `BYO-WABA clinic ${clinicId}: whatsapp_config uses the platform phone_number_id — refusing to configure`,
+      );
+      return;
+    }
+
+    try {
+      const waConfig: WhatsAppProviderConfig = {
+        accessToken: decrypt(rawToken),
+        phoneNumberId,
+        wabaId: (raw.wabaId ?? raw.waba_id) as string | undefined,
+      };
+      this.whatsAppProvider.configure(clinicId, waConfig, settings.whatsapp_provider);
+      this.logger.log(
+        `WhatsApp provider configured for clinic ${clinicId}: ${settings.whatsapp_provider} ` +
+        `(phone_number_id=${phoneNumberId})`,
+      );
+    } catch (decryptError) {
+      this.logger.error(
+        `WhatsApp provider config failed for clinic ${clinicId}: decryption error — ` +
+        `${decryptError instanceof Error ? decryptError.message : String(decryptError)}. ` +
+        `Check that encryption keys match and token is valid.`,
+      );
+    }
+  }
+
+  private configureProviders(
+    clinicId: string,
+    settings: {
+      enable_email: boolean;
+      email_provider: string | null;
+      email_config: unknown;
+      enable_sms: boolean;
+      sms_provider: string | null;
+      sms_config: unknown;
+      enable_whatsapp: boolean;
+      whatsapp_provider: string | null;
+      whatsapp_config: unknown;
+    },
+    options?: { isByoWaba?: boolean },
+  ): void {
     // Configure email provider
     if (settings.enable_email && settings.email_config && settings.email_provider) {
       const raw = settings.email_config as Record<string, unknown>;
@@ -1609,26 +1716,7 @@ export class CommunicationService {
       this.logger.log(`SMS provider configured for clinic ${clinicId}: ${settings.sms_provider}`);
     }
 
-    // Configure WhatsApp provider (Meta Cloud API)
-    if (settings.enable_whatsapp && settings.whatsapp_config && settings.whatsapp_provider) {
-      const raw = settings.whatsapp_config as Record<string, unknown>;
-      const rawToken = (raw.accessToken ?? raw.access_token) as string;
-
-      try {
-        const waConfig: WhatsAppProviderConfig = {
-          accessToken: decrypt(rawToken),
-          phoneNumberId: (raw.phoneNumberId ?? raw.phone_number_id) as string,
-          wabaId: (raw.wabaId ?? raw.waba_id) as string | undefined,
-        };
-        this.whatsAppProvider.configure(clinicId, waConfig, settings.whatsapp_provider);
-        this.logger.log(`WhatsApp provider configured for clinic ${clinicId}: ${settings.whatsapp_provider}`);
-      } catch (decryptError) {
-        this.logger.error(
-          `WhatsApp provider config failed for clinic ${clinicId}: decryption error — ${decryptError instanceof Error ? decryptError.message : String(decryptError)}. ` +
-          `Check that encryption keys match and token is valid.`,
-        );
-      }
-    }
+    this.configureClinicWhatsApp(clinicId, settings, options);
   }
 
   // ─── Text Sanitization ───

@@ -27,6 +27,7 @@ export declare class WhatsAppProvider implements ChannelProvider {
     configure(clinicId: string, config: WhatsAppProviderConfig, providerName: string): void;
     getProviderName(clinicId: string): string;
     isConfigured(clinicId: string): boolean;
+    getPhoneNumberId(clinicId: string): string | null;
     removeClinic(clinicId: string): void;
     trackIncomingMessage(clinicId: string, phone: string): void;
     isSessionOpen(clinicId: string, phone: string): boolean;

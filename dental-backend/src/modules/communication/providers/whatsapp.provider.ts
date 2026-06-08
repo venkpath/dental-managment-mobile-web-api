@@ -66,6 +66,10 @@ export class WhatsAppProvider implements ChannelProvider {
     return this.clinicConfigs.has(clinicId);
   }
 
+  getPhoneNumberId(clinicId: string): string | null {
+    return this.clinicConfigs.get(clinicId)?.config.phoneNumberId ?? null;
+  }
+
   removeClinic(clinicId: string): void {
     this.clinicConfigs.delete(clinicId);
   }
