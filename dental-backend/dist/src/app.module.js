@@ -81,6 +81,7 @@ const treatment_media_module_js_1 = require("./modules/treatment-media/treatment
 const branch_scope_interceptor_js_1 = require("./common/interceptors/branch-scope.interceptor.js");
 const activity_tracker_interceptor_js_1 = require("./common/interceptors/activity-tracker.interceptor.js");
 const suspension_guard_js_1 = require("./common/guards/suspension.guard.js");
+const google_reviews_module_js_1 = require("./modules/google-reviews/google-reviews.module.js");
 const nestjs_pino_1 = require("nestjs-pino");
 const razorpay_config_js_1 = __importDefault(require("./config/razorpay.config.js"));
 const throttle_config_js_1 = __importDefault(require("./config/throttle.config.js"));
@@ -179,6 +180,7 @@ exports.AppModule = AppModule = __decorate([
             room_module_js_1.RoomModule,
             public_display_module_js_1.PublicDisplayModule,
             treatment_media_module_js_1.TreatmentMediaModule,
+            google_reviews_module_js_1.GoogleReviewsModule,
         ],
         providers: [
             { provide: core_1.APP_GUARD, useClass: app_throttler_guard_js_1.AppThrottlerGuard },

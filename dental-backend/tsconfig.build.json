@@ -5,7 +5,6 @@
     "test",
     "dist",
     "**/*spec.ts",
-    "prisma.config.ts",
-    "src/modules/google-reviews/**/*"
+    "prisma.config.ts"
   ]
 }

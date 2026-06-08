@@ -175,14 +175,9 @@ model Clinic {
   consent_templates          ConsentTemplate[]
   patient_consents           PatientConsent[]
 
-  // ─── DISABLED: Google Business Profile review auto-reply feature ───
-  // Re-enable these relations together with the GoogleBusinessConnection /
-  // GoogleReviewSettings / GoogleReview models below once Google grants
-  // Business Profile API access.
-  //
-  // google_business_connection GoogleBusinessConnection?
-  // google_review_settings     GoogleReviewSettings?
-  // google_reviews             GoogleReview[]
+  google_business_connection GoogleBusinessConnection?
+  google_review_settings     GoogleReviewSettings?
+  google_reviews             GoogleReview[]
 
   platform_invoices PlatformInvoice[]
 
@@ -2482,94 +2477,85 @@ model InsuranceReimbursementAllocation {
   @@map("insurance_reimbursement_allocations")
 }
 
-// ─── DISABLED: Google Business Profile integration ────────────────────────
-//
-// The Google review auto-reply feature is implemented end-to-end (see
-// src/modules/google-reviews/) but cannot be turned on until Google grants
-// us Business Profile API access. The models below are commented out so the
-// Prisma client stays clean; the matching relation fields on Clinic are also
-// commented out. The TypeScript module is excluded from compilation via
-// tsconfig.json. To re-enable: uncomment everything below, uncomment the
-// three relation fields on Clinic, remove the tsconfig exclude entry,
-// re-add `GoogleReviewsModule` to AppModule.imports, and run `prisma db push`.
-//
-// /// Per-clinic Google Business Profile OAuth connection.
-// /// Stores refresh + access tokens for the clinic's own GBP account, plus the
-// /// account/location IDs used to fetch reviews and post replies.
-// model GoogleBusinessConnection {
-//   clinic_id           String    @id @db.Uuid
-//   google_account_id   String    @db.VarChar(100)
-//   google_account_name String    @db.VarChar(255)
-//   location_id         String?   @db.VarChar(100)
-//   location_name       String?   @db.VarChar(255)
-//   access_token        String    @db.Text
-//   refresh_token       String    @db.Text
-//   token_expires_at    DateTime
-//   scope               String?   @db.VarChar(500)
-//   status              String    @default("active") @db.VarChar(20)
-//   last_synced_at      DateTime?
-//   last_sync_error     String?   @db.Text
-//   connected_by        String?   @db.Uuid
-//   created_at          DateTime  @default(now())
-//   updated_at          DateTime  @updatedAt
-//
-//   clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-//
-//   @@map("google_business_connections")
-// }
-//
-// /// Per-clinic settings for the Google review auto-reply feature.
-// model GoogleReviewSettings {
-//   clinic_id            String   @id @db.Uuid
-//   auto_reply_enabled   Boolean  @default(true)
-//   auto_post_min_rating Int      @default(4)
-//   tone                 String   @default("warm") @db.VarChar(20)
-//   custom_instructions  String?  @db.VarChar(2000)
-//   signature            String?  @db.VarChar(255)
-//   notify_admin_on_low  Boolean  @default(true)
-//   created_at           DateTime @default(now())
-//   updated_at           DateTime @updatedAt
-//
-//   clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-//
-//   @@map("google_review_settings")
-// }
-//
-// /// A Google review synced into our database. One row per Google review.
-// model GoogleReview {
-//   id                 String    @id @default(uuid()) @db.Uuid
-//   clinic_id          String    @db.Uuid
-//   google_review_id   String    @db.VarChar(255)
-//   location_id        String    @db.VarChar(100)
-//   reviewer_name      String?   @db.VarChar(255)
-//   reviewer_photo_url String?   @db.VarChar(1000)
-//   rating             Int
-//   comment            String?   @db.Text
-//   language           String?   @db.VarChar(10)
-//   review_created_at  DateTime
-//   review_updated_at  DateTime
-//
-//   reply_status String    @default("pending") @db.VarChar(30)
-//   ai_draft     String?   @db.Text
-//   posted_reply String?   @db.Text
-//   posted_at    DateTime?
-//   approved_by  String?   @db.Uuid
-//   approved_at  DateTime?
-//   last_error   String?   @db.Text
-//   retry_count  Int       @default(0)
-//
-//   created_at DateTime @default(now())
-//   updated_at DateTime @updatedAt
-//
-//   clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
-//
-//   @@unique([clinic_id, google_review_id])
-//   @@index([clinic_id])
-//   @@index([clinic_id, reply_status])
-//   @@index([clinic_id, rating])
-//   @@index([review_created_at])
-//   @@map("google_reviews")
-// }
+// ─── Google Business Profile integration ────────────────────────────────────
+
+/// Per-clinic Google Business Profile OAuth connection.
+/// Stores refresh + access tokens for the clinic's own GBP account, plus the
+/// account/location IDs used to fetch reviews and post replies.
+model GoogleBusinessConnection {
+  clinic_id           String    @id @db.Uuid
+  google_account_id   String    @db.VarChar(100)
+  google_account_name String    @db.VarChar(255)
+  location_id         String?   @db.VarChar(100)
+  location_name       String?   @db.VarChar(255)
+  access_token        String    @db.Text
+  refresh_token       String    @db.Text
+  token_expires_at    DateTime
+  scope               String?   @db.VarChar(500)
+  status              String    @default("active") @db.VarChar(20)
+  last_synced_at      DateTime?
+  last_sync_error     String?   @db.Text
+  connected_by        String?   @db.Uuid
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+
+  @@map("google_business_connections")
+}
+
+/// Per-clinic settings for the Google review auto-reply feature.
+model GoogleReviewSettings {
+  clinic_id            String   @id @db.Uuid
+  auto_reply_enabled   Boolean  @default(false)
+  auto_post_min_rating Int      @default(4)
+  tone                 String   @default("warm") @db.VarChar(20)
+  custom_instructions  String?  @db.VarChar(2000)
+  signature            String?  @db.VarChar(255)
+  notify_admin_on_low  Boolean  @default(true)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+
+  @@map("google_review_settings")
+}
+
+/// A Google review synced into our database. One row per Google review.
+model GoogleReview {
+  id                 String    @id @default(uuid()) @db.Uuid
+  clinic_id          String    @db.Uuid
+  google_review_id   String    @db.VarChar(255)
+  location_id        String    @db.VarChar(100)
+  reviewer_name      String?   @db.VarChar(255)
+  reviewer_photo_url String?   @db.VarChar(1000)
+  rating             Int
+  comment            String?   @db.Text
+  language           String?   @db.VarChar(10)
+  review_created_at  DateTime
+  review_updated_at  DateTime
+
+  reply_status String    @default("pending") @db.VarChar(30)
+  ai_draft     String?   @db.Text
+  posted_reply String?   @db.Text
+  posted_at    DateTime?
+  approved_by  String?   @db.Uuid
+  approved_at  DateTime?
+  last_error   String?   @db.Text
+  retry_count  Int       @default(0)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
+
+  @@unique([clinic_id, google_review_id])
+  @@index([clinic_id])
+  @@index([clinic_id, reply_status])
+  @@index([clinic_id, rating])
+  @@index([review_created_at])
+  @@map("google_reviews")
+}
 
 // --- Consent Forms -----------------------------------------------
 //

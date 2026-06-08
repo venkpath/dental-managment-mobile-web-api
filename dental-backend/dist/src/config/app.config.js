@@ -40,7 +40,7 @@ exports.default = (0, config_1.registerAs)('app', () => ({
     google: {
         clientId: process.env['GOOGLE_CLIENT_ID'] || '',
         clientSecret: process.env['GOOGLE_CLIENT_SECRET'] || '',
-        redirectUri: process.env['GOOGLE_REDIRECT_URI'] || 'http://localhost:3000/api/google-reviews/oauth/callback',
+        redirectUri: process.env['GOOGLE_REDIRECT_URI'] || 'http://localhost:3000/api/v1/google-reviews/oauth/callback',
     },
 }));
 //# sourceMappingURL=app.config.js.map

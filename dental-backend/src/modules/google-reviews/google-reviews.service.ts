@@ -13,6 +13,8 @@ import { UpdateGoogleReviewSettingsDto } from './dto/update-settings.dto.js';
 import { ListReviewsQueryDto } from './dto/list-reviews-query.dto.js';
 
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000; // refresh tokens 5 min before expiry
+/** Only these statuses should enter the AI auto-reply pipeline on sync. */
+const AI_PIPELINE_STATUSES = new Set(['pending', 'failed']);
 
 interface ConnectionForApi {
   clinic_id: string;
@@ -178,7 +180,9 @@ export class GoogleReviewsService {
       where: { clinic_id: clinicId },
     });
     if (existing) return existing;
-    return this.prisma.googleReviewSettings.create({ data: { clinic_id: clinicId } });
+    return this.prisma.googleReviewSettings.create({
+      data: { clinic_id: clinicId, auto_reply_enabled: false },
+    });
   }
 
   async getSettings(clinicId: string) {
@@ -207,12 +211,16 @@ export class GoogleReviewsService {
     if (q.status) where['reply_status'] = q.status;
     if (q.rating) where['rating'] = q.rating;
 
+    const limit = q.limit ?? 20;
+    const page = q.page ?? 1;
+    const skip = q.offset ?? (page - 1) * limit;
+
     const [items, total, counts] = await Promise.all([
       this.prisma.googleReview.findMany({
         where,
         orderBy: { review_created_at: 'desc' },
-        take: q.limit ?? 20,
-        skip: q.offset ?? 0,
+        take: limit,
+        skip,
       }),
       this.prisma.googleReview.count({ where }),
       this.prisma.googleReview.groupBy({
@@ -223,9 +231,14 @@ export class GoogleReviewsService {
     ]);
 
     return {
-      items,
-      total,
-      counts_by_status: Object.fromEntries(counts.map((c) => [c.reply_status, c._count])),
+      data: items,
+      meta: {
+        total,
+        page,
+        limit,
+        total_pages: Math.max(1, Math.ceil(total / limit)),
+        counts_by_status: Object.fromEntries(counts.map((c) => [c.reply_status, c._count])),
+      },
     };
   }
 
@@ -382,7 +395,12 @@ export class GoogleReviewsService {
   }
 
   /** Sync a single clinic — used by both the cron and manual "sync now" button. */
-  async syncClinic(clinicId: string): Promise<{ reviewsSynced: number; repliesPosted: number; queuedForApproval: number }> {
+  async syncClinic(clinicId: string): Promise<{
+    synced: number;
+    reviewsSynced: number;
+    repliesPosted: number;
+    queuedForApproval: number;
+  }> {
     const conn = await this.requireConnection(clinicId);
     if (!conn.location_id) {
       throw new BadRequestException('No Google location selected — pick one first');
@@ -397,7 +415,7 @@ export class GoogleReviewsService {
 
     let pageToken: string | undefined;
     let pageCount = 0;
-    const MAX_PAGES = 5; // safety cap; 5 * 50 = 250 reviews per clinic per sync
+    const MAX_PAGES = 20; // safety cap; 20 * 50 = 1000 reviews per clinic per sync
 
     do {
       const page = await this.google.listReviews(
@@ -421,6 +439,9 @@ export class GoogleReviewsService {
         });
 
         if (existing && (existing.reply_status === 'posted' || review.hasOwnerReply)) {
+          if (existing) {
+            await this.updateSyncedReviewFields(existing.id, review);
+          }
           continue;
         }
 
@@ -441,6 +462,8 @@ export class GoogleReviewsService {
             },
           });
           reviewsSynced++;
+        } else {
+          await this.updateSyncedReviewFields(existing.id, review);
         }
 
         // If owner has already replied (e.g. directly on Google), mark as such and move on.
@@ -454,8 +477,12 @@ export class GoogleReviewsService {
           continue;
         }
 
-        // Generate + post for any review still in `pending` state.
-        if (settings.auto_reply_enabled) {
+        // Only run AI pipeline for brand-new or retryable reviews.
+        const canRunAi =
+          settings.auto_reply_enabled &&
+          (!existing || AI_PIPELINE_STATUSES.has(existing.reply_status));
+
+        if (canRunAi) {
           try {
             const outcome = await this.handlePendingReview(
               clinicId,
@@ -470,6 +497,7 @@ export class GoogleReviewsService {
                 customInstructions: settings.custom_instructions ?? undefined,
                 signature: settings.signature ?? undefined,
                 autoPostMinRating: settings.auto_post_min_rating,
+                notifyAdminOnLow: settings.notify_admin_on_low,
               },
               { accessToken, accountId: conn.google_account_id, locationId: conn.location_id },
             );
@@ -491,7 +519,7 @@ export class GoogleReviewsService {
       data: { last_synced_at: new Date(), last_sync_error: null },
     });
 
-    return { reviewsSynced, repliesPosted, queuedForApproval };
+    return { synced: reviewsSynced, reviewsSynced, repliesPosted, queuedForApproval };
   }
 
   /**
@@ -507,13 +535,14 @@ export class GoogleReviewsService {
       customInstructions: string | undefined;
       signature: string | undefined;
       autoPostMinRating: number;
+      notifyAdminOnLow: boolean;
     },
     google: { accessToken: string; accountId: string; locationId: string },
   ): Promise<'posted' | 'queued' | 'failed'> {
     const dbRow = await this.prisma.googleReview.findUnique({
       where: { clinic_id_google_review_id: { clinic_id: clinicId, google_review_id: googleReviewId } },
     });
-    if (!dbRow) return 'failed';
+    if (!dbRow || !AI_PIPELINE_STATUSES.has(dbRow.reply_status)) return 'failed';
 
     // Try to reserve quota — silently skip if exhausted (better than blowing
     // up the cron). Clinic will be re-attempted on next sync after they top up.
@@ -568,6 +597,9 @@ export class GoogleReviewsService {
           language: draft.language,
         },
       });
+      if (settings.notifyAdminOnLow && review.rating <= 2) {
+        await this.notifyAdminsOfLowRating(clinicId, dbRow.id, review.rating);
+      }
       return 'queued';
     }
 
@@ -608,6 +640,47 @@ export class GoogleReviewsService {
   }
 
   // ─── Helpers ──────────────────────────────────────────────────
+
+  private async updateSyncedReviewFields(
+    reviewId: string,
+    review: {
+      reviewerName?: string;
+      reviewerPhotoUrl?: string;
+      rating: number;
+      comment?: string;
+      updateTime: Date;
+    },
+  ) {
+    await this.prisma.googleReview.update({
+      where: { id: reviewId },
+      data: {
+        reviewer_name: review.reviewerName,
+        reviewer_photo_url: review.reviewerPhotoUrl,
+        rating: review.rating,
+        comment: review.comment,
+        review_updated_at: review.updateTime,
+      },
+    });
+  }
+
+  private async notifyAdminsOfLowRating(clinicId: string, reviewId: string, rating: number) {
+    const admins = await this.prisma.user.findMany({
+      where: { clinic_id: clinicId, role: 'Admin', status: 'active' },
+      select: { id: true },
+    });
+    if (!admins.length) return;
+
+    await this.prisma.notification.createMany({
+      data: admins.map((admin) => ({
+        clinic_id: clinicId,
+        user_id: admin.id,
+        type: 'google_review_low_rating',
+        title: 'Low Google review needs your attention',
+        body: `A ${rating}-star Google review was synced and is waiting for your approval.`,
+        metadata: { review_id: reviewId, source: 'google', rating },
+      })),
+    });
+  }
 
   private async requireConnection(clinicId: string): Promise<ConnectionForApi> {
     const conn = await this.prisma.googleBusinessConnection.findUnique({
