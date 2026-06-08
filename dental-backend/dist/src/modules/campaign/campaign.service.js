@@ -250,6 +250,38 @@ let CampaignService = class CampaignService {
         return rows.map((r) => ({ procedure: r.procedure, patient_count: Number(r.patient_count) }));
     }
     async getAudiencePreview(clinicId, segmentType, segmentConfig) {
+        if (segmentType === 'test_phone') {
+            const phone = String(segmentConfig?.phone || '').trim();
+            if (!phone) {
+                throw new common_1.BadRequestException('Enter a phone number for the test audience.');
+            }
+            const variants = (0, phone_util_js_1.phoneLookupVariants)(phone);
+            const existing = await this.prisma.patient.findFirst({
+                where: { clinic_id: clinicId, phone: { in: variants } },
+                select: { id: true, first_name: true, last_name: true, phone: true, email: true },
+            });
+            const normalized = (0, phone_util_js_1.normalizePhoneE164)(phone) ?? variants[0];
+            if (existing) {
+                return {
+                    total_count: 1,
+                    sample: [{
+                            id: existing.id,
+                            name: `${existing.first_name} ${existing.last_name}`,
+                            phone: existing.phone,
+                            email: existing.email,
+                        }],
+                };
+            }
+            return {
+                total_count: 1,
+                sample: [{
+                        id: '',
+                        name: 'Test Recipient',
+                        phone: normalized,
+                        email: null,
+                    }],
+            };
+        }
         const patients = await this.resolveSegment(clinicId, segmentType, segmentConfig || {});
         return {
             total_count: patients.length,
@@ -259,80 +291,6 @@ let CampaignService = class CampaignService {
                 phone: p.phone,
                 email: p.email,
             })),
-        };
-    }
-    async testSend(clinicId, dto) {
-        const phone = dto.phone?.trim();
-        if (!phone) {
-            throw new common_1.BadRequestException('Phone number is required for test send.');
-        }
-        const channels = this.getDeliveryChannels(dto.channel);
-        if (channels.length !== 1) {
-            throw new common_1.BadRequestException('Test send supports whatsapp, sms, or email — not "all".');
-        }
-        const channel = channels[0];
-        const template = await this.templateService.findOne(clinicId, dto.template_id);
-        const { suppliedMappings, extraVariables } = this.parseSuppliedTemplateVariables(dto.template_variables || {});
-        const requiredSlots = (0, system_variables_js_1.extractUserMappedVariableNames)(template.variables);
-        const missingSlots = requiredSlots.filter((name) => {
-            const m = suppliedMappings[name];
-            if (!m)
-                return true;
-            if (m.type === 'custom' && !String(m.value || '').trim())
-                return true;
-            return false;
-        });
-        if (missingSlots.length > 0) {
-            throw new common_1.BadRequestException(`Missing values for template variables: ${missingSlots.join(', ')}.`);
-        }
-        const clinic = await this.prisma.clinic.findUnique({
-            where: { id: clinicId },
-            select: { name: true, phone: true },
-        });
-        const clinicContext = {
-            clinic_name: clinic?.name || '',
-            clinic_phone: clinic?.phone || '',
-            today_date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-        };
-        const { patient, autoCreated } = await this.resolveTestRecipient(clinicId, phone);
-        const systemValues = this.buildSystemVariableValues(patient, clinicContext);
-        const resolvedMappings = this.resolveMappingsForRecipient(suppliedMappings, systemValues);
-        const variables = {
-            ...extraVariables,
-            clinic_name: clinicContext.clinic_name,
-            ...this.buildPatientVariables(patient),
-            ...resolvedMappings,
-        };
-        let buttonUrlSuffix = dto.button_url_suffix;
-        if (!buttonUrlSuffix && channel === 'whatsapp') {
-            const firstBranch = await this.prisma.branch.findFirst({
-                where: { clinic_id: clinicId },
-                orderBy: { created_at: 'asc' },
-                select: { id: true, book_now_url: true },
-            });
-            if (firstBranch) {
-                buttonUrlSuffix = (0, booking_url_util_js_1.getBookingUrl)(clinicId, firstBranch.id, firstBranch.book_now_url);
-            }
-        }
-        const message = await this.communicationService.sendMessage(clinicId, {
-            patient_id: patient.id,
-            channel: this.toMessageChannel(channel),
-            category: send_message_dto_js_1.MessageCategory.PROMOTIONAL,
-            template_id: dto.template_id,
-            variables,
-            metadata: {
-                campaign_test: true,
-                ...(buttonUrlSuffix ? { button_url_suffix: buttonUrlSuffix } : {}),
-            },
-        });
-        this.communicationService.throwIfMessageSkipped(message);
-        return {
-            success: true,
-            phone: patient.phone,
-            patient_id: patient.id,
-            message_id: message.id,
-            status: message.status,
-            auto_created_patient: autoCreated,
         };
     }
     async execute(clinicId, id) {
@@ -466,20 +424,6 @@ let CampaignService = class CampaignService {
             });
             throw error;
         }
-    }
-    parseSuppliedTemplateVariables(rawSupplied) {
-        const suppliedMappings = {};
-        const extraVariables = {};
-        for (const [name, raw] of Object.entries(rawSupplied)) {
-            if (raw === undefined || raw === null)
-                continue;
-            const mapping = (0, system_variables_js_1.normalizeMapping)(raw);
-            suppliedMappings[name] = mapping;
-            if (mapping.type === 'custom' && !/^\d+$/.test(name)) {
-                extraVariables[name] = mapping.value;
-            }
-        }
-        return { suppliedMappings, extraVariables };
     }
     async resolveTestRecipient(clinicId, phone) {
         const variants = (0, phone_util_js_1.phoneLookupVariants)(phone);
@@ -643,6 +587,14 @@ let CampaignService = class CampaignService {
                     where: { ...baseWhere, id: { in: ids } },
                     select: { id: true, first_name: true, last_name: true, phone: true, email: true },
                 });
+            }
+            case 'test_phone': {
+                const phone = String(config.phone || '').trim();
+                if (!phone) {
+                    throw new common_1.BadRequestException('Phone number is required for test_phone segment.');
+                }
+                const { patient } = await this.resolveTestRecipient(clinicId, phone);
+                return [patient];
             }
             default:
                 throw new common_1.BadRequestException(`Unsupported segment type "${segmentType}"`);

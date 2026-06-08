@@ -26,7 +26,6 @@ const campaign_service_js_1 = require("./campaign.service.js");
 const create_campaign_dto_js_1 = require("./dto/create-campaign.dto.js");
 const update_campaign_dto_js_1 = require("./dto/update-campaign.dto.js");
 const query_campaign_dto_js_1 = require("./dto/query-campaign.dto.js");
-const test_campaign_send_dto_js_1 = require("./dto/test-campaign-send.dto.js");
 let CampaignController = class CampaignController {
     campaignService;
     constructor(campaignService) {
@@ -46,9 +45,6 @@ let CampaignController = class CampaignController {
     }
     async estimateCost(clinicId, body) {
         return this.campaignService.estimateCost(clinicId, body);
-    }
-    async testSend(clinicId, dto) {
-        return this.campaignService.testSend(clinicId, dto);
     }
     async createDripSequence(clinicId, user, body) {
         return this.campaignService.createDripSequence(clinicId, user.sub, body);
@@ -139,17 +135,6 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], CampaignController.prototype, "estimateCost", null);
-__decorate([
-    (0, common_1.Post)('test-send'),
-    (0, roles_decorator_js_1.Roles)(index_js_1.UserRole.ADMIN),
-    (0, swagger_1.ApiOperation)({ summary: 'Send a campaign template to one phone number for testing (BYO WABA / template check)' }),
-    openapi.ApiResponse({ status: 201 }),
-    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
-    __param(1, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, test_campaign_send_dto_js_1.TestCampaignSendDto]),
-    __metadata("design:returntype", Promise)
-], CampaignController.prototype, "testSend", null);
 __decorate([
     (0, common_1.Post)('drip-sequence'),
     (0, roles_decorator_js_1.Roles)(index_js_1.UserRole.ADMIN),
