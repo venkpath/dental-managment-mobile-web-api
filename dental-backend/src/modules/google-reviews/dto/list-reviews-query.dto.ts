@@ -26,6 +26,13 @@ export class ListReviewsQueryDto {
   @Max(100)
   limit?: number;
 
+  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
   @ApiPropertyOptional({ minimum: 0, default: 0 })
   @IsOptional()
   @Type(() => Number)

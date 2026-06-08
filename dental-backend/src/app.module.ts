@@ -69,9 +69,7 @@ import { TreatmentMediaModule } from './modules/treatment-media/treatment-media.
 import { BranchScopeInterceptor } from './common/interceptors/branch-scope.interceptor.js';
 import { ActivityTrackerInterceptor } from './common/interceptors/activity-tracker.interceptor.js';
 import { SuspensionGuard } from './common/guards/suspension.guard.js';
-// DISABLED: Google review auto-reply — pending Google Business Profile API approval.
-// Code lives at src/modules/google-reviews/ (excluded from compile via tsconfig).
-// import { GoogleReviewsModule } from './modules/google-reviews/google-reviews.module.js';
+import { GoogleReviewsModule } from './modules/google-reviews/google-reviews.module.js';
 import { LoggerModule } from 'nestjs-pino';
 import razorpayConfig from './config/razorpay.config.js';
 import throttleConfig from './config/throttle.config.js';
@@ -167,7 +165,7 @@ import { AppThrottlerGuard } from './common/guards/app-throttler.guard.js';
     RoomModule,
     PublicDisplayModule,
     TreatmentMediaModule,
-    // GoogleReviewsModule, // DISABLED — pending Google Business Profile API approval
+    GoogleReviewsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AppThrottlerGuard },

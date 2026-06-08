@@ -215,21 +215,7 @@ export declare class PublicDirectoryController {
             avg_wait_time: number | null;
             avg_value: number | null;
             distribution: Record<number, number>;
-            recent: {
-                id: string;
-                created_at: Date;
-                reviewer_name: string;
-                comment: string | null;
-                overall_rating: number;
-                cleanliness_rating: number | null;
-                staff_rating: number | null;
-                wait_time_rating: number | null;
-                value_rating: number | null;
-                is_verified: boolean;
-                doctor: {
-                    name: string;
-                } | null;
-            }[];
+            recent: import("./directory-reviews-merge.utils.js").PublicReviewDto[];
         };
         id: string;
         email: string;
@@ -252,21 +238,7 @@ export declare class PublicDirectoryController {
         google_maps_url: string | null;
     }>;
     getClinicReviews(clinicId: string, query: ReviewSortQuery): Promise<{
-        data: {
-            id: string;
-            created_at: Date;
-            reviewer_name: string;
-            comment: string | null;
-            overall_rating: number;
-            cleanliness_rating: number | null;
-            staff_rating: number | null;
-            wait_time_rating: number | null;
-            value_rating: number | null;
-            is_verified: boolean;
-            doctor: {
-                name: string;
-            } | null;
-        }[];
+        data: import("./directory-reviews-merge.utils.js").PublicReviewDto[];
         meta: {
             total: number;
             page: number;
@@ -318,6 +290,7 @@ export declare class PublicDirectoryController {
         message: string;
     }>;
     private notifySuperAdmin;
+    private getGoogleReviewStatsMap;
     private notifyClinicOfNewReview;
     createReviewToken(clinicId: string, appointmentId: string, doctorId?: string): Promise<string>;
 }

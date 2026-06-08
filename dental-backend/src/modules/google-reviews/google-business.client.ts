@@ -105,7 +105,10 @@ export class GoogleBusinessClient {
   }
 
   private get redirectUri(): string {
-    return this.config.get<string>('app.google.redirectUri') || 'http://localhost:3000/api/google-reviews/oauth/callback';
+    return (
+      this.config.get<string>('app.google.redirectUri') ||
+      'http://localhost:3000/api/v1/google-reviews/oauth/callback'
+    );
   }
 
   /** State token signing key. Falls back to JWT secret. */

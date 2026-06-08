@@ -114,6 +114,13 @@ export class GoogleReviewsController {
 
   // ─── Reviews ──────────────────────────────────────────────────
 
+  @Post('sync')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Manually trigger a Google review sync for this clinic (also runs hourly via cron)' })
+  syncNow(@Req() req: Request) {
+    return this.googleReviews.syncClinic(req.user!.clinicId);
+  }
+
   @Get()
   @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.CONSULTANT)
   @ApiOperation({ summary: 'List synced Google reviews with optional status / rating filters' })
@@ -147,12 +154,4 @@ export class GoogleReviewsController {
     });
   }
 
-  // ─── Manual sync (admin-triggered) ────────────────────────────
-
-  @Post('sync')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Manually trigger a Google review sync for this clinic (also runs hourly via cron)' })
-  syncNow(@Req() req: Request) {
-    return this.googleReviews.syncClinic(req.user!.clinicId);
-  }
 }

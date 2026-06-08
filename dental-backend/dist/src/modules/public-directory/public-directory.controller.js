@@ -66,6 +66,7 @@ const jwt_1 = require("@nestjs/jwt");
 const nodemailer = __importStar(require("nodemailer"));
 const phone_util_js_1 = require("../../common/utils/phone.util.js");
 const email_provider_js_1 = require("../communication/providers/email.provider.js");
+const directory_reviews_merge_utils_js_1 = require("./directory-reviews-merge.utils.js");
 const PLATFORM_CLINIC_ID = '__platform__';
 class DirectorySearchQuery {
     lat;
@@ -837,11 +838,11 @@ let PublicDirectoryController = class PublicDirectoryController {
             })
             : [];
         const apptCountMap = new Map(apptCounts.map((a) => [a.clinic_id, a._count.id]));
+        const googleReviewStats = await this.getGoogleReviewStatsMap(clinicIds);
         let enriched = await Promise.all(clinics.map(async (c) => {
             const reviews = c.directory_reviews;
-            const avg = reviews.length
-                ? reviews.reduce((s, r) => s + r.overall_rating, 0) / reviews.length
-                : null;
+            const googleStats = googleReviewStats.get(c.id);
+            const { review_count, avg_rating } = (0, directory_reviews_merge_utils_js_1.mergeListingReviewStats)(reviews.map((r) => r.overall_rating), googleStats?.count ?? 0, googleStats?.avg ?? null);
             const distKm = lat != null && lng != null && c.latitude && c.longitude
                 ? haversineKm(lat, lng, c.latitude, c.longitude)
                 : null;
@@ -865,8 +866,8 @@ let PublicDirectoryController = class PublicDirectoryController {
                 branch_cover_photo_url: branchCoverPhotoUrl,
                 lat: c.latitude ?? null,
                 lng: c.longitude ?? null,
-                review_count: reviews.length,
-                avg_rating: avg ? Math.round(avg * 10) / 10 : null,
+                review_count,
+                avg_rating,
                 distance_km: distKm ? Math.round(distKm * 10) / 10 : null,
                 available_today: avail.available_today,
                 open_now: avail.open_now,
@@ -958,11 +959,11 @@ let PublicDirectoryController = class PublicDirectoryController {
             })
             : [];
         const apptCountMap = new Map(apptCounts.map((a) => [a.clinic_id, a._count.id]));
+        const googleReviewStats = await this.getGoogleReviewStatsMap(clinicIds);
         return Promise.all(clinics.map(async (c) => {
             const reviews = c.directory_reviews;
-            const avg = reviews.length
-                ? reviews.reduce((s, r) => s + r.overall_rating, 0) / reviews.length
-                : null;
+            const googleStats = googleReviewStats.get(c.id);
+            const { review_count, avg_rating } = (0, directory_reviews_merge_utils_js_1.mergeListingReviewStats)(reviews.map((r) => r.overall_rating), googleStats?.count ?? 0, googleStats?.avg ?? null);
             const bookedToday = apptCountMap.get(c.id) ?? 0;
             const avail = computeClinicAvailability(c.branches, schemaDay, istMinutes, bookedToday);
             const dentistPhotoKey = c.users.find((u) => u.profile_photo_url)?.profile_photo_url ?? null;
@@ -981,8 +982,8 @@ let PublicDirectoryController = class PublicDirectoryController {
                 users: signedUsers,
                 branch_cover_id: branchCoverId,
                 branch_cover_photo_url: branchCoverPhotoUrl,
-                review_count: reviews.length,
-                avg_rating: avg ? Math.round(avg * 10) / 10 : null,
+                review_count,
+                avg_rating,
                 available_today: avail.available_today,
                 open_now: avail.open_now,
             };
@@ -1056,18 +1057,7 @@ let PublicDirectoryController = class PublicDirectoryController {
         });
         if (!clinic)
             throw new common_1.NotFoundException('Clinic not found or not publicly listed');
-        const [reviewStats, recentReviews] = await Promise.all([
-            this.prisma.clinicDirectoryReview.aggregate({
-                where: { clinic_id: clinicId, is_visible: true },
-                _avg: {
-                    overall_rating: true,
-                    cleanliness_rating: true,
-                    staff_rating: true,
-                    wait_time_rating: true,
-                    value_rating: true,
-                },
-                _count: { id: true },
-            }),
+        const [directoryReviews, googleReviews, directoryAgg] = await Promise.all([
             this.prisma.clinicDirectoryReview.findMany({
                 where: { clinic_id: clinicId, is_visible: true },
                 select: {
@@ -1083,15 +1073,43 @@ let PublicDirectoryController = class PublicDirectoryController {
                     created_at: true,
                     doctor: { select: { name: true } },
                 },
-                orderBy: { created_at: 'desc' },
-                take: 5,
+            }),
+            this.prisma.googleReview.findMany({
+                where: { clinic_id: clinicId, rating: { gte: 1, lte: 5 } },
+                select: {
+                    id: true,
+                    reviewer_name: true,
+                    reviewer_photo_url: true,
+                    rating: true,
+                    comment: true,
+                    review_created_at: true,
+                },
+            }),
+            this.prisma.clinicDirectoryReview.aggregate({
+                where: { clinic_id: clinicId, is_visible: true },
+                _avg: {
+                    overall_rating: true,
+                    cleanliness_rating: true,
+                    staff_rating: true,
+                    wait_time_rating: true,
+                    value_rating: true,
+                },
+                _count: { id: true },
             }),
         ]);
-        const distribution = await this.prisma.clinicDirectoryReview.groupBy({
-            by: ['overall_rating'],
-            where: { clinic_id: clinicId, is_visible: true },
-            _count: { id: true },
-        });
+        const publicReviews = [
+            ...directoryReviews.map(directory_reviews_merge_utils_js_1.mapDirectoryReviewToPublic),
+            ...googleReviews.map((r) => (0, directory_reviews_merge_utils_js_1.mapGoogleReviewToPublic)({
+                id: r.id,
+                reviewer_name: r.reviewer_name,
+                reviewer_photo_url: r.reviewer_photo_url,
+                rating: r.rating,
+                comment: r.comment,
+                review_created_at: r.review_created_at,
+            })),
+        ];
+        const combined = (0, directory_reviews_merge_utils_js_1.combineRatingStats)(directoryReviews.map((r) => r.overall_rating), googleReviews.map((r) => r.rating));
+        const recentReviews = (0, directory_reviews_merge_utils_js_1.sortPublicReviews)(publicReviews, 'recent').slice(0, 5);
         const clinicCoverKey = clinic.directory_clinic_image_url;
         const clinicCoverPhotoUrl = await this.signedUrlIfExists(clinicCoverKey);
         const branches = await Promise.all(clinic.branches.map(async (b) => {
@@ -1135,33 +1153,28 @@ let PublicDirectoryController = class PublicDirectoryController {
             users: undefined,
             doctors,
             reviews: {
-                total: reviewStats._count.id,
-                avg_overall: reviewStats._avg.overall_rating
-                    ? Math.round(Number(reviewStats._avg.overall_rating) * 10) / 10
+                total: combined.count,
+                avg_overall: combined.avg,
+                avg_cleanliness: directoryAgg._avg.cleanliness_rating
+                    ? Math.round(Number(directoryAgg._avg.cleanliness_rating) * 10) / 10
                     : null,
-                avg_cleanliness: reviewStats._avg.cleanliness_rating
-                    ? Math.round(Number(reviewStats._avg.cleanliness_rating) * 10) / 10
+                avg_staff: directoryAgg._avg.staff_rating
+                    ? Math.round(Number(directoryAgg._avg.staff_rating) * 10) / 10
                     : null,
-                avg_staff: reviewStats._avg.staff_rating
-                    ? Math.round(Number(reviewStats._avg.staff_rating) * 10) / 10
+                avg_wait_time: directoryAgg._avg.wait_time_rating
+                    ? Math.round(Number(directoryAgg._avg.wait_time_rating) * 10) / 10
                     : null,
-                avg_wait_time: reviewStats._avg.wait_time_rating
-                    ? Math.round(Number(reviewStats._avg.wait_time_rating) * 10) / 10
+                avg_value: directoryAgg._avg.value_rating
+                    ? Math.round(Number(directoryAgg._avg.value_rating) * 10) / 10
                     : null,
-                avg_value: reviewStats._avg.value_rating
-                    ? Math.round(Number(reviewStats._avg.value_rating) * 10) / 10
-                    : null,
-                distribution: distribution.reduce((acc, d) => { acc[d.overall_rating] = d._count.id; return acc; }, {}),
+                distribution: combined.distribution,
                 recent: recentReviews,
             },
         };
     }
     async getClinicReviews(clinicId, query) {
         const { sort = 'recent', page = 1, limit = 10 } = query;
-        const orderBy = sort === 'highest' ? { overall_rating: 'desc' }
-            : sort === 'lowest' ? { overall_rating: 'asc' }
-                : { created_at: 'desc' };
-        const [data, total] = await Promise.all([
+        const [directoryReviews, googleReviews] = await Promise.all([
             this.prisma.clinicDirectoryReview.findMany({
                 where: { clinic_id: clinicId, is_visible: true },
                 select: {
@@ -1177,15 +1190,31 @@ let PublicDirectoryController = class PublicDirectoryController {
                     created_at: true,
                     doctor: { select: { name: true } },
                 },
-                orderBy,
-                skip: (page - 1) * limit,
-                take: limit,
             }),
-            this.prisma.clinicDirectoryReview.count({
-                where: { clinic_id: clinicId, is_visible: true },
+            this.prisma.googleReview.findMany({
+                where: { clinic_id: clinicId, rating: { gte: 1, lte: 5 } },
+                select: {
+                    id: true,
+                    reviewer_name: true,
+                    reviewer_photo_url: true,
+                    rating: true,
+                    comment: true,
+                    review_created_at: true,
+                },
             }),
         ]);
-        return { data, meta: { total, page, limit, total_pages: Math.ceil(total / limit) } };
+        const merged = (0, directory_reviews_merge_utils_js_1.sortPublicReviews)([
+            ...directoryReviews.map(directory_reviews_merge_utils_js_1.mapDirectoryReviewToPublic),
+            ...googleReviews.map((r) => (0, directory_reviews_merge_utils_js_1.mapGoogleReviewToPublic)({
+                id: r.id,
+                reviewer_name: r.reviewer_name,
+                reviewer_photo_url: r.reviewer_photo_url,
+                rating: r.rating,
+                comment: r.comment,
+                review_created_at: r.review_created_at,
+            })),
+        ], sort);
+        return (0, directory_reviews_merge_utils_js_1.paginatePublicReviews)(merged, page, limit);
     }
     async getReviewToken(token) {
         if (!token || token.length > 64)
@@ -1580,6 +1609,23 @@ let PublicDirectoryController = class PublicDirectoryController {
         </div>
       `,
         });
+    }
+    async getGoogleReviewStatsMap(clinicIds) {
+        if (!clinicIds.length)
+            return new Map();
+        const groups = await this.prisma.googleReview.groupBy({
+            by: ['clinic_id'],
+            where: { clinic_id: { in: clinicIds }, rating: { gte: 1, lte: 5 } },
+            _count: { id: true },
+            _avg: { rating: true },
+        });
+        return new Map(groups.map((g) => [
+            g.clinic_id,
+            {
+                count: g._count.id,
+                avg: g._avg.rating != null ? Math.round(Number(g._avg.rating) * 10) / 10 : null,
+            },
+        ]));
     }
     async notifyClinicOfNewReview(clinicId, reviewId, rating) {
         const admins = await this.prisma.user.findMany({

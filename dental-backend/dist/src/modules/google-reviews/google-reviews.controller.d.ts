@@ -1,0 +1,183 @@
+import { ConfigService } from '@nestjs/config';
+import type { Request, Response } from 'express';
+import { GoogleReviewsService } from './google-reviews.service.js';
+import { SelectLocationDto } from './dto/select-location.dto.js';
+import { UpdateGoogleReviewSettingsDto } from './dto/update-settings.dto.js';
+import { ListReviewsQueryDto } from './dto/list-reviews-query.dto.js';
+import { ApproveReplyDto } from './dto/approve-reply.dto.js';
+export declare class GoogleReviewsController {
+    private readonly googleReviews;
+    private readonly config;
+    constructor(googleReviews: GoogleReviewsService, config: ConfigService);
+    getAuthUrl(req: Request): {
+        url: string;
+    };
+    oauthCallback(code: string | undefined, state: string | undefined, error: string | undefined, res: Response): Promise<void>;
+    getConnection(req: Request): Promise<{
+        status?: string | undefined;
+        location_id?: string | null | undefined;
+        scope?: string | null | undefined;
+        google_account_id?: string | undefined;
+        google_account_name?: string | undefined;
+        location_name?: string | null | undefined;
+        last_synced_at?: Date | null | undefined;
+        last_sync_error?: string | null | undefined;
+        connected: boolean;
+    }>;
+    listLocations(req: Request): Promise<{
+        location_id: string;
+        location_name: string;
+        address?: string;
+    }[]>;
+    selectLocation(req: Request, dto: SelectLocationDto): Promise<{
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        access_token: string;
+        refresh_token: string;
+        location_id: string | null;
+        scope: string | null;
+        google_account_id: string;
+        google_account_name: string;
+        location_name: string | null;
+        token_expires_at: Date;
+        last_synced_at: Date | null;
+        last_sync_error: string | null;
+        connected_by: string | null;
+    }>;
+    disconnect(req: Request): Promise<{
+        disconnected: boolean;
+    }>;
+    getSettings(req: Request): Promise<{
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        signature: string | null;
+        tone: string;
+        custom_instructions: string | null;
+        auto_reply_enabled: boolean;
+        auto_post_min_rating: number;
+        notify_admin_on_low: boolean;
+    }>;
+    updateSettings(req: Request, dto: UpdateGoogleReviewSettingsDto): Promise<{
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        signature: string | null;
+        tone: string;
+        custom_instructions: string | null;
+        auto_reply_enabled: boolean;
+        auto_post_min_rating: number;
+        notify_admin_on_low: boolean;
+    }>;
+    syncNow(req: Request): Promise<{
+        synced: number;
+        reviewsSynced: number;
+        repliesPosted: number;
+        queuedForApproval: number;
+    }>;
+    listReviews(req: Request, query: ListReviewsQueryDto): Promise<{
+        data: {
+            id: string;
+            created_at: Date;
+            updated_at: Date;
+            clinic_id: string;
+            language: string | null;
+            approved_by: string | null;
+            rating: number;
+            reviewer_name: string | null;
+            comment: string | null;
+            google_review_id: string;
+            location_id: string;
+            reviewer_photo_url: string | null;
+            review_created_at: Date;
+            review_updated_at: Date;
+            reply_status: string;
+            ai_draft: string | null;
+            posted_reply: string | null;
+            posted_at: Date | null;
+            approved_at: Date | null;
+            last_error: string | null;
+            retry_count: number;
+        }[];
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            total_pages: number;
+            counts_by_status: {
+                [k: string]: number;
+            };
+        };
+    }>;
+    getReview(req: Request, id: string): Promise<{
+        id: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        language: string | null;
+        approved_by: string | null;
+        rating: number;
+        reviewer_name: string | null;
+        comment: string | null;
+        google_review_id: string;
+        location_id: string;
+        reviewer_photo_url: string | null;
+        review_created_at: Date;
+        review_updated_at: Date;
+        reply_status: string;
+        ai_draft: string | null;
+        posted_reply: string | null;
+        posted_at: Date | null;
+        approved_at: Date | null;
+        last_error: string | null;
+        retry_count: number;
+    }>;
+    regenerate(req: Request, id: string): Promise<{
+        id: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        language: string | null;
+        approved_by: string | null;
+        rating: number;
+        reviewer_name: string | null;
+        comment: string | null;
+        google_review_id: string;
+        location_id: string;
+        reviewer_photo_url: string | null;
+        review_created_at: Date;
+        review_updated_at: Date;
+        reply_status: string;
+        ai_draft: string | null;
+        posted_reply: string | null;
+        posted_at: Date | null;
+        approved_at: Date | null;
+        last_error: string | null;
+        retry_count: number;
+    }>;
+    approve(req: Request, id: string, dto: ApproveReplyDto): Promise<{
+        id: string;
+        created_at: Date;
+        updated_at: Date;
+        clinic_id: string;
+        language: string | null;
+        approved_by: string | null;
+        rating: number;
+        reviewer_name: string | null;
+        comment: string | null;
+        google_review_id: string;
+        location_id: string;
+        reviewer_photo_url: string | null;
+        review_created_at: Date;
+        review_updated_at: Date;
+        reply_status: string;
+        ai_draft: string | null;
+        posted_reply: string | null;
+        posted_at: Date | null;
+        approved_at: Date | null;
+        last_error: string | null;
+        retry_count: number;
+    }>;
+}

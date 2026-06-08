@@ -40,6 +40,6 @@ export default registerAs('app', () => ({
     // Google Business Profile OAuth (used by the clinic-side review auto-reply feature)
     clientId: process.env['GOOGLE_CLIENT_ID'] || '',
     clientSecret: process.env['GOOGLE_CLIENT_SECRET'] || '',
-    redirectUri: process.env['GOOGLE_REDIRECT_URI'] || 'http://localhost:3000/api/google-reviews/oauth/callback',
+    redirectUri: process.env['GOOGLE_REDIRECT_URI'] || 'http://localhost:3000/api/v1/google-reviews/oauth/callback',
   },
 }));
