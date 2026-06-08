@@ -29,6 +29,9 @@ let WhatsAppProvider = WhatsAppProvider_1 = class WhatsAppProvider {
     isConfigured(clinicId) {
         return this.clinicConfigs.has(clinicId);
     }
+    getPhoneNumberId(clinicId) {
+        return this.clinicConfigs.get(clinicId)?.config.phoneNumberId ?? null;
+    }
     removeClinic(clinicId) {
         this.clinicConfigs.delete(clinicId);
     }

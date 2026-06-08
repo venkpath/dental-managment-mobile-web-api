@@ -423,6 +423,8 @@ export declare class CommunicationService {
     ensureClinicProviders(clinicId: string): Promise<void>;
     private ensureProvidersConfigured;
     private loadAndConfigureProviders;
+    private getByoWhatsAppBlockReason;
+    private configureClinicWhatsApp;
     private configureProviders;
     private sanitizeTextBody;
     private renderEmailHtml;
