@@ -1699,17 +1699,45 @@ let CommunicationService = class CommunicationService {
             const buttonReply = interactive?.['button_reply'];
             text = buttonReply?.['title'] || '';
         }
+        else if (msgType === 'reaction') {
+            const reactionObj = msg['reaction'];
+            const emoji = reactionObj?.['emoji'] || '';
+            text = emoji ? `Reacted ${emoji}` : '[reaction]';
+        }
         else if (msgType === 'image') {
-            text = '[Image]';
+            const imageObj = msg['image'];
+            const caption = imageObj?.['caption'] || '';
+            text = caption ? `[Image] ${caption}` : '[Image]';
+        }
+        else if (msgType === 'video') {
+            const videoObj = msg['video'];
+            const caption = videoObj?.['caption'] || '';
+            text = caption ? `[Video] ${caption}` : '[Video]';
         }
         else if (msgType === 'audio') {
             text = '[Audio]';
         }
         else if (msgType === 'document') {
-            text = '[Document]';
+            const docObj = msg['document'];
+            const filename = docObj?.['filename'] || '';
+            text = filename ? `[Document] ${filename}` : '[Document]';
+        }
+        else if (msgType === 'sticker') {
+            text = '[Sticker]';
         }
         else if (msgType === 'location') {
-            text = '[Location]';
+            const locObj = msg['location'];
+            const locName = locObj?.['name'] || '';
+            text = locName ? `[Location] ${locName}` : '[Location]';
+        }
+        else if (msgType === 'contacts') {
+            text = '[Contact]';
+        }
+        else if (msgType === 'order') {
+            text = '[Order]';
+        }
+        else if (msgType === 'unsupported') {
+            text = '[Unsupported message]';
         }
         else {
             text = `[${msgType}]`;

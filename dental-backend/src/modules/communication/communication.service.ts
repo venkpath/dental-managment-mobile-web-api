@@ -2299,14 +2299,36 @@ export class CommunicationService {
       const interactive = msg['interactive'] as Record<string, unknown> | undefined;
       const buttonReply = interactive?.['button_reply'] as Record<string, unknown> | undefined;
       text = (buttonReply?.['title'] as string) || '';
+    } else if (msgType === 'reaction') {
+      const reactionObj = msg['reaction'] as Record<string, unknown> | undefined;
+      const emoji = (reactionObj?.['emoji'] as string) || '';
+      text = emoji ? `Reacted ${emoji}` : '[reaction]';
     } else if (msgType === 'image') {
-      text = '[Image]';
+      const imageObj = msg['image'] as Record<string, unknown> | undefined;
+      const caption = (imageObj?.['caption'] as string) || '';
+      text = caption ? `[Image] ${caption}` : '[Image]';
+    } else if (msgType === 'video') {
+      const videoObj = msg['video'] as Record<string, unknown> | undefined;
+      const caption = (videoObj?.['caption'] as string) || '';
+      text = caption ? `[Video] ${caption}` : '[Video]';
     } else if (msgType === 'audio') {
       text = '[Audio]';
     } else if (msgType === 'document') {
-      text = '[Document]';
+      const docObj = msg['document'] as Record<string, unknown> | undefined;
+      const filename = (docObj?.['filename'] as string) || '';
+      text = filename ? `[Document] ${filename}` : '[Document]';
+    } else if (msgType === 'sticker') {
+      text = '[Sticker]';
     } else if (msgType === 'location') {
-      text = '[Location]';
+      const locObj = msg['location'] as Record<string, unknown> | undefined;
+      const locName = (locObj?.['name'] as string) || '';
+      text = locName ? `[Location] ${locName}` : '[Location]';
+    } else if (msgType === 'contacts') {
+      text = '[Contact]';
+    } else if (msgType === 'order') {
+      text = '[Order]';
+    } else if (msgType === 'unsupported') {
+      text = '[Unsupported message]';
     } else {
       text = `[${msgType}]`;
     }
