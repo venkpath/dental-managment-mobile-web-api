@@ -5,6 +5,7 @@ import { TemplateService } from '../communication/template.service.js';
 import type { CreateCampaignDto } from './dto/create-campaign.dto.js';
 import type { UpdateCampaignDto } from './dto/update-campaign.dto.js';
 import type { QueryCampaignDto } from './dto/query-campaign.dto.js';
+import type { TestCampaignSendDto } from './dto/test-campaign-send.dto.js';
 type CampaignChannel = 'email' | 'sms' | 'whatsapp' | 'all';
 type DeliveryChannel = Exclude<CampaignChannel, 'all'>;
 export declare class CampaignService {
@@ -185,6 +186,14 @@ export declare class CampaignService {
             email: string | null;
         }[];
     }>;
+    testSend(clinicId: string, dto: TestCampaignSendDto): Promise<{
+        success: boolean;
+        phone: string;
+        patient_id: string;
+        message_id: string;
+        status: string;
+        auto_created_patient: boolean;
+    }>;
     execute(clinicId: string, id: string): Promise<{
         total_recipients: number;
         attempted_count: number;
@@ -195,6 +204,8 @@ export declare class CampaignService {
         estimated_cost: number;
         actual_cost: number;
     }>;
+    private parseSuppliedTemplateVariables;
+    private resolveTestRecipient;
     private resolveSegment;
     getAnalytics(clinicId: string, campaignId: string): Promise<{
         campaign_id: string;

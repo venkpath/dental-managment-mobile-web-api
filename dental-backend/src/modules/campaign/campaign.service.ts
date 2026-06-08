@@ -13,9 +13,11 @@ import {
   type CampaignVariableMappingInput,
   type SystemCampaignVariable,
 } from './system-variables.js';
+import { normalizePhoneE164, phoneLookupVariants } from '../../common/utils/phone.util.js';
 import type { CreateCampaignDto } from './dto/create-campaign.dto.js';
 import type { UpdateCampaignDto } from './dto/update-campaign.dto.js';
 import type { QueryCampaignDto } from './dto/query-campaign.dto.js';
+import type { TestCampaignSendDto } from './dto/test-campaign-send.dto.js';
 
 type CampaignChannel = 'email' | 'sms' | 'whatsapp' | 'all';
 type DeliveryChannel = Exclude<CampaignChannel, 'all'>;
@@ -358,6 +360,96 @@ export class CampaignService {
     };
   }
 
+  /**
+   * Send a single test message to one phone number using the selected template
+   * and variable mappings — does not create or execute a campaign.
+   */
+  async testSend(clinicId: string, dto: TestCampaignSendDto) {
+    const phone = dto.phone?.trim();
+    if (!phone) {
+      throw new BadRequestException('Phone number is required for test send.');
+    }
+
+    const channels = this.getDeliveryChannels(dto.channel);
+    if (channels.length !== 1) {
+      throw new BadRequestException('Test send supports whatsapp, sms, or email — not "all".');
+    }
+    const channel = channels[0];
+
+    const template = await this.templateService.findOne(clinicId, dto.template_id);
+    const { suppliedMappings, extraVariables } = this.parseSuppliedTemplateVariables(
+      (dto.template_variables as Record<string, CampaignVariableMappingInput> | undefined) || {},
+    );
+
+    const requiredSlots = extractUserMappedVariableNames(template.variables);
+    const missingSlots = requiredSlots.filter((name) => {
+      const m = suppliedMappings[name];
+      if (!m) return true;
+      if (m.type === 'custom' && !String(m.value || '').trim()) return true;
+      return false;
+    });
+    if (missingSlots.length > 0) {
+      throw new BadRequestException(
+        `Missing values for template variables: ${missingSlots.join(', ')}.`,
+      );
+    }
+
+    const clinic = await this.prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { name: true, phone: true },
+    });
+    const clinicContext = {
+      clinic_name: clinic?.name || '',
+      clinic_phone: clinic?.phone || '',
+      today_date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+    };
+
+    const { patient, autoCreated } = await this.resolveTestRecipient(clinicId, phone);
+    const systemValues = this.buildSystemVariableValues(patient, clinicContext);
+    const resolvedMappings = this.resolveMappingsForRecipient(suppliedMappings, systemValues);
+    const variables = {
+      ...extraVariables,
+      clinic_name: clinicContext.clinic_name,
+      ...this.buildPatientVariables(patient),
+      ...resolvedMappings,
+    };
+
+    let buttonUrlSuffix = dto.button_url_suffix;
+    if (!buttonUrlSuffix && channel === 'whatsapp') {
+      const firstBranch = await this.prisma.branch.findFirst({
+        where: { clinic_id: clinicId },
+        orderBy: { created_at: 'asc' },
+        select: { id: true, book_now_url: true },
+      });
+      if (firstBranch) {
+        buttonUrlSuffix = getBookingUrl(clinicId, firstBranch.id, firstBranch.book_now_url);
+      }
+    }
+
+    const message = await this.communicationService.sendMessage(clinicId, {
+      patient_id: patient.id,
+      channel: this.toMessageChannel(channel),
+      category: MessageCategory.PROMOTIONAL,
+      template_id: dto.template_id,
+      variables,
+      metadata: {
+        campaign_test: true,
+        ...(buttonUrlSuffix ? { button_url_suffix: buttonUrlSuffix } : {}),
+      },
+    });
+
+    this.communicationService.throwIfMessageSkipped(message);
+
+    return {
+      success: true,
+      phone: patient.phone,
+      patient_id: patient.id,
+      message_id: message.id,
+      status: message.status,
+      auto_created_patient: autoCreated,
+    };
+  }
+
   // ─── Campaign Execution ───
 
   async execute(clinicId: string, id: string) {
@@ -530,6 +622,66 @@ export class CampaignService {
       });
       throw error;
     }
+  }
+
+  private parseSuppliedTemplateVariables(
+    rawSupplied: Record<string, CampaignVariableMappingInput>,
+  ): {
+    suppliedMappings: Record<string, CampaignVariableMapping>;
+    extraVariables: Record<string, string>;
+  } {
+    const suppliedMappings: Record<string, CampaignVariableMapping> = {};
+    const extraVariables: Record<string, string> = {};
+    for (const [name, raw] of Object.entries(rawSupplied)) {
+      if (raw === undefined || raw === null) continue;
+      const mapping = normalizeMapping(raw);
+      suppliedMappings[name] = mapping;
+      if (mapping.type === 'custom' && !/^\d+$/.test(name)) {
+        extraVariables[name] = mapping.value;
+      }
+    }
+    return { suppliedMappings, extraVariables };
+  }
+
+  private async resolveTestRecipient(
+    clinicId: string,
+    phone: string,
+  ): Promise<{ patient: SegmentPatient; autoCreated: boolean }> {
+    const variants = phoneLookupVariants(phone);
+    const existing = await this.prisma.patient.findFirst({
+      where: { clinic_id: clinicId, phone: { in: variants } },
+      select: { id: true, first_name: true, last_name: true, phone: true, email: true },
+    });
+    if (existing) {
+      return { patient: existing, autoCreated: false };
+    }
+
+    const normalized = normalizePhoneE164(phone) ?? variants[0];
+    const branch = await this.prisma.branch.findFirst({
+      where: { clinic_id: clinicId },
+      orderBy: { created_at: 'asc' },
+      select: { id: true },
+    });
+    if (!branch) {
+      throw new BadRequestException(
+        'No patient found with this number. Add them as a patient first, or create a branch for this clinic.',
+      );
+    }
+
+    const created = await this.prisma.patient.create({
+      data: {
+        clinic_id: clinicId,
+        branch_id: branch.id,
+        first_name: 'Test',
+        last_name: 'Recipient',
+        phone: normalized,
+        gender: 'other',
+      },
+      select: { id: true, first_name: true, last_name: true, phone: true, email: true },
+    });
+
+    this.logger.log(`Campaign test: created temporary patient ${created.id} for ${normalized}`);
+    return { patient: created, autoCreated: true };
   }
 
   // ─── Segment Resolution ───

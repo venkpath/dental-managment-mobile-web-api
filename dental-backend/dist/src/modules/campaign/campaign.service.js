@@ -20,6 +20,7 @@ const booking_url_util_js_1 = require("../../common/utils/booking-url.util.js");
 const send_message_dto_js_1 = require("../communication/dto/send-message.dto.js");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
 const system_variables_js_1 = require("./system-variables.js");
+const phone_util_js_1 = require("../../common/utils/phone.util.js");
 let CampaignService = class CampaignService {
     static { CampaignService_1 = this; }
     prisma;
@@ -260,6 +261,80 @@ let CampaignService = class CampaignService {
             })),
         };
     }
+    async testSend(clinicId, dto) {
+        const phone = dto.phone?.trim();
+        if (!phone) {
+            throw new common_1.BadRequestException('Phone number is required for test send.');
+        }
+        const channels = this.getDeliveryChannels(dto.channel);
+        if (channels.length !== 1) {
+            throw new common_1.BadRequestException('Test send supports whatsapp, sms, or email — not "all".');
+        }
+        const channel = channels[0];
+        const template = await this.templateService.findOne(clinicId, dto.template_id);
+        const { suppliedMappings, extraVariables } = this.parseSuppliedTemplateVariables(dto.template_variables || {});
+        const requiredSlots = (0, system_variables_js_1.extractUserMappedVariableNames)(template.variables);
+        const missingSlots = requiredSlots.filter((name) => {
+            const m = suppliedMappings[name];
+            if (!m)
+                return true;
+            if (m.type === 'custom' && !String(m.value || '').trim())
+                return true;
+            return false;
+        });
+        if (missingSlots.length > 0) {
+            throw new common_1.BadRequestException(`Missing values for template variables: ${missingSlots.join(', ')}.`);
+        }
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: { name: true, phone: true },
+        });
+        const clinicContext = {
+            clinic_name: clinic?.name || '',
+            clinic_phone: clinic?.phone || '',
+            today_date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+        };
+        const { patient, autoCreated } = await this.resolveTestRecipient(clinicId, phone);
+        const systemValues = this.buildSystemVariableValues(patient, clinicContext);
+        const resolvedMappings = this.resolveMappingsForRecipient(suppliedMappings, systemValues);
+        const variables = {
+            ...extraVariables,
+            clinic_name: clinicContext.clinic_name,
+            ...this.buildPatientVariables(patient),
+            ...resolvedMappings,
+        };
+        let buttonUrlSuffix = dto.button_url_suffix;
+        if (!buttonUrlSuffix && channel === 'whatsapp') {
+            const firstBranch = await this.prisma.branch.findFirst({
+                where: { clinic_id: clinicId },
+                orderBy: { created_at: 'asc' },
+                select: { id: true, book_now_url: true },
+            });
+            if (firstBranch) {
+                buttonUrlSuffix = (0, booking_url_util_js_1.getBookingUrl)(clinicId, firstBranch.id, firstBranch.book_now_url);
+            }
+        }
+        const message = await this.communicationService.sendMessage(clinicId, {
+            patient_id: patient.id,
+            channel: this.toMessageChannel(channel),
+            category: send_message_dto_js_1.MessageCategory.PROMOTIONAL,
+            template_id: dto.template_id,
+            variables,
+            metadata: {
+                campaign_test: true,
+                ...(buttonUrlSuffix ? { button_url_suffix: buttonUrlSuffix } : {}),
+            },
+        });
+        this.communicationService.throwIfMessageSkipped(message);
+        return {
+            success: true,
+            phone: patient.phone,
+            patient_id: patient.id,
+            message_id: message.id,
+            status: message.status,
+            auto_created_patient: autoCreated,
+        };
+    }
     async execute(clinicId, id) {
         const campaign = await this.findOne(clinicId, id);
         if (!['draft', 'scheduled'].includes(campaign.status)) {
@@ -391,6 +466,52 @@ let CampaignService = class CampaignService {
             });
             throw error;
         }
+    }
+    parseSuppliedTemplateVariables(rawSupplied) {
+        const suppliedMappings = {};
+        const extraVariables = {};
+        for (const [name, raw] of Object.entries(rawSupplied)) {
+            if (raw === undefined || raw === null)
+                continue;
+            const mapping = (0, system_variables_js_1.normalizeMapping)(raw);
+            suppliedMappings[name] = mapping;
+            if (mapping.type === 'custom' && !/^\d+$/.test(name)) {
+                extraVariables[name] = mapping.value;
+            }
+        }
+        return { suppliedMappings, extraVariables };
+    }
+    async resolveTestRecipient(clinicId, phone) {
+        const variants = (0, phone_util_js_1.phoneLookupVariants)(phone);
+        const existing = await this.prisma.patient.findFirst({
+            where: { clinic_id: clinicId, phone: { in: variants } },
+            select: { id: true, first_name: true, last_name: true, phone: true, email: true },
+        });
+        if (existing) {
+            return { patient: existing, autoCreated: false };
+        }
+        const normalized = (0, phone_util_js_1.normalizePhoneE164)(phone) ?? variants[0];
+        const branch = await this.prisma.branch.findFirst({
+            where: { clinic_id: clinicId },
+            orderBy: { created_at: 'asc' },
+            select: { id: true },
+        });
+        if (!branch) {
+            throw new common_1.BadRequestException('No patient found with this number. Add them as a patient first, or create a branch for this clinic.');
+        }
+        const created = await this.prisma.patient.create({
+            data: {
+                clinic_id: clinicId,
+                branch_id: branch.id,
+                first_name: 'Test',
+                last_name: 'Recipient',
+                phone: normalized,
+                gender: 'other',
+            },
+            select: { id: true, first_name: true, last_name: true, phone: true, email: true },
+        });
+        this.logger.log(`Campaign test: created temporary patient ${created.id} for ${normalized}`);
+        return { patient: created, autoCreated: true };
     }
     async resolveSegment(clinicId, segmentType, config) {
         const branchIdFromConfig = typeof config.branch_id === 'string' ? config.branch_id : undefined;

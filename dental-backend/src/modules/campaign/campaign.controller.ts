@@ -22,6 +22,7 @@ import { CampaignService } from './campaign.service.js';
 import { CreateCampaignDto } from './dto/create-campaign.dto.js';
 import { UpdateCampaignDto } from './dto/update-campaign.dto.js';
 import { QueryCampaignDto } from './dto/query-campaign.dto.js';
+import { TestCampaignSendDto } from './dto/test-campaign-send.dto.js';
 
 @ApiTags('Campaigns')
 @ApiHeader({ name: 'x-clinic-id', required: true })
@@ -79,6 +80,16 @@ export class CampaignController {
     @Body() body: { segment_type: string; segment_config?: Record<string, unknown>; channel: string },
   ) {
     return this.campaignService.estimateCost(clinicId, body);
+  }
+
+  @Post('test-send')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Send a campaign template to one phone number for testing (BYO WABA / template check)' })
+  async testSend(
+    @CurrentClinic() clinicId: string,
+    @Body() dto: TestCampaignSendDto,
+  ) {
+    return this.campaignService.testSend(clinicId, dto);
   }
 
   @Post('drip-sequence')

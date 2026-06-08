@@ -3,6 +3,7 @@ import { CampaignService } from './campaign.service.js';
 import { CreateCampaignDto } from './dto/create-campaign.dto.js';
 import { UpdateCampaignDto } from './dto/update-campaign.dto.js';
 import { QueryCampaignDto } from './dto/query-campaign.dto.js';
+import { TestCampaignSendDto } from './dto/test-campaign-send.dto.js';
 export declare class CampaignController {
     private readonly campaignService;
     constructor(campaignService: CampaignService);
@@ -93,6 +94,14 @@ export declare class CampaignController {
         }[];
         total_estimated_cost: number;
         currency: string;
+    }>;
+    testSend(clinicId: string, dto: TestCampaignSendDto): Promise<{
+        success: boolean;
+        phone: string;
+        patient_id: string;
+        message_id: string;
+        status: string;
+        auto_created_patient: boolean;
     }>;
     createDripSequence(clinicId: string, user: JwtPayload, body: {
         name: string;
