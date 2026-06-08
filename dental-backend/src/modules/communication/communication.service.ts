@@ -439,6 +439,8 @@ export class CommunicationService {
       daily_limit_exceeded: 'Clinic daily message limit has been reached.',
       circuit_breaker_open: 'WhatsApp sending is temporarily paused due to recent failures.',
       dedup_duplicate: 'This message was already sent recently (duplicate blocked).',
+      byo_whatsapp_not_configured: 'Your own WhatsApp (WABA) is not fully configured. Check Communication → Settings.',
+      byo_whatsapp_platform_fallback_blocked: 'Your clinic must send via your own WABA — platform WhatsApp cannot be used.',
     };
     if (reason && map[reason]) return map[reason];
     if (reason) return `Message not sent (${reason.replace(/_/g, ' ')}).`;
