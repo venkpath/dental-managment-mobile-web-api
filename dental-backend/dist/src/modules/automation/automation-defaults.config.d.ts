@@ -20,6 +20,7 @@ export declare const AUTOMATION_DEFAULT_TEMPLATES: {
     readonly payment_confirmation: "dental_payment_received_pdf";
     readonly prescription_ready: "dental_prescription_pdf";
     readonly untreated_condition_reminder: "dental_untreated_condition_reminder";
+    readonly treatment_plan_reminder: "dental_treatment_plan_reminder";
 };
 export declare const CLINIC_AUTOMATION_DEFAULTS: AutomationRuleDefault[];
 export declare function getAllAutomationRuleTypes(): string[];

@@ -13,17 +13,25 @@ const config_1 = require("@nestjs/config");
 const public_booking_controller_js_1 = require("./public-booking.controller.js");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const appointment_reminder_producer_js_1 = require("../appointment/appointment-reminder.producer.js");
+const appointment_notification_service_js_1 = require("../appointment/appointment-notification.service.js");
 const queue_names_js_1 = require("../../common/queue/queue-names.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
 const otp_service_js_1 = require("./otp.service.js");
+const automation_module_js_1 = require("../automation/automation.module.js");
+const communication_module_js_1 = require("../communication/communication.module.js");
 let PublicBookingModule = class PublicBookingModule {
 };
 exports.PublicBookingModule = PublicBookingModule;
 exports.PublicBookingModule = PublicBookingModule = __decorate([
     (0, common_1.Module)({
-        imports: [bullmq_1.BullModule.registerQueue({ name: queue_names_js_1.QUEUE_NAMES.APPOINTMENT_REMINDER }), config_1.ConfigModule],
+        imports: [
+            bullmq_1.BullModule.registerQueue({ name: queue_names_js_1.QUEUE_NAMES.APPOINTMENT_REMINDER }),
+            config_1.ConfigModule,
+            automation_module_js_1.AutomationModule,
+            communication_module_js_1.CommunicationModule,
+        ],
         controllers: [public_booking_controller_js_1.PublicBookingController],
-        providers: [prisma_service_js_1.PrismaService, appointment_reminder_producer_js_1.AppointmentReminderProducer, s3_service_js_1.S3Service, otp_service_js_1.OtpService],
+        providers: [prisma_service_js_1.PrismaService, appointment_reminder_producer_js_1.AppointmentReminderProducer, appointment_notification_service_js_1.AppointmentNotificationService, s3_service_js_1.S3Service, otp_service_js_1.OtpService],
     })
 ], PublicBookingModule);
 //# sourceMappingURL=public-booking.module.js.map

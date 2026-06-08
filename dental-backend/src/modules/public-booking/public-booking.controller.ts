@@ -12,6 +12,7 @@ import { S3Service } from '../../common/services/s3.service.js';
 import { OtpService } from './otp.service.js';
 import { getBookingUrl } from '../../common/utils/booking-url.util.js';
 import { AppointmentReminderProducer } from '../appointment/appointment-reminder.producer.js';
+import { AppointmentNotificationService } from '../appointment/appointment-notification.service.js';
 
 const META_GRAPH_API = 'https://graph.facebook.com/v21.0';
 
@@ -123,6 +124,7 @@ export class PublicBookingController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly reminderProducer: AppointmentReminderProducer,
+    private readonly notificationService: AppointmentNotificationService,
     private readonly s3: S3Service,
     private readonly config: ConfigService,
     private readonly otpService: OtpService,
@@ -427,6 +429,14 @@ export class PublicBookingController {
         status: true,
         dentist: { select: { name: true } },
       },
+    });
+
+    // Send instant WhatsApp confirmation to patient and dentist.
+    this.notificationService.sendConfirmation(clinicId, appointment.id).catch((e) => {
+      this.logger.warn(`Appointment confirmation notification failed for public booking ${appointment.id}: ${(e as Error).message}`);
+    });
+    this.notificationService.sendDentistConfirmation(clinicId, appointment.id).catch((e) => {
+      this.logger.warn(`Dentist confirmation notification failed for public booking ${appointment.id}: ${(e as Error).message}`);
     });
 
     // Schedule appointment reminders for public-booked appointments as well.

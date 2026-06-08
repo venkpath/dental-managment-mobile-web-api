@@ -1096,8 +1096,21 @@ export class PublicDirectoryController {
       }),
     );
 
+    // Presign gallery images (stored as S3 keys since the upload-based gallery)
+    const rawGalleryKeys: string[] = (() => {
+      try { return clinic.gallery_images ? JSON.parse(clinic.gallery_images) as string[] : []; }
+      catch { return []; }
+    })();
+    const signedGalleryUrls = await Promise.all(
+      rawGalleryKeys.map((k) => this.signedUrlIfExists(k)),
+    );
+    const gallery_images = signedGalleryUrls.filter(Boolean).length
+      ? JSON.stringify(signedGalleryUrls.filter(Boolean))
+      : clinic.gallery_images;
+
     return {
       ...clinic,
+      gallery_images,
       directory_clinic_image_url: undefined,
       clinic_cover_photo_url: clinicCoverPhotoUrl,
       branches,

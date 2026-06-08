@@ -1173,14 +1173,33 @@ export class CommunicationService {
 
   // ─── Private Helpers ───
 
+  private platformWhatsAppAvailable(): boolean {
+    return !!(
+      this.configService.get<string>('app.whatsapp.accessToken') &&
+      this.configService.get<string>('app.whatsapp.phoneNumberId')
+    );
+  }
+
   private async getOrCreateClinicSettings(clinicId: string) {
     let settings = await this.prisma.clinicCommunicationSettings.findUnique({
       where: { clinic_id: clinicId },
     });
 
+    const platformWa = this.platformWhatsAppAvailable();
+
     if (!settings) {
       settings = await this.prisma.clinicCommunicationSettings.create({
-        data: { clinic_id: clinicId },
+        data: { clinic_id: clinicId, enable_whatsapp: platformWa },
+      });
+      return settings;
+    }
+
+    // Clinics on the platform shared number: enable WhatsApp once env is configured
+    // and the clinic has not set up their own WABA credentials yet.
+    if (platformWa && !settings.enable_whatsapp && !settings.whatsapp_config) {
+      settings = await this.prisma.clinicCommunicationSettings.update({
+        where: { clinic_id: clinicId },
+        data: { enable_whatsapp: true },
       });
     }
 

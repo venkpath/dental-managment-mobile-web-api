@@ -396,6 +396,7 @@ export declare class CommunicationService {
         error?: string;
     }>;
     handleChannelFallback(messageId: string, failedChannel: string): Promise<boolean>;
+    private platformWhatsAppAvailable;
     private getOrCreateClinicSettings;
     private isChannelEnabled;
     private checkPatientPreferences;

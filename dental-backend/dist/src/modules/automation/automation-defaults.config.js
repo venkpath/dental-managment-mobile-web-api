@@ -13,6 +13,7 @@ exports.AUTOMATION_DEFAULT_TEMPLATES = {
     payment_confirmation: 'dental_payment_received_pdf',
     prescription_ready: 'dental_prescription_pdf',
     untreated_condition_reminder: 'dental_untreated_condition_reminder',
+    treatment_plan_reminder: 'dental_treatment_plan_reminder',
 };
 exports.CLINIC_AUTOMATION_DEFAULTS = [
     {
@@ -47,8 +48,9 @@ exports.CLINIC_AUTOMATION_DEFAULTS = [
     },
     {
         rule_type: 'treatment_plan_reminder',
-        is_enabled: true,
-        channel: 'preferred',
+        is_enabled: false,
+        channel: 'whatsapp',
+        template_name: exports.AUTOMATION_DEFAULT_TEMPLATES.treatment_plan_reminder,
         config: { reminder_interval_days: 14 },
     },
     {
