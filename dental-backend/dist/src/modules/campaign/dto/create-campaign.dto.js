@@ -45,10 +45,10 @@ __decorate([
 ], CreateCampaignDto.prototype, "template_id", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        enum: ['all', 'inactive', 'treatment_type', 'birthday_month', 'location', 'custom', 'no_show_risk', 'churn_risk', 'recall_due'],
+        enum: ['all', 'inactive', 'treatment_type', 'birthday_month', 'location', 'custom', 'no_show_risk', 'churn_risk', 'recall_due', 'test_phone'],
         example: 'all',
     }),
-    (0, class_validator_1.IsEnum)(['all', 'inactive', 'treatment_type', 'birthday_month', 'location', 'custom', 'no_show_risk', 'churn_risk', 'recall_due']),
+    (0, class_validator_1.IsEnum)(['all', 'inactive', 'treatment_type', 'birthday_month', 'location', 'custom', 'no_show_risk', 'churn_risk', 'recall_due', 'test_phone']),
     __metadata("design:type", String)
 ], CreateCampaignDto.prototype, "segment_type", void 0);
 __decorate([

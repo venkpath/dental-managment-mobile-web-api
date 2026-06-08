@@ -16,10 +16,10 @@ export class CreateCampaignDto {
   template_id?: string;
 
   @ApiProperty({
-    enum: ['all', 'inactive', 'treatment_type', 'birthday_month', 'location', 'custom', 'no_show_risk', 'churn_risk', 'recall_due'],
+    enum: ['all', 'inactive', 'treatment_type', 'birthday_month', 'location', 'custom', 'no_show_risk', 'churn_risk', 'recall_due', 'test_phone'],
     example: 'all',
   })
-  @IsEnum(['all', 'inactive', 'treatment_type', 'birthday_month', 'location', 'custom', 'no_show_risk', 'churn_risk', 'recall_due'])
+  @IsEnum(['all', 'inactive', 'treatment_type', 'birthday_month', 'location', 'custom', 'no_show_risk', 'churn_risk', 'recall_due', 'test_phone'])
   segment_type!: string;
 
   @ApiPropertyOptional({
