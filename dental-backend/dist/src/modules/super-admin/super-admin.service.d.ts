@@ -21,6 +21,7 @@ export declare class SuperAdminService {
     private readonly frontendUrl;
     constructor(prisma: PrismaService, passwordService: PasswordService, emailProvider: EmailProvider, whatsapp: WhatsAppProvider, config: ConfigService, automationService: AutomationService, s3: S3Service);
     private ensureWhatsAppConfigured;
+    private sendDirectoryListingApprovedWhatsApp;
     private sendSignupApprovedWhatsApp;
     private sendSignupAdminAlertWhatsApp;
     private ensureEmailConfigured;

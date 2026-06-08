@@ -182,4 +182,13 @@ export declare class AiService {
         title: string;
         body: Record<string, unknown>;
     }>;
+    voiceTranscribe(audioBuffer: Buffer, mimeType: string): Promise<{
+        transcript: string;
+    }>;
+    voiceRephrase(params: {
+        text: string;
+        field: string;
+    }): Promise<{
+        rephrased: string;
+    }>;
 }

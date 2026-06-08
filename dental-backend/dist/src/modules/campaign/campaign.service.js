@@ -301,97 +301,84 @@ let CampaignService = class CampaignService {
         if (!campaign.template_id) {
             throw new common_1.BadRequestException('Campaign must have a template to execute');
         }
-        try {
-            const channels = this.getDeliveryChannels(campaign.channel);
-            const patients = await this.resolveSegment(clinicId, campaign.segment_type, campaign.segment_config || {});
-            const template = await this.templateService.findOne(clinicId, campaign.template_id);
-            const segmentCfg = campaign.segment_config || {};
-            const rawSupplied = segmentCfg._template_variables || {};
-            const suppliedMappings = {};
-            const legacyExtras = {};
-            for (const [name, raw] of Object.entries(rawSupplied)) {
-                if (raw === undefined || raw === null)
-                    continue;
-                const mapping = (0, system_variables_js_1.normalizeMapping)(raw);
-                suppliedMappings[name] = mapping;
-                if (mapping.type === 'custom' && !/^\d+$/.test(name)) {
-                    legacyExtras[name] = mapping.value;
-                }
+        const channels = this.getDeliveryChannels(campaign.channel);
+        const patients = await this.resolveSegment(clinicId, campaign.segment_type, campaign.segment_config || {});
+        const template = await this.templateService.findOne(clinicId, campaign.template_id);
+        const segmentCfg = campaign.segment_config || {};
+        const rawSupplied = segmentCfg._template_variables || {};
+        const suppliedMappings = {};
+        const legacyExtras = {};
+        for (const [name, raw] of Object.entries(rawSupplied)) {
+            if (raw === undefined || raw === null)
+                continue;
+            const mapping = (0, system_variables_js_1.normalizeMapping)(raw);
+            suppliedMappings[name] = mapping;
+            if (mapping.type === 'custom' && !/^\d+$/.test(name)) {
+                legacyExtras[name] = mapping.value;
             }
-            const requiredSlots = (0, system_variables_js_1.extractUserMappedVariableNames)(template.variables);
-            const missingSlots = requiredSlots.filter((name) => {
-                const m = suppliedMappings[name];
-                if (!m)
-                    return true;
-                if (m.type === 'custom' && !String(m.value || '').trim())
-                    return true;
-                return false;
-            });
-            if (missingSlots.length > 0) {
-                throw new common_1.BadRequestException(`Missing values for template variables: ${missingSlots.join(', ')}. ` +
-                    `Map each variable to a system field or a custom text in the wizard.`);
-            }
-            const clinic = await this.prisma.clinic.findUnique({
-                where: { id: clinicId },
-                select: { name: true, phone: true },
-            });
-            const clinicContext = {
-                clinic_name: clinic?.name || '',
-                clinic_phone: clinic?.phone || '',
-                today_date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-            };
-            const extraVariables = {
-                clinic_name: clinicContext.clinic_name,
-                ...legacyExtras,
-            };
-            const estimatedCost = Math.round((patients.length * this.getPerRecipientCost(channels)) * 100) / 100;
+        }
+        const requiredSlots = (0, system_variables_js_1.extractUserMappedVariableNames)(template.variables);
+        const missingSlots = requiredSlots.filter((name) => {
+            const m = suppliedMappings[name];
+            if (!m)
+                return true;
+            if (m.type === 'custom' && !String(m.value || '').trim())
+                return true;
+            return false;
+        });
+        if (missingSlots.length > 0) {
+            throw new common_1.BadRequestException(`Missing values for template variables: ${missingSlots.join(', ')}. ` +
+                `Map each variable to a system field or a custom text in the wizard.`);
+        }
+        const clinic = await this.prisma.clinic.findUnique({
+            where: { id: clinicId },
+            select: { name: true, phone: true },
+        });
+        const clinicContext = {
+            clinic_name: clinic?.name || '',
+            clinic_phone: clinic?.phone || '',
+            today_date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+        };
+        const extraVariables = {
+            clinic_name: clinicContext.clinic_name,
+            ...legacyExtras,
+        };
+        const estimatedCost = Math.round((patients.length * this.getPerRecipientCost(channels)) * 100) / 100;
+        await this.prisma.campaign.update({
+            where: { id },
+            data: { status: 'running', started_at: new Date(), estimated_cost: estimatedCost },
+        });
+        if (patients.length === 0) {
             await this.prisma.campaign.update({
                 where: { id },
-                data: {
-                    status: 'running',
-                    started_at: new Date(),
-                    estimated_cost: estimatedCost,
-                },
+                data: { status: 'completed', completed_at: new Date(), total_recipients: 0, sent_count: 0, failed_count: 0, actual_cost: 0 },
             });
-            if (patients.length === 0) {
-                await this.prisma.campaign.update({
-                    where: { id },
-                    data: {
-                        status: 'completed',
-                        completed_at: new Date(),
-                        total_recipients: 0,
-                        sent_count: 0,
-                        failed_count: 0,
-                        actual_cost: 0,
-                    },
-                });
-                return {
-                    total_recipients: 0,
-                    attempted_count: 0,
-                    sent_count: 0,
-                    scheduled_count: 0,
-                    skipped_count: 0,
-                    failed_count: 0,
-                    estimated_cost: estimatedCost,
-                    actual_cost: 0,
-                };
+            return { status: 'completed', total_recipients: 0, message: 'No matching patients found.' };
+        }
+        let buttonUrlSuffix = segmentCfg['_button_url_suffix'];
+        if (!buttonUrlSuffix) {
+            const firstBranch = await this.prisma.branch.findFirst({
+                where: { clinic_id: clinicId },
+                orderBy: { created_at: 'asc' },
+                select: { id: true, book_now_url: true },
+            });
+            if (firstBranch) {
+                buttonUrlSuffix = (0, booking_url_util_js_1.getBookingUrl)(clinicId, firstBranch.id, firstBranch.book_now_url);
             }
-            const segmentConfig = campaign.segment_config || {};
-            let buttonUrlSuffix = segmentConfig['_button_url_suffix'];
-            if (!buttonUrlSuffix) {
-                const firstBranch = await this.prisma.branch.findFirst({
-                    where: { clinic_id: clinicId },
-                    orderBy: { created_at: 'asc' },
-                    select: { id: true, book_now_url: true },
-                });
-                if (firstBranch) {
-                    buttonUrlSuffix = (0, booking_url_util_js_1.getBookingUrl)(clinicId, firstBranch.id, firstBranch.book_now_url);
-                }
-            }
-            const stats = await this.dispatchMessages(clinicId, patients, channels, campaign.template_id, {
-                campaign_id: campaign.id,
-                ...(buttonUrlSuffix ? { button_url_suffix: buttonUrlSuffix } : {}),
-            }, extraVariables, suppliedMappings, clinicContext);
+        }
+        this._dispatchInBackground(clinicId, id, patients, channels, campaign.template_id, { campaign_id: campaign.id, ...(buttonUrlSuffix ? { button_url_suffix: buttonUrlSuffix } : {}) }, extraVariables, suppliedMappings, clinicContext).catch((err) => {
+            this.logger.error(`Background dispatch failed for campaign ${id}: ${err.message}`);
+        });
+        return {
+            status: 'running',
+            total_recipients: patients.length,
+            estimated_cost: estimatedCost,
+            message: `Campaign started. Messages are being sent to ${patients.length} patient${patients.length !== 1 ? 's' : ''}.`,
+        };
+    }
+    async _dispatchInBackground(clinicId, id, patients, channels, templateId, options, extraVariables, suppliedMappings, clinicContext) {
+        try {
+            const stats = await this.dispatchMessages(clinicId, patients, channels, templateId, options, extraVariables, suppliedMappings, clinicContext);
             const sentCount = stats.queued_count + stats.scheduled_count;
             const unsentCount = stats.failed_count + stats.skipped_count;
             const actualCost = this.calculateActualCost(stats.accepted_by_channel);
@@ -406,23 +393,13 @@ let CampaignService = class CampaignService {
                     actual_cost: actualCost,
                 },
             });
-            return {
-                total_recipients: patients.length,
-                attempted_count: stats.attempted_count,
-                sent_count: sentCount,
-                scheduled_count: stats.scheduled_count,
-                skipped_count: stats.skipped_count,
-                failed_count: stats.failed_count,
-                estimated_cost: estimatedCost,
-                actual_cost: actualCost,
-            };
         }
-        catch (error) {
+        catch (err) {
+            this.logger.error(`Campaign ${id} background dispatch error: ${err.message}`);
             await this.prisma.campaign.update({
                 where: { id },
-                data: { status: 'draft', started_at: null },
-            });
-            throw error;
+                data: { status: 'cancelled' },
+            }).catch(() => { });
         }
     }
     async resolveTestRecipient(clinicId, phone) {

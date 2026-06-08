@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AiController = void 0;
 const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
+const platform_express_1 = require("@nestjs/platform-express");
 const swagger_1 = require("@nestjs/swagger");
 const ai_service_js_1 = require("./ai.service.js");
 const ai_usage_service_js_1 = require("./ai-usage.service.js");
@@ -99,6 +100,14 @@ let AiController = class AiController {
             reviewed_by: req.user.userId,
             reviewed_at: new Date().toISOString(),
         });
+    }
+    async voiceTranscribe(file) {
+        if (!file)
+            throw new common_1.BadRequestException('audio file is required');
+        return this.aiService.voiceTranscribe(file.buffer, file.mimetype);
+    }
+    async voiceRephrase(body) {
+        return this.aiService.voiceRephrase({ text: body.text, field: body.field });
     }
 };
 exports.AiController = AiController;
@@ -317,6 +326,27 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, Object]),
     __metadata("design:returntype", Promise)
 ], AiController.prototype, "linkInsight", null);
+__decorate([
+    (0, common_1.Post)('voice-transcribe'),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST, create_user_dto_js_1.UserRole.CONSULTANT, create_user_dto_js_1.UserRole.RECEPTIONIST),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('audio', { limits: { fileSize: 10 * 1024 * 1024 } })),
+    (0, swagger_1.ApiOperation)({ summary: 'Transcribe audio to English text using Whisper (no quota)' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AiController.prototype, "voiceTranscribe", null);
+__decorate([
+    (0, common_1.Post)('voice-rephrase'),
+    (0, roles_decorator_js_1.Roles)(create_user_dto_js_1.UserRole.ADMIN, create_user_dto_js_1.UserRole.DENTIST, create_user_dto_js_1.UserRole.CONSULTANT, create_user_dto_js_1.UserRole.RECEPTIONIST),
+    (0, swagger_1.ApiOperation)({ summary: 'Rephrase transcript into clinical English (no quota)' }),
+    openapi.ApiResponse({ status: 201 }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AiController.prototype, "voiceRephrase", null);
 exports.AiController = AiController = __decorate([
     (0, swagger_1.ApiTags)('AI'),
     (0, swagger_1.ApiBearerAuth)(),

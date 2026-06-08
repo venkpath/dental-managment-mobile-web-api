@@ -1245,12 +1245,12 @@ export declare class SuperAdminController {
             body: string;
             contact_phone: string;
             metadata: import("@prisma/client/runtime/client").JsonValue | null;
+            contact_name: string | null;
             direction: string;
             wa_message_id: string | null;
             sent_at: Date | null;
             from_phone: string;
             to_phone: string;
-            contact_name: string | null;
             message_type: string;
         }[];
         meta: {

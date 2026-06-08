@@ -319,6 +319,30 @@ Clinic Event fires today
 
 ---
 
+## Platform / Listing Templates
+
+### directory_listing_approved
+- **Category:** UTILITY (not AUTHENTICATION — see note below)
+- **Trigger:** Super-admin approves a free directory listing
+- **Recipient:** Listing submitter (verified mobile from listing form)
+- **Header (TEXT):** `Listing Approved`
+- **Body:**
+  ```
+  Hi {{1}}, great news!
+
+  {{2}} is now live on Smart Dental Desk. Patients can find you in our directory.
+
+  Tap Open Dashboard below to manage appointments, patients, and billing.
+
+  – Smart Dental Desk
+  ```
+- **Button (URL, static):** `Open Dashboard` → `https://smartdentaldesk.com/login`
+- **Variables:** `{{1}}`=Contact name `{{2}}`=Clinic name
+- **Sign-in:** Do **not** put OTP / password / verification-code instructions in this template — Meta will force **AUTHENTICATION** category. Users sign in on the website with their verified mobile (OTP flow is on the login page only).
+- **Meta rejection triggers to avoid:** `OTP`, `password`, `verification code`, `login credentials`, `authenticate`, `security code`, button label `Login` (prefer `Open Dashboard` or `Get Started`).
+
+---
+
 ## Yearly Staff Checklist (every January)
 
 | Task | Event | What to update |

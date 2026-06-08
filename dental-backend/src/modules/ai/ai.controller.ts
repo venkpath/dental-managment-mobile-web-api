@@ -1,4 +1,8 @@
-import { Controller, Post, Get, Patch, Delete, Body, Req, Param, Query } from '@nestjs/common';
+import {
+  Controller, Post, Get, Patch, Delete, Body, Req, Param, Query,
+  UseInterceptors, UploadedFile, BadRequestException,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { AiService } from './ai.service.js';
@@ -254,6 +258,24 @@ export class AiController {
       reviewed_by: req.user!.userId,
       reviewed_at: new Date().toISOString(),
     });
+  }
+
+  // ─── Voice transcribe — Whisper auto-detects language, no quota ────────────
+  @Post('voice-transcribe')
+  @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.CONSULTANT, UserRole.RECEPTIONIST)
+  @UseInterceptors(FileInterceptor('audio', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  @ApiOperation({ summary: 'Transcribe audio to English text using Whisper (no quota)' })
+  async voiceTranscribe(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('audio file is required');
+    return this.aiService.voiceTranscribe(file.buffer, file.mimetype);
+  }
+
+  // ─── Voice rephrase — NOT tracked, no quota impact ──────────────────────────
+  @Post('voice-rephrase')
+  @Roles(UserRole.ADMIN, UserRole.DENTIST, UserRole.CONSULTANT, UserRole.RECEPTIONIST)
+  @ApiOperation({ summary: 'Rephrase transcript into clinical English (no quota)' })
+  async voiceRephrase(@Body() body: { text: string; field: string }) {
+    return this.aiService.voiceRephrase({ text: body.text, field: body.field });
   }
 }
 

@@ -248,10 +248,13 @@ class SubmitListingDto {
   @IsNotEmpty()
   phone_token!: string;
 
-  @ApiProperty({ description: 'Email verification JWT from verify-email-otp' })
-  @IsString()
-  @IsNotEmpty()
-  email_token!: string;
+  @ApiProperty({
+    example: 'doctor@clinic.com',
+    description: 'Contact email for approval updates and login credentials (no OTP required at listing)',
+  })
+  @IsEmail()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
+  contact_email!: string;
 
   @ApiProperty({ description: 'Must be true — submitter accepted Terms of Service and Privacy Policy' })
   @Transform(({ value }) => value === true || value === 'true' || value === '1')
@@ -1587,14 +1590,7 @@ export class PublicDirectoryController {
       throw new BadRequestException('Invalid or expired phone verification token.');
     }
 
-    let verifiedEmail: string;
-    try {
-      const payload = await this.jwt.verifyAsync<{ email: string; type: string }>(dto.email_token);
-      if (payload.type !== 'listing_email_verified') throw new Error('wrong type');
-      verifiedEmail = payload.email;
-    } catch {
-      throw new BadRequestException('Invalid or expired email verification token.');
-    }
+    const verifiedEmail = dto.contact_email;
 
     // Block if a full dashboard account already exists with this email or phone
     const siteUrl = this.config.get<string>('app.frontendUrl') || 'https://smartdentaldesk.com';
@@ -1648,6 +1644,7 @@ export class PublicDirectoryController {
           country: 'India',
           pincode: dto.pincode?.trim() ?? null,
           google_maps_url: dto.google_maps_url?.trim() ?? null,
+          // GPS from "Detect location" — copied to Main Branch when listing is approved
           latitude: dto.latitude ?? null,
           longitude: dto.longitude ?? null,
           specialties: dto.specialties.join(','),

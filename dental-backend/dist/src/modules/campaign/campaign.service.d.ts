@@ -186,15 +186,17 @@ export declare class CampaignService {
         }[];
     }>;
     execute(clinicId: string, id: string): Promise<{
+        status: string;
         total_recipients: number;
-        attempted_count: number;
-        sent_count: number;
-        scheduled_count: number;
-        skipped_count: number;
-        failed_count: number;
+        message: string;
+        estimated_cost?: undefined;
+    } | {
+        status: string;
+        total_recipients: number;
         estimated_cost: number;
-        actual_cost: number;
+        message: string;
     }>;
+    private _dispatchInBackground;
     private resolveTestRecipient;
     private resolveSegment;
     getAnalytics(clinicId: string, campaignId: string): Promise<{
