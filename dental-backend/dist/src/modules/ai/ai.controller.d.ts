@@ -182,4 +182,13 @@ export declare class AiController {
         context: import("@prisma/client/runtime/client").JsonValue | null;
         generated_by: string | null;
     }>;
+    voiceTranscribe(file: Express.Multer.File): Promise<{
+        transcript: string;
+    }>;
+    voiceRephrase(body: {
+        text: string;
+        field: string;
+    }): Promise<{
+        rephrased: string;
+    }>;
 }

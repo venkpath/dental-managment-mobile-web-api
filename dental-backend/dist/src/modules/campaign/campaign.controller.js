@@ -197,7 +197,7 @@ __decorate([
     (0, common_1.Post)(':id/execute'),
     (0, roles_decorator_js_1.Roles)(index_js_1.UserRole.ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Execute a campaign — sends messages to all targeted patients' }),
-    openapi.ApiResponse({ status: 201 }),
+    openapi.ApiResponse({ status: 201, type: Object }),
     __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
     __param(1, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
     __metadata("design:type", Function),

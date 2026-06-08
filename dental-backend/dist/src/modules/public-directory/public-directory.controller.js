@@ -319,7 +319,7 @@ __decorate([
 ], VerifyEmailOtpDto.prototype, "code", void 0);
 class SubmitListingDto {
     phone_token;
-    email_token;
+    contact_email;
     accepted_terms;
     clinic_name;
     contact_name;
@@ -353,11 +353,14 @@ __decorate([
     __metadata("design:type", String)
 ], SubmitListingDto.prototype, "phone_token", void 0);
 __decorate([
-    (0, swagger_2.ApiProperty)({ description: 'Email verification JWT from verify-email-otp' }),
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, swagger_2.ApiProperty)({
+        example: 'doctor@clinic.com',
+        description: 'Contact email for approval updates and login credentials (no OTP required at listing)',
+    }),
+    (0, class_validator_1.IsEmail)(),
+    (0, class_transformer_1.Transform)(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value)),
     __metadata("design:type", String)
-], SubmitListingDto.prototype, "email_token", void 0);
+], SubmitListingDto.prototype, "contact_email", void 0);
 __decorate([
     (0, swagger_2.ApiProperty)({ description: 'Must be true — submitter accepted Terms of Service and Privacy Policy' }),
     (0, class_transformer_1.Transform)(({ value }) => value === true || value === 'true' || value === '1'),
@@ -1476,16 +1479,7 @@ let PublicDirectoryController = class PublicDirectoryController {
         catch {
             throw new common_1.BadRequestException('Invalid or expired phone verification token.');
         }
-        let verifiedEmail;
-        try {
-            const payload = await this.jwt.verifyAsync(dto.email_token);
-            if (payload.type !== 'listing_email_verified')
-                throw new Error('wrong type');
-            verifiedEmail = payload.email;
-        }
-        catch {
-            throw new common_1.BadRequestException('Invalid or expired email verification token.');
-        }
+        const verifiedEmail = dto.contact_email;
         const siteUrl = this.config.get('app.frontendUrl') || 'https://smartdentaldesk.com';
         const existingUser = await this.prisma.user.findFirst({
             where: {

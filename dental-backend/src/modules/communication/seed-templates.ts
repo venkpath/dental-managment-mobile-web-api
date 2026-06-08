@@ -898,6 +898,30 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
     sampleValues: { Dentist_Name: 'Anil Mehta' },
   },
 
+  // ── 24b. Free directory listing approved (UTILITY — Meta-safe copy) ──
+  // Do NOT mention OTP, password, verification code, or "login credentials" — Meta forces AUTHENTICATION.
+  // Meta: directory_listing_approved · UTILITY
+  //   Header (TEXT): Listing Approved
+  //   Body {{1}}–{{2}}
+  //   Button (URL, static): "Open Dashboard" → https://smartdentaldesk.com/login
+  {
+    channel: 'whatsapp',
+    category: 'transactional',
+    template_name: 'directory_listing_approved',
+    subject: 'Listing Approved',
+    body:
+      'Hi {{1}}, great news!\n\n' +
+      '{{2}} is now live on Smart Dental Desk. Patients can find you in our directory.\n\n' +
+      'Tap *Open Dashboard* below to manage appointments, patients, and billing.\n\n' +
+      '– Smart Dental Desk',
+    variables: { body: ['contact_name', 'clinic_name'], buttons: [] },
+    language: 'en',
+    sampleValues: {
+      contact_name: 'Dr. Rajesh Sharma',
+      clinic_name: 'Sharma Dental Clinic',
+    },
+  },
+
   // ── 25. Consent Signature Request (sent to the patient) ──
   // Patient receives a secure link, opens it on their phone, reads the
   // consent PDF, verifies an OTP, then signs digitally — no clinic tablet

@@ -51,7 +51,7 @@ declare class VerifyEmailOtpDto {
 }
 declare class SubmitListingDto {
     phone_token: string;
-    email_token: string;
+    contact_email: string;
     accepted_terms: boolean;
     clinic_name: string;
     contact_name: string;

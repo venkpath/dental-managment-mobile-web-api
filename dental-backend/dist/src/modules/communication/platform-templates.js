@@ -16,6 +16,7 @@ exports.PLATFORM_TEMPLATE_NAMES = [
     'clinic_signup_received',
     'clinic_signup_approved',
     'clinic_signup_admin_alert',
+    'directory_listing_approved',
     'dental_subscription_trial_ending',
     'dental_subscription_trial_expired',
     'dental_subscription_renewal_reminder',

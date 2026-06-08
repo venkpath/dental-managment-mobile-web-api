@@ -23,6 +23,7 @@ export const PLATFORM_TEMPLATE_NAMES = [
   'clinic_signup_received',
   'clinic_signup_approved',
   'clinic_signup_admin_alert',
+  'directory_listing_approved',
   // Legacy placeholder names (kept here so any pre-existing seed rows in
   // dev/staging DBs remain hidden from clinic UI).
   'dental_subscription_trial_ending',

@@ -78,10 +78,11 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     async getDashboardStats() {
         return this.superAdminService.getDashboardStats();
     }
-    async listClinics(status, search, page, limit) {
+    async listClinics(status, search, group, page, limit) {
         return this.superAdminService.listClinics({
             status,
             search,
+            group: group,
             page: page ? parseInt(page, 10) : 1,
             limit: limit ? parseInt(limit, 10) : 20,
         });
@@ -380,10 +381,11 @@ __decorate([
     openapi.ApiResponse({ status: 200 }),
     __param(0, (0, common_1.Query)('status')),
     __param(1, (0, common_1.Query)('search')),
-    __param(2, (0, common_1.Query)('page')),
-    __param(3, (0, common_1.Query)('limit')),
+    __param(2, (0, common_1.Query)('group')),
+    __param(3, (0, common_1.Query)('page')),
+    __param(4, (0, common_1.Query)('limit')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "listClinics", null);
 __decorate([

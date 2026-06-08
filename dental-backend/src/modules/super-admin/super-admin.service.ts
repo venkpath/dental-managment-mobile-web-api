@@ -55,6 +55,31 @@ export class SuperAdminService {
     return false;
   }
 
+  /**
+   * WhatsApp: listing approved (UTILITY — no OTP/login/password wording; Meta rejects those as AUTHENTICATION).
+   * Sign-in steps live on the login page; this message is announcement + dashboard link button only.
+   */
+  private async sendDirectoryListingApprovedWhatsApp(
+    phone: string | null,
+    contactName: string,
+    clinicName: string,
+  ) {
+    if (!phone || !this.ensureWhatsAppConfigured()) return;
+    await this.whatsapp.send({
+      to: phone,
+      body:
+        `Hi ${contactName}, ${clinicName} is now live on Smart Dental Desk. ` +
+        `Tap Open Dashboard below to manage your clinic.`,
+      templateId: 'directory_listing_approved',
+      variables: {
+        '1': contactName,
+        '2': clinicName,
+      },
+      language: 'en',
+      clinicId: PLATFORM_CLINIC_ID,
+    });
+  }
+
   /** WhatsApp: notify clinic admin their signup/onboarding is approved & live */
   private async sendSignupApprovedWhatsApp(phone: string | null, adminName: string, clinicName: string) {
     if (!phone || !this.ensureWhatsAppConfigured()) return;
@@ -199,18 +224,36 @@ export class SuperAdminService {
 
   // ─── Clinics Management ───
 
-  async listClinics(params: { status?: string; search?: string; page?: number; limit?: number }) {
-    const { status, search, page = 1, limit = 20 } = params;
+  async listClinics(params: { status?: string; search?: string; group?: 'directory_free' | 'paid'; page?: number; limit?: number }) {
+    const { status, search, group, page = 1, limit = 20 } = params;
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = {};
-    if (status) where['subscription_status'] = status;
-    if (search) {
-      where['OR'] = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-      ];
+    const andClauses: Prisma.ClinicWhereInput[] = [];
+
+    if (group === 'directory_free') {
+      andClauses.push({ OR: [{ listed_in_directory: true }, { is_directory_only: true }] });
+      andClauses.push({ plan: { is: { name: { equals: 'Free', mode: 'insensitive' } } } });
+    } else if (group === 'paid') {
+      andClauses.push({ subscription_status: { in: ['trial', 'active'] } });
+      andClauses.push({
+        plan: {
+          is: { NOT: { name: { equals: 'Free', mode: 'insensitive' } } },
+        },
+      });
+    } else {
+      if (status) andClauses.push({ subscription_status: status });
     }
+
+    if (search) {
+      andClauses.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    const where: Prisma.ClinicWhereInput = andClauses.length > 0 ? { AND: andClauses } : {};
 
     const [clinics, total] = await Promise.all([
       this.prisma.clinic.findMany({
@@ -840,7 +883,9 @@ export class SuperAdminService {
       where: { id },
       select: {
         id: true, name: true, email: true, phone: true,
-        address: true, directory_approval_status: true,
+        address: true, city: true, state: true, pincode: true,
+        latitude: true, longitude: true, google_maps_url: true,
+        directory_approval_status: true,
         directory_contact_name: true,
         directory_verification_document_url: true,
         directory_dentist_photo_url: true,
@@ -901,7 +946,14 @@ export class SuperAdminService {
             clinic_id: id,
             name: 'Main Branch',
             address: clinic.address || undefined,
+            city: clinic.city || undefined,
+            state: clinic.state || undefined,
+            country: 'India',
+            pincode: clinic.pincode || undefined,
             phone: clinic.phone || undefined,
+            latitude: clinic.latitude ?? undefined,
+            longitude: clinic.longitude ?? undefined,
+            map_url: clinic.google_maps_url || undefined,
             // Seed branch schedule and cover photo from listing data
             photo_url:          listingCoverKey || undefined,
             working_days:       clinic.directory_working_days || '1,2,3,4,5,6',
@@ -915,6 +967,13 @@ export class SuperAdminService {
           where: { id: branch.id },
           data: {
             ...(!branch.photo_url && listingCoverKey ? { photo_url: listingCoverKey } : {}),
+            ...(!branch.address && clinic.address ? { address: clinic.address } : {}),
+            ...(!branch.city && clinic.city ? { city: clinic.city } : {}),
+            ...(!branch.state && clinic.state ? { state: clinic.state } : {}),
+            ...(!branch.pincode && clinic.pincode ? { pincode: clinic.pincode } : {}),
+            ...(!branch.latitude && clinic.latitude != null ? { latitude: clinic.latitude } : {}),
+            ...(!branch.longitude && clinic.longitude != null ? { longitude: clinic.longitude } : {}),
+            ...(!branch.map_url && clinic.google_maps_url ? { map_url: clinic.google_maps_url } : {}),
             ...(!branch.working_days
               ? {
                   working_days: clinic.directory_working_days || '1,2,3,4,5,6',
@@ -1097,6 +1156,13 @@ export class SuperAdminService {
       );
     }
 
+    const contactName = clinic.directory_contact_name || 'Doctor';
+    if (clinic.phone) {
+      this.sendDirectoryListingApprovedWhatsApp(clinic.phone, contactName, clinic.name).catch((err) =>
+        this.logger.warn(`Listing approved WhatsApp failed for ${id}: ${(err as Error).message}`),
+      );
+    }
+
     return { approved: true, clinic_name: clinic.name, plan: 'Free' };
   }
 
@@ -1118,21 +1184,21 @@ export class SuperAdminService {
           <p style="color:#374151;font-size:15px;line-height:1.6;">
             <strong>${clinic.name}</strong> has been approved and is now live. We've created a <strong>Free plan</strong> account for you (always free, no trial) — log in to manage appointments, billing, records, and more.
           </p>
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:20px;margin:24px 0;">
+            <p style="color:#166534;font-size:13px;font-weight:700;margin:0 0 12px 0;text-transform:uppercase;letter-spacing:0.05em;">Sign in with your verified mobile</p>
+            <ol style="color:#374151;font-size:14px;line-height:1.7;margin:0;padding-left:20px;">
+              <li>Go to <a href="${loginUrl}" style="color:#3b5bff;">${loginUrl}</a></li>
+              <li>Enter your mobile <strong>${clinic.phone ? (normalizePhoneE164(clinic.phone) ?? clinic.phone) : 'number'}</strong></li>
+              <li>Tap <strong>Login with OTP</strong> and enter the code sent to this number</li>
+            </ol>
+          </div>
           <div style="background:#f8faff;border:1px solid #dbeafe;border-radius:10px;padding:20px;margin:24px 0;">
-            <p style="color:#1e40af;font-size:13px;font-weight:700;margin:0 0 12px 0;text-transform:uppercase;letter-spacing:0.05em;">Your Login Credentials</p>
+            <p style="color:#1e40af;font-size:13px;font-weight:700;margin:0 0 12px 0;text-transform:uppercase;letter-spacing:0.05em;">Optional — email &amp; password</p>
             <table style="width:100%;border-collapse:collapse;">
               <tr>
-                <td style="padding:6px 0;color:#6b7280;font-size:13px;width:120px;">Login URL</td>
-                <td style="padding:6px 0;color:#111827;font-size:13px;"><a href="${loginUrl}" style="color:#3b5bff;">${loginUrl}</a></td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#6b7280;font-size:13px;">Email</td>
+                <td style="padding:6px 0;color:#6b7280;font-size:13px;width:120px;">Email</td>
                 <td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;">${loginId}</td>
               </tr>
-              ${clinic.phone ? `<tr>
-                <td style="padding:6px 0;color:#6b7280;font-size:13px;">Mobile</td>
-                <td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;">${clinic.phone}</td>
-              </tr>` : ''}
               <tr>
                 <td style="padding:6px 0;color:#6b7280;font-size:13px;">Password</td>
                 <td style="padding:6px 0;color:#111827;font-size:18px;font-weight:700;letter-spacing:2px;">${password}</td>
@@ -1141,7 +1207,7 @@ export class SuperAdminService {
           </div>
           <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px 16px;margin-bottom:20px;">
             <p style="color:#92400e;font-size:13px;margin:0;">
-              ⚠️ You will be asked to set a new password on your first login. You can also log in using an OTP sent to your email or mobile.
+              You will be asked to set a new password if you sign in with email and password. Mobile OTP is the fastest way to get started.
             </p>
           </div>
           <div style="text-align:center;margin:24px 0;">
@@ -1156,7 +1222,7 @@ export class SuperAdminService {
     await this.emailProvider.send({
       to: clinic.email,
       subject: `Your Smart Dental Desk account is ready — login credentials inside`,
-      body: `Hi ${contactName}, your clinic "${clinic.name}" is approved. Login at ${loginUrl} with email: ${loginId} and password: ${password}. You will be asked to change your password on first login.`,
+      body: `Hi ${contactName}, your clinic "${clinic.name}" is approved. Sign in at ${loginUrl} with your verified mobile${clinic.phone ? ` ${normalizePhoneE164(clinic.phone) ?? clinic.phone}` : ''} using Login with OTP. Optional email login: ${loginId} / ${password}.`,
       html,
       clinicId: PLATFORM_CLINIC_ID,
     });

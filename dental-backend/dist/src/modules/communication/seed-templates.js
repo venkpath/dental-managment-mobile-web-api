@@ -744,6 +744,22 @@ const DEFAULT_TEMPLATES = [
     {
         channel: 'whatsapp',
         category: 'transactional',
+        template_name: 'directory_listing_approved',
+        subject: 'Listing Approved',
+        body: 'Hi {{1}}, great news!\n\n' +
+            '{{2}} is now live on Smart Dental Desk. Patients can find you in our directory.\n\n' +
+            'Tap *Open Dashboard* below to manage appointments, patients, and billing.\n\n' +
+            '– Smart Dental Desk',
+        variables: { body: ['contact_name', 'clinic_name'], buttons: [] },
+        language: 'en',
+        sampleValues: {
+            contact_name: 'Dr. Rajesh Sharma',
+            clinic_name: 'Sharma Dental Clinic',
+        },
+    },
+    {
+        channel: 'whatsapp',
+        category: 'transactional',
         template_name: 'dental_consent_signature_request',
         body: 'Hi {{1}}, {{2}} has shared a consent form for your upcoming {{3}}.\n\nPlease review and sign securely on your phone:\n{{4}}\n\nLink expires in 72 hours. For any questions, contact us at {{5}}.',
         variables: { body: ['patient_name', 'clinic_name', 'procedure', 'link', 'phone'], buttons: [] },
