@@ -11,6 +11,7 @@ import { S3Service } from '../../common/services/s3.service.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 import { PatientInsuranceService } from '../insurance/services/patient-insurance.service.js';
 import { AuditLogService } from '../audit-log/audit-log.service.js';
+import { PatientInsightsService } from '../patient-insights/patient-insights.service.js';
 declare const INVOICE_INCLUDE: {
     readonly items: {
         readonly include: {
@@ -85,8 +86,9 @@ export declare class InvoiceService {
     private readonly planLimit;
     private readonly patientInsurance;
     private readonly auditLog;
+    private readonly patientInsightsService;
     private readonly logger;
-    constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService, reviewTrigger: ReviewTriggerService, invoicePdfService: InvoicePdfService, s3Service: S3Service, planLimit: PlanLimitService, patientInsurance: PatientInsuranceService, auditLog: AuditLogService);
+    constructor(prisma: PrismaService, communicationService: CommunicationService, automationService: AutomationService, reviewTrigger: ReviewTriggerService, invoicePdfService: InvoicePdfService, s3Service: S3Service, planLimit: PlanLimitService, patientInsurance: PatientInsuranceService, auditLog: AuditLogService, patientInsightsService: PatientInsightsService);
     create(clinicId: string, dto: CreateInvoiceDto, createdByUserId?: string): Promise<Invoice>;
     findAll(clinicId: string, query: QueryInvoiceDto): Promise<PaginatedResult<Invoice>>;
     findOne(clinicId: string, id: string): Promise<InvoiceWithIncludes>;

@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { PatientInsightsService } from '../patient-insights/patient-insights.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 import { ReviewTriggerService } from '../public-directory/review-trigger.service.js';
@@ -15,10 +16,13 @@ import {
 
 @Injectable()
 export class ClinicalVisitService {
+  private readonly logger = new Logger(ClinicalVisitService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly planLimit: PlanLimitService,
     private readonly reviewTrigger: ReviewTriggerService,
+    private readonly patientInsightsService: PatientInsightsService,
   ) {}
 
   // Map treatment procedures to dental chart condition names
@@ -218,6 +222,20 @@ export class ClinicalVisitService {
       this.reviewTrigger
         .triggerConsultationReview(clinicId, updatedVisit.patient_id, updatedVisit.dentist_id)
         .catch(() => {});
+    }
+
+    // Recovery attribution: walk-in consultation or appointment completed via finalize path.
+    this.patientInsightsService
+      .attributeWalkInAfterOutreach(clinicId, updatedVisit.patient_id)
+      .catch((e) =>
+        this.logger.warn(`Insight return attribution failed for patient ${updatedVisit.patient_id}: ${(e as Error).message}`),
+      );
+    if (updatedVisit.appointment_id) {
+      this.patientInsightsService
+        .attributeNoShowAttendance(clinicId, updatedVisit.patient_id, updatedVisit.appointment_id)
+        .catch((e) =>
+          this.logger.warn(`No-show attendance attribution failed for appointment ${updatedVisit.appointment_id}: ${(e as Error).message}`),
+        );
     }
 
     return updatedVisit;

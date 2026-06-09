@@ -18,6 +18,7 @@ import { getCurrencySymbol, getCurrencyLocale } from '../../common/utils/currenc
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 import { PatientInsuranceService } from '../insurance/services/patient-insurance.service.js';
 import { AuditLogService } from '../audit-log/audit-log.service.js';
+import { PatientInsightsService } from '../patient-insights/patient-insights.service.js';
 
 const INVOICE_INCLUDE = {
   items: { include: { treatment: { include: { dentist: true } } } },
@@ -58,6 +59,7 @@ export class InvoiceService {
     private readonly planLimit: PlanLimitService,
     private readonly patientInsurance: PatientInsuranceService,
     private readonly auditLog: AuditLogService,
+    private readonly patientInsightsService: PatientInsightsService,
   ) {}
 
   async create(clinicId: string, dto: CreateInvoiceDto, createdByUserId?: string): Promise<Invoice> {
@@ -242,6 +244,10 @@ export class InvoiceService {
         this.reviewTrigger
           .triggerInvoiceReview(clinicId, invoice.patient_id, invoice.dentist_id ?? null)
           .catch(() => {});
+        // Walk-in recovery attribution: patient came directly without booking an appointment.
+        this.patientInsightsService
+          .attributeWalkInAfterOutreach(clinicId, invoice.patient_id)
+          .catch((e) => this.logger.warn(`Walk-in attribution failed for patient ${invoice.patient_id}: ${(e as Error).message}`));
       }
       return invoice;
     });
@@ -633,6 +639,12 @@ export class InvoiceService {
         }
       }
 
+      return updated;
+    }).then((updated) => {
+      // Walk-in recovery attribution for draft→issued transitions.
+      this.patientInsightsService
+        .attributeWalkInAfterOutreach(clinicId, updated.patient_id)
+        .catch((e) => this.logger.warn(`Walk-in attribution failed on issue for patient ${updated.patient_id}: ${(e as Error).message}`));
       return updated;
     });
   }

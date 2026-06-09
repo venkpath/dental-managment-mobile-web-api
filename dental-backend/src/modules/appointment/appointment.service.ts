@@ -8,6 +8,7 @@ import { AppointmentReminderProducer } from './appointment-reminder.producer.js'
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 import { ReviewTriggerService } from '../public-directory/review-trigger.service.js';
 import { AppointmentStaffNotificationService } from '../notification/appointment-staff-notification.service.js';
+import { PatientInsightsService } from '../patient-insights/patient-insights.service.js';
 
 export interface AvailableSlot {
   start_time: string;
@@ -47,7 +48,27 @@ export class AppointmentService {
     private readonly planLimit: PlanLimitService,
     private readonly reviewTrigger: ReviewTriggerService,
     private readonly staffNotificationService: AppointmentStaffNotificationService,
+    private readonly patientInsightsService: PatientInsightsService,
   ) {}
+
+  /** Re-score insights and attribute bookings after outreach (non-blocking). */
+  private refreshPatientInsights(
+    clinicId: string,
+    patientId: string,
+    appointment?: Pick<Appointment, 'id' | 'appointment_date' | 'status'>,
+  ): void {
+    this.patientInsightsService.computeForPatient(clinicId, patientId).catch((e) => {
+      this.logger.warn(`Insight refresh failed for patient ${patientId}: ${(e as Error).message}`);
+    });
+
+    if (appointment && appointment.status !== 'cancelled' && new Date(appointment.appointment_date) >= new Date()) {
+      this.patientInsightsService
+        .attributeBookingAfterOutreach(clinicId, patientId, appointment.id)
+        .catch((e) => {
+          this.logger.warn(`Insight booking attribution failed for patient ${patientId}: ${(e as Error).message}`);
+        });
+    }
+  }
 
   /**
    * List order is owned by the API (not the mobile app).
@@ -159,6 +180,8 @@ export class AppointmentService {
     // Schedule BullMQ reminder jobs at exact times.
     // Awaiting here makes internal booking behavior deterministic in normal flow.
     await this.tryScheduleReminders(clinicId, appointment.id, appointment.appointment_date, appointment.start_time);
+
+    this.refreshPatientInsights(clinicId, dto.patient_id, appointment);
 
     return appointment;
   }
@@ -381,6 +404,16 @@ export class AppointmentService {
       }).catch((e: Error) => this.logger.warn(`Room auto-release failed for room ${existing.room_id}: ${e.message}`));
     }
 
+    // Stamp no-show attendance attribution when a at-risk patient actually shows up
+    const isAttendanceTransition =
+      (dto.status === 'checked_in' || dto.status === 'completed') &&
+      existing.status !== 'checked_in' && existing.status !== 'completed';
+    if (isAttendanceTransition) {
+      this.patientInsightsService
+        .attributeNoShowAttendance(clinicId, existing.patient_id, id)
+        .catch((e) => this.logger.warn(`No-show attendance attribution failed for appointment ${id}: ${(e as Error).message}`));
+    }
+
     // Send post-appointment review request (fire-and-forget)
     if (dto.status === 'completed' && existing.status !== 'completed') {
       this.reviewTrigger
@@ -408,6 +441,8 @@ export class AppointmentService {
           this.logger.warn(`Failed to reschedule reminders for appointment ${id}: ${(e as Error).message}`);
         });
     }
+
+    this.refreshPatientInsights(clinicId, existing.patient_id, updated);
 
     return updated;
   }
@@ -532,12 +567,16 @@ export class AppointmentService {
       }
     });
 
+    this.refreshPatientInsights(clinicId, dto.patient_id, appointments[0]);
+
     return appointments;
   }
 
   async remove(clinicId: string, id: string): Promise<Appointment> {
-    await this.findOne(clinicId, id);
-    return this.prisma.appointment.delete({ where: { id } });
+    const existing = await this.findOne(clinicId, id);
+    const deleted = await this.prisma.appointment.delete({ where: { id } });
+    this.refreshPatientInsights(clinicId, existing.patient_id);
+    return deleted;
   }
 
   private async checkTimeConflict(

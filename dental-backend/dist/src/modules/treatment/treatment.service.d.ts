@@ -3,10 +3,14 @@ import { CreateTreatmentDto, UpdateTreatmentDto, QueryTreatmentDto } from './dto
 import { Treatment } from '@prisma/client';
 import { PaginatedResult } from '../../common/interfaces/paginated-result.interface.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
+import { PatientInsightsService } from '../patient-insights/patient-insights.service.js';
 export declare class TreatmentService {
     private readonly prisma;
     private readonly planLimit;
-    constructor(prisma: PrismaService, planLimit: PlanLimitService);
+    private readonly patientInsightsService;
+    private readonly logger;
+    constructor(prisma: PrismaService, planLimit: PlanLimitService, patientInsightsService: PatientInsightsService);
+    private refreshPatientInsights;
     private static readonly PROCEDURE_CONDITION_MAP;
     create(clinicId: string, dto: CreateTreatmentDto): Promise<Treatment>;
     findAll(clinicId: string, query: QueryTreatmentDto): Promise<PaginatedResult<Treatment>>;

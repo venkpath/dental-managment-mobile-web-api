@@ -17,6 +17,8 @@ import { normalizePhoneE164, phoneLookupVariants } from '../../common/utils/phon
 import type { CreateCampaignDto } from './dto/create-campaign.dto.js';
 import type { UpdateCampaignDto } from './dto/update-campaign.dto.js';
 import type { QueryCampaignDto } from './dto/query-campaign.dto.js';
+import { buildCampaignScoreWhere } from '../patient-insights/patient-insights.filters.js';
+import { PatientInsightsService } from '../patient-insights/patient-insights.service.js';
 
 type CampaignChannel = 'email' | 'sms' | 'whatsapp' | 'all';
 type DeliveryChannel = Exclude<CampaignChannel, 'all'>;
@@ -36,11 +38,20 @@ interface DispatchStats {
   skipped_count: number;
   failed_count: number;
   accepted_by_channel: Record<DeliveryChannel, number>;
+  /** Patients who received at least one queued/scheduled message (per-recipient stamp). */
+  contacted_patient_ids: string[];
 }
 
 @Injectable()
 export class CampaignService {
   private readonly logger = new Logger(CampaignService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly communicationService: CommunicationService,
+    private readonly templateService: TemplateService,
+    private readonly patientInsightsService: PatientInsightsService,
+  ) {}
 
   // Per-channel cost estimates (INR)
   private static readonly COST_PER_MESSAGE: Record<string, number> = {
@@ -50,12 +61,6 @@ export class CampaignService {
   };
 
   private static readonly DELIVERY_CHANNELS: DeliveryChannel[] = ['whatsapp', 'sms', 'email'];
-
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly communicationService: CommunicationService,
-    private readonly templateService: TemplateService,
-  ) {}
 
   private getDeliveryChannels(channel: string): DeliveryChannel[] {
     if (channel === 'all') return [...CampaignService.DELIVERY_CHANNELS];
@@ -152,11 +157,13 @@ export class CampaignService {
       skipped_count: 0,
       failed_count: 0,
       accepted_by_channel: { whatsapp: 0, sms: 0, email: 0 },
+      contacted_patient_ids: [],
     };
 
     const hasMappings = Object.keys(variableMappings).length > 0;
 
     for (const patient of patients) {
+      let patientContacted = false;
       const systemValues = hasMappings
         ? this.buildSystemVariableValues(patient, clinicContext)
         : null;
@@ -199,12 +206,17 @@ export class CampaignService {
           } else {
             stats.queued_count++;
           }
+          patientContacted = true;
         } catch (error) {
           stats.failed_count++;
           this.logger.warn(
             `Failed to queue campaign message for patient ${patient.id} on ${channel}: ${(error as Error).message}`,
           );
         }
+      }
+
+      if (patientContacted) {
+        stats.contacted_patient_ids.push(patient.id);
       }
     }
 
@@ -487,6 +499,7 @@ export class CampaignService {
     // ── Fire dispatch in background — do NOT await ─────────────────
     this._dispatchInBackground(
       clinicId, id, patients, channels, campaign.template_id,
+      campaign.segment_type,
       { campaign_id: campaign.id, ...(buttonUrlSuffix ? { button_url_suffix: buttonUrlSuffix } : {}) },
       extraVariables, suppliedMappings, clinicContext,
     ).catch((err: Error) => {
@@ -508,6 +521,7 @@ export class CampaignService {
     patients: SegmentPatient[],
     channels: DeliveryChannel[],
     templateId: string,
+    segmentType: string,
     options: Record<string, unknown>,
     extraVariables: Record<string, string>,
     suppliedMappings: Record<string, CampaignVariableMapping>,
@@ -521,6 +535,19 @@ export class CampaignService {
       const sentCount = stats.queued_count + stats.scheduled_count;
       const unsentCount = stats.failed_count + stats.skipped_count;
       const actualCost = this.calculateActualCost(stats.accepted_by_channel);
+
+      // Stamp insight contact only for patients who actually received a message
+      if (stats.contacted_patient_ids.length > 0) {
+        if (segmentType === 'recall_due') {
+          await this.patientInsightsService
+            .stampCampaignContacts(clinicId, stats.contacted_patient_ids, 'recall')
+            .catch((e: Error) => this.logger.warn(`Insight recall stamp failed: ${e.message}`));
+        } else if (segmentType === 'churn_risk') {
+          await this.patientInsightsService
+            .stampCampaignContacts(clinicId, stats.contacted_patient_ids, 'churn')
+            .catch((e: Error) => this.logger.warn(`Insight churn stamp failed: ${e.message}`));
+        }
+      }
 
       await this.prisma.campaign.update({
         where: { id },
@@ -691,39 +718,13 @@ export class CampaignService {
         });
       }
 
-      case 'no_show_risk': {
-        const level = config.risk_level as string;
-        const levels = level === 'high' ? ['high'] : level === 'medium' ? ['medium'] : ['high', 'medium'];
-        const scores = await this.prisma.patientInsightScore.findMany({
-          where: { clinic_id: clinicId, no_show_risk: { in: levels } },
-          select: { patient_id: true },
-        });
-        const ids = scores.map((s) => s.patient_id);
-        if (ids.length === 0) return [];
-        return this.prisma.patient.findMany({
-          where: { ...baseWhere, id: { in: ids } },
-          select: { id: true, first_name: true, last_name: true, phone: true, email: true },
-        });
-      }
-
-      case 'churn_risk': {
-        const level = config.risk_level as string;
-        const levels = level === 'high' ? ['high'] : level === 'medium' ? ['medium'] : ['high', 'medium'];
-        const scores = await this.prisma.patientInsightScore.findMany({
-          where: { clinic_id: clinicId, churn_risk: { in: levels } },
-          select: { patient_id: true },
-        });
-        const ids = scores.map((s) => s.patient_id);
-        if (ids.length === 0) return [];
-        return this.prisma.patient.findMany({
-          where: { ...baseWhere, id: { in: ids } },
-          select: { id: true, first_name: true, last_name: true, phone: true, email: true },
-        });
-      }
-
+      case 'no_show_risk':
+      case 'churn_risk':
       case 'recall_due': {
+        const scoreWhere = buildCampaignScoreWhere(segmentType, clinicId, config);
+        if (!scoreWhere) return [];
         const scores = await this.prisma.patientInsightScore.findMany({
-          where: { clinic_id: clinicId, recall_due: true },
+          where: scoreWhere,
           select: { patient_id: true },
         });
         const ids = scores.map((s) => s.patient_id);
@@ -777,6 +778,8 @@ export class CampaignService {
       });
     }
 
+    const avgBookingValue = await this.patientInsightsService.getClinicAvgVisitValue(clinicId);
+
     return {
       campaign_id: campaignId,
       status: campaign.status,
@@ -785,7 +788,7 @@ export class CampaignService {
       attributed_bookings: attributedBookings,
       estimated_cost: campaign.estimated_cost,
       actual_cost: campaign.actual_cost,
-      roi: this.calculateROI(campaign, attributedBookings),
+      roi: this.calculateROI(campaign, attributedBookings, avgBookingValue),
     };
   }
 
@@ -823,8 +826,8 @@ export class CampaignService {
   private calculateROI(
     campaign: { actual_cost: unknown; estimated_cost: unknown },
     attributedBookings: number,
-  ): { roi_percentage: number; revenue_attributed: number; cost: number } {
-    const avgBookingValue = 2000; // Average dental appointment value in INR
+    avgBookingValue: number,
+  ): { roi_percentage: number; revenue_attributed: number; cost: number; avg_booking_value: number } {
     const revenueAttributed = attributedBookings * avgBookingValue;
     const cost = Number(campaign.actual_cost || campaign.estimated_cost || 0);
     const roiPercentage = cost > 0 ? Math.round(((revenueAttributed - cost) / cost) * 100) : 0;
@@ -833,6 +836,7 @@ export class CampaignService {
       roi_percentage: roiPercentage,
       revenue_attributed: revenueAttributed,
       cost,
+      avg_booking_value: avgBookingValue,
     };
   }
 

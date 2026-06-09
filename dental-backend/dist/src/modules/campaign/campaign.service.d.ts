@@ -5,16 +5,18 @@ import { TemplateService } from '../communication/template.service.js';
 import type { CreateCampaignDto } from './dto/create-campaign.dto.js';
 import type { UpdateCampaignDto } from './dto/update-campaign.dto.js';
 import type { QueryCampaignDto } from './dto/query-campaign.dto.js';
+import { PatientInsightsService } from '../patient-insights/patient-insights.service.js';
 type CampaignChannel = 'email' | 'sms' | 'whatsapp' | 'all';
 type DeliveryChannel = Exclude<CampaignChannel, 'all'>;
 export declare class CampaignService {
     private readonly prisma;
     private readonly communicationService;
     private readonly templateService;
+    private readonly patientInsightsService;
     private readonly logger;
+    constructor(prisma: PrismaService, communicationService: CommunicationService, templateService: TemplateService, patientInsightsService: PatientInsightsService);
     private static readonly COST_PER_MESSAGE;
     private static readonly DELIVERY_CHANNELS;
-    constructor(prisma: PrismaService, communicationService: CommunicationService, templateService: TemplateService);
     private getDeliveryChannels;
     private toMessageChannel;
     private getPerRecipientCost;
@@ -214,6 +216,7 @@ export declare class CampaignService {
             roi_percentage: number;
             revenue_attributed: number;
             cost: number;
+            avg_booking_value: number;
         };
     }>;
     estimateCost(clinicId: string, params: {

@@ -26,6 +26,7 @@ const currency_util_js_1 = require("../../common/utils/currency.util.js");
 const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
 const patient_insurance_service_js_1 = require("../insurance/services/patient-insurance.service.js");
 const audit_log_service_js_1 = require("../audit-log/audit-log.service.js");
+const patient_insights_service_js_1 = require("../patient-insights/patient-insights.service.js");
 const INVOICE_INCLUDE = {
     items: { include: { treatment: { include: { dentist: true } } } },
     payments: { include: { installment_item: true }, orderBy: { paid_at: 'asc' } },
@@ -57,8 +58,9 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
     planLimit;
     patientInsurance;
     auditLog;
+    patientInsightsService;
     logger = new common_1.Logger(InvoiceService_1.name);
-    constructor(prisma, communicationService, automationService, reviewTrigger, invoicePdfService, s3Service, planLimit, patientInsurance, auditLog) {
+    constructor(prisma, communicationService, automationService, reviewTrigger, invoicePdfService, s3Service, planLimit, patientInsurance, auditLog, patientInsightsService) {
         this.prisma = prisma;
         this.communicationService = communicationService;
         this.automationService = automationService;
@@ -68,6 +70,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         this.planLimit = planLimit;
         this.patientInsurance = patientInsurance;
         this.auditLog = auditLog;
+        this.patientInsightsService = patientInsightsService;
     }
     async create(clinicId, dto, createdByUserId) {
         await this.planLimit.enforceMonthlyCap(clinicId, 'invoices');
@@ -192,6 +195,9 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                 this.reviewTrigger
                     .triggerInvoiceReview(clinicId, invoice.patient_id, invoice.dentist_id ?? null)
                     .catch(() => { });
+                this.patientInsightsService
+                    .attributeWalkInAfterOutreach(clinicId, invoice.patient_id)
+                    .catch((e) => this.logger.warn(`Walk-in attribution failed for patient ${invoice.patient_id}: ${e.message}`));
             }
             return invoice;
         });
@@ -471,6 +477,11 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                     }
                 }
             }
+            return updated;
+        }).then((updated) => {
+            this.patientInsightsService
+                .attributeWalkInAfterOutreach(clinicId, updated.patient_id)
+                .catch((e) => this.logger.warn(`Walk-in attribution failed on issue for patient ${updated.patient_id}: ${e.message}`));
             return updated;
         });
     }
@@ -897,6 +908,7 @@ exports.InvoiceService = InvoiceService = InvoiceService_1 = __decorate([
         s3_service_js_1.S3Service,
         plan_limit_service_js_1.PlanLimitService,
         patient_insurance_service_js_1.PatientInsuranceService,
-        audit_log_service_js_1.AuditLogService])
+        audit_log_service_js_1.AuditLogService,
+        patient_insights_service_js_1.PatientInsightsService])
 ], InvoiceService);
 //# sourceMappingURL=invoice.service.js.map

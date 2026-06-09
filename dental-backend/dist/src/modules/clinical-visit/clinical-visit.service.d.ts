@@ -1,3 +1,4 @@
+import { PatientInsightsService } from '../patient-insights/patient-insights.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 import { ReviewTriggerService } from '../public-directory/review-trigger.service.js';
@@ -8,7 +9,9 @@ export declare class ClinicalVisitService {
     private readonly prisma;
     private readonly planLimit;
     private readonly reviewTrigger;
-    constructor(prisma: PrismaService, planLimit: PlanLimitService, reviewTrigger: ReviewTriggerService);
+    private readonly patientInsightsService;
+    private readonly logger;
+    constructor(prisma: PrismaService, planLimit: PlanLimitService, reviewTrigger: ReviewTriggerService, patientInsightsService: PatientInsightsService);
     private static readonly PROCEDURE_CONDITION_MAP;
     create(clinicId: string, dto: CreateClinicalVisitDto): Promise<ClinicalVisit>;
     findAll(clinicId: string, query: QueryClinicalVisitDto): Promise<PaginatedResult<ClinicalVisit>>;

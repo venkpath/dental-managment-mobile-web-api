@@ -4,6 +4,7 @@ import { CampaignService } from './campaign.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { CommunicationService } from '../communication/communication.service.js';
 import { TemplateService } from '../communication/template.service.js';
+import { PatientInsightsService } from '../patient-insights/patient-insights.service.js';
 
 const clinicId = 'clinic-uuid-0001';
 const userId = 'user-uuid-0001';
@@ -67,6 +68,10 @@ const mockPrisma = {
 
 const mockCommunicationService = { sendMessage: jest.fn() };
 const mockTemplateService = { findOne: jest.fn() };
+const mockPatientInsightsService = {
+  stampCampaignContacts: jest.fn().mockResolvedValue(undefined),
+  getClinicAvgVisitValue: jest.fn().mockResolvedValue(1500),
+};
 
 describe('CampaignService', () => {
   let service: CampaignService;
@@ -78,6 +83,7 @@ describe('CampaignService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: CommunicationService, useValue: mockCommunicationService },
         { provide: TemplateService, useValue: mockTemplateService },
+        { provide: PatientInsightsService, useValue: mockPatientInsightsService },
       ],
     }).compile();
 
@@ -229,22 +235,32 @@ describe('CampaignService', () => {
       mockPrisma.patient.findMany.mockResolvedValueOnce([]);
       const result = await service.execute(clinicId, campaignId);
       expect(result.total_recipients).toBe(0);
-      expect(result.sent_count).toBe(0);
-    });
-
-    it('should mark campaign completed after execution', async () => {
-      await service.execute(clinicId, campaignId);
+      expect(result.status).toBe('completed');
+      expect(result.message).toContain('No matching patients');
       expect(mockPrisma.campaign.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ status: 'completed' }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'completed',
+            sent_count: 0,
+            total_recipients: 0,
+          }),
+        }),
       );
     });
 
-    it('should revert to draft on critical failure', async () => {
+    it('should mark campaign running and return immediately when recipients exist', async () => {
+      const result = await service.execute(clinicId, campaignId);
+      expect(result.status).toBe('running');
+      expect(result.total_recipients).toBe(mockPatients.length);
+      expect(mockPrisma.campaign.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'running' }) }),
+      );
+    });
+
+    it('should not update campaign status when validation fails before dispatch', async () => {
       mockTemplateService.findOne.mockRejectedValueOnce(new Error('Template error'));
       await expect(service.execute(clinicId, campaignId)).rejects.toThrow();
-      expect(mockPrisma.campaign.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ status: 'draft' }) }),
-      );
+      expect(mockPrisma.campaign.update).not.toHaveBeenCalled();
     });
   });
 

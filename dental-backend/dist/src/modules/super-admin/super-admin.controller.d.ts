@@ -246,6 +246,25 @@ export declare class SuperAdminController {
             totalPages: number;
         };
     }>;
+    getPhoneDirectory(search?: string, page?: string, limit?: string): Promise<{
+        data: {
+            id: string;
+            clinic_name: string;
+            clinic_phone: string | null;
+            super_admin_name: string | null;
+            doctor_name: string | null;
+            doctor_photo_url: string | null;
+            doctor_phone: string | null;
+            doctor_email: string | null;
+            public_url: string | null;
+        }[];
+        meta: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+    }>;
     onboardClinic(dto: OnboardClinicDto): Promise<{
         clinic: {
             id: string;

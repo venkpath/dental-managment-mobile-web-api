@@ -87,6 +87,13 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
             limit: limit ? parseInt(limit, 10) : 20,
         });
     }
+    async getPhoneDirectory(search, page, limit) {
+        return this.superAdminService.getPhoneDirectory({
+            search,
+            page: page ? parseInt(page, 10) : 1,
+            limit: limit ? parseInt(limit, 10) : 50,
+        });
+    }
     async onboardClinic(dto) {
         return this.superAdminService.onboardClinic(dto);
     }
@@ -388,6 +395,18 @@ __decorate([
     __metadata("design:paramtypes", [String, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "listClinics", null);
+__decorate([
+    (0, common_1.Get)('super-admins/phone-directory'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Phone directory: clinic name, doctor contact info, and public booking URL' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Query)('search')),
+    __param(1, (0, common_1.Query)('page')),
+    __param(2, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "getPhoneDirectory", null);
 __decorate([
     (0, common_1.Post)('super-admins/clinics/onboard'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),

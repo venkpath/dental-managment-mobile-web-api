@@ -7,3 +7,8 @@ export declare class QueryInsightsDto {
 export declare class ComputeInsightsDto {
     branch_id?: string;
 }
+export declare class RecordActionDto {
+    type: 'recall' | 'churn';
+    action: 'contacted' | 'snooze' | 'move_inactive' | 'decline';
+    snooze_days?: number;
+}

@@ -1,8 +1,11 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   HttpCode,
+  Patch,
   Post,
+  Body,
   Param,
   Query,
   ParseUUIDPipe,
@@ -11,8 +14,9 @@ import {
 import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiOkResponse, ApiHeader, ApiBadRequestResponse } from '@nestjs/swagger';
 import { PatientInsightsService } from './patient-insights.service.js';
-import { ComputeInsightsDto, QueryInsightsDto } from './dto/query-insights.dto.js';
+import { ComputeInsightsDto, QueryInsightsDto, RecordActionDto } from './dto/query-insights.dto.js';
 import { CurrentClinic } from '../../common/decorators/current-clinic.decorator.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { RequireClinicGuard } from '../../common/guards/require-clinic.guard.js';
 import { RequireFeature } from '../../common/decorators/require-feature.decorator.js';
 
@@ -55,6 +59,39 @@ export class PatientInsightsController {
     return this.service.getList(clinicId, dto);
   }
 
+  @Get('eligible')
+  @ApiOperation({ summary: 'Count patients eligible for campaign outreach (list rules + cooldown)' })
+  async getEligible(
+    @CurrentClinic() clinicId: string,
+    @Query('type') type: string,
+    @Query('branch_id') branchId?: string,
+  ) {
+    if (type !== 'recall' && type !== 'churn') {
+      throw new BadRequestException('Query param "type" must be recall or churn');
+    }
+    return this.service.getEligibleCount(clinicId, type, branchId);
+  }
+
+  @Get('opportunity')
+  @RequireFeature('AI_PATIENT_INSIGHTS')
+  @ApiOperation({ summary: 'Get potential revenue opportunity from at-risk patients' })
+  async getOpportunitySummary(
+    @CurrentClinic() clinicId: string,
+    @Query('branch_id') branchId?: string,
+  ) {
+    return this.service.getOpportunitySummary(clinicId, branchId);
+  }
+
+  @Get('recovered')
+  @RequireFeature('AI_PATIENT_INSIGHTS')
+  @ApiOperation({ summary: 'Get revenue recovered from at-risk patients who returned (last 90 days)' })
+  async getRecoveredSummary(
+    @CurrentClinic() clinicId: string,
+    @Query('branch_id') branchId?: string,
+  ) {
+    return this.service.getRecoveredSummary(clinicId, branchId);
+  }
+
   @Get('batch/latest')
   @ApiOperation({ summary: 'Get latest computation batch status' })
   async getLatestBatch(@CurrentClinic() clinicId: string) {
@@ -77,5 +114,18 @@ export class PatientInsightsController {
     @Param('patientId', ParseUUIDPipe) patientId: string,
   ) {
     return this.service.getPatientScore(clinicId, patientId);
+  }
+
+  @Patch('patient/:patientId/action')
+  @HttpCode(200)
+  @RequireFeature('AI_PATIENT_INSIGHTS')
+  @ApiOperation({ summary: 'Record a staff action (contacted / snooze / move_inactive / decline) on a patient insight' })
+  async recordAction(
+    @CurrentClinic() clinicId: string,
+    @Param('patientId', ParseUUIDPipe) patientId: string,
+    @Body() dto: RecordActionDto,
+    @CurrentUser() user?: { sub: string },
+  ) {
+    return this.service.recordAction(clinicId, patientId, dto, user?.sub);
   }
 }

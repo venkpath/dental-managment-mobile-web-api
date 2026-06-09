@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ComputeInsightsDto = exports.QueryInsightsDto = void 0;
+exports.RecordActionDto = exports.ComputeInsightsDto = exports.QueryInsightsDto = void 0;
 const openapi = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
@@ -66,4 +66,34 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], ComputeInsightsDto.prototype, "branch_id", void 0);
+class RecordActionDto {
+    type;
+    action;
+    snooze_days;
+    static _OPENAPI_METADATA_FACTORY() {
+        return { type: { required: true, type: () => Object, enum: ['recall', 'churn'] }, action: { required: true, type: () => Object, enum: ['contacted', 'snooze', 'move_inactive', 'decline'] }, snooze_days: { required: false, type: () => Number, minimum: 1, maximum: 30 } };
+    }
+}
+exports.RecordActionDto = RecordActionDto;
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ enum: ['recall', 'churn'] }),
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsIn)(['recall', 'churn']),
+    __metadata("design:type", String)
+], RecordActionDto.prototype, "type", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ enum: ['contacted', 'snooze', 'move_inactive', 'decline'] }),
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsIn)(['contacted', 'snooze', 'move_inactive', 'decline']),
+    __metadata("design:type", String)
+], RecordActionDto.prototype, "action", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Days to snooze (1–30). Required when action=snooze.', default: 7 }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(30),
+    __metadata("design:type", Number)
+], RecordActionDto.prototype, "snooze_days", void 0);
 //# sourceMappingURL=query-insights.dto.js.map

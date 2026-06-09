@@ -12,12 +12,13 @@ const clinical_visit_controller_js_1 = require("./clinical-visit.controller.js")
 const clinical_visit_service_js_1 = require("./clinical-visit.service.js");
 const plan_limit_module_js_1 = require("../../common/services/plan-limit.module.js");
 const public_directory_module_js_1 = require("../public-directory/public-directory.module.js");
+const patient_insights_module_js_1 = require("../patient-insights/patient-insights.module.js");
 let ClinicalVisitModule = class ClinicalVisitModule {
 };
 exports.ClinicalVisitModule = ClinicalVisitModule;
 exports.ClinicalVisitModule = ClinicalVisitModule = __decorate([
     (0, common_1.Module)({
-        imports: [plan_limit_module_js_1.PlanLimitModule, public_directory_module_js_1.PublicDirectoryModule],
+        imports: [plan_limit_module_js_1.PlanLimitModule, public_directory_module_js_1.PublicDirectoryModule, patient_insights_module_js_1.PatientInsightsModule],
         controllers: [clinical_visit_controller_js_1.ClinicalVisitController],
         providers: [clinical_visit_service_js_1.ClinicalVisitService],
         exports: [clinical_visit_service_js_1.ClinicalVisitService],

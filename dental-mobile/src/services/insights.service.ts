@@ -6,9 +6,16 @@ export interface InsightSummary {
   churn: { high: number; medium: number; total: number };
   conversion: { total: number; potential_revenue: number };
   total_at_risk: number;
+  outreach_recent?: number;
+  attributed_bookings?: number;
+  attribution_window_days?: number;
+  campaign_cooldown_days?: number;
   confidence_score: number;
   last_computed_at: string | null;
 }
+
+export type InsightActionType = 'recall' | 'churn';
+export type InsightAction = 'contacted' | 'snooze' | 'move_inactive' | 'decline';
 
 export type InsightListType = 'no_show' | 'recall' | 'churn' | 'conversion';
 
@@ -63,6 +70,13 @@ export const insightsService = {
       { params: branchId ? { branch_id: branchId } : {} },
     );
     return data;
+  },
+
+  recordAction: async (
+    patientId: string,
+    body: { type: InsightActionType; action: InsightAction; snooze_days?: number },
+  ): Promise<void> => {
+    await api.patch(`/patient-insights/patient/${patientId}/action`, body);
   },
 
   getHighChurnPatientIds: async (): Promise<Set<string>> => {

@@ -12,6 +12,7 @@ var ClinicalVisitService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ClinicalVisitService = void 0;
 const common_1 = require("@nestjs/common");
+const patient_insights_service_js_1 = require("../patient-insights/patient-insights.service.js");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
 const review_trigger_service_js_1 = require("../public-directory/review-trigger.service.js");
@@ -23,10 +24,13 @@ let ClinicalVisitService = class ClinicalVisitService {
     prisma;
     planLimit;
     reviewTrigger;
-    constructor(prisma, planLimit, reviewTrigger) {
+    patientInsightsService;
+    logger = new common_1.Logger(ClinicalVisitService_1.name);
+    constructor(prisma, planLimit, reviewTrigger, patientInsightsService) {
         this.prisma = prisma;
         this.planLimit = planLimit;
         this.reviewTrigger = reviewTrigger;
+        this.patientInsightsService = patientInsightsService;
     }
     static PROCEDURE_CONDITION_MAP = {
         RCT: 'RCT',
@@ -188,6 +192,14 @@ let ClinicalVisitService = class ClinicalVisitService {
             this.reviewTrigger
                 .triggerConsultationReview(clinicId, updatedVisit.patient_id, updatedVisit.dentist_id)
                 .catch(() => { });
+        }
+        this.patientInsightsService
+            .attributeWalkInAfterOutreach(clinicId, updatedVisit.patient_id)
+            .catch((e) => this.logger.warn(`Insight return attribution failed for patient ${updatedVisit.patient_id}: ${e.message}`));
+        if (updatedVisit.appointment_id) {
+            this.patientInsightsService
+                .attributeNoShowAttendance(clinicId, updatedVisit.patient_id, updatedVisit.appointment_id)
+                .catch((e) => this.logger.warn(`No-show attendance attribution failed for appointment ${updatedVisit.appointment_id}: ${e.message}`));
         }
         return updatedVisit;
     }
@@ -374,6 +386,7 @@ exports.ClinicalVisitService = ClinicalVisitService = ClinicalVisitService_1 = _
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         plan_limit_service_js_1.PlanLimitService,
-        review_trigger_service_js_1.ReviewTriggerService])
+        review_trigger_service_js_1.ReviewTriggerService,
+        patient_insights_service_js_1.PatientInsightsService])
 ], ClinicalVisitService);
 //# sourceMappingURL=clinical-visit.service.js.map
