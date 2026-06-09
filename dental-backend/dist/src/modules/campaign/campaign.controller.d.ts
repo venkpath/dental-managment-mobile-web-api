@@ -264,6 +264,7 @@ export declare class CampaignController {
             roi_percentage: number;
             revenue_attributed: number;
             cost: number;
+            avg_booking_value: number;
         };
     }>;
     executeABTest(clinicId: string, id: string, body: {

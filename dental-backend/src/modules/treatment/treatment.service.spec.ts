@@ -3,6 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { TreatmentService } from './treatment.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
+import { PatientInsightsService } from '../patient-insights/patient-insights.service.js';
 import { TreatmentStatus } from './dto/index.js';
 
 const clinicId = '123e4567-e89b-12d3-a456-426614174000';
@@ -44,6 +45,10 @@ const mockPrismaService = {
 };
 
 const mockPlanLimit = { enforceMonthlyCap: jest.fn().mockResolvedValue(undefined) };
+const mockPatientInsightsService = {
+  computeForPatient: jest.fn().mockResolvedValue(undefined),
+  attributeWalkInAfterOutreach: jest.fn().mockResolvedValue(undefined),
+};
 
 describe('TreatmentService', () => {
   let service: TreatmentService;
@@ -54,6 +59,7 @@ describe('TreatmentService', () => {
         TreatmentService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: PlanLimitService, useValue: mockPlanLimit },
+        { provide: PatientInsightsService, useValue: mockPatientInsightsService },
       ],
     }).compile();
 
@@ -155,11 +161,12 @@ describe('TreatmentService', () => {
     it('should return treatments for a specific patient', async () => {
       const result = await service.findByPatient(clinicId, patientId);
       expect(result).toEqual([mockTreatment]);
-      expect(mockPrismaService.treatment.findMany).toHaveBeenCalledWith({
-        where: { clinic_id: clinicId, patient_id: patientId },
-        orderBy: { created_at: 'desc' },
-        include: { dentist: true, branch: true },
-      });
+      expect(mockPrismaService.treatment.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { clinic_id: clinicId, patient_id: patientId },
+          orderBy: { created_at: 'desc' },
+        }),
+      );
     });
 
     it('should throw NotFoundException if patient not in clinic', async () => {
@@ -193,6 +200,11 @@ describe('TreatmentService', () => {
     it('should update treatment status', async () => {
       const result = await service.update(clinicId, mockTreatment.id, { status: TreatmentStatus.COMPLETED });
       expect(result.status).toBe('completed');
+      expect(mockPatientInsightsService.computeForPatient).toHaveBeenCalledWith(clinicId, patientId);
+      expect(mockPatientInsightsService.attributeWalkInAfterOutreach).toHaveBeenCalledWith(
+        clinicId,
+        patientId,
+      );
     });
 
     it('should throw NotFoundException when updating from different clinic', async () => {

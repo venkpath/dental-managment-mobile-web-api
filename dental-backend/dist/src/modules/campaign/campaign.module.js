@@ -11,11 +11,13 @@ const common_1 = require("@nestjs/common");
 const campaign_controller_js_1 = require("./campaign.controller.js");
 const campaign_service_js_1 = require("./campaign.service.js");
 const campaign_cron_js_1 = require("./campaign.cron.js");
+const patient_insights_module_js_1 = require("../patient-insights/patient-insights.module.js");
 let CampaignModule = class CampaignModule {
 };
 exports.CampaignModule = CampaignModule;
 exports.CampaignModule = CampaignModule = __decorate([
     (0, common_1.Module)({
+        imports: [patient_insights_module_js_1.PatientInsightsModule],
         controllers: [campaign_controller_js_1.CampaignController],
         providers: [campaign_service_js_1.CampaignService, campaign_cron_js_1.CampaignCronService],
         exports: [campaign_service_js_1.CampaignService],

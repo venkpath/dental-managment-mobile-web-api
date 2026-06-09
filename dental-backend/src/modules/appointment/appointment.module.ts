@@ -9,6 +9,7 @@ import { AppointmentReminderReconciler } from './appointment-reminder.reconciler
 import { AutomationModule } from '../automation/automation.module.js';
 import { CommunicationModule } from '../communication/communication.module.js';
 import { PublicDirectoryModule } from '../public-directory/public-directory.module.js';
+import { PatientInsightsModule } from '../patient-insights/patient-insights.module.js';
 import { QUEUE_NAMES } from '../../common/queue/queue-names.js';
 
 @Module({
@@ -16,6 +17,7 @@ import { QUEUE_NAMES } from '../../common/queue/queue-names.js';
     AutomationModule,
     CommunicationModule,
     PublicDirectoryModule,
+    PatientInsightsModule,
     BullModule.registerQueue({ name: QUEUE_NAMES.APPOINTMENT_REMINDER }),
   ],
   controllers: [AppointmentController],

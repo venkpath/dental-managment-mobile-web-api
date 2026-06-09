@@ -10,11 +10,13 @@ exports.TreatmentModule = void 0;
 const common_1 = require("@nestjs/common");
 const treatment_controller_js_1 = require("./treatment.controller.js");
 const treatment_service_js_1 = require("./treatment.service.js");
+const patient_insights_module_js_1 = require("../patient-insights/patient-insights.module.js");
 let TreatmentModule = class TreatmentModule {
 };
 exports.TreatmentModule = TreatmentModule;
 exports.TreatmentModule = TreatmentModule = __decorate([
     (0, common_1.Module)({
+        imports: [patient_insights_module_js_1.PatientInsightsModule],
         controllers: [treatment_controller_js_1.TreatmentController],
         providers: [treatment_service_js_1.TreatmentService],
         exports: [treatment_service_js_1.TreatmentService],

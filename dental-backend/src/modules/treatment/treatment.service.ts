@@ -1,16 +1,26 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service.js';
 import { CreateTreatmentDto, UpdateTreatmentDto, QueryTreatmentDto } from './dto/index.js';
 import { Treatment, Prisma } from '@prisma/client';
 import { PaginatedResult, paginate } from '../../common/interfaces/paginated-result.interface.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
+import { PatientInsightsService } from '../patient-insights/patient-insights.service.js';
 
 @Injectable()
 export class TreatmentService {
+  private readonly logger = new Logger(TreatmentService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly planLimit: PlanLimitService,
+    private readonly patientInsightsService: PatientInsightsService,
   ) {}
+
+  private refreshPatientInsights(clinicId: string, patientId: string): void {
+    this.patientInsightsService.computeForPatient(clinicId, patientId).catch((e) => {
+      this.logger.warn(`Insight refresh failed for patient ${patientId}: ${(e as Error).message}`);
+    });
+  }
 
   // Map treatment procedures to dental chart condition names
   private static readonly PROCEDURE_CONDITION_MAP: Record<string, string> = {
@@ -77,6 +87,10 @@ export class TreatmentService {
           }
         }
       }
+    }
+
+    if (treatment.status === 'completed') {
+      this.refreshPatientInsights(clinicId, dto.patient_id);
     }
 
     return treatment;
@@ -165,7 +179,7 @@ export class TreatmentService {
   }
 
   async update(clinicId: string, id: string, dto: UpdateTreatmentDto): Promise<Treatment> {
-    await this.findOne(clinicId, id);
+    const existing = await this.findOne(clinicId, id);
 
     if (dto.dentist_id) {
       const dentist = await this.prisma.user.findUnique({ where: { id: dto.dentist_id } });
@@ -175,7 +189,7 @@ export class TreatmentService {
     }
 
     const { cost, ...rest } = dto;
-    return this.prisma.treatment.update({
+    const updated = await this.prisma.treatment.update({
       where: { id },
       data: {
         ...rest,
@@ -183,5 +197,16 @@ export class TreatmentService {
       },
       include: { patient: true, dentist: true, branch: true },
     });
+
+    if (dto.status === 'completed' && existing.status !== 'completed') {
+      this.refreshPatientInsights(clinicId, updated.patient_id);
+      this.patientInsightsService
+        .attributeWalkInAfterOutreach(clinicId, updated.patient_id)
+        .catch((e) =>
+          this.logger.warn(`Insight return attribution failed for patient ${updated.patient_id}: ${(e as Error).message}`),
+        );
+    }
+
+    return updated;
   }
 }

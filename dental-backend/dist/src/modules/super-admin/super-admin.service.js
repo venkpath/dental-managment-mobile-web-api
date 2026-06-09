@@ -237,6 +237,72 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
         ]);
         return { data: clinics, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
     }
+    async getPhoneDirectory(params) {
+        const { search, page = 1, limit = 50 } = params;
+        const skip = (page - 1) * limit;
+        const where = search
+            ? {
+                OR: [
+                    { name: { contains: search, mode: 'insensitive' } },
+                    { phone: { contains: search, mode: 'insensitive' } },
+                ],
+            }
+            : {};
+        const [clinics, total] = await Promise.all([
+            this.prisma.clinic.findMany({
+                where,
+                orderBy: { name: 'asc' },
+                skip,
+                take: limit,
+                select: {
+                    id: true,
+                    name: true,
+                    phone: true,
+                    branches: {
+                        select: { id: true, book_now_url: true },
+                        orderBy: { created_at: 'asc' },
+                        take: 1,
+                    },
+                    users: {
+                        where: {
+                            OR: [{ role: 'SuperAdmin' }, { is_doctor: true }],
+                            status: 'active',
+                        },
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            phone: true,
+                            role: true,
+                            is_doctor: true,
+                            profile_photo_url: true,
+                        },
+                    },
+                },
+            }),
+            this.prisma.clinic.count({ where }),
+        ]);
+        const data = clinics.map((clinic) => {
+            const superAdmin = clinic.users.find((u) => u.role === 'SuperAdmin');
+            const doctor = clinic.users.find((u) => u.is_doctor) ?? superAdmin;
+            const branch = clinic.branches[0];
+            const public_url = branch
+                ? `https://www.smartdentaldesk.com/booking/${clinic.id}/${branch.id}`
+                : null;
+            return {
+                id: clinic.id,
+                clinic_name: clinic.name,
+                clinic_phone: clinic.phone,
+                super_admin_name: superAdmin?.name ?? null,
+                doctor_name: doctor?.name ?? null,
+                doctor_photo_url: doctor?.profile_photo_url ?? null,
+                doctor_phone: doctor?.phone ?? null,
+                doctor_email: doctor?.email ?? null,
+                public_url,
+            };
+        });
+        return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    }
     async getClinicDetail(id) {
         const clinic = await this.prisma.clinic.findUnique({
             where: { id },

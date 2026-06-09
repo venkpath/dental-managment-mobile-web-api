@@ -57,9 +57,9 @@ const TABS: {
   dot: string;
   blurb: string;
 }[] = [
-  { key: 'no_show', label: 'No-show', icon: 'alert-circle-outline', dot: C.red, blurb: 'Likely to miss upcoming visits' },
-  { key: 'recall', label: 'Recall', icon: 'alarm-outline', dot: C.amber, blurb: 'Overdue for hygiene or check-up' },
-  { key: 'churn', label: 'Churn', icon: 'trending-down-outline', dot: C.violet, blurb: 'At risk of leaving the practice' },
+  { key: 'no_show', label: 'Miss Appt', icon: 'alert-circle-outline', dot: C.red, blurb: 'Likely to miss upcoming visits' },
+  { key: 'recall', label: 'Check-up', icon: 'alarm-outline', dot: C.amber, blurb: 'Due for a preventive check-up' },
+  { key: 'churn', label: 'Inactive', icon: 'trending-down-outline', dot: C.violet, blurb: 'No visit in 18+ months' },
   { key: 'conversion', label: 'Conversion', icon: 'trending-up-outline', dot: C.green, blurb: 'High potential for treatment acceptance' },
 ];
 
@@ -89,7 +89,7 @@ function riskMeta(
     const days = row.recall_due_days ?? 0;
     const overdue = days > 0;
     return {
-      label: overdue ? `Overdue ${days}d` : row.recall_due ? 'Due now' : 'Recall',
+      label: overdue ? `Overdue ${days}d` : row.recall_due ? 'Due now' : 'Check-up',
       bg: overdue ? C.redLight : C.amberLight,
       fg: overdue ? C.red : C.amber,
     };
@@ -218,6 +218,50 @@ export default function AIInsightsScreen() {
     } as never);
   };
 
+  const runInsightAction = async (
+    patientId: string,
+    type: 'recall' | 'churn',
+    action: 'contacted' | 'snooze' | 'move_inactive' | 'decline',
+    snooze_days?: number,
+  ) => {
+    try {
+      await insightsService.recordAction(patientId, { type, action, snooze_days });
+      await Promise.all([loadSummary(), loadList(tab, true)]);
+    } catch (e) {
+      Alert.alert('Action failed', e instanceof Error ? e.message : 'Please try again');
+    }
+  };
+
+  const showActionMenu = (row: InsightPatientRow) => {
+    const patientId = row.patient?.id ?? row.patient_id;
+    if (!patientId || (tab !== 'recall' && tab !== 'churn')) return;
+
+    const type = tab as 'recall' | 'churn';
+    const recallButtons = [
+      { text: 'Mark as Contacted', onPress: () => runInsightAction(patientId, type, 'contacted') },
+      { text: 'Snooze 7 days', onPress: () => runInsightAction(patientId, type, 'snooze', 7) },
+      { text: 'Snooze 14 days', onPress: () => runInsightAction(patientId, type, 'snooze', 14) },
+      {
+        text: 'Move to Inactive',
+        onPress: () => runInsightAction(patientId, type, 'move_inactive'),
+      },
+      { text: 'Cancel', style: 'cancel' as const },
+    ];
+    const churnButtons = [
+      { text: 'Mark as Contacted', onPress: () => runInsightAction(patientId, type, 'contacted') },
+      { text: 'Snooze 7 days', onPress: () => runInsightAction(patientId, type, 'snooze', 7) },
+      { text: 'Snooze 14 days', onPress: () => runInsightAction(patientId, type, 'snooze', 14) },
+      {
+        text: 'Declined · Try again in 1 yr',
+        style: 'destructive' as const,
+        onPress: () => runInsightAction(patientId, type, 'decline'),
+      },
+      { text: 'Cancel', style: 'cancel' as const },
+    ];
+
+    Alert.alert('Patient action', patientName(row), type === 'recall' ? recallButtons : churnButtons);
+  };
+
   const activeTab = TABS.find((t) => t.key === tab)!;
   const atRisk = summary?.total_at_risk ?? 0;
   const recallTotal = summary?.recall?.total ?? 0;
@@ -253,6 +297,15 @@ export default function AIInsightsScreen() {
             {risk.label}
           </Text>
         </View>
+        {(tab === 'recall' || tab === 'churn') && (
+          <TouchableOpacity
+            onPress={() => showActionMenu(item)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={s.actionBtn}
+          >
+            <Ionicons name="ellipsis-horizontal" size={18} color={C.textMuted} />
+          </TouchableOpacity>
+        )}
         <Ionicons name="chevron-forward" size={18} color={C.textMuted} />
       </TouchableOpacity>
     );
@@ -276,8 +329,8 @@ export default function AIInsightsScreen() {
         <View style={s.metricsRow}>
           {[
             { icon: 'people' as const, color: C.red, label: 'At risk', value: String(atRisk) },
-            { icon: 'alarm' as const, color: C.amber, label: 'Recall due', value: String(recallTotal) },
-            { icon: 'trending-down' as const, color: C.violet, label: 'Churn', value: String(churnTotal) },
+            { icon: 'alarm' as const, color: C.amber, label: 'Due for check-up', value: String(recallTotal) },
+            { icon: 'trending-down' as const, color: C.violet, label: 'Inactive', value: String(churnTotal) },
             {
               icon: 'cash' as const,
               color: C.green,
@@ -578,4 +631,12 @@ const s = StyleSheet.create({
     borderRadius: 999,
   },
   riskPillTxt: { fontSize: 10, fontWeight: '700' },
+  actionBtn: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: C.bg,
+  },
 });

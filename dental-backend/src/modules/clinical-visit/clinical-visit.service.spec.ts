@@ -4,6 +4,7 @@ import { ClinicalVisitService } from './clinical-visit.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 import { ReviewTriggerService } from '../public-directory/review-trigger.service.js';
+import { PatientInsightsService } from '../patient-insights/patient-insights.service.js';
 import { ClinicalVisitStatus } from './dto/query-clinical-visit.dto.js';
 
 const clinicId = 'clinic-uuid-0001';
@@ -98,6 +99,10 @@ const mockReviewTrigger = {
   triggerConsultationReview: jest.fn().mockResolvedValue(undefined),
   triggerInvoiceReview: jest.fn().mockResolvedValue(undefined),
 };
+const mockPatientInsightsService = {
+  attributeWalkInAfterOutreach: jest.fn().mockResolvedValue(undefined),
+  attributeNoShowAttendance: jest.fn().mockResolvedValue(undefined),
+};
 
 describe('ClinicalVisitService', () => {
   let service: ClinicalVisitService;
@@ -109,6 +114,7 @@ describe('ClinicalVisitService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PlanLimitService, useValue: mockPlanLimit },
         { provide: ReviewTriggerService, useValue: mockReviewTrigger },
+        { provide: PatientInsightsService, useValue: mockPatientInsightsService },
       ],
     }).compile();
 
@@ -278,6 +284,10 @@ describe('ClinicalVisitService', () => {
       mockPrisma.clinicalVisit.update.mockResolvedValueOnce(finalizedVisit);
       const result = await service.finalize(clinicId, visitId);
       expect(result.status).toBe('finalized');
+      expect(mockPatientInsightsService.attributeWalkInAfterOutreach).toHaveBeenCalledWith(
+        clinicId,
+        patientId,
+      );
     });
 
     it('should throw BadRequestException if already finalized', async () => {
@@ -299,6 +309,15 @@ describe('ClinicalVisitService', () => {
 
       expect(mockPrisma.appointment.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: { status: 'completed' } }),
+      );
+      expect(mockPatientInsightsService.attributeWalkInAfterOutreach).toHaveBeenCalledWith(
+        clinicId,
+        patientId,
+      );
+      expect(mockPatientInsightsService.attributeNoShowAttendance).toHaveBeenCalledWith(
+        clinicId,
+        patientId,
+        'appt-1',
       );
     });
   });

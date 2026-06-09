@@ -1668,6 +1668,30 @@ model PatientInsightScore {
   confidence_score Int      @default(0) // 0–100, data completeness
   computed_at      DateTime @default(now())
 
+  // Recall action window — lifecycle tracking for "Due for a Check-up" list
+  recall_window_start      DateTime? // set when recall_due first becomes true; cleared on booking
+  recall_status            String?   @db.VarChar(20) // null | contacted | snoozed | moved_inactive
+  recall_snoozed_until     DateTime?
+  recall_last_contacted_at DateTime?
+
+  // Inactive (churn) action window — lifecycle tracking for "Inactive Patients" list
+  churn_window_start       DateTime? // set when patient first enters inactive list
+  churn_status             String?   @db.VarChar(20) // null | contacted | snoozed | declined
+  churn_snoozed_until      DateTime?
+  churn_last_contacted_at  DateTime?
+  churn_retry_after        DateTime? // set to now+365d on decline or 30-day window expiry
+
+  // Booking attribution — set when patient books within OUTREACH_ATTRIBUTION_DAYS of contact
+  recall_booked_after_outreach_at DateTime?
+  recall_booked_appointment_id    String?   @db.Uuid
+  churn_booked_after_outreach_at  DateTime?
+  churn_booked_appointment_id     String?   @db.Uuid
+
+  // No-show attendance attribution — set when a high/medium risk patient checks in or completes
+  // their appointment (proves they actually showed up, not just that they had a booking)
+  no_show_attended_at            DateTime?
+  no_show_attended_appointment_id String?  @db.Uuid
+
   clinic  Clinic                   @relation(fields: [clinic_id], references: [id], onDelete: Cascade)
   branch  Branch                   @relation(fields: [branch_id], references: [id], onDelete: Cascade)
   patient Patient                  @relation(fields: [patient_id], references: [id], onDelete: Cascade)

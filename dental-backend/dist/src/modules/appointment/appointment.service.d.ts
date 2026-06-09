@@ -7,6 +7,7 @@ import { AppointmentReminderProducer } from './appointment-reminder.producer.js'
 import { PlanLimitService } from '../../common/services/plan-limit.service.js';
 import { ReviewTriggerService } from '../public-directory/review-trigger.service.js';
 import { AppointmentStaffNotificationService } from '../notification/appointment-staff-notification.service.js';
+import { PatientInsightsService } from '../patient-insights/patient-insights.service.js';
 export interface AvailableSlot {
     start_time: string;
     end_time: string;
@@ -19,8 +20,10 @@ export declare class AppointmentService {
     private readonly planLimit;
     private readonly reviewTrigger;
     private readonly staffNotificationService;
+    private readonly patientInsightsService;
     private readonly logger;
-    constructor(prisma: PrismaService, notificationService: AppointmentNotificationService, reminderProducer: AppointmentReminderProducer, planLimit: PlanLimitService, reviewTrigger: ReviewTriggerService, staffNotificationService: AppointmentStaffNotificationService);
+    constructor(prisma: PrismaService, notificationService: AppointmentNotificationService, reminderProducer: AppointmentReminderProducer, planLimit: PlanLimitService, reviewTrigger: ReviewTriggerService, staffNotificationService: AppointmentStaffNotificationService, patientInsightsService: PatientInsightsService);
+    private refreshPatientInsights;
     private resolveAppointmentListOrder;
     create(clinicId: string, dto: CreateAppointmentDto): Promise<Appointment>;
     getAvailableSlots(clinicId: string, query: QueryAvailableSlotsDto): Promise<AvailableSlot[]>;

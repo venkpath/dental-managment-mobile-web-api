@@ -16,13 +16,22 @@ const prisma_service_js_1 = require("../../database/prisma.service.js");
 const client_1 = require("@prisma/client");
 const paginated_result_interface_js_1 = require("../../common/interfaces/paginated-result.interface.js");
 const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
+const patient_insights_service_js_1 = require("../patient-insights/patient-insights.service.js");
 let TreatmentService = class TreatmentService {
     static { TreatmentService_1 = this; }
     prisma;
     planLimit;
-    constructor(prisma, planLimit) {
+    patientInsightsService;
+    logger = new common_1.Logger(TreatmentService_1.name);
+    constructor(prisma, planLimit, patientInsightsService) {
         this.prisma = prisma;
         this.planLimit = planLimit;
+        this.patientInsightsService = patientInsightsService;
+    }
+    refreshPatientInsights(clinicId, patientId) {
+        this.patientInsightsService.computeForPatient(clinicId, patientId).catch((e) => {
+            this.logger.warn(`Insight refresh failed for patient ${patientId}: ${e.message}`);
+        });
     }
     static PROCEDURE_CONDITION_MAP = {
         RCT: 'RCT',
@@ -80,6 +89,9 @@ let TreatmentService = class TreatmentService {
                     }
                 }
             }
+        }
+        if (treatment.status === 'completed') {
+            this.refreshPatientInsights(clinicId, dto.patient_id);
         }
         return treatment;
     }
@@ -156,7 +168,7 @@ let TreatmentService = class TreatmentService {
         return treatment;
     }
     async update(clinicId, id, dto) {
-        await this.findOne(clinicId, id);
+        const existing = await this.findOne(clinicId, id);
         if (dto.dentist_id) {
             const dentist = await this.prisma.user.findUnique({ where: { id: dto.dentist_id } });
             if (!dentist || dentist.clinic_id !== clinicId) {
@@ -164,7 +176,7 @@ let TreatmentService = class TreatmentService {
             }
         }
         const { cost, ...rest } = dto;
-        return this.prisma.treatment.update({
+        const updated = await this.prisma.treatment.update({
             where: { id },
             data: {
                 ...rest,
@@ -172,12 +184,20 @@ let TreatmentService = class TreatmentService {
             },
             include: { patient: true, dentist: true, branch: true },
         });
+        if (dto.status === 'completed' && existing.status !== 'completed') {
+            this.refreshPatientInsights(clinicId, updated.patient_id);
+            this.patientInsightsService
+                .attributeWalkInAfterOutreach(clinicId, updated.patient_id)
+                .catch((e) => this.logger.warn(`Insight return attribution failed for patient ${updated.patient_id}: ${e.message}`));
+        }
+        return updated;
     }
 };
 exports.TreatmentService = TreatmentService;
 exports.TreatmentService = TreatmentService = TreatmentService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
-        plan_limit_service_js_1.PlanLimitService])
+        plan_limit_service_js_1.PlanLimitService,
+        patient_insights_service_js_1.PatientInsightsService])
 ], TreatmentService);
 //# sourceMappingURL=treatment.service.js.map

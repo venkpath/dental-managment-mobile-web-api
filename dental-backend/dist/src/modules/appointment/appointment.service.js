@@ -19,6 +19,7 @@ const appointment_reminder_producer_js_1 = require("./appointment-reminder.produ
 const plan_limit_service_js_1 = require("../../common/services/plan-limit.service.js");
 const review_trigger_service_js_1 = require("../public-directory/review-trigger.service.js");
 const appointment_staff_notification_service_js_1 = require("../notification/appointment-staff-notification.service.js");
+const patient_insights_service_js_1 = require("../patient-insights/patient-insights.service.js");
 const CLINIC_TIMEZONE = process.env.CLINIC_TIMEZONE || 'Asia/Kolkata';
 function getTodayDate(tz = CLINIC_TIMEZONE) {
     return new Date().toLocaleDateString('en-CA', { timeZone: tz });
@@ -39,14 +40,28 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
     planLimit;
     reviewTrigger;
     staffNotificationService;
+    patientInsightsService;
     logger = new common_1.Logger(AppointmentService_1.name);
-    constructor(prisma, notificationService, reminderProducer, planLimit, reviewTrigger, staffNotificationService) {
+    constructor(prisma, notificationService, reminderProducer, planLimit, reviewTrigger, staffNotificationService, patientInsightsService) {
         this.prisma = prisma;
         this.notificationService = notificationService;
         this.reminderProducer = reminderProducer;
         this.planLimit = planLimit;
         this.reviewTrigger = reviewTrigger;
         this.staffNotificationService = staffNotificationService;
+        this.patientInsightsService = patientInsightsService;
+    }
+    refreshPatientInsights(clinicId, patientId, appointment) {
+        this.patientInsightsService.computeForPatient(clinicId, patientId).catch((e) => {
+            this.logger.warn(`Insight refresh failed for patient ${patientId}: ${e.message}`);
+        });
+        if (appointment && appointment.status !== 'cancelled' && new Date(appointment.appointment_date) >= new Date()) {
+            this.patientInsightsService
+                .attributeBookingAfterOutreach(clinicId, patientId, appointment.id)
+                .catch((e) => {
+                this.logger.warn(`Insight booking attribution failed for patient ${patientId}: ${e.message}`);
+            });
+        }
     }
     resolveAppointmentListOrder(query) {
         const isToday = !!query.date;
@@ -124,6 +139,7 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
             this.logger.warn(`Staff appointment confirmed notification failed: ${e.message}`);
         });
         await this.tryScheduleReminders(clinicId, appointment.id, appointment.appointment_date, appointment.start_time);
+        this.refreshPatientInsights(clinicId, dto.patient_id, appointment);
         return appointment;
     }
     async getAvailableSlots(clinicId, query) {
@@ -302,6 +318,13 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
                 data: { status: 'cleaning', cleaning_started_at: new Date() },
             }).catch((e) => this.logger.warn(`Room auto-release failed for room ${existing.room_id}: ${e.message}`));
         }
+        const isAttendanceTransition = (dto.status === 'checked_in' || dto.status === 'completed') &&
+            existing.status !== 'checked_in' && existing.status !== 'completed';
+        if (isAttendanceTransition) {
+            this.patientInsightsService
+                .attributeNoShowAttendance(clinicId, existing.patient_id, id)
+                .catch((e) => this.logger.warn(`No-show attendance attribution failed for appointment ${id}: ${e.message}`));
+        }
         if (dto.status === 'completed' && existing.status !== 'completed') {
             this.reviewTrigger
                 .triggerPostAppointmentReview(clinicId, id, existing.patient_id, existing.dentist_id)
@@ -325,6 +348,7 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
                 this.logger.warn(`Failed to reschedule reminders for appointment ${id}: ${e.message}`);
             });
         }
+        this.refreshPatientInsights(clinicId, existing.patient_id, updated);
         return updated;
     }
     async createRecurring(clinicId, dto) {
@@ -416,11 +440,14 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
                 this.logger.warn(`Failed to schedule reminders for recurring appointment ${appt.id}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
             }
         });
+        this.refreshPatientInsights(clinicId, dto.patient_id, appointments[0]);
         return appointments;
     }
     async remove(clinicId, id) {
-        await this.findOne(clinicId, id);
-        return this.prisma.appointment.delete({ where: { id } });
+        const existing = await this.findOne(clinicId, id);
+        const deleted = await this.prisma.appointment.delete({ where: { id } });
+        this.refreshPatientInsights(clinicId, existing.patient_id);
+        return deleted;
     }
     async checkTimeConflict(dentistId, date, startTime, endTime, excludeId) {
         const where = {
@@ -466,6 +493,7 @@ exports.AppointmentService = AppointmentService = AppointmentService_1 = __decor
         appointment_reminder_producer_js_1.AppointmentReminderProducer,
         plan_limit_service_js_1.PlanLimitService,
         review_trigger_service_js_1.ReviewTriggerService,
-        appointment_staff_notification_service_js_1.AppointmentStaffNotificationService])
+        appointment_staff_notification_service_js_1.AppointmentStaffNotificationService,
+        patient_insights_service_js_1.PatientInsightsService])
 ], AppointmentService);
 //# sourceMappingURL=appointment.service.js.map

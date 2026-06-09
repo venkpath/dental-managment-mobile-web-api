@@ -18,6 +18,7 @@ const appointment_reminder_reconciler_js_1 = require("./appointment-reminder.rec
 const automation_module_js_1 = require("../automation/automation.module.js");
 const communication_module_js_1 = require("../communication/communication.module.js");
 const public_directory_module_js_1 = require("../public-directory/public-directory.module.js");
+const patient_insights_module_js_1 = require("../patient-insights/patient-insights.module.js");
 const queue_names_js_1 = require("../../common/queue/queue-names.js");
 let AppointmentModule = class AppointmentModule {
 };
@@ -28,6 +29,7 @@ exports.AppointmentModule = AppointmentModule = __decorate([
             automation_module_js_1.AutomationModule,
             communication_module_js_1.CommunicationModule,
             public_directory_module_js_1.PublicDirectoryModule,
+            patient_insights_module_js_1.PatientInsightsModule,
             bullmq_1.BullModule.registerQueue({ name: queue_names_js_1.QUEUE_NAMES.APPOINTMENT_REMINDER }),
         ],
         controllers: [appointment_controller_js_1.AppointmentController],

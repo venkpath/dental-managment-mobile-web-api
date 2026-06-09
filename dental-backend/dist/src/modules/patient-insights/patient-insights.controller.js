@@ -20,6 +20,7 @@ const swagger_1 = require("@nestjs/swagger");
 const patient_insights_service_js_1 = require("./patient-insights.service.js");
 const query_insights_dto_js_1 = require("./dto/query-insights.dto.js");
 const current_clinic_decorator_js_1 = require("../../common/decorators/current-clinic.decorator.js");
+const current_user_decorator_js_1 = require("../../common/decorators/current-user.decorator.js");
 const require_clinic_guard_js_1 = require("../../common/guards/require-clinic.guard.js");
 const require_feature_decorator_js_1 = require("../../common/decorators/require-feature.decorator.js");
 let PatientInsightsController = class PatientInsightsController {
@@ -36,6 +37,18 @@ let PatientInsightsController = class PatientInsightsController {
     async getList(clinicId, dto) {
         return this.service.getList(clinicId, dto);
     }
+    async getEligible(clinicId, type, branchId) {
+        if (type !== 'recall' && type !== 'churn') {
+            throw new common_1.BadRequestException('Query param "type" must be recall or churn');
+        }
+        return this.service.getEligibleCount(clinicId, type, branchId);
+    }
+    async getOpportunitySummary(clinicId, branchId) {
+        return this.service.getOpportunitySummary(clinicId, branchId);
+    }
+    async getRecoveredSummary(clinicId, branchId) {
+        return this.service.getRecoveredSummary(clinicId, branchId);
+    }
     async getLatestBatch(clinicId) {
         return this.service.getLatestBatch(clinicId);
     }
@@ -44,6 +57,9 @@ let PatientInsightsController = class PatientInsightsController {
     }
     async getPatientScore(clinicId, patientId) {
         return this.service.getPatientScore(clinicId, patientId);
+    }
+    async recordAction(clinicId, patientId, dto, user) {
+        return this.service.recordAction(clinicId, patientId, dto, user?.sub);
     }
 };
 exports.PatientInsightsController = PatientInsightsController;
@@ -81,6 +97,39 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], PatientInsightsController.prototype, "getList", null);
 __decorate([
+    (0, common_1.Get)('eligible'),
+    (0, swagger_1.ApiOperation)({ summary: 'Count patients eligible for campaign outreach (list rules + cooldown)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Query)('type')),
+    __param(2, (0, common_1.Query)('branch_id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], PatientInsightsController.prototype, "getEligible", null);
+__decorate([
+    (0, common_1.Get)('opportunity'),
+    (0, require_feature_decorator_js_1.RequireFeature)('AI_PATIENT_INSIGHTS'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get potential revenue opportunity from at-risk patients' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Query)('branch_id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], PatientInsightsController.prototype, "getOpportunitySummary", null);
+__decorate([
+    (0, common_1.Get)('recovered'),
+    (0, require_feature_decorator_js_1.RequireFeature)('AI_PATIENT_INSIGHTS'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get revenue recovered from at-risk patients who returned (last 90 days)' }),
+    openapi.ApiResponse({ status: 200, type: Object }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Query)('branch_id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], PatientInsightsController.prototype, "getRecoveredSummary", null);
+__decorate([
     (0, common_1.Get)('batch/latest'),
     (0, swagger_1.ApiOperation)({ summary: 'Get latest computation batch status' }),
     openapi.ApiResponse({ status: 200, type: Object }),
@@ -109,6 +158,20 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], PatientInsightsController.prototype, "getPatientScore", null);
+__decorate([
+    (0, common_1.Patch)('patient/:patientId/action'),
+    (0, common_1.HttpCode)(200),
+    (0, require_feature_decorator_js_1.RequireFeature)('AI_PATIENT_INSIGHTS'),
+    (0, swagger_1.ApiOperation)({ summary: 'Record a staff action (contacted / snooze / move_inactive / decline) on a patient insight' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Param)('patientId', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.Body)()),
+    __param(3, (0, current_user_decorator_js_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, query_insights_dto_js_1.RecordActionDto, Object]),
+    __metadata("design:returntype", Promise)
+], PatientInsightsController.prototype, "recordAction", null);
 exports.PatientInsightsController = PatientInsightsController = __decorate([
     (0, swagger_1.ApiTags)('Patient Insights'),
     (0, swagger_1.ApiHeader)({ name: 'x-clinic-id', required: true, description: 'Clinic UUID' }),

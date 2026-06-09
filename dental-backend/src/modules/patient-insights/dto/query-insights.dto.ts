@@ -1,4 +1,4 @@
-import { IsOptional, IsUUID, IsIn, IsInt, Min, Max } from 'class-validator';
+import { IsOptional, IsUUID, IsIn, IsInt, Min, Max, IsNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -34,4 +34,24 @@ export class ComputeInsightsDto {
   @IsOptional()
   @IsUUID()
   branch_id?: string;
+}
+
+export class RecordActionDto {
+  @ApiPropertyOptional({ enum: ['recall', 'churn'] })
+  @IsNotEmpty()
+  @IsIn(['recall', 'churn'])
+  type!: 'recall' | 'churn';
+
+  @ApiPropertyOptional({ enum: ['contacted', 'snooze', 'move_inactive', 'decline'] })
+  @IsNotEmpty()
+  @IsIn(['contacted', 'snooze', 'move_inactive', 'decline'])
+  action!: 'contacted' | 'snooze' | 'move_inactive' | 'decline';
+
+  @ApiPropertyOptional({ description: 'Days to snooze (1–30). Required when action=snooze.', default: 7 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  snooze_days?: number;
 }
