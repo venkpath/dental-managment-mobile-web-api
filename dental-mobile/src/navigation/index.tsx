@@ -80,6 +80,10 @@ import { refreshSubscription } from '../store/subscription.store';
 import { refreshUserProfile } from '../utils/refreshUserProfile';
 import SettingsGuideScreen from '../screens/settings/SettingsGuideScreen';
 import MoreMenuScreen from '../screens/more/MoreMenuScreen';
+import SupportTicketListScreen from '../screens/support/SupportTicketListScreen';
+import SupportTicketDetailScreen from '../screens/support/SupportTicketDetailScreen';
+import NewSupportTicketScreen from '../screens/support/NewSupportTicketScreen';
+import DemoRequestModal from '../components/DemoRequestModal';
 import { navigationRef } from './navigationRef';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { refreshClinicBranding } from '../utils/refreshClinicBranding';
@@ -183,6 +187,9 @@ function BillingNavigator() {
       <BillingStack.Screen name="PlatformInvoices" component={PlatformInvoiceListScreen} />
       <BillingStack.Screen name="BillingGuide" component={ClinicBillingScreen} />
       <BillingStack.Screen name="SettingsGuide" component={SettingsGuideScreen} />
+      <BillingStack.Screen name="SupportTicketList" component={SupportTicketListScreen} />
+      <BillingStack.Screen name="SupportTicketDetail" component={SupportTicketDetailScreen} />
+      <BillingStack.Screen name="NewSupportTicket" component={NewSupportTicketScreen} />
     </BillingStack.Navigator>
   );
 }
@@ -317,6 +324,7 @@ export default function AppNavigator() {
           </Root.Navigator>
           {showAppShell && <AppLockOverlay />}
           {showUnlockedMain && <DrawerMenu />}
+          {showUnlockedMain && <DemoRequestModal />}
         </View>
       </DrawerProvider>
     </NavigationContainer>

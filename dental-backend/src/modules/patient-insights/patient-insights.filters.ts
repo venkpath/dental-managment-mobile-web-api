@@ -11,7 +11,14 @@ export function buildInsightBaseWhere(
   clinicId: string,
   branchId?: string,
 ): Prisma.PatientInsightScoreWhereInput {
-  return branchId ? { clinic_id: clinicId, branch_id: branchId } : { clinic_id: clinicId };
+  if (!branchId) return { clinic_id: clinicId };
+  // Use the patient's current branch (source of truth). Denormalized score.branch_id can lag
+  // after a patient transfer or partial branch-scoped recompute, which caused list badges to
+  // show recall while summary/list counts stayed at 0.
+  return {
+    clinic_id: clinicId,
+    patient: { branch_id: branchId },
+  };
 }
 
 export function campaignCooldownBefore(now = new Date()): Date {
@@ -43,6 +50,8 @@ export function buildRecallListWhere(
       { recall_snoozed_until: { gt: now } },
       // 18m+ inactive patients belong in the inactive list, not recall
       { churn_risk: { in: ['medium', 'high'] } },
+      // Already rebooked — same rule as patient list badges (insight-badges.tsx)
+      { churn_factors: { path: ['has_future_appt'], equals: true } },
     ],
   };
 }
@@ -204,6 +213,7 @@ export function isRecallListVisible(
     recall_status: string | null;
     recall_snoozed_until: Date | null;
     churn_risk: string;
+    churn_factors?: unknown;
   },
   now = new Date(),
 ): boolean {
@@ -211,6 +221,8 @@ export function isRecallListVisible(
   if (score.recall_status === 'moved_inactive') return false;
   if (score.recall_snoozed_until && score.recall_snoozed_until > now) return false;
   if (score.churn_risk === 'medium' || score.churn_risk === 'high') return false;
+  const factors = score.churn_factors as { has_future_appt?: boolean } | null;
+  if (factors?.has_future_appt) return false;
   return true;
 }
 

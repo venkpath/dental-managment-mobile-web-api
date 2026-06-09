@@ -1,6 +1,7 @@
 import {
   buildChurnCampaignWhere,
   buildChurnListWhere,
+  buildInsightBaseWhere,
   buildRecallCampaignWhere,
   buildRecallListWhere,
   CAMPAIGN_COOLDOWN_DAYS,
@@ -11,11 +12,25 @@ import {
 } from './patient-insights.filters.js';
 
 const clinicId = '11111111-1111-1111-1111-111111111111';
+const branchId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const now = new Date('2026-06-15T12:00:00Z');
 
 describe('patient-insights.filters', () => {
+  describe('buildInsightBaseWhere', () => {
+    it('filters by patient branch when branchId is provided', () => {
+      expect(buildInsightBaseWhere(clinicId, branchId)).toEqual({
+        clinic_id: clinicId,
+        patient: { branch_id: branchId },
+      });
+    });
+
+    it('returns clinic-wide scope when branchId is omitted', () => {
+      expect(buildInsightBaseWhere(clinicId)).toEqual({ clinic_id: clinicId });
+    });
+  });
+
   describe('buildRecallListWhere', () => {
-    it('excludes moved_inactive, snoozed, and 18m+ churn patients', () => {
+    it('excludes moved_inactive, snoozed, 18m+ churn, and rebooked patients', () => {
       const where = buildRecallListWhere(clinicId, undefined, now);
       expect(where.recall_due).toBe(true);
       expect(where.NOT).toEqual(
@@ -23,6 +38,7 @@ describe('patient-insights.filters', () => {
           { recall_status: 'moved_inactive' },
           { recall_snoozed_until: { gt: now } },
           { churn_risk: { in: ['medium', 'high'] } },
+          { churn_factors: { path: ['has_future_appt'], equals: true } },
         ]),
       );
     });
@@ -109,6 +125,21 @@ describe('patient-insights.filters', () => {
           now,
         ),
       ).toBe(true);
+    });
+
+    it('returns false when patient already has a future appointment', () => {
+      expect(
+        isRecallListVisible(
+          {
+            recall_due: true,
+            recall_status: null,
+            recall_snoozed_until: null,
+            churn_risk: 'low',
+            churn_factors: { has_future_appt: true },
+          },
+          now,
+        ),
+      ).toBe(false);
     });
   });
 

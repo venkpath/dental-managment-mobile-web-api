@@ -18,7 +18,12 @@ exports.OUTREACH_ATTRIBUTION_DAYS = 30;
 exports.MS_PER_DAY = 86_400_000;
 exports.INSIGHT_WINDOW_DAYS = 30;
 function buildInsightBaseWhere(clinicId, branchId) {
-    return branchId ? { clinic_id: clinicId, branch_id: branchId } : { clinic_id: clinicId };
+    if (!branchId)
+        return { clinic_id: clinicId };
+    return {
+        clinic_id: clinicId,
+        patient: { branch_id: branchId },
+    };
 }
 function campaignCooldownBefore(now = new Date()) {
     return new Date(now.getTime() - exports.CAMPAIGN_COOLDOWN_DAYS * exports.MS_PER_DAY);
@@ -37,6 +42,7 @@ function buildRecallListWhere(clinicId, branchId, now = new Date()) {
             { recall_status: 'moved_inactive' },
             { recall_snoozed_until: { gt: now } },
             { churn_risk: { in: ['medium', 'high'] } },
+            { churn_factors: { path: ['has_future_appt'], equals: true } },
         ],
     };
 }
@@ -151,6 +157,9 @@ function isRecallListVisible(score, now = new Date()) {
     if (score.recall_snoozed_until && score.recall_snoozed_until > now)
         return false;
     if (score.churn_risk === 'medium' || score.churn_risk === 'high')
+        return false;
+    const factors = score.churn_factors;
+    if (factors?.has_future_appt)
         return false;
     return true;
 }

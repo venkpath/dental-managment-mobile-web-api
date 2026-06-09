@@ -495,6 +495,50 @@ let SuperAdminService = SuperAdminService_1 = class SuperAdminService {
         });
         this.logger.log(`Onboarding admin alert email sent to ${this.adminEmail}`);
     }
+    async listDirectoryFirstLogins() {
+        const clinics = await this.prisma.clinic.findMany({
+            where: { directory_first_login_at: { not: null } },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                city: true,
+                state: true,
+                subscription_status: true,
+                listed_in_directory: true,
+                directory_approved_at: true,
+                directory_first_login_at: true,
+                users: {
+                    where: { role: 'SuperAdmin', status: 'active' },
+                    take: 1,
+                    select: { id: true, name: true, email: true, phone: true },
+                },
+            },
+            orderBy: { directory_first_login_at: 'desc' },
+        });
+        const clinicIds = clinics.map((c) => c.id);
+        const demoRequests = clinicIds.length
+            ? await this.prisma.demoRequest.findMany({
+                where: { clinic_id: { in: clinicIds }, source: 'directory_first_login' },
+                orderBy: { created_at: 'desc' },
+            })
+            : [];
+        const demoByClinic = new Map();
+        for (const d of demoRequests) {
+            if (!d.clinic_id)
+                continue;
+            const list = demoByClinic.get(d.clinic_id) ?? [];
+            list.push(d);
+            demoByClinic.set(d.clinic_id, list);
+        }
+        return clinics.map((c) => ({
+            ...c,
+            owner: c.users[0] ?? null,
+            demo_requests: demoByClinic.get(c.id) ?? [],
+            has_demo_request: (demoByClinic.get(c.id)?.length ?? 0) > 0,
+        }));
+    }
     async getDirectoryApprovals(status = 'pending') {
         return this.prisma.clinic.findMany({
             where: status === 'pending'

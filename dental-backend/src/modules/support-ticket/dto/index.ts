@@ -37,6 +37,14 @@ export class CreateSupportTicketDto {
   message!: string;
 }
 
+export class AddTicketCommentDto {
+  @ApiProperty({ description: 'Comment message' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(5000)
+  message!: string;
+}
+
 export class UpdateSupportTicketDto {
   @ApiPropertyOptional({ enum: TICKET_STATUSES })
   @IsOptional()

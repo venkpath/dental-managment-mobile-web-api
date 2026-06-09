@@ -100,6 +100,9 @@ model Clinic {
   directory_clinic_image_url           String?   @db.VarChar(500) // S3 key for clinic cover image
   // Dentist-specific fields staged from the listing form; copied to the User record at approval.
   directory_dentist_years_experience   Int?                       // dentist's years of clinical experience
+  // Set on the very first login by a directory-only clinic user — used to surface first-time
+  // logins in super admin and to trigger the in-app demo-request popup.
+  directory_first_login_at             DateTime?
 
   ai_usage_count            Int       @default(0)
   ai_quota_override         Int? // per-clinic AI quota override (null = use plan default)
@@ -1998,13 +2001,17 @@ model DemoRequest {
   phone        String    @db.VarChar(20)
   clinic_name  String?   @db.VarChar(255)
   chairs       String?   @db.VarChar(10)
-  status       String    @default("pending") @db.VarChar(20) // pending | contacted | scheduled | completed | cancelled
-  notes        String?   @db.Text
-  source       String    @default("website") @db.VarChar(50) // website | landing_page | referral
-  scheduled_at DateTime?
-  meeting_link String?   @db.VarChar(500)
-  created_at   DateTime  @default(now())
-  updated_at   DateTime  @updatedAt
+  status         String    @default("pending") @db.VarChar(20) // pending | contacted | scheduled | completed | cancelled
+  notes          String?   @db.Text
+  source         String    @default("website") @db.VarChar(50) // website | landing_page | referral | directory_first_login
+  scheduled_at   DateTime?
+  meeting_link   String?   @db.VarChar(500)
+  // Preferred demo slot submitted via the in-app popup (directory-only clinics on first login)
+  preferred_date String?   @db.VarChar(10)  // YYYY-MM-DD
+  preferred_slot String?   @db.VarChar(10)  // HH:mm e.g. "10:00"
+  clinic_id      String?   @db.Uuid         // set when submitted from inside the app
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
 
   @@index([status])
   @@index([created_at])
@@ -2736,10 +2743,27 @@ model SupportTicket {
   created_at  DateTime  @default(now())
   updated_at  DateTime  @updatedAt
 
+  comments SupportTicketComment[]
+
   @@index([clinic_id])
   @@index([status])
   @@index([created_at])
   @@map("support_tickets")
+}
+
+model SupportTicketComment {
+  id          String   @id @default(uuid()) @db.Uuid
+  ticket_id   String   @db.Uuid
+  author_type String   @db.VarChar(10)  // 'user' | 'admin'
+  author_id   String?  @db.Uuid         // user_id for clinic comments; null for super-admin
+  author_name String   @db.VarChar(255)
+  message     String   @db.Text
+  created_at  DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+
+  @@index([ticket_id])
+  @@map("support_ticket_comments")
 }
 
 model TutorialProgress {

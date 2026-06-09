@@ -508,6 +508,9 @@ export type BillingStackParamList = {
   /** @deprecated Use ClinicBilling */
   BillingGuide: undefined;
   SettingsGuide: undefined;
+  SupportTicketList: undefined;
+  SupportTicketDetail: { ticketId: string };
+  NewSupportTicket: undefined;
 };
 
 export type WhatsAppStackParamList = {

@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service.js';
 import { WhatsAppProvider } from '../communication/providers/whatsapp.provider.js';
 import { EmailProvider } from '../communication/providers/email.provider.js';
-import type { CreateDemoRequestDto, UpdateDemoStatusDto } from './dto/demo-request.dto.js';
+import type { CreateDemoRequestDto, CreateDemoRequestFromAppDto, UpdateDemoStatusDto } from './dto/demo-request.dto.js';
 export declare class DemoRequestService {
     private readonly prisma;
     private readonly whatsapp;
@@ -22,12 +22,43 @@ export declare class DemoRequestService {
         created_at: Date;
         updated_at: Date;
         phone: string;
+        clinic_id: string | null;
         clinic_name: string | null;
         notes: string | null;
         source: string;
         scheduled_at: Date | null;
         chairs: string | null;
         meeting_link: string | null;
+        preferred_date: string | null;
+        preferred_slot: string | null;
+    }>;
+    getAvailableSlots(date: string): Promise<{
+        date: string;
+        timezone: string;
+        window: string;
+        lunch_block: string;
+        slots: import("./demo-slots.util.js").DemoSlotAvailability[];
+    }>;
+    createFromApp(ctx: {
+        userId: string;
+        clinicId: string;
+    }, dto: CreateDemoRequestFromAppDto): Promise<{
+        id: string;
+        email: string;
+        name: string;
+        status: string;
+        created_at: Date;
+        updated_at: Date;
+        phone: string;
+        clinic_id: string | null;
+        clinic_name: string | null;
+        notes: string | null;
+        source: string;
+        scheduled_at: Date | null;
+        chairs: string | null;
+        meeting_link: string | null;
+        preferred_date: string | null;
+        preferred_slot: string | null;
     }>;
     findAll(status?: string): Promise<{
         id: string;
@@ -37,12 +68,15 @@ export declare class DemoRequestService {
         created_at: Date;
         updated_at: Date;
         phone: string;
+        clinic_id: string | null;
         clinic_name: string | null;
         notes: string | null;
         source: string;
         scheduled_at: Date | null;
         chairs: string | null;
         meeting_link: string | null;
+        preferred_date: string | null;
+        preferred_slot: string | null;
     }[]>;
     findOne(id: string): Promise<{
         id: string;
@@ -52,12 +86,15 @@ export declare class DemoRequestService {
         created_at: Date;
         updated_at: Date;
         phone: string;
+        clinic_id: string | null;
         clinic_name: string | null;
         notes: string | null;
         source: string;
         scheduled_at: Date | null;
         chairs: string | null;
         meeting_link: string | null;
+        preferred_date: string | null;
+        preferred_slot: string | null;
     }>;
     updateStatus(id: string, dto: UpdateDemoStatusDto): Promise<{
         id: string;
@@ -67,12 +104,15 @@ export declare class DemoRequestService {
         created_at: Date;
         updated_at: Date;
         phone: string;
+        clinic_id: string | null;
         clinic_name: string | null;
         notes: string | null;
         source: string;
         scheduled_at: Date | null;
         chairs: string | null;
         meeting_link: string | null;
+        preferred_date: string | null;
+        preferred_slot: string | null;
     }>;
     private sendConfirmationToProspect;
     private sendAdminAlert;

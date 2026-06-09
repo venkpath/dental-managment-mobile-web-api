@@ -7,6 +7,9 @@ export declare class CreateSupportTicketDto {
     subject: string;
     message: string;
 }
+export declare class AddTicketCommentDto {
+    message: string;
+}
 export declare class UpdateSupportTicketDto {
     status?: TicketStatus;
     admin_notes?: string;

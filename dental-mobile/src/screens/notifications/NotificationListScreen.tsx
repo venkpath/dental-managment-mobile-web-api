@@ -30,6 +30,7 @@ const C = {
 const TYPE_META: Record<string, { icon: React.ComponentProps<typeof Ionicons>['name']; color: string; bg: string }> = {
   appointment_confirmed: { icon: 'checkmark-circle', color: '#4361EE', bg: '#EEF2FF' },
   appointment_reminder: { icon: 'alarm', color: '#d97706', bg: '#fef3c7' },
+  support_reply: { icon: 'chatbubble-ellipses', color: '#2563eb', bg: '#dbeafe' },
 };
 
 function formatWhen(iso: string): string {
@@ -97,7 +98,7 @@ export default function NotificationListScreen() {
       useNotificationStore.getState().decrementUnread();
     }
     const meta = (item.metadata ?? {}) as Record<string, unknown>;
-    if (meta.appointment_id) {
+    if (meta.appointment_id || meta.ticket_id || item.type === 'support_reply') {
       navigation.goBack();
       navigateFromNotificationData(meta);
     }

@@ -18,6 +18,7 @@ export interface RefreshResponse {
 export interface LoginResponse {
     access_token: string;
     refresh_token: string;
+    show_demo_popup?: boolean;
     user: {
         id: string;
         clinic_id: string;
@@ -51,6 +52,9 @@ export declare class AuthService {
     private readonly regOtpSendTracker;
     private static readonly META_GRAPH_API;
     constructor(userService: UserService, passwordService: PasswordService, jwtService: JwtService, configService: ConfigService, prisma: PrismaService, auditLogService: AuditLogService, communicationService: CommunicationService, smsProvider: SmsProvider, emailProvider: EmailProvider, whatsapp: WhatsAppProvider, automationService: AutomationService);
+    private readonly directoryClinicSelect;
+    private isDirectoryListedClinic;
+    private applyDirectoryFirstLogin;
     private signRefreshToken;
     lookup(dto: LookupDto): Promise<{
         clinics: {

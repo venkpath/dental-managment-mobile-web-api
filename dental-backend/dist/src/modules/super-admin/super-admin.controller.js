@@ -100,6 +100,9 @@ let SuperAdminController = SuperAdminController_1 = class SuperAdminController {
     async getDirectoryApprovals(status) {
         return this.superAdminService.getDirectoryApprovals(status ?? 'pending');
     }
+    async listDirectoryFirstLogins() {
+        return this.superAdminService.listDirectoryFirstLogins();
+    }
     async getDirectoryVerificationDocument(id) {
         return this.superAdminService.getDirectoryVerificationDocumentUrl(id);
     }
@@ -428,6 +431,15 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "getDirectoryApprovals", null);
+__decorate([
+    (0, common_1.Get)('super-admins/clinics/directory-first-logins'),
+    (0, super_admin_decorator_js_1.SuperAdmin)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List directory-listed clinics that have logged in (with demo requests)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "listDirectoryFirstLogins", null);
 __decorate([
     (0, common_1.Get)('super-admins/clinics/:id/directory-verification-document'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),

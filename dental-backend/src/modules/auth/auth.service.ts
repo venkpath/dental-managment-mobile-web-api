@@ -30,6 +30,8 @@ export interface RefreshResponse {
 export interface LoginResponse {
   access_token: string;
   refresh_token: string;
+  /** True only on the very first login of a directory-only clinic — triggers the in-app demo request popup. */
+  show_demo_popup?: boolean;
   user: {
     id: string;
     clinic_id: string;
@@ -73,6 +75,48 @@ export class AuthService {
     private readonly whatsapp: WhatsAppProvider,
     private readonly automationService: AutomationService,
   ) {}
+
+  private readonly directoryClinicSelect = {
+    is_suspended: true,
+    subscription_status: true,
+    is_directory_only: true,
+    directory_first_login_at: true,
+    directory_approved_at: true,
+    listed_in_directory: true,
+  } as const;
+
+  /** Clinic came from the public directory listing (free or approved). */
+  private isDirectoryListedClinic(
+    clinic: {
+      is_directory_only: boolean;
+      directory_approved_at: Date | null;
+      subscription_status: string;
+      listed_in_directory: boolean;
+    } | null,
+  ): boolean {
+    if (!clinic) return false;
+    return (
+      clinic.is_directory_only ||
+      !!clinic.directory_approved_at ||
+      clinic.subscription_status === 'directory' ||
+      clinic.listed_in_directory
+    );
+  }
+
+  /** Stamp first-login timestamp and return whether to show the demo popup. */
+  private async applyDirectoryFirstLogin(
+    clinicId: string,
+    clinic: { directory_first_login_at: Date | null } | null,
+    isDirectory: boolean,
+  ): Promise<boolean> {
+    const isFirst = isDirectory && !clinic?.directory_first_login_at;
+    if (isFirst) {
+      await this.prisma.clinic
+        .update({ where: { id: clinicId }, data: { directory_first_login_at: new Date() } })
+        .catch((e) => this.logger.warn(`Failed to stamp directory_first_login_at: ${(e as Error).message}`));
+    }
+    return isFirst;
+  }
 
   /** Long-lived token that can only be exchanged for a new access token at /auth/refresh. */
   private async signRefreshToken(userId: string, clinicId: string): Promise<string> {
@@ -136,7 +180,7 @@ export class AuthService {
 
     const clinic = await this.prisma.clinic.findUnique({
       where: { id: user.clinic_id },
-      select: { is_suspended: true, subscription_status: true },
+      select: this.directoryClinicSelect,
     });
     if (clinic?.is_suspended) {
       throw new ForbiddenException({
@@ -151,6 +195,9 @@ export class AuthService {
       });
     }
 
+    const isDirectory = this.isDirectoryListedClinic(clinic);
+    const isFirstDirectoryLogin = await this.applyDirectoryFirstLogin(user.clinic_id, clinic, isDirectory);
+
     const payload: JwtPayload = {
       sub: user.id,
       type: 'user',
@@ -164,6 +211,7 @@ export class AuthService {
     const result = {
       access_token: await this.jwtService.signAsync(payload),
       refresh_token: await this.signRefreshToken(user.id, user.clinic_id),
+      show_demo_popup: isFirstDirectoryLogin,
       user: {
         id: user.id,
         clinic_id: user.clinic_id,
@@ -253,7 +301,7 @@ export class AuthService {
 
     const clinic = await this.prisma.clinic.findUnique({
       where: { id: user.clinic_id },
-      select: { is_suspended: true, subscription_status: true },
+      select: this.directoryClinicSelect,
     });
     if (clinic?.is_suspended) {
       throw new ForbiddenException({
@@ -268,6 +316,9 @@ export class AuthService {
       });
     }
 
+    const isDirectory = this.isDirectoryListedClinic(clinic);
+    const isFirstDirectoryLogin = await this.applyDirectoryFirstLogin(user.clinic_id, clinic, isDirectory);
+
     const payload: JwtPayload = {
       sub: user.id,
       type: 'user',
@@ -281,6 +332,7 @@ export class AuthService {
     const result: LoginResponse = {
       access_token: await this.jwtService.signAsync(payload),
       refresh_token: await this.signRefreshToken(user.id, user.clinic_id),
+      show_demo_popup: isFirstDirectoryLogin,
       user: {
         id: user.id,
         clinic_id: user.clinic_id,
@@ -584,7 +636,7 @@ export class AuthService {
 
     const clinic = await this.prisma.clinic.findUnique({
       where: { id: user.clinic_id },
-      select: { is_suspended: true, subscription_status: true },
+      select: this.directoryClinicSelect,
     });
     if (clinic?.is_suspended) throw new ForbiddenException({ code: 'ACCOUNT_SUSPENDED', message: 'Your account has been suspended.' });
     if (clinic?.subscription_status === 'pending') {
@@ -594,6 +646,9 @@ export class AuthService {
       });
     }
 
+    const isDirectory = this.isDirectoryListedClinic(clinic);
+    const isFirstDirectoryLogin = await this.applyDirectoryFirstLogin(user.clinic_id, clinic, isDirectory);
+
     const payload: JwtPayload = { sub: user.id, type: 'user', clinic_id: user.clinic_id, role: user.role, branch_id: user.branch_id };
     const ip = req?.ip || req?.headers?.['x-forwarded-for'] || undefined;
     const userAgent = req?.headers?.['user-agent'] || undefined;
@@ -602,6 +657,7 @@ export class AuthService {
     return {
       access_token: await this.jwtService.signAsync(payload),
       refresh_token: await this.signRefreshToken(user.id, user.clinic_id),
+      show_demo_popup: isFirstDirectoryLogin,
       user: {
         id: user.id,
         clinic_id: user.clinic_id,

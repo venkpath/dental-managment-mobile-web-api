@@ -127,6 +127,7 @@ export declare class InvoiceController {
             directory_dentist_photo_url: string | null;
             directory_clinic_image_url: string | null;
             directory_dentist_years_experience: number | null;
+            directory_first_login_at: Date | null;
             ai_usage_count: number;
             ai_quota_override: number | null;
             custom_max_branches: number | null;

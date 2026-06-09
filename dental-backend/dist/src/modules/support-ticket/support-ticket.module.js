@@ -10,11 +10,13 @@ exports.SupportTicketModule = void 0;
 const common_1 = require("@nestjs/common");
 const support_ticket_controller_js_1 = require("./support-ticket.controller.js");
 const support_ticket_service_js_1 = require("./support-ticket.service.js");
+const notification_module_js_1 = require("../notification/notification.module.js");
 let SupportTicketModule = class SupportTicketModule {
 };
 exports.SupportTicketModule = SupportTicketModule;
 exports.SupportTicketModule = SupportTicketModule = __decorate([
     (0, common_1.Module)({
+        imports: [notification_module_js_1.NotificationModule],
         controllers: [support_ticket_controller_js_1.SupportTicketController],
         providers: [support_ticket_service_js_1.SupportTicketService],
     })

@@ -22,8 +22,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { authService, type ClinicOption } from '../../services/auth.service';
+import { authService, type ClinicOption, type LoginResponse } from '../../services/auth.service';
 import { useAuthStore } from '../../store/auth.store';
+import { useDemoStore } from '../../store/demo.store';
 import { useDeviceLockStore } from '../../store/deviceLock.store';
 import { refreshClinicBranding } from '../../utils/refreshClinicBranding';
 import { refreshSubscription } from '../../store/subscription.store';
@@ -82,6 +83,9 @@ export default function LoginScreen() {
   const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null);
   const [selectedClinicName, setSelectedClinicName] = useState('');
   const [confirming, setConfirming]             = useState(false);
+  const [loginMode, setLoginMode]               = useState<'password' | 'otp'>('password');
+  const [otpSent, setOtpSent]                   = useState(false);
+  const [otpCode, setOtpCode]                   = useState('');
   const passwordRef = useRef<TextInput>(null);
 
   useEffect(() => {
@@ -96,9 +100,36 @@ export default function LoginScreen() {
     const e: Record<string, string> = {};
     const idErr = validateLoginIdentifier(identifier);
     if (idErr) e.identifier = idErr;
-    if (!password) e.password = 'Password is required';
+    if (loginMode === 'password' && !password) e.password = 'Password is required';
+    if (loginMode === 'otp' && otpSent && otpCode.length < 4) e.otp = 'Enter the OTP code';
     setErrors(e);
     return Object.keys(e).length === 0;
+  };
+
+  const finishAuthSession = async (
+    result: LoginResponse,
+    clinicId: string,
+    clinicName?: string,
+    savedIdentifier?: string,
+    savedIsPhone?: boolean,
+  ) => {
+    await login(
+      result.access_token,
+      result.user as User,
+      result.user.clinic_id || clinicId,
+      result.user.branch_id ?? undefined,
+      clinicName,
+      result.refresh_token,
+    );
+    await Promise.all([refreshClinicBranding(), refreshSubscription(), refreshUserProfile()]);
+    await onLoginSuccess({
+      identifier: savedIdentifier ?? identifier,
+      identifierType: savedIsPhone ?? isPhoneLoginIdentifier(identifier) ? 'phone' : 'email',
+      displayName: (result.user as User).name,
+    });
+    if (result.show_demo_popup) {
+      useDemoStore.getState().openDemoModal();
+    }
   };
 
   const handleLookup = async () => {
@@ -137,6 +168,55 @@ export default function LoginScreen() {
     }
   };
 
+  const handleSendOtp = async () => {
+    dismissKeyboard();
+    const idErr = validateLoginIdentifier(identifier);
+    if (idErr) {
+      setErrors({ identifier: idErr });
+      return;
+    }
+    if (!isPhoneLoginIdentifier(identifier)) {
+      Alert.alert('Phone required', 'OTP login works with a mobile number.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const parsed = parseLoginIdentifier(identifier);
+      await authService.sendLoginOtp(parsed.phone);
+      setOtpSent(true);
+      Alert.alert('OTP sent', 'Check your SMS for the login code.');
+    } catch (err: unknown) {
+      Alert.alert('Could not send OTP', err instanceof Error ? err.message : 'Try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpVerify = async () => {
+    dismissKeyboard();
+    if (!validate()) return;
+    const parsed = parseLoginIdentifier(identifier);
+    setLoading(true);
+    try {
+      const result = await authService.loginWithOtp(parsed.phone, otpCode);
+      if ('requires_clinic_selection' in result && result.requires_clinic_selection) {
+        setPendingAuth({ identifier: parsed.phone, password: '', isPhone: true });
+        setClinics(result.clinics);
+        setSelectedClinicId(result.clinics[0]?.clinic_id ?? null);
+        setSelectedClinicName(result.clinics[0]?.clinic_name ?? '');
+        setStep('clinic_select');
+        return;
+      }
+      const loginResult = result as LoginResponse;
+      setClinicId(loginResult.user.clinic_id);
+      await finishAuthSession(loginResult, loginResult.user.clinic_id, undefined, parsed.phone, true);
+    } catch (err: unknown) {
+      Alert.alert('Login Failed', err instanceof Error ? err.message : 'Invalid OTP.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const performLogin = async (
     clinicId: string,
     clinicName?: string,
@@ -146,23 +226,19 @@ export default function LoginScreen() {
     setConfirming(true);
     try {
       setClinicId(clinicId);
-      const result = auth.isPhone
-        ? await authService.loginByPhone(auth.identifier, auth.password, clinicId)
-        : await authService.login(auth.identifier, auth.password, clinicId);
-      await login(
-        result.access_token,
-        result.user as User,
-        result.user.clinic_id || clinicId,
-        result.user.branch_id ?? undefined,
-        clinicName,
-        result.refresh_token,
-      );
-      await Promise.all([refreshClinicBranding(), refreshSubscription(), refreshUserProfile()]);
-      await onLoginSuccess({
-        identifier: auth.identifier,
-        identifierType: auth.isPhone ? 'phone' : 'email',
-        displayName: (result.user as User).name,
-      });
+      let result: LoginResponse;
+      if (loginMode === 'otp' && auth.isPhone) {
+        const otpResult = await authService.loginWithOtp(auth.identifier, otpCode, clinicId);
+        if ('requires_clinic_selection' in otpResult) {
+          throw new Error('Clinic selection required');
+        }
+        result = otpResult as LoginResponse;
+      } else {
+        result = auth.isPhone
+          ? await authService.loginByPhone(auth.identifier, auth.password, clinicId)
+          : await authService.login(auth.identifier, auth.password, clinicId);
+      }
+      await finishAuthSession(result, clinicId, clinicName, auth.identifier, auth.isPhone);
     } catch (err: unknown) {
       Alert.alert('Login Failed', err instanceof Error ? err.message : 'Login failed.');
       setStep('credentials');
@@ -269,6 +345,18 @@ export default function LoginScreen() {
                 {!!errors.identifier && <Text style={s.errTxt}>{errors.identifier}</Text>}
               </View>
 
+              {identifierIsPhone && (
+                <View style={s.otpToggleRow}>
+                  <TouchableOpacity onPress={() => { setLoginMode('password'); setOtpSent(false); setOtpCode(''); }}>
+                    <Text style={[s.otpToggle, loginMode === 'password' && s.otpToggleActive]}>Password</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => { setLoginMode('otp'); setPassword(''); }}>
+                    <Text style={[s.otpToggle, loginMode === 'otp' && s.otpToggleActive]}>OTP</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {loginMode === 'password' ? (
               <View style={s.field}>
                 <View style={s.pwRow}>
                   <Text style={s.label}>Password</Text>
@@ -307,6 +395,29 @@ export default function LoginScreen() {
                 </View>
                 {!!errors.password && <Text style={s.errTxt}>{errors.password}</Text>}
               </View>
+              ) : (
+              <View style={s.field}>
+                <Text style={s.label}>{otpSent ? 'Enter OTP' : 'We will SMS a one-time code'}</Text>
+                {otpSent && (
+                  <View style={[s.inputRow, !!errors.otp && s.inputErr]}>
+                    <View style={s.iconL}>
+                      <Ionicons name="keypad-outline" size={20} color="#4361EE" />
+                    </View>
+                    <TextInput
+                      style={s.input}
+                      value={otpCode}
+                      onChangeText={(v) => { setOtpCode(v.replace(/\D/g, '').slice(0, 6)); setErrors((p) => ({ ...p, otp: '' })); }}
+                      placeholder="6-digit code"
+                      placeholderTextColor="#94a3b8"
+                      keyboardType="number-pad"
+                      returnKeyType="done"
+                      onSubmitEditing={handleOtpVerify}
+                    />
+                  </View>
+                )}
+                {!!errors.otp && <Text style={s.errTxt}>{errors.otp}</Text>}
+              </View>
+              )}
 
               <TouchableOpacity
                 style={s.remRow}
@@ -319,7 +430,12 @@ export default function LoginScreen() {
                 <Text style={s.remTxt}>Remember me</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity activeOpacity={0.88} onPress={handleLookup} disabled={loading} style={s.btnWrap}>
+              <TouchableOpacity
+                activeOpacity={0.88}
+                onPress={loginMode === 'otp' ? (otpSent ? handleOtpVerify : handleSendOtp) : handleLookup}
+                disabled={loading}
+                style={s.btnWrap}
+              >
                 <LinearGradient
                   colors={[...PURPLE_GRAD]}
                   start={{ x: 0, y: 0 }}
@@ -331,7 +447,9 @@ export default function LoginScreen() {
                       ? <ActivityIndicator size="small" color="#fff" />
                       : <Ionicons name="sparkles" size={18} color="#fff" />}
                   </View>
-                  <Text style={s.btnTxt}>Sign In</Text>
+                  <Text style={s.btnTxt}>
+                    {loginMode === 'otp' ? (otpSent ? 'Verify OTP' : 'Send OTP') : 'Sign In'}
+                  </Text>
                   {!loading && <Ionicons name="arrow-forward" size={18} color="#fff" />}
                 </LinearGradient>
               </TouchableOpacity>
@@ -593,6 +711,10 @@ const s = StyleSheet.create({
 
   pwRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   forgot: { fontSize: 12, fontWeight: '600', color: '#4361EE' },
+
+  otpToggleRow: { flexDirection: 'row', gap: 16, marginBottom: 12 },
+  otpToggle: { fontSize: 13, fontWeight: '600', color: '#94a3b8' },
+  otpToggleActive: { color: '#4361EE' },
 
   remRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18, marginTop: 2 },
   checkbox: {

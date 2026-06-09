@@ -6,6 +6,10 @@ export declare class CreateDemoRequestDto {
     chairs?: string;
     source?: string;
 }
+export declare class CreateDemoRequestFromAppDto {
+    preferredDate: string;
+    preferredSlot: string;
+}
 export declare class UpdateDemoStatusDto {
     status: string;
     notes?: string;

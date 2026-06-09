@@ -16,6 +16,8 @@ const config_1 = require("@nestjs/config");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const whatsapp_provider_js_1 = require("../communication/providers/whatsapp.provider.js");
 const email_provider_js_1 = require("../communication/providers/email.provider.js");
+const notification_service_js_1 = require("../notification/notification.service.js");
+const push_notification_service_js_1 = require("../notification/push-notification.service.js");
 const PLATFORM_CLINIC_ID = '__platform__';
 const CATEGORY_LABELS = {
     bug: 'Bug Report',
@@ -29,14 +31,18 @@ let SupportTicketService = SupportTicketService_1 = class SupportTicketService {
     whatsapp;
     emailProvider;
     config;
+    notificationService;
+    pushNotificationService;
     logger = new common_1.Logger(SupportTicketService_1.name);
     adminPhone;
     adminEmail;
-    constructor(prisma, whatsapp, emailProvider, config) {
+    constructor(prisma, whatsapp, emailProvider, config, notificationService, pushNotificationService) {
         this.prisma = prisma;
         this.whatsapp = whatsapp;
         this.emailProvider = emailProvider;
         this.config = config;
+        this.notificationService = notificationService;
+        this.pushNotificationService = pushNotificationService;
         this.adminPhone = process.env.SUPPORT_WHATSAPP_PHONE || '917353230500';
         this.adminEmail = process.env.SUPPORT_EMAIL || 'support@smartdentaldesk.com';
     }
@@ -88,10 +94,20 @@ let SupportTicketService = SupportTicketService_1 = class SupportTicketService {
         return this.prisma.supportTicket.findMany({
             where: status ? { status } : undefined,
             orderBy: { created_at: 'desc' },
+            include: { comments: { orderBy: { created_at: 'desc' }, take: 1, select: { created_at: true, author_type: true } } },
         });
     }
     async findOne(id) {
         const ticket = await this.prisma.supportTicket.findUnique({ where: { id } });
+        if (!ticket)
+            throw new common_1.NotFoundException('Support ticket not found');
+        return ticket;
+    }
+    async findOneWithComments(id) {
+        const ticket = await this.prisma.supportTicket.findUnique({
+            where: { id },
+            include: { comments: { orderBy: { created_at: 'asc' } } },
+        });
         if (!ticket)
             throw new common_1.NotFoundException('Support ticket not found');
         return ticket;
@@ -106,6 +122,107 @@ let SupportTicketService = SupportTicketService_1 = class SupportTicketService {
                 admin_notes: dto.admin_notes,
                 ...(resolvedAt ? { resolved_at: resolvedAt } : {}),
             },
+        });
+    }
+    async getTicketWithComments(ticketId, clinicId) {
+        const ticket = await this.prisma.supportTicket.findUnique({
+            where: { id: ticketId },
+            include: {
+                comments: { orderBy: { created_at: 'asc' } },
+            },
+        });
+        if (!ticket)
+            throw new common_1.NotFoundException('Support ticket not found');
+        if (ticket.clinic_id !== clinicId)
+            throw new common_1.ForbiddenException('Access denied');
+        return ticket;
+    }
+    async addUserComment(ticketId, clinicId, userId, dto) {
+        const ticket = await this.prisma.supportTicket.findUnique({
+            where: { id: ticketId },
+            select: { id: true, clinic_id: true, status: true },
+        });
+        if (!ticket)
+            throw new common_1.NotFoundException('Support ticket not found');
+        if (ticket.clinic_id !== clinicId)
+            throw new common_1.ForbiddenException('Access denied');
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { name: true },
+        });
+        const fullTicket = await this.prisma.supportTicket.findUnique({
+            where: { id: ticketId },
+            select: {
+                id: true,
+                subject: true,
+                user_name: true,
+                user_email: true,
+                clinic_name: true,
+            },
+        });
+        const comment = await this.prisma.supportTicketComment.create({
+            data: {
+                ticket_id: ticketId,
+                author_type: 'user',
+                author_id: userId,
+                author_name: user?.name ?? 'User',
+                message: dto.message,
+            },
+        });
+        if (ticket.status === 'resolved' || ticket.status === 'closed') {
+            await this.prisma.supportTicket.update({
+                where: { id: ticketId },
+                data: { status: 'open', resolved_at: null },
+            });
+        }
+        if (fullTicket) {
+            this.sendUserReplyAlertEmail(fullTicket, dto.message).catch((err) => this.logger.warn(`Failed to email admin about user reply: ${err.message}`));
+        }
+        return comment;
+    }
+    async addAdminComment(ticketId, adminName, dto) {
+        const ticket = await this.prisma.supportTicket.findUnique({
+            where: { id: ticketId },
+            select: { id: true, clinic_id: true, user_id: true, subject: true },
+        });
+        if (!ticket)
+            throw new common_1.NotFoundException('Support ticket not found');
+        const comment = await this.prisma.supportTicketComment.create({
+            data: {
+                ticket_id: ticketId,
+                author_type: 'admin',
+                author_id: null,
+                author_name: adminName,
+                message: dto.message,
+            },
+        });
+        await this.prisma.supportTicket.update({
+            where: { id: ticketId },
+            data: { status: 'in_progress' },
+        });
+        const notifBody = `Our team replied to: "${ticket.subject}". Tap to read.`;
+        this.notificationService
+            .create({
+            clinic_id: ticket.clinic_id,
+            user_id: ticket.user_id,
+            type: 'support_reply',
+            title: 'Support reply on your ticket',
+            body: notifBody,
+            metadata: { ticket_id: ticketId },
+        })
+            .then(() => this.pushNotificationService.sendToUser(ticket.user_id, {
+            title: 'Support reply on your ticket',
+            body: notifBody,
+            channelId: 'support',
+            data: { ticket_id: ticketId, type: 'support_reply' },
+        }))
+            .catch((e) => this.logger.warn(`Failed to notify user of support reply: ${e.message}`));
+        return comment;
+    }
+    async listComments(ticketId) {
+        return this.prisma.supportTicketComment.findMany({
+            where: { ticket_id: ticketId },
+            orderBy: { created_at: 'asc' },
         });
     }
     ensureEmailConfigured() {
@@ -188,6 +305,30 @@ let SupportTicketService = SupportTicketService_1 = class SupportTicketService {
         });
         this.logger.log(`Support ticket admin email sent to ${this.adminEmail}`);
     }
+    async sendUserReplyAlertEmail(ticket, replyMessage) {
+        if (!this.ensureEmailConfigured())
+            return;
+        const escape = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const html = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 640px; margin: 0 auto;">
+        <div style="background: #2563eb; padding: 16px 24px; border-radius: 12px 12px 0 0;">
+          <h2 style="color: #fff; margin: 0; font-size: 18px;">💬 Clinic replied on support ticket</h2>
+        </div>
+        <div style="padding: 24px; background: #fff; border: 1px solid #e5e7eb; border-radius: 0 0 12px 12px;">
+          <p style="margin: 0 0 8px; color: #6b7280; font-size: 13px;">${escape(ticket.clinic_name ?? 'Clinic')} · ${escape(ticket.user_name)}</p>
+          <h3 style="margin: 0 0 12px; color: #111827;">${escape(ticket.subject)}</h3>
+          <div style="white-space: pre-wrap; color: #1f2937; font-size: 14px; line-height: 1.6; background: #f9fafb; padding: 12px; border-radius: 8px;">${escape(replyMessage)}</div>
+          <p style="color: #9ca3af; font-size: 12px; margin-top: 16px;">Ticket ID: ${ticket.id}</p>
+        </div>
+      </div>`;
+        await this.emailProvider.send({
+            to: this.adminEmail,
+            subject: `[Support reply] ${ticket.subject}`,
+            body: `${ticket.user_name} replied on "${ticket.subject}":\n\n${replyMessage}`,
+            html,
+            clinicId: PLATFORM_CLINIC_ID,
+        });
+    }
 };
 exports.SupportTicketService = SupportTicketService;
 exports.SupportTicketService = SupportTicketService = SupportTicketService_1 = __decorate([
@@ -195,6 +336,8 @@ exports.SupportTicketService = SupportTicketService = SupportTicketService_1 = _
     __metadata("design:paramtypes", [prisma_service_js_1.PrismaService,
         whatsapp_provider_js_1.WhatsAppProvider,
         email_provider_js_1.EmailProvider,
-        config_1.ConfigService])
+        config_1.ConfigService,
+        notification_service_js_1.NotificationService,
+        push_notification_service_js_1.PushNotificationService])
 ], SupportTicketService);
 //# sourceMappingURL=support-ticket.service.js.map

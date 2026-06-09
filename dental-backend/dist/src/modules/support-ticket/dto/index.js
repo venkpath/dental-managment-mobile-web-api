@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UpdateSupportTicketDto = exports.CreateSupportTicketDto = exports.TICKET_STATUSES = exports.TICKET_CATEGORIES = void 0;
+exports.UpdateSupportTicketDto = exports.AddTicketCommentDto = exports.CreateSupportTicketDto = exports.TICKET_STATUSES = exports.TICKET_CATEGORIES = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
 exports.TICKET_CATEGORIES = [
@@ -51,6 +51,17 @@ __decorate([
     (0, class_validator_1.MaxLength)(5000),
     __metadata("design:type", String)
 ], CreateSupportTicketDto.prototype, "message", void 0);
+class AddTicketCommentDto {
+    message;
+}
+exports.AddTicketCommentDto = AddTicketCommentDto;
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Comment message' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(1),
+    (0, class_validator_1.MaxLength)(5000),
+    __metadata("design:type", String)
+], AddTicketCommentDto.prototype, "message", void 0);
 class UpdateSupportTicketDto {
     status;
     admin_notes;

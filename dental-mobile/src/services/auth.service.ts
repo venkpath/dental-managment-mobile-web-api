@@ -16,6 +16,7 @@ export interface LookupResponse {
 export interface LoginResponse {
   access_token: string;
   refresh_token: string;
+  show_demo_popup?: boolean;
   user: {
     id: string;
     name: string;
@@ -99,6 +100,23 @@ export const authService = {
 
   registerClinic: async (payload: RegisterClinicPayload): Promise<RegisterClinicResponse> => {
     const { data } = await api.post<RegisterClinicResponse>('/auth/register', payload);
+    return data;
+  },
+
+  sendLoginOtp: async (identifier: string): Promise<{ message: string }> => {
+    const { data } = await api.post<{ message: string }>('/auth/send-login-otp', { identifier });
+    return data;
+  },
+
+  loginWithOtp: async (
+    identifier: string,
+    code: string,
+    clinicId?: string,
+  ): Promise<LoginResponse | { requires_clinic_selection: true; clinics: ClinicOption[] }> => {
+    const { data } = await api.post<LoginResponse | { requires_clinic_selection: true; clinics: ClinicOption[] }>(
+      '/auth/login-with-otp',
+      { identifier, code, ...(clinicId ? { clinic_id: clinicId } : {}) },
+    );
     return data;
   },
 };
