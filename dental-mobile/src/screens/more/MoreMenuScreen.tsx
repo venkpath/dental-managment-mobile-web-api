@@ -97,6 +97,7 @@ export default function MoreMenuScreen() {
     {
       title: 'Account',
       items: [
+        { label: 'Support tickets', sub: 'Chat with our team', icon: 'headset', iconBg: '#DBEAFE', iconColor: '#2563eb', screen: 'SupportTicketList' },
         { label: 'Notifications', sub: unreadCount > 0 ? `${unreadCount} unread` : 'Alerts & reminders', icon: 'notifications', iconBg: '#FEE2E2', iconColor: '#DC2626', rootScreen: 'Notifications' },
         { label: 'My profile', sub: 'Password & sign out', icon: 'person-circle', iconBg: '#EEF2FF', iconColor: C.indigo, rootScreen: 'Profile' },
         { label: 'Subscription', sub: 'Plan, trial & platform invoices', icon: 'card', iconBg: '#FEF3C7', iconColor: '#B45309', screen: 'ClinicBilling' },

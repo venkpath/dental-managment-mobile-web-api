@@ -3,6 +3,7 @@ export interface PushPayload {
     title: string;
     body: string;
     data?: Record<string, string>;
+    channelId?: string;
 }
 export declare class PushNotificationService {
     private readonly pushDeviceService;

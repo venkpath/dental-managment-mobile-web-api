@@ -39,6 +39,7 @@ exports.NotificationModule = NotificationModule = __decorate([
             notification_service_js_1.NotificationService,
             notification_producer_js_1.NotificationProducer,
             appointment_staff_notification_service_js_1.AppointmentStaffNotificationService,
+            push_notification_service_js_1.PushNotificationService,
         ],
     })
 ], NotificationModule);

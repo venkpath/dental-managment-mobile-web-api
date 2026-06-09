@@ -16,6 +16,7 @@ const config_1 = require("@nestjs/config");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const whatsapp_provider_js_1 = require("../communication/providers/whatsapp.provider.js");
 const email_provider_js_1 = require("../communication/providers/email.provider.js");
+const demo_slots_util_js_1 = require("./demo-slots.util.js");
 const PLATFORM_CLINIC_ID = '__platform__';
 let DemoRequestService = DemoRequestService_1 = class DemoRequestService {
     prisma;
@@ -83,6 +84,60 @@ let DemoRequestService = DemoRequestService_1 = class DemoRequestService {
         this.sendAdminAlert(demo).catch((err) => this.logger.warn(`Failed to send admin alert: ${err.message}`));
         this.sendConfirmationEmail(demo).catch((err) => this.logger.warn(`Failed to send prospect email: ${err.message}`));
         this.sendAdminAlertEmail(demo).catch((err) => this.logger.warn(`Failed to send admin alert email: ${err.message}`));
+        return demo;
+    }
+    async getAvailableSlots(date) {
+        const taken = await this.prisma.demoRequest.findMany({
+            where: {
+                preferred_date: date,
+                preferred_slot: { not: null },
+                status: { notIn: ['cancelled', 'completed'] },
+            },
+            select: { preferred_slot: true },
+        });
+        const takenSet = new Set(taken.map((r) => r.preferred_slot).filter((s) => !!s));
+        const slots = (0, demo_slots_util_js_1.buildDemoSlotAvailability)(takenSet);
+        return {
+            date,
+            timezone: 'Asia/Kolkata',
+            window: '10:00 AM – 10:00 PM',
+            lunch_block: '2:00 – 2:30 PM (unavailable)',
+            slots,
+        };
+    }
+    async createFromApp(ctx, dto) {
+        if (!(0, demo_slots_util_js_1.isValidDemoSlot)(dto.preferredSlot)) {
+            throw new common_1.BadRequestException('Selected time slot is not available');
+        }
+        const availability = await this.getAvailableSlots(dto.preferredDate);
+        const chosen = availability.slots.find((s) => s.slot === dto.preferredSlot);
+        if (!chosen?.available) {
+            throw new common_1.BadRequestException('That time slot is already booked. Please choose another.');
+        }
+        const [user, clinic] = await Promise.all([
+            this.prisma.user.findUnique({
+                where: { id: ctx.userId },
+                select: { name: true, email: true, phone: true },
+            }),
+            this.prisma.clinic.findUnique({
+                where: { id: ctx.clinicId },
+                select: { name: true },
+            }),
+        ]);
+        const demo = await this.prisma.demoRequest.create({
+            data: {
+                name: user?.name ?? 'Unknown',
+                email: user?.email ?? '',
+                phone: user?.phone ?? '',
+                clinic_name: clinic?.name ?? null,
+                clinic_id: ctx.clinicId,
+                source: 'directory_first_login',
+                preferred_date: dto.preferredDate,
+                preferred_slot: dto.preferredSlot,
+            },
+        });
+        this.sendAdminAlert(demo).catch((err) => this.logger.warn(`Failed to send admin WA alert for from-app demo: ${err.message}`));
+        this.sendAdminAlertEmail(demo).catch((err) => this.logger.warn(`Failed to send admin email for from-app demo: ${err.message}`));
         return demo;
     }
     async findAll(status) {

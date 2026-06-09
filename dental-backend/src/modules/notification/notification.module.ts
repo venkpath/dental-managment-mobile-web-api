@@ -27,6 +27,7 @@ import { QUEUE_NAMES } from '../../common/queue/queue-names.js';
     NotificationService,
     NotificationProducer,
     AppointmentStaffNotificationService,
+    PushNotificationService,
   ],
 })
 export class NotificationModule {}

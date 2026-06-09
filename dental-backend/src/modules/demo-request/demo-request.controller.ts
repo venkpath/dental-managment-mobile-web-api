@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller, Get, Post, Patch, Param, Body, Query,
   ParseUUIDPipe, HttpCode, HttpStatus,
 } from '@nestjs/common';
@@ -6,8 +7,14 @@ import { ApiTags, ApiOperation, ApiCreatedResponse, ApiOkResponse } from '@nestj
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { SuperAdmin } from '../../common/decorators/super-admin.decorator.js';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { DemoRequestService } from './demo-request.service.js';
-import { CreateDemoRequestDto, UpdateDemoStatusDto } from './dto/demo-request.dto.js';
+import { CreateDemoRequestDto, CreateDemoRequestFromAppDto, UpdateDemoStatusDto } from './dto/demo-request.dto.js';
+
+interface RequestUser {
+  userId: string;
+  clinicId: string;
+}
 
 @ApiTags('Demo Requests')
 @Controller()
@@ -29,6 +36,31 @@ export class DemoRequestController {
       message: 'Demo request submitted successfully. We will contact you on WhatsApp shortly.',
       id: demo.id,
     };
+  }
+
+  // ── Authenticated: available demo slots for a date ──
+  @Get('demo-requests/available-slots')
+  @ApiOperation({ summary: 'List available demo time slots for a date (10 AM–10 PM IST)' })
+  async getAvailableSlots(@Query('date') date: string) {
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new BadRequestException('Query param "date" must be YYYY-MM-DD');
+    }
+    return this.demoRequestService.getAvailableSlots(date);
+  }
+
+  // ── Authenticated: directory clinic submits demo request from in-app popup ──
+  @Post('demo-requests/from-app')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Submit a demo request from inside the app (directory-only clinics)' })
+  async createFromApp(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: CreateDemoRequestFromAppDto,
+  ) {
+    const demo = await this.demoRequestService.createFromApp(
+      { userId: user.userId, clinicId: user.clinicId },
+      dto,
+    );
+    return { success: true, id: demo.id };
   }
 
   // ── Super-admin: list all demo requests ──

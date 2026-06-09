@@ -59,6 +59,31 @@ let AuthService = class AuthService {
         this.whatsapp = whatsapp;
         this.automationService = automationService;
     }
+    directoryClinicSelect = {
+        is_suspended: true,
+        subscription_status: true,
+        is_directory_only: true,
+        directory_first_login_at: true,
+        directory_approved_at: true,
+        listed_in_directory: true,
+    };
+    isDirectoryListedClinic(clinic) {
+        if (!clinic)
+            return false;
+        return (clinic.is_directory_only ||
+            !!clinic.directory_approved_at ||
+            clinic.subscription_status === 'directory' ||
+            clinic.listed_in_directory);
+    }
+    async applyDirectoryFirstLogin(clinicId, clinic, isDirectory) {
+        const isFirst = isDirectory && !clinic?.directory_first_login_at;
+        if (isFirst) {
+            await this.prisma.clinic
+                .update({ where: { id: clinicId }, data: { directory_first_login_at: new Date() } })
+                .catch((e) => this.logger.warn(`Failed to stamp directory_first_login_at: ${e.message}`));
+        }
+        return isFirst;
+    }
     async signRefreshToken(userId, clinicId) {
         const payload = { sub: userId, type: 'refresh', clinic_id: clinicId };
         const expiresIn = this.configService.get('app.jwtRefreshExpiresIn', '90d');
@@ -106,7 +131,7 @@ let AuthService = class AuthService {
         }
         const clinic = await this.prisma.clinic.findUnique({
             where: { id: user.clinic_id },
-            select: { is_suspended: true, subscription_status: true },
+            select: this.directoryClinicSelect,
         });
         if (clinic?.is_suspended) {
             throw new common_1.ForbiddenException({
@@ -120,6 +145,8 @@ let AuthService = class AuthService {
                 message: 'Your account is pending approval. You will receive an email once our team has reviewed your application.',
             });
         }
+        const isDirectory = this.isDirectoryListedClinic(clinic);
+        const isFirstDirectoryLogin = await this.applyDirectoryFirstLogin(user.clinic_id, clinic, isDirectory);
         const payload = {
             sub: user.id,
             type: 'user',
@@ -131,6 +158,7 @@ let AuthService = class AuthService {
         const result = {
             access_token: await this.jwtService.signAsync(payload),
             refresh_token: await this.signRefreshToken(user.id, user.clinic_id),
+            show_demo_popup: isFirstDirectoryLogin,
             user: {
                 id: user.id,
                 clinic_id: user.clinic_id,
@@ -207,7 +235,7 @@ let AuthService = class AuthService {
         }
         const clinic = await this.prisma.clinic.findUnique({
             where: { id: user.clinic_id },
-            select: { is_suspended: true, subscription_status: true },
+            select: this.directoryClinicSelect,
         });
         if (clinic?.is_suspended) {
             throw new common_1.ForbiddenException({
@@ -221,6 +249,8 @@ let AuthService = class AuthService {
                 message: 'Your account is pending approval. You will receive an email once our team has reviewed your application.',
             });
         }
+        const isDirectory = this.isDirectoryListedClinic(clinic);
+        const isFirstDirectoryLogin = await this.applyDirectoryFirstLogin(user.clinic_id, clinic, isDirectory);
         const payload = {
             sub: user.id,
             type: 'user',
@@ -232,6 +262,7 @@ let AuthService = class AuthService {
         const result = {
             access_token: await this.jwtService.signAsync(payload),
             refresh_token: await this.signRefreshToken(user.id, user.clinic_id),
+            show_demo_popup: isFirstDirectoryLogin,
             user: {
                 id: user.id,
                 clinic_id: user.clinic_id,
@@ -494,7 +525,7 @@ let AuthService = class AuthService {
         }
         const clinic = await this.prisma.clinic.findUnique({
             where: { id: user.clinic_id },
-            select: { is_suspended: true, subscription_status: true },
+            select: this.directoryClinicSelect,
         });
         if (clinic?.is_suspended)
             throw new common_1.ForbiddenException({ code: 'ACCOUNT_SUSPENDED', message: 'Your account has been suspended.' });
@@ -504,6 +535,8 @@ let AuthService = class AuthService {
                 message: 'Your account is pending approval. You will receive an email once our team has reviewed your application.',
             });
         }
+        const isDirectory = this.isDirectoryListedClinic(clinic);
+        const isFirstDirectoryLogin = await this.applyDirectoryFirstLogin(user.clinic_id, clinic, isDirectory);
         const payload = { sub: user.id, type: 'user', clinic_id: user.clinic_id, role: user.role, branch_id: user.branch_id };
         const ip = req?.ip || req?.headers?.['x-forwarded-for'] || undefined;
         const userAgent = req?.headers?.['user-agent'] || undefined;
@@ -511,6 +544,7 @@ let AuthService = class AuthService {
         return {
             access_token: await this.jwtService.signAsync(payload),
             refresh_token: await this.signRefreshToken(user.id, user.clinic_id),
+            show_demo_popup: isFirstDirectoryLogin,
             user: {
                 id: user.id,
                 clinic_id: user.clinic_id,

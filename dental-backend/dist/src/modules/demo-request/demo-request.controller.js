@@ -19,6 +19,7 @@ const swagger_1 = require("@nestjs/swagger");
 const throttler_1 = require("@nestjs/throttler");
 const public_decorator_js_1 = require("../../common/decorators/public.decorator.js");
 const super_admin_decorator_js_1 = require("../../common/decorators/super-admin.decorator.js");
+const current_user_decorator_js_1 = require("../../common/decorators/current-user.decorator.js");
 const demo_request_service_js_1 = require("./demo-request.service.js");
 const demo_request_dto_js_1 = require("./dto/demo-request.dto.js");
 let DemoRequestController = class DemoRequestController {
@@ -33,6 +34,16 @@ let DemoRequestController = class DemoRequestController {
             message: 'Demo request submitted successfully. We will contact you on WhatsApp shortly.',
             id: demo.id,
         };
+    }
+    async getAvailableSlots(date) {
+        if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            throw new common_1.BadRequestException('Query param "date" must be YYYY-MM-DD');
+        }
+        return this.demoRequestService.getAvailableSlots(date);
+    }
+    async createFromApp(user, dto) {
+        const demo = await this.demoRequestService.createFromApp({ userId: user.userId, clinicId: user.clinicId }, dto);
+        return { success: true, id: demo.id };
     }
     async findAll(status) {
         return this.demoRequestService.findAll(status);
@@ -59,6 +70,26 @@ __decorate([
     __metadata("design:paramtypes", [demo_request_dto_js_1.CreateDemoRequestDto]),
     __metadata("design:returntype", Promise)
 ], DemoRequestController.prototype, "create", null);
+__decorate([
+    (0, common_1.Get)('demo-requests/available-slots'),
+    (0, swagger_1.ApiOperation)({ summary: 'List available demo time slots for a date (10 AM–10 PM IST)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Query)('date')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], DemoRequestController.prototype, "getAvailableSlots", null);
+__decorate([
+    (0, common_1.Post)('demo-requests/from-app'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, swagger_1.ApiOperation)({ summary: 'Submit a demo request from inside the app (directory-only clinics)' }),
+    openapi.ApiResponse({ status: common_1.HttpStatus.CREATED }),
+    __param(0, (0, current_user_decorator_js_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, demo_request_dto_js_1.CreateDemoRequestFromAppDto]),
+    __metadata("design:returntype", Promise)
+], DemoRequestController.prototype, "createFromApp", null);
 __decorate([
     (0, common_1.Get)('super-admin/demo-requests'),
     (0, super_admin_decorator_js_1.SuperAdmin)(),

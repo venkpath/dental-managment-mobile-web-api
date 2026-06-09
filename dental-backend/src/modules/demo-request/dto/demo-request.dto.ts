@@ -36,6 +36,20 @@ export class CreateDemoRequestDto {
   source?: string;
 }
 
+/** Submitted from inside the app by a directory-only clinic user on first login.
+ *  Name / email / phone / clinic are auto-populated from the auth context on the server. */
+export class CreateDemoRequestFromAppDto {
+  @ApiProperty({ example: '2026-06-15', description: 'YYYY-MM-DD preferred date' })
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'preferred_date must be YYYY-MM-DD' })
+  preferredDate!: string;
+
+  @ApiProperty({ example: '10:00', description: 'HH:mm preferred time slot' })
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):[03]0$/, { message: 'preferred_slot must be a valid HH:00 or HH:30 slot' })
+  preferredSlot!: string;
+}
+
 export class UpdateDemoStatusDto {
   @ApiProperty({ example: 'scheduled', enum: ['pending', 'contacted', 'scheduled', 'completed', 'cancelled'] })
   @IsString()

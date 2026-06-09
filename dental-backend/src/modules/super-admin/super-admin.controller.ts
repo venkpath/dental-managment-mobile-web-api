@@ -138,6 +138,13 @@ export class SuperAdminController {
     return this.superAdminService.getDirectoryApprovals(status ?? 'pending');
   }
 
+  @Get('super-admins/clinics/directory-first-logins')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'List directory-listed clinics that have logged in (with demo requests)' })
+  async listDirectoryFirstLogins() {
+    return this.superAdminService.listDirectoryFirstLogins();
+  }
+
   @Get('super-admins/clinics/:id/directory-verification-document')
   @SuperAdmin()
   @ApiOperation({ summary: 'Get a signed URL for the listing verification document' })

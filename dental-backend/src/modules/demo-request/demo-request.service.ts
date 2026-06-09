@@ -1,9 +1,13 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service.js';
 import { WhatsAppProvider } from '../communication/providers/whatsapp.provider.js';
 import { EmailProvider } from '../communication/providers/email.provider.js';
-import type { CreateDemoRequestDto, UpdateDemoStatusDto } from './dto/demo-request.dto.js';
+import type { CreateDemoRequestDto, CreateDemoRequestFromAppDto, UpdateDemoStatusDto } from './dto/demo-request.dto.js';
+import {
+  buildDemoSlotAvailability,
+  isValidDemoSlot,
+} from './demo-slots.util.js';
 
 /** Synthetic clinic ID used to configure the platform-level SMTP transporter */
 const PLATFORM_CLINIC_ID = '__platform__';
@@ -77,6 +81,7 @@ export class DemoRequestService {
       },
     });
 
+
     // Fire-and-forget WhatsApp notifications
     this.sendConfirmationToProspect(demo.phone, demo.name).catch((err) =>
       this.logger.warn(`Failed to send prospect confirmation: ${err.message}`),
@@ -91,6 +96,75 @@ export class DemoRequestService {
     );
     this.sendAdminAlertEmail(demo).catch((err) =>
       this.logger.warn(`Failed to send admin alert email: ${err.message}`),
+    );
+
+    return demo;
+  }
+
+  async getAvailableSlots(date: string) {
+    const taken = await this.prisma.demoRequest.findMany({
+      where: {
+        preferred_date: date,
+        preferred_slot: { not: null },
+        status: { notIn: ['cancelled', 'completed'] },
+      },
+      select: { preferred_slot: true },
+    });
+    const takenSet = new Set(
+      taken.map((r) => r.preferred_slot).filter((s): s is string => !!s),
+    );
+    const slots = buildDemoSlotAvailability(takenSet);
+    return {
+      date,
+      timezone: 'Asia/Kolkata',
+      window: '10:00 AM – 10:00 PM',
+      lunch_block: '2:00 – 2:30 PM (unavailable)',
+      slots,
+    };
+  }
+
+  async createFromApp(
+    ctx: { userId: string; clinicId: string },
+    dto: CreateDemoRequestFromAppDto,
+  ) {
+    if (!isValidDemoSlot(dto.preferredSlot)) {
+      throw new BadRequestException('Selected time slot is not available');
+    }
+
+    const availability = await this.getAvailableSlots(dto.preferredDate);
+    const chosen = availability.slots.find((s) => s.slot === dto.preferredSlot);
+    if (!chosen?.available) {
+      throw new BadRequestException('That time slot is already booked. Please choose another.');
+    }
+    const [user, clinic] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: ctx.userId },
+        select: { name: true, email: true, phone: true },
+      }),
+      this.prisma.clinic.findUnique({
+        where: { id: ctx.clinicId },
+        select: { name: true },
+      }),
+    ]);
+
+    const demo = await this.prisma.demoRequest.create({
+      data: {
+        name: user?.name ?? 'Unknown',
+        email: user?.email ?? '',
+        phone: user?.phone ?? '',
+        clinic_name: clinic?.name ?? null,
+        clinic_id: ctx.clinicId,
+        source: 'directory_first_login',
+        preferred_date: dto.preferredDate,
+        preferred_slot: dto.preferredSlot,
+      },
+    });
+
+    this.sendAdminAlert(demo).catch((err) =>
+      this.logger.warn(`Failed to send admin WA alert for from-app demo: ${err.message}`),
+    );
+    this.sendAdminAlertEmail(demo).catch((err) =>
+      this.logger.warn(`Failed to send admin email for from-app demo: ${err.message}`),
     );
 
     return demo;

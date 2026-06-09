@@ -7,6 +7,7 @@ export interface PushPayload {
   title: string;
   body: string;
   data?: Record<string, string>;
+  channelId?: string;
 }
 
 @Injectable()
@@ -26,7 +27,7 @@ export class PushNotificationService {
       data: payload.data ?? {},
       sound: 'default' as const,
       priority: 'high' as const,
-      channelId: 'appointments',
+      channelId: payload.channelId ?? 'appointments',
     }));
 
     try {

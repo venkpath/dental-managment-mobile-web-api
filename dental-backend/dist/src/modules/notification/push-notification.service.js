@@ -31,7 +31,7 @@ let PushNotificationService = PushNotificationService_1 = class PushNotification
             data: payload.data ?? {},
             sound: 'default',
             priority: 'high',
-            channelId: 'appointments',
+            channelId: payload.channelId ?? 'appointments',
         }));
         try {
             const res = await fetch(EXPO_PUSH_URL, {

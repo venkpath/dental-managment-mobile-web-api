@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UpdateDemoStatusDto = exports.CreateDemoRequestDto = void 0;
+exports.UpdateDemoStatusDto = exports.CreateDemoRequestFromAppDto = exports.CreateDemoRequestDto = void 0;
 const openapi = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
@@ -64,6 +64,26 @@ __decorate([
     (0, class_validator_1.IsIn)(['website', 'landing_page', 'referral']),
     __metadata("design:type", String)
 ], CreateDemoRequestDto.prototype, "source", void 0);
+class CreateDemoRequestFromAppDto {
+    preferredDate;
+    preferredSlot;
+    static _OPENAPI_METADATA_FACTORY() {
+        return { preferredDate: { required: true, type: () => String, pattern: "/^\\d{4}-\\d{2}-\\d{2}$/" }, preferredSlot: { required: true, type: () => String, pattern: "/^([01]\\d|2[0-3]):[03]0$/" } };
+    }
+}
+exports.CreateDemoRequestFromAppDto = CreateDemoRequestFromAppDto;
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: '2026-06-15', description: 'YYYY-MM-DD preferred date' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^\d{4}-\d{2}-\d{2}$/, { message: 'preferred_date must be YYYY-MM-DD' }),
+    __metadata("design:type", String)
+], CreateDemoRequestFromAppDto.prototype, "preferredDate", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: '10:00', description: 'HH:mm preferred time slot' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^([01]\d|2[0-3]):[03]0$/, { message: 'preferred_slot must be a valid HH:00 or HH:30 slot' }),
+    __metadata("design:type", String)
+], CreateDemoRequestFromAppDto.prototype, "preferredSlot", void 0);
 class UpdateDemoStatusDto {
     status;
     notes;

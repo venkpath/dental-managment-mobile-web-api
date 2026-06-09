@@ -19,6 +19,7 @@ export declare function isRecallListVisible(score: {
     recall_status: string | null;
     recall_snoozed_until: Date | null;
     churn_risk: string;
+    churn_factors?: unknown;
 }, now?: Date): boolean;
 export declare function isChurnListVisible(score: {
     churn_risk: string;
