@@ -104,6 +104,21 @@ export class SuperAdminController {
     });
   }
 
+  @Get('super-admins/phone-directory')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Phone directory: clinic name, doctor contact info, and public booking URL' })
+  async getPhoneDirectory(
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.superAdminService.getPhoneDirectory({
+      search,
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 50,
+    });
+  }
+
   // ─── Onboard Clinic ───
 
   @Post('super-admins/clinics/onboard')
