@@ -11,8 +11,10 @@ exports.buildChurnCampaignWhere = buildChurnCampaignWhere;
 exports.buildListWhereByType = buildListWhereByType;
 exports.buildCampaignScoreWhere = buildCampaignScoreWhere;
 exports.buildEligibleWhere = buildEligibleWhere;
+exports.explainRecallExclusion = explainRecallExclusion;
 exports.isRecallListVisible = isRecallListVisible;
 exports.isChurnListVisible = isChurnListVisible;
+const client_1 = require("@prisma/client");
 exports.CAMPAIGN_COOLDOWN_DAYS = 7;
 exports.OUTREACH_ATTRIBUTION_DAYS = 30;
 exports.MS_PER_DAY = 86_400_000;
@@ -34,15 +36,30 @@ function buildNoShowListWhere(clinicId, branchId, riskLevels = ['high', 'medium'
         no_show_risk: { in: riskLevels },
     };
 }
+function notSnoozed(field, now) {
+    return {
+        OR: [{ [field]: null }, { [field]: { lte: now } }],
+    };
+}
+function withoutFutureAppointment() {
+    return {
+        OR: [
+            { churn_factors: { equals: client_1.Prisma.DbNull } },
+            { NOT: { churn_factors: { path: ['has_future_appt'], equals: true } } },
+        ],
+    };
+}
 function buildRecallListWhere(clinicId, branchId, now = new Date()) {
     return {
         ...buildInsightBaseWhere(clinicId, branchId),
         recall_due: true,
-        NOT: [
-            { recall_status: 'moved_inactive' },
-            { recall_snoozed_until: { gt: now } },
-            { churn_risk: { in: ['medium', 'high'] } },
-            { churn_factors: { path: ['has_future_appt'], equals: true } },
+        AND: [
+            {
+                OR: [{ recall_status: null }, { recall_status: { not: 'moved_inactive' } }],
+            },
+            notSnoozed('recall_snoozed_until', now),
+            { churn_risk: { notIn: ['medium', 'high'] } },
+            withoutFutureAppointment(),
         ],
     };
 }
@@ -59,11 +76,11 @@ function buildChurnListWhere(clinicId, branchId, now = new Date()) {
             {
                 OR: [{ churn_retry_after: null }, { churn_retry_after: { lt: now } }],
             },
-        ],
-        NOT: [
-            { churn_status: 'declined' },
-            { churn_snoozed_until: { gt: now } },
-            { churn_factors: { path: ['has_future_appt'], equals: true } },
+            {
+                OR: [{ churn_status: null }, { churn_status: { not: 'declined' } }],
+            },
+            notSnoozed('churn_snoozed_until', now),
+            withoutFutureAppointment(),
         ],
     };
 }
@@ -148,6 +165,38 @@ function buildEligibleWhere(type, clinicId, branchId, now = new Date()) {
     return type === 'recall'
         ? buildRecallCampaignWhere(clinicId, branchId, now)
         : buildChurnCampaignWhere(clinicId, branchId, undefined, now);
+}
+function explainRecallExclusion(score, opts, now = new Date()) {
+    const reasons = [];
+    if (!score.recall_due)
+        reasons.push('recall_due is false — run Recompute after adding a completed treatment');
+    if (score.recall_status === 'moved_inactive') {
+        reasons.push('recall_status is moved_inactive (30-day recall window expired — patient moved to inactive list)');
+    }
+    if (score.recall_snoozed_until && score.recall_snoozed_until > now) {
+        reasons.push(`recall is snoozed until ${score.recall_snoozed_until.toISOString()}`);
+    }
+    if (score.churn_risk === 'medium' || score.churn_risk === 'high') {
+        reasons.push(`churn_risk is ${score.churn_risk} — inactive patients are excluded from recall list`);
+    }
+    const factors = score.churn_factors;
+    if (factors?.has_future_appt) {
+        reasons.push('has_future_appt is true — patient already has an upcoming appointment');
+    }
+    if (opts?.branchId) {
+        const patientBranch = score.patient?.branch_id ?? score.branch_id;
+        if (patientBranch !== opts.branchId) {
+            reasons.push(`branch filter mismatch — patient branch ${patientBranch ?? 'unknown'} ≠ requested ${opts.branchId}`);
+        }
+    }
+    const visibleOnList = score.recall_due && reasons.length === 0;
+    const badgeReasons = reasons.filter((r) => !r.startsWith('branch filter'));
+    const visibleOnBadge = score.recall_due && badgeReasons.length === 0;
+    return {
+        visible_on_list: visibleOnList,
+        visible_on_badge: visibleOnBadge,
+        exclusion_reasons: reasons,
+    };
 }
 function isRecallListVisible(score, now = new Date()) {
     if (!score.recall_due)

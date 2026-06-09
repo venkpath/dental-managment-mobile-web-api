@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 export declare const CAMPAIGN_COOLDOWN_DAYS = 7;
 export declare const OUTREACH_ATTRIBUTION_DAYS = 30;
 export declare const MS_PER_DAY = 86400000;
@@ -14,6 +14,23 @@ export declare function buildChurnCampaignWhere(clinicId: string, branchId?: str
 export declare function buildListWhereByType(type: InsightListType, clinicId: string, branchId?: string, now?: Date): Prisma.PatientInsightScoreWhereInput;
 export declare function buildCampaignScoreWhere(segmentType: string, clinicId: string, config: Record<string, unknown>, now?: Date): Prisma.PatientInsightScoreWhereInput | null;
 export declare function buildEligibleWhere(type: 'recall' | 'churn', clinicId: string, branchId?: string, now?: Date): Prisma.PatientInsightScoreWhereInput;
+export declare function explainRecallExclusion(score: {
+    recall_due: boolean;
+    recall_status: string | null;
+    recall_snoozed_until: Date | null;
+    churn_risk: string;
+    churn_factors?: unknown;
+    branch_id?: string;
+    patient?: {
+        branch_id: string;
+    } | null;
+}, opts?: {
+    branchId?: string;
+}, now?: Date): {
+    visible_on_list: boolean;
+    visible_on_badge: boolean;
+    exclusion_reasons: string[];
+};
 export declare function isRecallListVisible(score: {
     recall_due: boolean;
     recall_status: string | null;

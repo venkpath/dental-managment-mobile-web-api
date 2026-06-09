@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 export const CAMPAIGN_COOLDOWN_DAYS = 7;
 export const OUTREACH_ATTRIBUTION_DAYS = 30;
@@ -36,6 +36,26 @@ export function buildNoShowListWhere(
   };
 }
 
+/** SQL NOT (col = x) drops NULL rows — mirror isRecallListVisible / isChurnListVisible instead. */
+function notSnoozed(
+  field: 'recall_snoozed_until' | 'churn_snoozed_until',
+  now: Date,
+): Prisma.PatientInsightScoreWhereInput {
+  return {
+    OR: [{ [field]: null }, { [field]: { lte: now } }],
+  };
+}
+
+/** Exclude only patients with an explicit upcoming appointment (same as factors?.has_future_appt). */
+function withoutFutureAppointment(): Prisma.PatientInsightScoreWhereInput {
+  return {
+    OR: [
+      { churn_factors: { equals: Prisma.DbNull } },
+      { NOT: { churn_factors: { path: ['has_future_appt'], equals: true } } },
+    ],
+  };
+}
+
 /** Patients visible on the "Due for a Check-up" list. */
 export function buildRecallListWhere(
   clinicId: string,
@@ -45,13 +65,15 @@ export function buildRecallListWhere(
   return {
     ...buildInsightBaseWhere(clinicId, branchId),
     recall_due: true,
-    NOT: [
-      { recall_status: 'moved_inactive' },
-      { recall_snoozed_until: { gt: now } },
+    AND: [
+      {
+        OR: [{ recall_status: null }, { recall_status: { not: 'moved_inactive' } }],
+      },
+      notSnoozed('recall_snoozed_until', now),
       // 18m+ inactive patients belong in the inactive list, not recall
-      { churn_risk: { in: ['medium', 'high'] } },
+      { churn_risk: { notIn: ['medium', 'high'] } },
       // Already rebooked — same rule as patient list badges (insight-badges.tsx)
-      { churn_factors: { path: ['has_future_appt'], equals: true } },
+      withoutFutureAppointment(),
     ],
   };
 }
@@ -74,12 +96,12 @@ export function buildChurnListWhere(
       {
         OR: [{ churn_retry_after: null }, { churn_retry_after: { lt: now } }],
       },
-    ],
-    NOT: [
-      { churn_status: 'declined' },
-      { churn_snoozed_until: { gt: now } },
+      {
+        OR: [{ churn_status: null }, { churn_status: { not: 'declined' } }],
+      },
+      notSnoozed('churn_snoozed_until', now),
       // Already rebooked — exclude until next insight recompute clears churn_factors
-      { churn_factors: { path: ['has_future_appt'], equals: true } },
+      withoutFutureAppointment(),
     ],
   };
 }
@@ -204,6 +226,57 @@ export function buildEligibleWhere(
   return type === 'recall'
     ? buildRecallCampaignWhere(clinicId, branchId, now)
     : buildChurnCampaignWhere(clinicId, branchId, undefined, now);
+}
+
+/** Human-readable reasons a score is excluded from the recall list / summary count. */
+export function explainRecallExclusion(
+  score: {
+    recall_due: boolean;
+    recall_status: string | null;
+    recall_snoozed_until: Date | null;
+    churn_risk: string;
+    churn_factors?: unknown;
+    branch_id?: string;
+    patient?: { branch_id: string } | null;
+  },
+  opts?: { branchId?: string },
+  now = new Date(),
+): { visible_on_list: boolean; visible_on_badge: boolean; exclusion_reasons: string[] } {
+  const reasons: string[] = [];
+
+  if (!score.recall_due) reasons.push('recall_due is false — run Recompute after adding a completed treatment');
+  if (score.recall_status === 'moved_inactive') {
+    reasons.push('recall_status is moved_inactive (30-day recall window expired — patient moved to inactive list)');
+  }
+  if (score.recall_snoozed_until && score.recall_snoozed_until > now) {
+    reasons.push(`recall is snoozed until ${score.recall_snoozed_until.toISOString()}`);
+  }
+  if (score.churn_risk === 'medium' || score.churn_risk === 'high') {
+    reasons.push(`churn_risk is ${score.churn_risk} — inactive patients are excluded from recall list`);
+  }
+  const factors = score.churn_factors as { has_future_appt?: boolean } | null;
+  if (factors?.has_future_appt) {
+    reasons.push('has_future_appt is true — patient already has an upcoming appointment');
+  }
+  if (opts?.branchId) {
+    const patientBranch = score.patient?.branch_id ?? score.branch_id;
+    if (patientBranch !== opts.branchId) {
+      reasons.push(
+        `branch filter mismatch — patient branch ${patientBranch ?? 'unknown'} ≠ requested ${opts.branchId}`,
+      );
+    }
+  }
+
+  const visibleOnList = score.recall_due && reasons.length === 0;
+  // Badge uses the same rules as isRecallListVisible (no separate branch filter on single-patient API)
+  const badgeReasons = reasons.filter((r) => !r.startsWith('branch filter'));
+  const visibleOnBadge = score.recall_due && badgeReasons.length === 0;
+
+  return {
+    visible_on_list: visibleOnList,
+    visible_on_badge: visibleOnBadge,
+    exclusion_reasons: reasons,
+  };
 }
 
 /** Whether a score row would appear on the recall list right now. */

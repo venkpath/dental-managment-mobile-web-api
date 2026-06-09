@@ -107,6 +107,18 @@ export class PatientInsightsController {
     return this.service.getBatchStatus(batchId, clinicId);
   }
 
+  @Get('debug/recall')
+  @ApiOperation({
+    summary: 'Debug recall list vs badge mismatch (why summary count is 0)',
+  })
+  async debugRecall(
+    @CurrentClinic() clinicId: string,
+    @Query('branch_id') branchId?: string,
+    @Query('patient_id') patientId?: string,
+  ) {
+    return this.service.debugRecallVisibility(clinicId, branchId, patientId);
+  }
+
   @Get('patient/:patientId')
   @ApiOperation({ summary: 'Get insight scores for a single patient' })
   async getPatientScore(

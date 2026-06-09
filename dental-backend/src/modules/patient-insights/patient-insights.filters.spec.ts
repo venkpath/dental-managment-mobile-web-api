@@ -6,6 +6,7 @@ import {
   buildRecallListWhere,
   CAMPAIGN_COOLDOWN_DAYS,
   campaignCooldownBefore,
+  explainRecallExclusion,
   isChurnListVisible,
   isRecallListVisible,
   MS_PER_DAY,
@@ -30,29 +31,46 @@ describe('patient-insights.filters', () => {
   });
 
   describe('buildRecallListWhere', () => {
-    it('excludes moved_inactive, snoozed, 18m+ churn, and rebooked patients', () => {
+    it('uses null-safe filters so default recall rows are not dropped by SQL NOT', () => {
       const where = buildRecallListWhere(clinicId, undefined, now);
       expect(where.recall_due).toBe(true);
-      expect(where.NOT).toEqual(
+      expect(where.AND).toEqual(
         expect.arrayContaining([
-          { recall_status: 'moved_inactive' },
-          { recall_snoozed_until: { gt: now } },
-          { churn_risk: { in: ['medium', 'high'] } },
-          { churn_factors: { path: ['has_future_appt'], equals: true } },
+          {
+            OR: [{ recall_status: null }, { recall_status: { not: 'moved_inactive' } }],
+          },
+          {
+            OR: [{ recall_snoozed_until: null }, { recall_snoozed_until: { lte: now } }],
+          },
+          { churn_risk: { notIn: ['medium', 'high'] } },
+          {
+            OR: [
+              { churn_factors: { equals: expect.anything() } },
+              { NOT: { churn_factors: { path: ['has_future_appt'], equals: true } } },
+            ],
+          },
         ]),
       );
     });
   });
 
   describe('buildChurnListWhere', () => {
-    it('includes natural inactive or moved from recall', () => {
+    it('includes natural inactive or moved from recall with null-safe exclusions', () => {
       const where = buildChurnListWhere(clinicId, undefined, now);
-      expect(where.AND).toBeDefined();
-      expect(where.NOT).toEqual(
+      expect(where.AND).toEqual(
         expect.arrayContaining([
-          { churn_status: 'declined' },
-          { churn_snoozed_until: { gt: now } },
-          { churn_factors: { path: ['has_future_appt'], equals: true } },
+          {
+            OR: [
+              { churn_risk: { in: ['medium', 'high'] } },
+              { recall_status: 'moved_inactive' },
+            ],
+          },
+          {
+            OR: [{ churn_status: null }, { churn_status: { not: 'declined' } }],
+          },
+          {
+            OR: [{ churn_snoozed_until: null }, { churn_snoozed_until: { lte: now } }],
+          },
         ]),
       );
     });
@@ -80,6 +98,26 @@ describe('patient-insights.filters', () => {
     it('buildChurnCampaignWhere nests churn list + cooldown', () => {
       const where = buildChurnCampaignWhere(clinicId, undefined, undefined, now);
       expect(where.AND).toHaveLength(2);
+    });
+  });
+
+  describe('explainRecallExclusion', () => {
+    it('flags branch mismatch for list but not badge', () => {
+      const result = explainRecallExclusion(
+        {
+          recall_due: true,
+          recall_status: null,
+          recall_snoozed_until: null,
+          churn_risk: 'low',
+          branch_id: branchId,
+          patient: { branch_id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' },
+        },
+        { branchId },
+        now,
+      );
+      expect(result.visible_on_badge).toBe(true);
+      expect(result.visible_on_list).toBe(false);
+      expect(result.exclusion_reasons.some((r) => r.includes('branch filter'))).toBe(true);
     });
   });
 

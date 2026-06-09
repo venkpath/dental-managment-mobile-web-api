@@ -55,6 +55,9 @@ let PatientInsightsController = class PatientInsightsController {
     async getBatchStatus(clinicId, batchId) {
         return this.service.getBatchStatus(batchId, clinicId);
     }
+    async debugRecall(clinicId, branchId, patientId) {
+        return this.service.debugRecallVisibility(clinicId, branchId, patientId);
+    }
     async getPatientScore(clinicId, patientId) {
         return this.service.getPatientScore(clinicId, patientId);
     }
@@ -148,6 +151,19 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], PatientInsightsController.prototype, "getBatchStatus", null);
+__decorate([
+    (0, common_1.Get)('debug/recall'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Debug recall list vs badge mismatch (why summary count is 0)',
+    }),
+    openapi.ApiResponse({ status: 200, type: Object }),
+    __param(0, (0, current_clinic_decorator_js_1.CurrentClinic)()),
+    __param(1, (0, common_1.Query)('branch_id')),
+    __param(2, (0, common_1.Query)('patient_id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], PatientInsightsController.prototype, "debugRecall", null);
 __decorate([
     (0, common_1.Get)('patient/:patientId'),
     (0, swagger_1.ApiOperation)({ summary: 'Get insight scores for a single patient' }),

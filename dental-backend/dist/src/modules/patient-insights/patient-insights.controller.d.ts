@@ -128,6 +128,50 @@ export declare class PatientInsightsController {
         completed_at: Date | null;
         patient_count: number;
     }>;
+    debugRecall(clinicId: string, branchId?: string, patientId?: string): Promise<{
+        branch_filter: string | null;
+        summary_recall_count: number;
+        recall_due_raw_count: number;
+        last_computed_at: Date | null;
+        message: string;
+        patient: {
+            visible_on_list: boolean;
+            visible_on_badge: boolean;
+            exclusion_reasons: string[];
+            patient_id: string;
+            name: string | null;
+            recall_due: boolean;
+            recall_due_days: number | null;
+            recall_status: string | null;
+            churn_risk: string;
+            churn_factors: import("@prisma/client/runtime/client").JsonValue;
+            computed_at: Date;
+        } | null;
+        patients_with_recall_due: never[];
+        hint?: undefined;
+    } | {
+        branch_filter: string | null;
+        summary_recall_count: number;
+        recall_due_raw_count: number;
+        last_computed_at: Date | null;
+        hint: string | null;
+        patients_with_recall_due: {
+            visible_on_list: boolean;
+            visible_on_badge: boolean;
+            exclusion_reasons: string[];
+            patient_id: string;
+            name: string | null;
+            recall_due_days: number | null;
+            recall_status: string | null;
+            churn_risk: string;
+            churn_factors: import("@prisma/client/runtime/client").JsonValue;
+            score_branch_id: string;
+            patient_branch_id: string;
+            computed_at: Date;
+        }[];
+        message?: undefined;
+        patient?: undefined;
+    }>;
     getPatientScore(clinicId: string, patientId: string): Promise<{
         id: string;
         clinic_id: string;
