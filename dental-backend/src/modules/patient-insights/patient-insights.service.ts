@@ -14,6 +14,7 @@ import {
   buildListWhereByType,
   buildNoShowListWhere,
   buildRecallListWhere,
+  explainRecallExclusion,
   CAMPAIGN_COOLDOWN_DAYS,
   campaignCooldownBefore,
   INSIGHT_WINDOW_DAYS,
@@ -737,6 +738,92 @@ export class PatientInsightsService {
     });
     if (!score) throw new NotFoundException('No insight score found for this patient. Run a compute first.');
     return score;
+  }
+
+  /** Debug helper — explains why recall list/summary counts differ from patient badges. */
+  async debugRecallVisibility(clinicId: string, branchId?: string, patientId?: string) {
+    const now = new Date();
+
+    const [listCount, recallDueCount, latestBatch] = await Promise.all([
+      this.prisma.patientInsightScore.count({
+        where: buildRecallListWhere(clinicId, branchId, now),
+      }),
+      this.prisma.patientInsightScore.count({
+        where: { clinic_id: clinicId, recall_due: true },
+      }),
+      this.getLatestBatch(clinicId),
+    ]);
+
+    const scores = await this.prisma.patientInsightScore.findMany({
+      where: {
+        clinic_id: clinicId,
+        recall_due: true,
+        ...(patientId ? { patient_id: patientId } : {}),
+      },
+      include: {
+        patient: {
+          select: { id: true, first_name: true, last_name: true, branch_id: true },
+        },
+      },
+      orderBy: { recall_due_days: 'desc' },
+    });
+
+    if (patientId && scores.length === 0) {
+      const anyScore = await this.prisma.patientInsightScore.findUnique({
+        where: { clinic_id_patient_id: { clinic_id: clinicId, patient_id: patientId } },
+        include: { patient: { select: { first_name: true, last_name: true, branch_id: true } } },
+      });
+      return {
+        branch_filter: branchId ?? null,
+        summary_recall_count: listCount,
+        recall_due_raw_count: recallDueCount,
+        last_computed_at: latestBatch?.completed_at ?? null,
+        message: anyScore
+          ? 'Patient has a score row but recall_due is false — check treatment status/date and run Recompute'
+          : 'No insight score row — click Recompute on AI Insights first',
+        patient: anyScore
+          ? {
+              patient_id: patientId,
+              name: anyScore.patient
+                ? `${anyScore.patient.first_name} ${anyScore.patient.last_name}`
+                : null,
+              recall_due: anyScore.recall_due,
+              recall_due_days: anyScore.recall_due_days,
+              recall_status: anyScore.recall_status,
+              churn_risk: anyScore.churn_risk,
+              churn_factors: anyScore.churn_factors,
+              computed_at: anyScore.computed_at,
+              ...explainRecallExclusion(anyScore, { branchId }, now),
+            }
+          : null,
+        patients_with_recall_due: [],
+      };
+    }
+
+    return {
+      branch_filter: branchId ?? null,
+      summary_recall_count: listCount,
+      recall_due_raw_count: recallDueCount,
+      last_computed_at: latestBatch?.completed_at ?? null,
+      hint:
+        listCount === 0 && recallDueCount > 0
+          ? 'Patients have recall_due=true but are filtered out — see exclusion_reasons below'
+          : listCount === 0 && recallDueCount === 0
+            ? 'No patients scored as recall_due — add completed treatment and run Recompute'
+            : null,
+      patients_with_recall_due: scores.map((s) => ({
+        patient_id: s.patient_id,
+        name: s.patient ? `${s.patient.first_name} ${s.patient.last_name}` : null,
+        recall_due_days: s.recall_due_days,
+        recall_status: s.recall_status,
+        churn_risk: s.churn_risk,
+        churn_factors: s.churn_factors,
+        score_branch_id: s.branch_id,
+        patient_branch_id: s.patient?.branch_id ?? null,
+        computed_at: s.computed_at,
+        ...explainRecallExclusion(s, { branchId }, now),
+      })),
+    };
   }
 
   async getBatchStatus(batchId: string, clinicId: string) {
