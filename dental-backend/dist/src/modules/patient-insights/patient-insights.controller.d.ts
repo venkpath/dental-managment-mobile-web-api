@@ -110,7 +110,6 @@ export declare class PatientInsightsController {
         };
         total_opportunity: number;
         total_patients: number;
-        annual_opportunity: number;
     }>;
     getRecoveredSummary(clinicId: string, branchId?: string): Promise<import("./patient-insights.opportunity.js").RecoveredSummaryResult>;
     getLatestBatch(clinicId: string): Promise<{

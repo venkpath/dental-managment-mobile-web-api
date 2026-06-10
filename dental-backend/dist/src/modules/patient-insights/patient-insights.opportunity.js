@@ -85,7 +85,6 @@ function computeOpportunityValues(buckets, clinicDefault) {
         inactive: { count: buckets.churnUnique.length, value: Math.round(churnValue) },
         total_patients: buckets.totalUniquePatients,
         total_opportunity: totalOpportunity,
-        annual_opportunity: totalOpportunity * 12,
     };
 }
 //# sourceMappingURL=patient-insights.opportunity.js.map

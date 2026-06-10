@@ -222,7 +222,6 @@ export declare class PatientInsightsService {
         };
         total_opportunity: number;
         total_patients: number;
-        annual_opportunity: number;
     }>;
     getRecoveredSummary(clinicId: string, branchId?: string): Promise<RecoveredSummaryResult>;
     recordAction(clinicId: string, patientId: string, dto: RecordActionDto, userId?: string): Promise<{

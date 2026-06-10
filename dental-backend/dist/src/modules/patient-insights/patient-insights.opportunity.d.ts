@@ -76,5 +76,4 @@ export declare function computeOpportunityValues(buckets: AtRiskBuckets, clinicD
     };
     total_opportunity: number;
     total_patients: number;
-    annual_opportunity: number;
 };
