@@ -24,6 +24,12 @@ import type { QueryMessageDto } from './dto/query-message.dto.js';
 import type { UpdatePreferencesDto } from './dto/update-preferences.dto.js';
 import type { UpdateClinicSettingsDto } from './dto/update-clinic-settings.dto.js';
 import { PLATFORM_TEMPLATE_NAMES } from './platform-templates.js';
+import { getBookingUrl } from '../../common/utils/booking-url.util.js';
+import {
+  buildInsightWhatsappVariables,
+  isInsightWhatsappTemplate,
+  validateInsightWhatsappVariables,
+} from './insight-whatsapp-variables.util.js';
 
 @Injectable()
 export class CommunicationService {
@@ -51,7 +57,11 @@ export class CommunicationService {
     // 1. Validate patient exists
     const patient = await this.prisma.patient.findFirst({
       where: { id: dto.patient_id, clinic_id: clinicId },
-      include: { communication_preference: true },
+      include: {
+        communication_preference: true,
+        clinic: { select: { name: true, phone: true } },
+        branch: { select: { phone: true, book_now_url: true } },
+      },
     });
 
     if (!patient) {
@@ -158,6 +168,49 @@ export class CommunicationService {
     if (dto.template_id) {
       const template = await this.templateService.findOne(clinicId, dto.template_id);
 
+      // AI Insights WhatsApp templates: fill all numbered Meta params server-side
+      // (clinic name, booking URL, phone, recall fields) so Meta never gets blanks.
+      if (dto.channel === 'whatsapp' && isInsightWhatsappTemplate(template.template_name)) {
+        const insightScore = await this.prisma.patientInsightScore.findUnique({
+          where: { patient_id: patient.id },
+          select: {
+            recall_treatment: true,
+            recall_due_days: true,
+            recall_last_date: true,
+            branch_id: true,
+          },
+        });
+        const branchId = insightScore?.branch_id ?? patient.branch_id;
+        const branch =
+          branchId === patient.branch_id
+            ? patient.branch
+            : await this.prisma.branch.findFirst({
+                where: { id: branchId, clinic_id: clinicId },
+                select: { phone: true, book_now_url: true },
+              });
+        const clinicName = patient.clinic?.name?.trim() ?? '';
+        const clinicPhone = (branch?.phone ?? patient.clinic?.phone ?? '').trim();
+        const bookingUrl = getBookingUrl(clinicId, branchId, branch?.book_now_url);
+        const enriched = buildInsightWhatsappVariables({
+          templateName: template.template_name,
+          patientFirstName: patient.first_name,
+          patientLastName: patient.last_name,
+          clinicName,
+          clinicPhone,
+          bookingUrl,
+          recallTreatment: insightScore?.recall_treatment,
+          recallDueDays: insightScore?.recall_due_days,
+          recallLastDate: insightScore?.recall_last_date,
+          existing: dto.variables,
+        });
+        const missing = validateInsightWhatsappVariables(enriched);
+        if (missing) {
+          throw new BadRequestException(missing);
+        }
+        dto.variables = enriched;
+        Object.assign(vars, enriched);
+      }
+
       // If the template uses numbered placeholders ({{1}}, {{2}}, ...) and the
       // caller passed named variables, map them into numbered keys so the
       // stored/displayed body renders correctly. The order is taken from
@@ -210,9 +263,9 @@ export class CommunicationService {
           templateButtons = structured.buttons || [];
         }
 
-        if (templateVarNames.length > 0 && dto.variables) {
+        if (templateVarNames.length > 0 && (dto.variables || Object.keys(vars).length > 0)) {
           whatsappOrderedVars = templateVarNames.map(
-            (varName) => dto.variables?.[varName] || vars[varName] || '',
+            (varName) => vars[varName] || dto.variables?.[varName] || '',
           );
         } else if (dto.variables && Object.keys(dto.variables).length > 0) {
           // Fallback: if template.variables is empty/null but caller provided
