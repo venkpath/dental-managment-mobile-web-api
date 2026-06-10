@@ -146,7 +146,6 @@ export function computeOpportunityValues(
   inactive: { count: number; value: number };
   total_opportunity: number;
   total_patients: number;
-  annual_opportunity: number;
 } {
   const recallValue = buckets.recallUnique.reduce(
     (s, r) => s + patientAvgFromInvoices(r.patient?.invoices ?? [], clinicDefault),
@@ -169,6 +168,5 @@ export function computeOpportunityValues(
     inactive: { count: buckets.churnUnique.length, value: Math.round(churnValue) },
     total_patients: buckets.totalUniquePatients,
     total_opportunity: totalOpportunity,
-    annual_opportunity: totalOpportunity * 12,
   };
 }
