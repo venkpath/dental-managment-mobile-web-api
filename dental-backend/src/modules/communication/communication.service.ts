@@ -30,6 +30,11 @@ import {
   isInsightWhatsappTemplate,
   validateInsightWhatsappVariables,
 } from './insight-whatsapp-variables.util.js';
+import {
+  buildNoshowFollowupVariables,
+  isNoshowFollowupTemplate,
+  validateNoshowFollowupVariables,
+} from './noshow-whatsapp-variables.util.js';
 
 @Injectable()
 export class CommunicationService {
@@ -204,6 +209,22 @@ export class CommunicationService {
           existing: dto.variables,
         });
         const missing = validateInsightWhatsappVariables(enriched);
+        if (missing) {
+          throw new BadRequestException(missing);
+        }
+        dto.variables = enriched;
+        Object.assign(vars, enriched);
+      } else if (dto.channel === 'whatsapp' && isNoshowFollowupTemplate(template.template_name)) {
+        const clinicName = patient.clinic?.name?.trim() ?? '';
+        const clinicPhone = (patient.branch?.phone ?? patient.clinic?.phone ?? '').trim();
+        const enriched = buildNoshowFollowupVariables({
+          patientFirstName: patient.first_name,
+          patientLastName: patient.last_name,
+          clinicName,
+          clinicPhone,
+          existing: dto.variables,
+        });
+        const missing = validateNoshowFollowupVariables(enriched);
         if (missing) {
           throw new BadRequestException(missing);
         }
