@@ -245,9 +245,11 @@ export class InvoiceService {
           .triggerInvoiceReview(clinicId, invoice.patient_id, invoice.dentist_id ?? null)
           .catch(() => {});
         // Walk-in recovery attribution: patient came directly without booking an appointment.
+        // Then re-score so recall_due is recalculated immediately (removes them from recall list).
         this.patientInsightsService
           .attributeWalkInAfterOutreach(clinicId, invoice.patient_id, invoice.created_at)
-          .catch((e) => this.logger.warn(`Walk-in attribution failed for patient ${invoice.patient_id}: ${(e as Error).message}`));
+          .then(() => this.patientInsightsService.computeForPatient(clinicId, invoice.patient_id))
+          .catch((e) => this.logger.warn(`Walk-in attribution/rescore failed for patient ${invoice.patient_id}: ${(e as Error).message}`));
       }
       return invoice;
     });
@@ -642,9 +644,11 @@ export class InvoiceService {
       return updated;
     }).then((updated) => {
       // Walk-in recovery attribution for draft→issued transitions.
+      // Then re-score so recall_due is recalculated immediately (removes them from recall list).
       this.patientInsightsService
         .attributeWalkInAfterOutreach(clinicId, updated.patient_id, updated.created_at)
-        .catch((e) => this.logger.warn(`Walk-in attribution failed on issue for patient ${updated.patient_id}: ${(e as Error).message}`));
+        .then(() => this.patientInsightsService.computeForPatient(clinicId, updated.patient_id))
+        .catch((e) => this.logger.warn(`Walk-in attribution/rescore failed on issue for patient ${updated.patient_id}: ${(e as Error).message}`));
       return updated;
     });
   }

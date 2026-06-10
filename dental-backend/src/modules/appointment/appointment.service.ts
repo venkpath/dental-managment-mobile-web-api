@@ -57,17 +57,21 @@ export class AppointmentService {
     patientId: string,
     appointment?: Pick<Appointment, 'id' | 'appointment_date' | 'status'>,
   ): void {
-    this.patientInsightsService.computeForPatient(clinicId, patientId).catch((e) => {
-      this.logger.warn(`Insight refresh failed for patient ${patientId}: ${(e as Error).message}`);
-    });
+    const hasFutureAppt =
+      !!appointment &&
+      appointment.status !== 'cancelled' &&
+      new Date(appointment.appointment_date) >= new Date();
 
-    if (appointment && appointment.status !== 'cancelled' && new Date(appointment.appointment_date) >= new Date()) {
-      this.patientInsightsService
-        .attributeBookingAfterOutreach(clinicId, patientId, appointment.id)
-        .catch((e) => {
-          this.logger.warn(`Insight booking attribution failed for patient ${patientId}: ${(e as Error).message}`);
-        });
-    }
+    // Attribution first so the stamp is present when computeForPatient re-scores.
+    const attributionStep = hasFutureAppt
+      ? this.patientInsightsService.attributeBookingAfterOutreach(clinicId, patientId, appointment!.id)
+      : Promise.resolve();
+
+    attributionStep
+      .then(() => this.patientInsightsService.computeForPatient(clinicId, patientId))
+      .catch((e) => {
+        this.logger.warn(`Insight refresh/attribution failed for patient ${patientId}: ${(e as Error).message}`);
+      });
   }
 
   /**

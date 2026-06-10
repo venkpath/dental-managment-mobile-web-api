@@ -19,6 +19,7 @@ const s3_service_js_1 = require("../../common/services/s3.service.js");
 const otp_service_js_1 = require("./otp.service.js");
 const automation_module_js_1 = require("../automation/automation.module.js");
 const communication_module_js_1 = require("../communication/communication.module.js");
+const patient_insights_module_js_1 = require("../patient-insights/patient-insights.module.js");
 let PublicBookingModule = class PublicBookingModule {
 };
 exports.PublicBookingModule = PublicBookingModule;
@@ -29,6 +30,7 @@ exports.PublicBookingModule = PublicBookingModule = __decorate([
             config_1.ConfigModule,
             automation_module_js_1.AutomationModule,
             communication_module_js_1.CommunicationModule,
+            patient_insights_module_js_1.PatientInsightsModule,
         ],
         controllers: [public_booking_controller_js_1.PublicBookingController],
         providers: [prisma_service_js_1.PrismaService, appointment_reminder_producer_js_1.AppointmentReminderProducer, appointment_notification_service_js_1.AppointmentNotificationService, s3_service_js_1.S3Service, otp_service_js_1.OtpService],

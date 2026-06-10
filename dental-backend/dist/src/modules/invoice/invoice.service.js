@@ -197,7 +197,8 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                     .catch(() => { });
                 this.patientInsightsService
                     .attributeWalkInAfterOutreach(clinicId, invoice.patient_id, invoice.created_at)
-                    .catch((e) => this.logger.warn(`Walk-in attribution failed for patient ${invoice.patient_id}: ${e.message}`));
+                    .then(() => this.patientInsightsService.computeForPatient(clinicId, invoice.patient_id))
+                    .catch((e) => this.logger.warn(`Walk-in attribution/rescore failed for patient ${invoice.patient_id}: ${e.message}`));
             }
             return invoice;
         });
@@ -481,7 +482,8 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
         }).then((updated) => {
             this.patientInsightsService
                 .attributeWalkInAfterOutreach(clinicId, updated.patient_id, updated.created_at)
-                .catch((e) => this.logger.warn(`Walk-in attribution failed on issue for patient ${updated.patient_id}: ${e.message}`));
+                .then(() => this.patientInsightsService.computeForPatient(clinicId, updated.patient_id))
+                .catch((e) => this.logger.warn(`Walk-in attribution/rescore failed on issue for patient ${updated.patient_id}: ${e.message}`));
             return updated;
         });
     }

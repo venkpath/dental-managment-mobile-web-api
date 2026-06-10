@@ -13,6 +13,7 @@ import { OtpService } from './otp.service.js';
 import { getBookingUrl } from '../../common/utils/booking-url.util.js';
 import { AppointmentReminderProducer } from '../appointment/appointment-reminder.producer.js';
 import { AppointmentNotificationService } from '../appointment/appointment-notification.service.js';
+import { PatientInsightsService } from '../patient-insights/patient-insights.service.js';
 
 const META_GRAPH_API = 'https://graph.facebook.com/v21.0';
 
@@ -128,6 +129,7 @@ export class PublicBookingController {
     private readonly s3: S3Service,
     private readonly config: ConfigService,
     private readonly otpService: OtpService,
+    private readonly patientInsightsService: PatientInsightsService,
   ) {}
 
   /** Branch info + clinic info for booking page */
@@ -430,6 +432,14 @@ export class PublicBookingController {
         dentist: { select: { name: true } },
       },
     });
+
+    // Re-score patient insights: removes them from recall/churn lists and stamps attribution.
+    this.patientInsightsService
+      .attributeBookingAfterOutreach(clinicId, patient.id, appointment.id)
+      .catch((e) => this.logger.warn(`Insight attribution failed for public booking patient ${patient.id}: ${(e as Error).message}`));
+    this.patientInsightsService
+      .computeForPatient(clinicId, patient.id)
+      .catch((e) => this.logger.warn(`Insight rescore failed for public booking patient ${patient.id}: ${(e as Error).message}`));
 
     // Send instant WhatsApp confirmation to patient and dentist.
     this.notificationService.sendConfirmation(clinicId, appointment.id).catch((e) => {

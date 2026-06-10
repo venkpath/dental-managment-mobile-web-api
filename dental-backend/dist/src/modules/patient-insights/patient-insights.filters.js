@@ -14,7 +14,6 @@ exports.buildEligibleWhere = buildEligibleWhere;
 exports.explainRecallExclusion = explainRecallExclusion;
 exports.isRecallListVisible = isRecallListVisible;
 exports.isChurnListVisible = isChurnListVisible;
-const client_1 = require("@prisma/client");
 exports.CAMPAIGN_COOLDOWN_DAYS = 7;
 exports.OUTREACH_ATTRIBUTION_DAYS = 30;
 exports.MS_PER_DAY = 86_400_000;
@@ -41,11 +40,32 @@ function notSnoozed(field, now) {
         OR: [{ [field]: null }, { [field]: { lte: now } }],
     };
 }
-function withoutFutureAppointment() {
+function withoutActiveReturn(now) {
+    const recentSince = new Date(now.getTime() - exports.OUTREACH_ATTRIBUTION_DAYS * exports.MS_PER_DAY);
     return {
-        OR: [
-            { churn_factors: { equals: client_1.Prisma.DbNull } },
-            { NOT: { churn_factors: { path: ['has_future_appt'], equals: true } } },
+        AND: [
+            {
+                NOT: {
+                    patient: {
+                        appointments: {
+                            some: { appointment_date: { gte: now }, status: { not: 'cancelled' } },
+                        },
+                    },
+                },
+            },
+            {
+                NOT: {
+                    patient: {
+                        invoices: {
+                            some: {
+                                lifecycle_status: 'issued',
+                                status: { in: ['paid', 'partially_paid'] },
+                                created_at: { gte: recentSince },
+                            },
+                        },
+                    },
+                },
+            },
         ],
     };
 }
@@ -59,7 +79,7 @@ function buildRecallListWhere(clinicId, branchId, now = new Date()) {
             },
             notSnoozed('recall_snoozed_until', now),
             { churn_risk: { notIn: ['medium', 'high'] } },
-            withoutFutureAppointment(),
+            withoutActiveReturn(now),
         ],
     };
 }
@@ -80,7 +100,7 @@ function buildChurnListWhere(clinicId, branchId, now = new Date()) {
                 OR: [{ churn_status: null }, { churn_status: { not: 'declined' } }],
             },
             notSnoozed('churn_snoozed_until', now),
-            withoutFutureAppointment(),
+            withoutActiveReturn(now),
         ],
     };
 }
