@@ -10,6 +10,7 @@ import { S3Service } from '../../common/services/s3.service.js';
 import { OtpService } from './otp.service.js';
 import { AutomationModule } from '../automation/automation.module.js';
 import { CommunicationModule } from '../communication/communication.module.js';
+import { PatientInsightsModule } from '../patient-insights/patient-insights.module.js';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { CommunicationModule } from '../communication/communication.module.js';
     ConfigModule,
     AutomationModule,
     CommunicationModule,
+    PatientInsightsModule,
   ],
   controllers: [PublicBookingController],
   providers: [PrismaService, AppointmentReminderProducer, AppointmentNotificationService, S3Service, OtpService],

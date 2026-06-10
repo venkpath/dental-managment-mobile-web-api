@@ -52,16 +52,17 @@ let AppointmentService = AppointmentService_1 = class AppointmentService {
         this.patientInsightsService = patientInsightsService;
     }
     refreshPatientInsights(clinicId, patientId, appointment) {
-        this.patientInsightsService.computeForPatient(clinicId, patientId).catch((e) => {
-            this.logger.warn(`Insight refresh failed for patient ${patientId}: ${e.message}`);
+        const hasFutureAppt = !!appointment &&
+            appointment.status !== 'cancelled' &&
+            new Date(appointment.appointment_date) >= new Date();
+        const attributionStep = hasFutureAppt
+            ? this.patientInsightsService.attributeBookingAfterOutreach(clinicId, patientId, appointment.id)
+            : Promise.resolve();
+        attributionStep
+            .then(() => this.patientInsightsService.computeForPatient(clinicId, patientId))
+            .catch((e) => {
+            this.logger.warn(`Insight refresh/attribution failed for patient ${patientId}: ${e.message}`);
         });
-        if (appointment && appointment.status !== 'cancelled' && new Date(appointment.appointment_date) >= new Date()) {
-            this.patientInsightsService
-                .attributeBookingAfterOutreach(clinicId, patientId, appointment.id)
-                .catch((e) => {
-                this.logger.warn(`Insight booking attribution failed for patient ${patientId}: ${e.message}`);
-            });
-        }
     }
     resolveAppointmentListOrder(query) {
         const isToday = !!query.date;

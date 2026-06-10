@@ -46,12 +46,38 @@ function notSnoozed(
   };
 }
 
-/** Exclude only patients with an explicit upcoming appointment (same as factors?.has_future_appt). */
-function withoutFutureAppointment(): Prisma.PatientInsightScoreWhereInput {
+/**
+ * Live DB check: exclude patients who have already returned via a future appointment OR a
+ * recent paid/partial invoice (walk-in). Does NOT rely on the stale churn_factors JSON field.
+ * "Recent" is defined as within OUTREACH_ATTRIBUTION_DAYS so a walk-in dismisses the list entry
+ * immediately without waiting for computeForPatient to run.
+ */
+function withoutActiveReturn(now: Date): Prisma.PatientInsightScoreWhereInput {
+  const recentSince = new Date(now.getTime() - OUTREACH_ATTRIBUTION_DAYS * MS_PER_DAY);
   return {
-    OR: [
-      { churn_factors: { equals: Prisma.DbNull } },
-      { NOT: { churn_factors: { path: ['has_future_appt'], equals: true } } },
+    AND: [
+      {
+        NOT: {
+          patient: {
+            appointments: {
+              some: { appointment_date: { gte: now }, status: { not: 'cancelled' } },
+            },
+          },
+        },
+      },
+      {
+        NOT: {
+          patient: {
+            invoices: {
+              some: {
+                lifecycle_status: 'issued',
+                status: { in: ['paid', 'partially_paid'] },
+                created_at: { gte: recentSince },
+              },
+            },
+          },
+        },
+      },
     ],
   };
 }
@@ -72,8 +98,8 @@ export function buildRecallListWhere(
       notSnoozed('recall_snoozed_until', now),
       // 18m+ inactive patients belong in the inactive list, not recall
       { churn_risk: { notIn: ['medium', 'high'] } },
-      // Already rebooked — same rule as patient list badges (insight-badges.tsx)
-      withoutFutureAppointment(),
+      // Hide immediately when patient books an appointment or pays a walk-in invoice
+      withoutActiveReturn(now),
     ],
   };
 }
@@ -100,8 +126,8 @@ export function buildChurnListWhere(
         OR: [{ churn_status: null }, { churn_status: { not: 'declined' } }],
       },
       notSnoozed('churn_snoozed_until', now),
-      // Already rebooked — exclude until next insight recompute clears churn_factors
-      withoutFutureAppointment(),
+      // Hide immediately when patient books an appointment or pays a walk-in invoice
+      withoutActiveReturn(now),
     ],
   };
 }

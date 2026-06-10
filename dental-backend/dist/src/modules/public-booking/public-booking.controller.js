@@ -27,6 +27,7 @@ const otp_service_js_1 = require("./otp.service.js");
 const booking_url_util_js_1 = require("../../common/utils/booking-url.util.js");
 const appointment_reminder_producer_js_1 = require("../appointment/appointment-reminder.producer.js");
 const appointment_notification_service_js_1 = require("../appointment/appointment-notification.service.js");
+const patient_insights_service_js_1 = require("../patient-insights/patient-insights.service.js");
 const META_GRAPH_API = 'https://graph.facebook.com/v21.0';
 class BookAppointmentDto {
     first_name;
@@ -153,14 +154,16 @@ let PublicBookingController = PublicBookingController_1 = class PublicBookingCon
     s3;
     config;
     otpService;
+    patientInsightsService;
     logger = new common_1.Logger(PublicBookingController_1.name);
-    constructor(prisma, reminderProducer, notificationService, s3, config, otpService) {
+    constructor(prisma, reminderProducer, notificationService, s3, config, otpService, patientInsightsService) {
         this.prisma = prisma;
         this.reminderProducer = reminderProducer;
         this.notificationService = notificationService;
         this.s3 = s3;
         this.config = config;
         this.otpService = otpService;
+        this.patientInsightsService = patientInsightsService;
     }
     async getBranchBookingInfo(clinicId, branchId) {
         const branch = await this.prisma.branch.findUnique({
@@ -382,6 +385,12 @@ let PublicBookingController = PublicBookingController_1 = class PublicBookingCon
                 dentist: { select: { name: true } },
             },
         });
+        this.patientInsightsService
+            .attributeBookingAfterOutreach(clinicId, patient.id, appointment.id)
+            .catch((e) => this.logger.warn(`Insight attribution failed for public booking patient ${patient.id}: ${e.message}`));
+        this.patientInsightsService
+            .computeForPatient(clinicId, patient.id)
+            .catch((e) => this.logger.warn(`Insight rescore failed for public booking patient ${patient.id}: ${e.message}`));
         this.notificationService.sendConfirmation(clinicId, appointment.id).catch((e) => {
             this.logger.warn(`Appointment confirmation notification failed for public booking ${appointment.id}: ${e.message}`);
         });
@@ -531,6 +540,7 @@ exports.PublicBookingController = PublicBookingController = PublicBookingControl
         appointment_notification_service_js_1.AppointmentNotificationService,
         s3_service_js_1.S3Service,
         config_1.ConfigService,
-        otp_service_js_1.OtpService])
+        otp_service_js_1.OtpService,
+        patient_insights_service_js_1.PatientInsightsService])
 ], PublicBookingController);
 //# sourceMappingURL=public-booking.controller.js.map
