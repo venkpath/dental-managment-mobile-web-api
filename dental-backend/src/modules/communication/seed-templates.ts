@@ -586,14 +586,15 @@ const DEFAULT_TEMPLATES: TemplateSeed[] = [
   },
 
   // ── 6. No-Show Follow-Up ──
+  // Meta-approved UTILITY · {{1}} patient · {{2}} clinic · {{3}} phone
   {
     channel: 'whatsapp',
     category: 'transactional',
     template_name: 'dental_noshow_followup',
-    body: 'Hi {{patient_name}}, we noticed you missed your appointment at {{clinic_name}} today.\nWe understand things come up. Please call us at {{phone}} to reschedule at your convenience.\nWe are here to help!',
-    variables: { body: ['patient_name', 'clinic_name', 'phone'], buttons: [] },
+    body: 'Hi {{1}},\n\nWe noticed you missed your appointment at *{{2}}* today.\n\nWe understand things come up. Please call us {{3}} to reschedule at your convenience. We are here to help!',
+    variables: { body: ['1', '2', '3'], buttons: [] },
     language: 'en',
-    sampleValues: { patient_name: 'Priya Sharma', clinic_name: 'Smile Dental Clinic', phone: '9876543210' },
+    sampleValues: { '1': 'Priya Sharma', '2': 'Smile Dental Clinic', '3': '+91 98765 43210' },
   },
 
   // ── 6b. Follow-Up Reminder (consultation review date) ──

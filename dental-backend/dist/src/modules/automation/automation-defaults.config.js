@@ -14,6 +14,7 @@ exports.AUTOMATION_DEFAULT_TEMPLATES = {
     prescription_ready: 'dental_prescription_pdf',
     untreated_condition_reminder: 'dental_untreated_condition_reminder',
     treatment_plan_reminder: 'dental_treatment_plan_reminder',
+    noshow_followup: 'dental_noshow_followup',
 };
 exports.CLINIC_AUTOMATION_DEFAULTS = [
     {
@@ -38,6 +39,7 @@ exports.CLINIC_AUTOMATION_DEFAULTS = [
         rule_type: 'no_show_followup',
         is_enabled: true,
         channel: 'preferred',
+        template_name: exports.AUTOMATION_DEFAULT_TEMPLATES.noshow_followup,
         config: { delay_hours: 1 },
     },
     {

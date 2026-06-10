@@ -114,6 +114,21 @@ export class AutomationService {
       skipDuplicates: true,
     });
 
+    // Link templates on rules created before a template_name was added to defaults.
+    for (const d of CLINIC_AUTOMATION_DEFAULTS) {
+      if (!d.template_name) continue;
+      const templateId = templateIds.get(d.template_name);
+      if (!templateId) continue;
+      await this.prisma.automationRule.updateMany({
+        where: {
+          clinic_id: clinicId,
+          rule_type: d.rule_type,
+          template_id: null,
+        },
+        data: { template_id: templateId },
+      });
+    }
+
     this.logger.log(`Seeded default automation rules for clinic ${clinicId} (skipDuplicates=true)`);
   }
 

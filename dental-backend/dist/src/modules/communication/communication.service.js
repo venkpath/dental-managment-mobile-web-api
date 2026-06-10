@@ -27,6 +27,7 @@ const whatsapp_pricing_constants_js_1 = require("./whatsapp-pricing.constants.js
 const platform_templates_js_1 = require("./platform-templates.js");
 const booking_url_util_js_1 = require("../../common/utils/booking-url.util.js");
 const insight_whatsapp_variables_util_js_1 = require("./insight-whatsapp-variables.util.js");
+const noshow_whatsapp_variables_util_js_1 = require("./noshow-whatsapp-variables.util.js");
 let CommunicationService = class CommunicationService {
     static { CommunicationService_1 = this; }
     prisma;
@@ -159,6 +160,23 @@ let CommunicationService = class CommunicationService {
                     existing: dto.variables,
                 });
                 const missing = (0, insight_whatsapp_variables_util_js_1.validateInsightWhatsappVariables)(enriched);
+                if (missing) {
+                    throw new common_1.BadRequestException(missing);
+                }
+                dto.variables = enriched;
+                Object.assign(vars, enriched);
+            }
+            else if (dto.channel === 'whatsapp' && (0, noshow_whatsapp_variables_util_js_1.isNoshowFollowupTemplate)(template.template_name)) {
+                const clinicName = patient.clinic?.name?.trim() ?? '';
+                const clinicPhone = (patient.branch?.phone ?? patient.clinic?.phone ?? '').trim();
+                const enriched = (0, noshow_whatsapp_variables_util_js_1.buildNoshowFollowupVariables)({
+                    patientFirstName: patient.first_name,
+                    patientLastName: patient.last_name,
+                    clinicName,
+                    clinicPhone,
+                    existing: dto.variables,
+                });
+                const missing = (0, noshow_whatsapp_variables_util_js_1.validateNoshowFollowupVariables)(enriched);
                 if (missing) {
                     throw new common_1.BadRequestException(missing);
                 }

@@ -461,6 +461,8 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                     yesterday.setHours(0, 0, 0, 0);
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
+                    const waTemplate = await this.findSystemOrClinicTemplate(clinic.id, 'dental_noshow_followup', 'whatsapp');
+                    const templateId = rule.template_id ?? waTemplate?.id ?? undefined;
                     const noShowAppts = await this.prisma.appointment.findMany({
                         where: {
                             clinic_id: clinic.id,
@@ -470,33 +472,46 @@ let AutomationCronService = AutomationCronService_1 = class AutomationCronServic
                         include: {
                             patient: true,
                             dentist: { select: { name: true } },
+                            branch: { select: { phone: true } },
                         },
                     });
                     for (const appt of noShowAppts) {
                         try {
                             const channel = await this.resolveChannel(clinic.id, appt.patient_id, rule.channel);
+                            const patientName = `${appt.patient.first_name} ${appt.patient.last_name}`.trim();
+                            const clinicPhone = (appt.branch?.phone ?? clinic.phone ?? '').trim();
+                            if (channel === send_message_dto_js_1.MessageChannel.WHATSAPP && !clinicPhone) {
+                                this.logger.warn(`No-show follow-up skipped for appointment ${appt.id}: branch/clinic phone missing`);
+                                continue;
+                            }
+                            const variables = {
+                                patient_name: patientName,
+                                patient_first_name: appt.patient.first_name,
+                                clinic_name: clinic.name,
+                                phone: clinicPhone,
+                                clinic_phone: clinicPhone,
+                                '1': patientName,
+                                '2': clinic.name,
+                                '3': clinicPhone,
+                            };
+                            if (channel === send_message_dto_js_1.MessageChannel.WHATSAPP && !templateId) {
+                                this.logger.warn(`No-show follow-up skipped for appointment ${appt.id}: dental_noshow_followup template not found`);
+                                continue;
+                            }
+                            const fallbackBody = `Hi ${patientName}, we noticed you missed your appointment at ${clinic.name} today. Please call us ${clinicPhone} to reschedule at your convenience.`;
                             await this.communicationService.sendMessage(clinic.id, {
                                 patient_id: appt.patient_id,
                                 channel,
                                 category: send_message_dto_js_1.MessageCategory.TRANSACTIONAL,
-                                template_id: rule.template_id ?? undefined,
-                                body: rule.template_id
-                                    ? undefined
-                                    : `Hi ${appt.patient.first_name}, we missed you at your appointment yesterday at ${clinic.name}. Please call us to reschedule at your convenience.`,
-                                variables: {
-                                    patient_name: `${appt.patient.first_name} ${appt.patient.last_name}`,
-                                    patient_first_name: appt.patient.first_name,
-                                    clinic_name: clinic.name,
-                                    phone: clinic.phone || '',
-                                    '1': appt.patient.first_name,
-                                    '2': clinic.name,
-                                    '3': clinic.phone || '',
-                                },
+                                template_id: channel === send_message_dto_js_1.MessageChannel.WHATSAPP ? templateId : (rule.template_id ?? undefined),
+                                body: channel === send_message_dto_js_1.MessageChannel.WHATSAPP && templateId ? undefined : fallbackBody,
+                                variables,
                                 metadata: { automation: 'no_show_followup', appointment_id: appt.id },
                             });
                             totalSent++;
                         }
-                        catch {
+                        catch (e) {
+                            this.logger.warn(`No-show follow-up failed for appointment ${appt.id}: ${e.message}`);
                         }
                     }
                 }

@@ -94,6 +94,21 @@ let AutomationService = AutomationService_1 = class AutomationService {
             data: rows,
             skipDuplicates: true,
         });
+        for (const d of automation_defaults_config_js_1.CLINIC_AUTOMATION_DEFAULTS) {
+            if (!d.template_name)
+                continue;
+            const templateId = templateIds.get(d.template_name);
+            if (!templateId)
+                continue;
+            await this.prisma.automationRule.updateMany({
+                where: {
+                    clinic_id: clinicId,
+                    rule_type: d.rule_type,
+                    template_id: null,
+                },
+                data: { template_id: templateId },
+            });
+        }
         this.logger.log(`Seeded default automation rules for clinic ${clinicId} (skipDuplicates=true)`);
     }
     buildRuleRow(clinicId, d, templateIds) {
