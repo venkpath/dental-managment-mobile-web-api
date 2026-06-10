@@ -599,11 +599,16 @@ function computeClinicAvailability(
   };
 }
 
-// Staff with listed_in_directory=true are shown publicly (UI only exposes this toggle for doctors).
-const PUBLIC_DOCTOR_WHERE = {
+// Only Dentist/Consultant roles, or Admin/SuperAdmin who are also practicing (is_doctor=true).
+// Receptionist/Staff are excluded even if listed_in_directory is accidentally set.
+const PUBLIC_DOCTOR_WHERE: Prisma.UserWhereInput = {
   status: 'active',
   listed_in_directory: true,
-} as const;
+  OR: [
+    { role: { in: ['Dentist', 'Consultant'] } },
+    { is_doctor: true },
+  ],
+};
 
 // ─── Controller ─────────────────────────────────────────────────────────────
 

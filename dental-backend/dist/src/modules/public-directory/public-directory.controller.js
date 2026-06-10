@@ -705,6 +705,10 @@ function computeClinicAvailability(branches, schemaDay, istMinutes, bookedToday)
 const PUBLIC_DOCTOR_WHERE = {
     status: 'active',
     listed_in_directory: true,
+    OR: [
+        { role: { in: ['Dentist', 'Consultant'] } },
+        { is_doctor: true },
+    ],
 };
 let PublicDirectoryController = class PublicDirectoryController {
     prisma;

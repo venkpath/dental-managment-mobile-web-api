@@ -246,7 +246,7 @@ export class InvoiceService {
           .catch(() => {});
         // Walk-in recovery attribution: patient came directly without booking an appointment.
         this.patientInsightsService
-          .attributeWalkInAfterOutreach(clinicId, invoice.patient_id)
+          .attributeWalkInAfterOutreach(clinicId, invoice.patient_id, invoice.created_at)
           .catch((e) => this.logger.warn(`Walk-in attribution failed for patient ${invoice.patient_id}: ${(e as Error).message}`));
       }
       return invoice;
@@ -643,7 +643,7 @@ export class InvoiceService {
     }).then((updated) => {
       // Walk-in recovery attribution for draft→issued transitions.
       this.patientInsightsService
-        .attributeWalkInAfterOutreach(clinicId, updated.patient_id)
+        .attributeWalkInAfterOutreach(clinicId, updated.patient_id, updated.created_at)
         .catch((e) => this.logger.warn(`Walk-in attribution failed on issue for patient ${updated.patient_id}: ${(e as Error).message}`));
       return updated;
     });

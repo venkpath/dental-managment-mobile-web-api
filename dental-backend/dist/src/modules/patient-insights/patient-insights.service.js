@@ -228,7 +228,7 @@ let PatientInsightsService = PatientInsightsService_1 = class PatientInsightsSer
             },
         });
     }
-    async attributeWalkInAfterOutreach(clinicId, patientId) {
+    async attributeWalkInAfterOutreach(clinicId, patientId, effectiveAt) {
         const score = await this.prisma.patientInsightScore.findUnique({
             where: { clinic_id_patient_id: { clinic_id: clinicId, patient_id: patientId } },
             select: {
@@ -242,22 +242,24 @@ let PatientInsightsService = PatientInsightsService_1 = class PatientInsightsSer
         });
         if (!score)
             return;
-        const now = new Date();
+        const stamp = new Date(effectiveAt ?? new Date());
+        stamp.setHours(0, 0, 0, 0);
         const windowMs = patient_insights_filters_js_1.OUTREACH_ATTRIBUTION_DAYS * patient_insights_filters_js_1.MS_PER_DAY;
+        const now = new Date();
         const update = {};
         if (score.recall_last_contacted_at &&
             !score.recall_booked_after_outreach_at &&
             now.getTime() - new Date(score.recall_last_contacted_at).getTime() <= windowMs) {
-            update.recall_booked_after_outreach_at = now;
+            update.recall_booked_after_outreach_at = stamp;
         }
         if (score.churn_last_contacted_at &&
             !score.churn_booked_after_outreach_at &&
             now.getTime() - new Date(score.churn_last_contacted_at).getTime() <= windowMs) {
-            update.churn_booked_after_outreach_at = now;
+            update.churn_booked_after_outreach_at = stamp;
         }
         if (!score.no_show_attended_at &&
             (score.no_show_risk === 'high' || score.no_show_risk === 'medium')) {
-            update.no_show_attended_at = now;
+            update.no_show_attended_at = stamp;
         }
         if (Object.keys(update).length === 0)
             return;
@@ -776,12 +778,12 @@ let PatientInsightsService = PatientInsightsService_1 = class PatientInsightsSer
             let recovered = 0;
             let expected = 0;
             for (const row of rows) {
-                const stampDate = stampDateFn(row);
                 const allInvoices = row.patient?.invoices ?? [];
-                const afterStamp = allInvoices.filter((i) => i.created_at >= stampDate);
+                const stampMs = new Date(stampDateFn(row)).setHours(0, 0, 0, 0);
+                const afterStamp = allInvoices.filter((i) => new Date(i.created_at).setHours(0, 0, 0, 0) >= stampMs);
+                const beforeStamp = allInvoices.filter((i) => new Date(i.created_at).setHours(0, 0, 0, 0) < stampMs);
                 const patientRecovered = afterStamp.reduce((s, i) => s + Number(i.net_amount), 0);
                 recovered += Math.min(patientRecovered, patient_insights_opportunity_js_1.MAX_VISIT_VALUE_PER_PATIENT);
-                const beforeStamp = allInvoices.filter((i) => i.created_at < stampDate);
                 expected += (0, patient_insights_opportunity_js_1.patientAvgFromInvoices)(beforeStamp, clinicDefault);
             }
             return { count: rows.length, recovered: Math.round(recovered), expected: Math.round(expected) };
