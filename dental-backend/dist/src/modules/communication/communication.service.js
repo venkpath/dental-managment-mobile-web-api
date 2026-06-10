@@ -25,6 +25,8 @@ const sms_provider_js_1 = require("./providers/sms.provider.js");
 const whatsapp_provider_js_1 = require("./providers/whatsapp.provider.js");
 const whatsapp_pricing_constants_js_1 = require("./whatsapp-pricing.constants.js");
 const platform_templates_js_1 = require("./platform-templates.js");
+const booking_url_util_js_1 = require("../../common/utils/booking-url.util.js");
+const insight_whatsapp_variables_util_js_1 = require("./insight-whatsapp-variables.util.js");
 let CommunicationService = class CommunicationService {
     static { CommunicationService_1 = this; }
     prisma;
@@ -51,7 +53,11 @@ let CommunicationService = class CommunicationService {
         await this.ensureProvidersConfigured(clinicId);
         const patient = await this.prisma.patient.findFirst({
             where: { id: dto.patient_id, clinic_id: clinicId },
-            include: { communication_preference: true },
+            include: {
+                communication_preference: true,
+                clinic: { select: { name: true, phone: true } },
+                branch: { select: { phone: true, book_now_url: true } },
+            },
         });
         if (!patient) {
             throw new common_1.NotFoundException(`Patient with ID "${dto.patient_id}" not found`);
@@ -120,6 +126,45 @@ let CommunicationService = class CommunicationService {
             vars['code'] = vars['otp_code'] || '';
         if (dto.template_id) {
             const template = await this.templateService.findOne(clinicId, dto.template_id);
+            if (dto.channel === 'whatsapp' && (0, insight_whatsapp_variables_util_js_1.isInsightWhatsappTemplate)(template.template_name)) {
+                const insightScore = await this.prisma.patientInsightScore.findUnique({
+                    where: { patient_id: patient.id },
+                    select: {
+                        recall_treatment: true,
+                        recall_due_days: true,
+                        recall_last_date: true,
+                        branch_id: true,
+                    },
+                });
+                const branchId = insightScore?.branch_id ?? patient.branch_id;
+                const branch = branchId === patient.branch_id
+                    ? patient.branch
+                    : await this.prisma.branch.findFirst({
+                        where: { id: branchId, clinic_id: clinicId },
+                        select: { phone: true, book_now_url: true },
+                    });
+                const clinicName = patient.clinic?.name?.trim() ?? '';
+                const clinicPhone = (branch?.phone ?? patient.clinic?.phone ?? '').trim();
+                const bookingUrl = (0, booking_url_util_js_1.getBookingUrl)(clinicId, branchId, branch?.book_now_url);
+                const enriched = (0, insight_whatsapp_variables_util_js_1.buildInsightWhatsappVariables)({
+                    templateName: template.template_name,
+                    patientFirstName: patient.first_name,
+                    patientLastName: patient.last_name,
+                    clinicName,
+                    clinicPhone,
+                    bookingUrl,
+                    recallTreatment: insightScore?.recall_treatment,
+                    recallDueDays: insightScore?.recall_due_days,
+                    recallLastDate: insightScore?.recall_last_date,
+                    existing: dto.variables,
+                });
+                const missing = (0, insight_whatsapp_variables_util_js_1.validateInsightWhatsappVariables)(enriched);
+                if (missing) {
+                    throw new common_1.BadRequestException(missing);
+                }
+                dto.variables = enriched;
+                Object.assign(vars, enriched);
+            }
             const rawVarsForRender = template.variables;
             let renderVarNames = [];
             if (Array.isArray(rawVarsForRender)) {
@@ -154,8 +199,8 @@ let CommunicationService = class CommunicationService {
                     templateVarNames = structured.body || [];
                     templateButtons = structured.buttons || [];
                 }
-                if (templateVarNames.length > 0 && dto.variables) {
-                    whatsappOrderedVars = templateVarNames.map((varName) => dto.variables?.[varName] || vars[varName] || '');
+                if (templateVarNames.length > 0 && (dto.variables || Object.keys(vars).length > 0)) {
+                    whatsappOrderedVars = templateVarNames.map((varName) => vars[varName] || dto.variables?.[varName] || '');
                 }
                 else if (dto.variables && Object.keys(dto.variables).length > 0) {
                     const numberedKeys = Object.keys(dto.variables).filter(k => /^\d+$/.test(k));
