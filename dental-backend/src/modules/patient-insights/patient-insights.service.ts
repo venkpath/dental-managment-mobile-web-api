@@ -314,7 +314,11 @@ export class PatientInsightsService {
    * Recall/inactive require contact within the attribution window; no-show uses current risk level.
    * No appointment ID is stored for these paths.
    */
-  async attributeWalkInAfterOutreach(clinicId: string, patientId: string): Promise<void> {
+  async attributeWalkInAfterOutreach(
+    clinicId: string,
+    patientId: string,
+    effectiveAt?: Date,
+  ): Promise<void> {
     const score = await this.prisma.patientInsightScore.findUnique({
       where: { clinic_id_patient_id: { clinic_id: clinicId, patient_id: patientId } },
       select: {
@@ -328,8 +332,13 @@ export class PatientInsightsService {
     });
     if (!score) return;
 
-    const now = new Date();
+    // Use effectiveAt (invoice created_at) so the triggering invoice falls ON or AFTER the stamp.
+    // Truncate to day-start: same-day invoices are always included in recovered revenue.
+    const stamp = new Date(effectiveAt ?? new Date());
+    stamp.setHours(0, 0, 0, 0);
+
     const windowMs = OUTREACH_ATTRIBUTION_DAYS * MS_PER_DAY;
+    const now = new Date();
     const update: Record<string, unknown> = {};
 
     if (
@@ -337,8 +346,7 @@ export class PatientInsightsService {
       !score.recall_booked_after_outreach_at &&
       now.getTime() - new Date(score.recall_last_contacted_at).getTime() <= windowMs
     ) {
-      update.recall_booked_after_outreach_at = now;
-      // no appointment — walk-in
+      update.recall_booked_after_outreach_at = stamp;
     }
 
     if (
@@ -346,16 +354,14 @@ export class PatientInsightsService {
       !score.churn_booked_after_outreach_at &&
       now.getTime() - new Date(score.churn_last_contacted_at).getTime() <= windowMs
     ) {
-      update.churn_booked_after_outreach_at = now;
-      // no appointment — walk-in
+      update.churn_booked_after_outreach_at = stamp;
     }
 
     if (
       !score.no_show_attended_at &&
       (score.no_show_risk === 'high' || score.no_show_risk === 'medium')
     ) {
-      update.no_show_attended_at = now;
-      // no appointment — walk-in
+      update.no_show_attended_at = stamp;
     }
 
     if (Object.keys(update).length === 0) return;
@@ -960,16 +966,20 @@ export class PatientInsightsService {
       let expected  = 0;
 
       for (const row of rows) {
-        const stampDate  = stampDateFn(row);
         const allInvoices: InvoiceRow[] = row.patient?.invoices ?? [];
 
-        // Invoices on or after stamp = revenue attributed to recovery
-        const afterStamp = allInvoices.filter((i) => i.created_at >= stampDate);
+        // Truncate stamp to day-start so same-day invoices are always included.
+        // Avoids ms-level races between the DB INSERT timestamp and the Node.js stamp.
+        const stampMs = new Date(stampDateFn(row)).setHours(0, 0, 0, 0);
+
+        // Invoices on or after the stamp day = revenue attributed to recovery
+        const afterStamp  = allInvoices.filter((i) => new Date(i.created_at).setHours(0, 0, 0, 0) >= stampMs);
+        const beforeStamp = allInvoices.filter((i) => new Date(i.created_at).setHours(0, 0, 0, 0) <  stampMs);
+
         const patientRecovered = afterStamp.reduce((s, i) => s + Number(i.net_amount), 0);
         recovered += Math.min(patientRecovered, MAX_VISIT_VALUE_PER_PATIENT);
 
         // Pre-stamp history = what we expected them to spend (historical avg)
-        const beforeStamp = allInvoices.filter((i) => i.created_at < stampDate);
         expected += patientAvgFromInvoices(beforeStamp, clinicDefault);
       }
 

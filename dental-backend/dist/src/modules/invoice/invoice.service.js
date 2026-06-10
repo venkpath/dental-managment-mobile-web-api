@@ -196,7 +196,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
                     .triggerInvoiceReview(clinicId, invoice.patient_id, invoice.dentist_id ?? null)
                     .catch(() => { });
                 this.patientInsightsService
-                    .attributeWalkInAfterOutreach(clinicId, invoice.patient_id)
+                    .attributeWalkInAfterOutreach(clinicId, invoice.patient_id, invoice.created_at)
                     .catch((e) => this.logger.warn(`Walk-in attribution failed for patient ${invoice.patient_id}: ${e.message}`));
             }
             return invoice;
@@ -480,7 +480,7 @@ let InvoiceService = InvoiceService_1 = class InvoiceService {
             return updated;
         }).then((updated) => {
             this.patientInsightsService
-                .attributeWalkInAfterOutreach(clinicId, updated.patient_id)
+                .attributeWalkInAfterOutreach(clinicId, updated.patient_id, updated.created_at)
                 .catch((e) => this.logger.warn(`Walk-in attribution failed on issue for patient ${updated.patient_id}: ${e.message}`));
             return updated;
         });

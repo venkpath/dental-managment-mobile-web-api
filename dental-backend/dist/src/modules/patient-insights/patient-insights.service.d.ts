@@ -15,7 +15,7 @@ export declare class PatientInsightsService {
     computeForPatient(clinicId: string, patientId: string): Promise<void>;
     attributeBookingAfterOutreach(clinicId: string, patientId: string, appointmentId: string): Promise<void>;
     attributeNoShowAttendance(clinicId: string, patientId: string, appointmentId: string): Promise<void>;
-    attributeWalkInAfterOutreach(clinicId: string, patientId: string): Promise<void>;
+    attributeWalkInAfterOutreach(clinicId: string, patientId: string, effectiveAt?: Date): Promise<void>;
     stampCampaignContacts(clinicId: string, patientIds: string[], type: 'recall' | 'churn'): Promise<void>;
     private applyWindowManagement;
     private upsertPatientScore;

@@ -277,6 +277,9 @@ let DemoRequestService = DemoRequestService_1 = class DemoRequestService {
     async sendAdminAlertEmail(demo) {
         if (!this.ensureEmailConfigured())
             return;
+        const preferredRow = demo.preferred_date && demo.preferred_slot
+            ? `<tr style="background:#fefce8"><td style="padding: 8px 0; color: #6b7280; width: 130px;">📅 Preferred Slot</td><td style="padding: 8px 0; font-weight: 600; color: #92400e;">${demo.preferred_date} at ${demo.preferred_slot} IST</td></tr>`
+            : '';
         const html = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #dc2626; padding: 20px 32px; border-radius: 12px 12px 0 0;">
@@ -289,6 +292,7 @@ let DemoRequestService = DemoRequestService_1 = class DemoRequestService {
             <tr><td style="padding: 8px 0; color: #6b7280;">Phone</td><td style="padding: 8px 0;"><a href="tel:${demo.phone}">${demo.phone}</a></td></tr>
             <tr><td style="padding: 8px 0; color: #6b7280;">Clinic Name</td><td style="padding: 8px 0;">${demo.clinic_name || 'Not specified'}</td></tr>
             <tr><td style="padding: 8px 0; color: #6b7280;">Chairs</td><td style="padding: 8px 0;">${demo.chairs || 'Not specified'}</td></tr>
+            ${preferredRow}
             <tr><td style="padding: 8px 0; color: #6b7280;">Source</td><td style="padding: 8px 0;">${demo.source || 'website'}</td></tr>
             <tr><td style="padding: 8px 0; color: #6b7280;">Submitted</td><td style="padding: 8px 0;">${demo.created_at.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST</td></tr>
           </table>

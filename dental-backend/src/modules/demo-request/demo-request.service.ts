@@ -343,9 +343,16 @@ export class DemoRequestService {
     clinic_name: string | null;
     chairs: string | null;
     source: string | null;
+    preferred_date?: string | null;
+    preferred_slot?: string | null;
     created_at: Date;
   }) {
     if (!this.ensureEmailConfigured()) return;
+
+    const preferredRow =
+      demo.preferred_date && demo.preferred_slot
+        ? `<tr style="background:#fefce8"><td style="padding: 8px 0; color: #6b7280; width: 130px;">📅 Preferred Slot</td><td style="padding: 8px 0; font-weight: 600; color: #92400e;">${demo.preferred_date} at ${demo.preferred_slot} IST</td></tr>`
+        : '';
 
     const html = `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -359,6 +366,7 @@ export class DemoRequestService {
             <tr><td style="padding: 8px 0; color: #6b7280;">Phone</td><td style="padding: 8px 0;"><a href="tel:${demo.phone}">${demo.phone}</a></td></tr>
             <tr><td style="padding: 8px 0; color: #6b7280;">Clinic Name</td><td style="padding: 8px 0;">${demo.clinic_name || 'Not specified'}</td></tr>
             <tr><td style="padding: 8px 0; color: #6b7280;">Chairs</td><td style="padding: 8px 0;">${demo.chairs || 'Not specified'}</td></tr>
+            ${preferredRow}
             <tr><td style="padding: 8px 0; color: #6b7280;">Source</td><td style="padding: 8px 0;">${demo.source || 'website'}</td></tr>
             <tr><td style="padding: 8px 0; color: #6b7280;">Submitted</td><td style="padding: 8px 0;">${demo.created_at.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST</td></tr>
           </table>
