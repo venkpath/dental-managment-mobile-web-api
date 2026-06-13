@@ -13,6 +13,7 @@ exports.BranchService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_js_1 = require("../../database/prisma.service.js");
 const s3_service_js_1 = require("../../common/services/s3.service.js");
+const booking_url_util_js_1 = require("../../common/utils/booking-url.util.js");
 const PHOTO_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 let BranchService = class BranchService {
@@ -42,7 +43,7 @@ let BranchService = class BranchService {
             }
         }
         return this.prisma.branch.create({
-            data: { ...dto, clinic_id: clinicId },
+            data: { ...dto, clinic_id: clinicId, booking_short_code: (0, booking_url_util_js_1.generateBookingShortCode)() },
         });
     }
     async findAll(clinicId) {

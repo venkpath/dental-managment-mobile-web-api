@@ -132,6 +132,19 @@ export class PublicBookingController {
     private readonly patientInsightsService: PatientInsightsService,
   ) {}
 
+  /** Resolve a booking short code to clinic + branch IDs */
+  @Get('resolve/:code')
+  @Public()
+  @ApiOperation({ summary: 'Resolve booking short code to clinic/branch IDs (no auth required)' })
+  async resolveShortCode(@Param('code') code: string) {
+    const branch = await this.prisma.branch.findUnique({
+      where: { booking_short_code: code },
+      select: { id: true, clinic_id: true },
+    });
+    if (!branch) throw new NotFoundException('Invalid booking link');
+    return { clinic_id: branch.clinic_id, branch_id: branch.id };
+  }
+
   /** Branch info + clinic info for booking page */
   @Get(':clinicId/:branchId')
   @Public()

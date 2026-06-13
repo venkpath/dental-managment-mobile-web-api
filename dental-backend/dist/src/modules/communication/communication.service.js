@@ -57,7 +57,7 @@ let CommunicationService = class CommunicationService {
             include: {
                 communication_preference: true,
                 clinic: { select: { name: true, phone: true } },
-                branch: { select: { phone: true, book_now_url: true } },
+                branch: { select: { phone: true, book_now_url: true, booking_short_code: true } },
             },
         });
         if (!patient) {
@@ -142,11 +142,13 @@ let CommunicationService = class CommunicationService {
                     ? patient.branch
                     : await this.prisma.branch.findFirst({
                         where: { id: branchId, clinic_id: clinicId },
-                        select: { phone: true, book_now_url: true },
+                        select: { phone: true, book_now_url: true, booking_short_code: true },
                     });
                 const clinicName = patient.clinic?.name?.trim() ?? '';
                 const clinicPhone = (branch?.phone ?? patient.clinic?.phone ?? '').trim();
-                const bookingUrl = (0, booking_url_util_js_1.getBookingUrl)(clinicId, branchId, branch?.book_now_url);
+                const bookingUrl = branch?.booking_short_code
+                    ? (0, booking_url_util_js_1.getShortBookingUrl)(branch.booking_short_code)
+                    : (0, booking_url_util_js_1.getBookingUrl)(clinicId, branchId, branch?.book_now_url);
                 const enriched = (0, insight_whatsapp_variables_util_js_1.buildInsightWhatsappVariables)({
                     templateName: template.template_name,
                     patientFirstName: patient.first_name,

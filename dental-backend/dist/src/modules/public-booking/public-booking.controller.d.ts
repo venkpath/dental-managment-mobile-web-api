@@ -35,6 +35,10 @@ export declare class PublicBookingController {
     private readonly patientInsightsService;
     private readonly logger;
     constructor(prisma: PrismaService, reminderProducer: AppointmentReminderProducer, notificationService: AppointmentNotificationService, s3: S3Service, config: ConfigService, otpService: OtpService, patientInsightsService: PatientInsightsService);
+    resolveShortCode(code: string): Promise<{
+        clinic_id: string;
+        branch_id: string;
+    }>;
     getBranchBookingInfo(clinicId: string, branchId: string): Promise<{
         clinic: {
             id: string;

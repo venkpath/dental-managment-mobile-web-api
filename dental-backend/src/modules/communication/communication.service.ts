@@ -24,7 +24,7 @@ import type { QueryMessageDto } from './dto/query-message.dto.js';
 import type { UpdatePreferencesDto } from './dto/update-preferences.dto.js';
 import type { UpdateClinicSettingsDto } from './dto/update-clinic-settings.dto.js';
 import { PLATFORM_TEMPLATE_NAMES } from './platform-templates.js';
-import { getBookingUrl } from '../../common/utils/booking-url.util.js';
+import { getBookingUrl, getShortBookingUrl } from '../../common/utils/booking-url.util.js';
 import {
   buildInsightWhatsappVariables,
   isInsightWhatsappTemplate,
@@ -65,7 +65,7 @@ export class CommunicationService {
       include: {
         communication_preference: true,
         clinic: { select: { name: true, phone: true } },
-        branch: { select: { phone: true, book_now_url: true } },
+        branch: { select: { phone: true, book_now_url: true, booking_short_code: true } },
       },
     });
 
@@ -191,11 +191,13 @@ export class CommunicationService {
             ? patient.branch
             : await this.prisma.branch.findFirst({
                 where: { id: branchId, clinic_id: clinicId },
-                select: { phone: true, book_now_url: true },
+                select: { phone: true, book_now_url: true, booking_short_code: true },
               });
         const clinicName = patient.clinic?.name?.trim() ?? '';
         const clinicPhone = (branch?.phone ?? patient.clinic?.phone ?? '').trim();
-        const bookingUrl = getBookingUrl(clinicId, branchId, branch?.book_now_url);
+        const bookingUrl = branch?.booking_short_code
+          ? getShortBookingUrl(branch.booking_short_code)
+          : getBookingUrl(clinicId, branchId, branch?.book_now_url);
         const enriched = buildInsightWhatsappVariables({
           templateName: template.template_name,
           patientFirstName: patient.first_name,
