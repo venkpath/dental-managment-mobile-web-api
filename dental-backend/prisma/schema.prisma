@@ -260,6 +260,9 @@ model Branch {
   prescription_template_config  Json?
   prescription_template_enabled Boolean @default(false)
 
+  // Short code for WhatsApp booking links — e.g. smartdentaldesk.com/booking/a3f7c291
+  booking_short_code String? @unique @db.VarChar(10)
+
   // Self-registration QR code — patients scan this to register themselves.
   qr_code_token        String?   @db.VarChar(20)
   qr_code_enabled      Boolean   @default(false)

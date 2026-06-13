@@ -165,6 +165,15 @@ let PublicBookingController = PublicBookingController_1 = class PublicBookingCon
         this.otpService = otpService;
         this.patientInsightsService = patientInsightsService;
     }
+    async resolveShortCode(code) {
+        const branch = await this.prisma.branch.findUnique({
+            where: { booking_short_code: code },
+            select: { id: true, clinic_id: true },
+        });
+        if (!branch)
+            throw new common_1.NotFoundException('Invalid booking link');
+        return { clinic_id: branch.clinic_id, branch_id: branch.id };
+    }
     async getBranchBookingInfo(clinicId, branchId) {
         const branch = await this.prisma.branch.findUnique({
             where: { id: branchId },
@@ -462,6 +471,16 @@ let PublicBookingController = PublicBookingController_1 = class PublicBookingCon
     }
 };
 exports.PublicBookingController = PublicBookingController;
+__decorate([
+    (0, common_1.Get)('resolve/:code'),
+    (0, public_decorator_js_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Resolve booking short code to clinic/branch IDs (no auth required)' }),
+    openapi.ApiResponse({ status: 200 }),
+    __param(0, (0, common_1.Param)('code')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], PublicBookingController.prototype, "resolveShortCode", null);
 __decorate([
     (0, common_1.Get)(':clinicId/:branchId'),
     (0, public_decorator_js_1.Public)(),

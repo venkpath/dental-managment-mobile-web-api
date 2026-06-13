@@ -3,6 +3,7 @@ import { PrismaService } from '../../database/prisma.service.js';
 import { S3Service } from '../../common/services/s3.service.js';
 import { CreateBranchDto, UpdateBranchDto, UpdateBranchSchedulingDto } from './dto/index.js';
 import { Branch } from '@prisma/client';
+import { generateBookingShortCode } from '../../common/utils/booking-url.util.js';
 
 const PHOTO_ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const PHOTO_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -39,7 +40,7 @@ export class BranchService {
     }
 
     return this.prisma.branch.create({
-      data: { ...dto, clinic_id: clinicId },
+      data: { ...dto, clinic_id: clinicId, booking_short_code: generateBookingShortCode() },
     });
   }
 
